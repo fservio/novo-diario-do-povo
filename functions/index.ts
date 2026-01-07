@@ -923,8 +923,17 @@ app.post('/api/webhooks/asaas', async (c) => {
       return c.json({ success: false, error: 'Unauthorized' }, 401)
     }
     
-    const rawBody = await c.req.text()
-    const body = JSON.parse(rawBody)
+    // CRITICAL: Get RAW body as ArrayBuffer (bytes) for true idempotency
+    const rawBodyBuffer = await c.req.arrayBuffer()
+    
+    // Compute SHA-256 hash of RAW bytes (not re-serialized JSON)
+    const hashBuffer = await crypto.subtle.digest('SHA-256', rawBodyBuffer)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const payloadHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+    
+    // Decode to text and parse JSON
+    const bodyText = new TextDecoder().decode(rawBodyBuffer)
+    const body = JSON.parse(bodyText)
     
     // Validate with Zod
     const validation = asaasWebhookSchema.safeParse(body)
@@ -936,14 +945,7 @@ app.post('/api/webhooks/asaas', async (c) => {
     const event = validation.data
     const requestId = c.get('requestId') || 'unknown'
     
-    // Compute payload hash (SHA-256) - more robust idempotency
-    const encoder = new TextEncoder()
-    const data = encoder.encode(rawBody)
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-    const hashArray = Array.from(new Uint8Array(hashBuffer))
-    const payloadHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-    
-    // Idempotency check by hash
+    // Idempotency check by hash (64 hex chars)
     const eventId = payloadHash
     
     const existing = await c.env.DB.prepare(
@@ -954,7 +956,7 @@ app.post('/api/webhooks/asaas', async (c) => {
       return c.json({ success: true, message: 'Event already processed' })
     }
     
-    // Store event
+    // Store event with payload_hash = SHA-256 of raw bytes
     await c.env.DB.prepare(`
       INSERT INTO webhook_events (provider, event_id, event_type, payload_hash, payload_json, status, created_at)
       VALUES (?, ?, ?, ?, ?, 'pending', datetime('now'))
@@ -963,7 +965,7 @@ app.post('/api/webhooks/asaas', async (c) => {
       eventId,
       event.event,
       payloadHash,
-      rawBody
+      bodyText
     ).run()
     
     // Process

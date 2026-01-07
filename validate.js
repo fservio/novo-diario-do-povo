@@ -539,6 +539,85 @@ if (existsSync(adsFile)) {
 }
 
 // ============================================================================
+// 15. SECURITY TESTS (CSP, CSRF, Webhook)
+// ============================================================================
+
+section('15. Security Tests (CSP, CSRF, Webhook)')
+
+// Test 1: CSP não contém cdn.tailwindcss.com
+const securityFile = 'packages/core/middleware/security.ts'
+if (existsSync(securityFile)) {
+  const secCode = readFileSync(securityFile, 'utf-8')
+  
+  // Remove comments before checking
+  const codeNoComments = secCode.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')
+  
+  if (codeNoComments.includes('cdn.tailwindcss.com')) {
+    error('CSP: contém cdn.tailwindcss.com (deve ser removido)')
+  } else {
+    success('CSP: não contém cdn.tailwindcss.com')
+  }
+  
+  // Test 2: 'unsafe-eval' controlado por setting
+  if (secCode.includes("'unsafe-eval'") && secCode.includes('allowUnsafeEval')) {
+    success("CSP: 'unsafe-eval' controlado por setting")
+  } else if (secCode.includes("'unsafe-eval'")) {
+    warning("CSP: 'unsafe-eval' presente mas não controlado por setting")
+  } else {
+    success("CSP: 'unsafe-eval' não presente")
+  }
+  
+  // Test 3: CSP lê de ads.csp_allowlist
+  if (secCode.includes('ads.csp_allowlist')) {
+    success('CSP: lê de ads.csp_allowlist')
+  } else {
+    error('CSP: não lê de ads.csp_allowlist')
+  }
+  
+  // Test 4: CSRF aceita form field
+  if (secCode.includes('parseBody') && secCode.includes("body['csrf']")) {
+    success('CSRF: aceita form field csrf')
+  } else {
+    error('CSRF: não aceita form field csrf (apenas header)')
+  }
+} else {
+  error('Security: packages/core/middleware/security.ts não encontrado')
+}
+
+// Test 5: Webhook Asaas usa arrayBuffer para hash
+const functionsIndexFile = 'functions/index.ts'
+if (existsSync(functionsIndexFile)) {
+  const indexCode = readFileSync(functionsIndexFile, 'utf-8')
+  
+  if (indexCode.includes('arrayBuffer()') && indexCode.includes('crypto.subtle.digest')) {
+    success('Webhook: usa arrayBuffer() + SHA-256')
+  } else if (indexCode.includes('req.text()')) {
+    warning('Webhook: usa req.text() (arrayBuffer é mais robusto)')
+  } else {
+    error('Webhook: método de hash não detectado')
+  }
+  
+  // Test 6: payload_hash tem 64 hex chars
+  if (indexCode.includes('padStart(2') && indexCode.includes("join('')")) {
+    success('Webhook: payload_hash formato hex correto')
+  } else {
+    warning('Webhook: formato de hash não confirmado')
+  }
+}
+
+// Test 7: Seed ads contém ads.csp_allow_unsafe_eval
+const seedAdsFile = 'scripts/seed_ads.sql'
+if (existsSync(seedAdsFile)) {
+  const seedCode = readFileSync(seedAdsFile, 'utf-8')
+  
+  if (seedCode.includes('ads.csp_allow_unsafe_eval')) {
+    success('Seed: ads.csp_allow_unsafe_eval presente')
+  } else {
+    warning('Seed: ads.csp_allow_unsafe_eval ausente')
+  }
+}
+
+// ============================================================================
 // RESUMO FINAL
 // ============================================================================
 section('Resumo Final')

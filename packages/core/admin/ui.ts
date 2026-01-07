@@ -14,8 +14,9 @@ export function renderAdminLayout(params: {
   user: AdminUser
   bodyHtml: string
   activeTab?: string
+  csrfToken?: string
 }): string {
-  const { title, user, bodyHtml, activeTab = '' } = params
+  const { title, user, bodyHtml, activeTab = '', csrfToken = '' } = params
 
   const isActive = (tab: string) => activeTab === tab ? 'bg-gray-100' : ''
 
@@ -49,6 +50,7 @@ export function renderAdminLayout(params: {
           <div class="text-xs text-gray-500">${escapeHtml(user.email)}</div>
         </div>
         <form method="post" action="/admin/logout">
+          ${csrfToken ? `<input type="hidden" name="csrf" value="${escapeHtml(csrfToken)}">` : ''}
           <button class="px-3 py-2 rounded bg-gray-900 text-white text-sm hover:bg-gray-700">Sair</button>
         </form>
       </header>
@@ -133,4 +135,12 @@ export function maskSecretValue(value: any): string {
 
   const visible = value.slice(-4)
   return `****${visible}`
+}
+
+/**
+ * Render CSRF hidden input for SSR forms
+ */
+export function renderCsrfInput(csrfToken?: string): string {
+  if (!csrfToken) return ''
+  return `<input type="hidden" name="csrf" value="${escapeHtml(csrfToken)}">`
 }

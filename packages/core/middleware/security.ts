@@ -8,43 +8,53 @@ import type { Env } from '../types'
 export async function securityHeaders(c: Context<{ Bindings: Env }>, next: Next): Promise<void> {
   await next()
 
-  // Get CSP allowlist from settings (cached in KV)
-  let cspAllowlist: string[] = []
-  try {
-    const cached = await c.env.KV.get('settings:public:csp_allowlist')
-    if (cached) {
-      cspAllowlist = JSON.parse(cached)
-    }
-  } catch (error) {
-    console.error('Failed to load CSP allowlist:', error)
+  const { getSetting } = await import('../db')
+  
+  // Get ads provider mode and CSP settings
+  const providerMode = (await getSetting(c.env, 'ads.provider_mode', 'public')) as string || 'off'
+  const allowUnsafeEval = (await getSetting(c.env, 'ads.csp_allow_unsafe_eval', 'public')) as boolean || false
+  const cspAllowlistRaw = (await getSetting(c.env, 'ads.csp_allowlist', 'public')) as string[] || []
+  
+  // Ensure allowlist is array of hosts (no https:// prefix)
+  const cspAllowlist: string[] = Array.isArray(cspAllowlistRaw) ? cspAllowlistRaw : []
+
+  // Base sources (NO cdn.tailwindcss.com)
+  const baseSources = ["'self'", 'https://cdn.jsdelivr.net']
+  
+  // Ads sources (only if provider_mode != 'off')
+  const adsHosts = providerMode !== 'off' ? [
+    '*.googletagservices.com',
+    '*.googlesyndication.com',
+    '*.google.com',
+    '*.doubleclick.net',
+    'securepubads.g.doubleclick.net',
+    'googleads.g.doubleclick.net',
+    'tpc.googlesyndication.com',
+    ...cspAllowlist
+  ] : []
+  
+  const adsSourcesWithPrefix = adsHosts.map(h => `https://${h}`)
+
+  // Build CSP directives
+  const scriptSources = [
+    ...baseSources,
+    ...adsSourcesWithPrefix,
+    "'unsafe-inline'", // Required for inline scripts
+  ]
+  
+  // Add 'unsafe-eval' only if explicitly enabled
+  if (allowUnsafeEval) {
+    scriptSources.push("'unsafe-eval'")
   }
-
-  // Default CSP
-  const defaultSources = [
-    "'self'",
-    'https://cdn.tailwindcss.com',
-    'https://cdn.jsdelivr.net',
-    'https://*.cloudflare.com',
-  ]
-
-  // Adicionar ads se configurado
-  const adSources = [
-    'https://*.googletagservices.com',
-    'https://*.googlesyndication.com',
-    'https://*.google.com',
-    'https://*.doubleclick.net',
-  ]
-
-  const allSources = [...defaultSources, ...adSources, ...cspAllowlist.map(h => `https://${h}`)]
 
   const csp = [
     `default-src 'self'`,
-    `script-src ${allSources.join(' ')} 'unsafe-inline' 'unsafe-eval'`, // unsafe necessário para ads
-    `style-src ${allSources.join(' ')} 'unsafe-inline'`,
-    `img-src ${allSources.join(' ')} data: blob:`,
-    `font-src ${allSources.join(' ')} data:`,
-    `connect-src ${allSources.join(' ')}`,
-    `frame-src ${allSources.join(' ')}`,
+    `script-src ${scriptSources.join(' ')}`,
+    `style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net`,
+    `img-src 'self' data: blob: ${adsSourcesWithPrefix.join(' ')}`,
+    `font-src 'self' data: https://cdn.jsdelivr.net`,
+    `connect-src 'self' ${adsSourcesWithPrefix.join(' ')}`,
+    `frame-src ${adsSourcesWithPrefix.join(' ')}`,
     `media-src 'self' blob:`,
     `object-src 'none'`,
     `base-uri 'self'`,
@@ -84,7 +94,7 @@ export async function corsMiddleware(c: Context, next: Next): Promise<Response |
 }
 
 // ============================================================================
-// CSRF Protection (admin apenas)
+// CSRF Protection (admin SSR forms + API)
 // ============================================================================
 
 export async function csrfProtection(c: Context<{ Bindings: Env }>, next: Next): Promise<Response | void> {
@@ -93,15 +103,40 @@ export async function csrfProtection(c: Context<{ Bindings: Env }>, next: Next):
     return
   }
 
-  const token = c.req.header('X-CSRF-Token')
+  const path = c.req.path
+  let token: string | undefined
+
+  // API routes (/api/admin/*) → check header
+  if (path.startsWith('/api/admin/')) {
+    token = c.req.header('X-CSRF-Token')
+  } 
+  // SSR routes (/admin/*) → check form field
+  else if (path.startsWith('/admin/')) {
+    try {
+      const body = await c.req.parseBody()
+      token = body['csrf'] as string
+    } catch (error) {
+      console.error('Failed to parse body for CSRF:', error)
+    }
+  }
+
   if (!token) {
-    return c.json({ success: false, error: 'CSRF token ausente' }, 403)
+    // Return JSON for API, HTML for SSR
+    if (path.startsWith('/api/')) {
+      return c.json({ success: false, error: 'CSRF token ausente' }, 403)
+    } else {
+      return c.html('<h1>403 Forbidden</h1><p>CSRF token ausente</p>', 403)
+    }
   }
 
   // Verificar token no KV (gerado no login)
   const storedToken = await c.env.KV.get(`csrf:${token}`)
   if (!storedToken) {
-    return c.json({ success: false, error: 'CSRF token inválido ou expirado' }, 403)
+    if (path.startsWith('/api/')) {
+      return c.json({ success: false, error: 'CSRF token inválido ou expirado' }, 403)
+    } else {
+      return c.html('<h1>403 Forbidden</h1><p>CSRF token inválido ou expirado</p>', 403)
+    }
   }
 
   await next()
