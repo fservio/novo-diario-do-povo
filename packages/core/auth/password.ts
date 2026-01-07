@@ -9,7 +9,7 @@
 // Constants
 // ============================================================================
 
-const PBKDF2_ITERATIONS = 210000 // OWASP recommended (2023)
+const PBKDF2_ITERATIONS = 100000 // Cloudflare Workers maximum (OWASP 2021 minimum)
 const SALT_LENGTH = 16 // bytes
 const KEY_LENGTH = 32 // bytes (256 bits)
 const PBKDF2_PREFIX = 'pbkdf2_sha256$'

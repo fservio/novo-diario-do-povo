@@ -98,10 +98,10 @@ app.get('/api/health', (c) => {
 
 app.get('/api/admin/diag/pbkdf2', async (c) => {
   try {
-    // Test vectors: password="password", salt=fixed, iterations=1000
+    // Test vectors: password="password", salt=fixed, iterations=100000 (Cloudflare Workers max)
     const testPassword = 'password'
     const fixedSaltHex = '73616c7473616c7473616c7473616c74' // "saltsaltsaltsalt" (16 bytes)
-    const iterations = 1000
+    const iterations = 100000
     
     // Convert hex salt to Uint8Array
     const saltBytes = new Uint8Array(
@@ -138,9 +138,9 @@ app.get('/api/admin/diag/pbkdf2', async (c) => {
       .map(b => b.toString(16).padStart(2, '0'))
       .join('')
     
-    // Expected value computed with Node.js crypto.pbkdf2Sync
-    // node -e "const crypto = require('crypto'); const key = crypto.pbkdf2Sync('password', Buffer.from('73616c7473616c7473616c7473616c74', 'hex'), 1000, 32, 'sha256'); console.log(key.toString('hex'));"
-    const expectedHex = 'f275fb870144cc807c68f6a325360af3078741ce4d833d2915500abd2bb88d00'
+    // Expected value computed with Node.js crypto.pbkdf2Sync (100k iterations)
+    // node -e "const crypto = require('crypto'); const key = crypto.pbkdf2Sync('password', Buffer.from('73616c7473616c7473616c7473616c74', 'hex'), 100000, 32, 'sha256'); console.log(key.toString('hex'));"
+    const expectedHex = '4fbf2d122fe6afc61a81e9f2fe393ab39f906a78ddddc797763c0e784857e9b4'
     
     const match = gotHex === expectedHex
     

@@ -3,7 +3,7 @@
  * Run: node scripts/generate_admin_hash.mjs <password>
  */
 
-const PBKDF2_ITERATIONS = 210000
+const PBKDF2_ITERATIONS = 100000 // Cloudflare Workers maximum
 const SALT_LENGTH = 16
 const KEY_LENGTH = 32
 const PBKDF2_PREFIX = 'pbkdf2_sha256$'
