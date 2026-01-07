@@ -2,7 +2,7 @@
  * Middleware: Rate Limiting (KV-based)
  */
 
-import { Context, Next } from 'hono'
+import type { Context, Next } from 'hono'
 import type { Env } from '../types'
 
 interface RateLimitConfig {
@@ -20,8 +20,14 @@ const defaultConfigs: Record<string, RateLimitConfig> = {
 }
 
 export function rateLimiter(configName: keyof typeof defaultConfigs = 'public') {
-  return async (c: Context<{ Bindings: Env }>, next: Next) => {
+  return async (c: Context<{ Bindings: Env }>, next: Next): Promise<Response | void> => {
     const config = defaultConfigs[configName]
+    if (!config) {
+      // Fail open se config inválida
+      await next()
+      return
+    }
+    
     const identifier = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || 'unknown'
     const key = `${config.keyPrefix}:${identifier}`
 
@@ -63,7 +69,7 @@ export function rateLimiter(configName: keyof typeof defaultConfigs = 'public') 
 // ============================================================================
 
 export function antiReplay(windowSeconds: number = 300) {
-  return async (c: Context<{ Bindings: Env }>, next: Next) => {
+  return async (c: Context<{ Bindings: Env }>, next: Next): Promise<Response | void> => {
     const timestamp = c.req.header('x-timestamp')
     
     if (!timestamp) {

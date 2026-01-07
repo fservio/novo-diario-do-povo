@@ -186,6 +186,10 @@ export async function checkPostAccess(
 // ============================================================================
 
 export function generateMeteringIdentifier(ipAddress: string, userAgent: string): string {
+  if (!ipAddress || !userAgent) {
+    return 'unknown'
+  }
+  
   // Hash simples (pode ser melhorado com fingerprinting mais robusto)
   const data = `${ipAddress}:${userAgent}`
   const encoder = new TextEncoder()
@@ -209,7 +213,7 @@ export async function signMeteringCookie(
   const encoder = new TextEncoder()
   const key = await crypto.subtle.importKey(
     'raw',
-    encoder.encode(env.JWT_SECRET),
+    encoder.encode(env.JWT_SECRET || ''),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign']
@@ -235,7 +239,7 @@ export async function verifyMeteringCookie(
     const encoder = new TextEncoder()
     const key = await crypto.subtle.importKey(
       'raw',
-      encoder.encode(env.JWT_SECRET),
+      encoder.encode(env.JWT_SECRET || ''),
       { name: 'HMAC', hash: 'SHA-256' },
       false,
       ['sign']

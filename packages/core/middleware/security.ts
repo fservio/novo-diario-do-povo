@@ -2,10 +2,10 @@
  * Middleware: Security Headers & CORS
  */
 
-import { Context, Next } from 'hono'
+import type { Context, Next } from 'hono'
 import type { Env } from '../types'
 
-export async function securityHeaders(c: Context<{ Bindings: Env }>, next: Next) {
+export async function securityHeaders(c: Context<{ Bindings: Env }>, next: Next): Promise<void> {
   await next()
 
   // Get CSP allowlist from settings (cached in KV)
@@ -65,7 +65,7 @@ export async function securityHeaders(c: Context<{ Bindings: Env }>, next: Next)
 // CORS (para APIs públicas)
 // ============================================================================
 
-export async function corsMiddleware(c: Context, next: Next) {
+export async function corsMiddleware(c: Context, next: Next): Promise<Response | void> {
   // Permitir CORS para APIs públicas
   const origin = c.req.header('Origin')
   if (origin) {
@@ -76,7 +76,7 @@ export async function corsMiddleware(c: Context, next: Next) {
   }
 
   if (c.req.method === 'OPTIONS') {
-    return c.text('', 204)
+    return c.body(null, 204)
   }
 
   await next()
@@ -86,7 +86,7 @@ export async function corsMiddleware(c: Context, next: Next) {
 // CSRF Protection (admin apenas)
 // ============================================================================
 
-export async function csrfProtection(c: Context<{ Bindings: Env }>, next: Next) {
+export async function csrfProtection(c: Context<{ Bindings: Env }>, next: Next): Promise<Response | void> {
   if (c.req.method === 'GET' || c.req.method === 'HEAD' || c.req.method === 'OPTIONS') {
     await next()
     return

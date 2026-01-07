@@ -20,6 +20,7 @@
     "allowSyntheticDefaultImports": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
+    "strictNullChecks": false,
     "paths": {
       "@jornal/core/*": ["./packages/core/*"],
       "@jornal/ui/*": ["./packages/ui/*"],

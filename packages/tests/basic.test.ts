@@ -3,10 +3,11 @@
  */
 
 import { describe, it, expect } from 'vitest'
+import { generateRequestId } from '../core/types'
+import { hashPassword, verifyPassword } from '../core/auth'
 
 describe('Core Utilities', () => {
   it('should generate request ID', () => {
-    const { generateRequestId } = await import('../packages/core/types')
     const id = generateRequestId()
     
     expect(id).toBeDefined()
@@ -17,8 +18,6 @@ describe('Core Utilities', () => {
 
 describe('Auth Module', () => {
   it('should hash password correctly', async () => {
-    const { hashPassword, verifyPassword } = await import('../packages/core/auth')
-    
     const password = 'TestPassword123!'
     const hash = await hashPassword(password)
     

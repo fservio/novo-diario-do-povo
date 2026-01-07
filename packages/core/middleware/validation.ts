@@ -2,13 +2,13 @@
  * Middleware: Request Validation (Zod)
  */
 
-import { Context, Next } from 'hono'
+import type { Context, Next } from 'hono'
 import { z } from 'zod'
 
 type ValidationType = 'body' | 'query' | 'params' | 'headers'
 
 export function validateRequest(schema: z.ZodSchema, type: ValidationType = 'body') {
-  return async (c: Context, next: Next) => {
+  return async (c: Context, next: Next): Promise<Response | void> => {
     let data: any
 
     try {

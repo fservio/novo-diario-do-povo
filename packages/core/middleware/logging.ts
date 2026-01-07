@@ -2,10 +2,10 @@
  * Middleware: Request Logging
  */
 
-import { Context, Next } from 'hono'
+import type { Context, Next } from 'hono'
 import { generateRequestId, createLogger } from '../types'
 
-export async function loggingMiddleware(c: Context, next: Next) {
+export async function loggingMiddleware(c: Context, next: Next): Promise<void> {
   const requestId = generateRequestId()
   const logger = createLogger(requestId)
 

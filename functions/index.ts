@@ -38,7 +38,7 @@ app.get('/i/:key{.+}', async (c) => {
 })
 
 // Serve static assets from public/static/
-app.use('/static/*', serveStatic({ root: './public' }))
+app.use('/static/*', serveStatic({ root: './public', manifest: '_worker.js' } as any))
 
 // ============================================================================
 // Health Check
@@ -282,7 +282,8 @@ app.get('/noticia/:slug', async (c) => {
 
 app.post('/api/webhooks/asaas', async (c) => {
   const { rateLimiter } = await import('../packages/core/middleware')
-  await rateLimiter('webhook')(c, async () => {})
+  const limiter = rateLimiter('webhook')
+  await limiter(c as any, async () => {})
   
   const { asaasWebhookEventSchema, handleAsaasWebhook } = await import('../packages/core/integrations/asaas')
   

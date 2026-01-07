@@ -2,11 +2,11 @@
  * Middleware: Authentication & Authorization
  */
 
-import { Context, Next } from 'hono'
+import type { Context, Next } from 'hono'
 import { verifyJWT } from '../auth'
 import type { Env, AppContext } from '../types'
 
-export async function authMiddleware(c: Context<{ Bindings: Env; Variables: AppContext }>, next: Next) {
+export async function authMiddleware(c: Context<{ Bindings: Env; Variables: AppContext }>, next: Next): Promise<Response | void> {
   const authHeader = c.req.header('Authorization')
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -39,7 +39,7 @@ export async function authMiddleware(c: Context<{ Bindings: Env; Variables: AppC
   await next()
 }
 
-export async function readerAuthMiddleware(c: Context<{ Bindings: Env; Variables: AppContext }>, next: Next) {
+export async function readerAuthMiddleware(c: Context<{ Bindings: Env; Variables: AppContext }>, next: Next): Promise<Response | void> {
   const authHeader = c.req.header('Authorization')
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -82,7 +82,7 @@ export async function readerAuthMiddleware(c: Context<{ Bindings: Env; Variables
 }
 
 export function requireRole(...roles: Array<'admin' | 'editor'>) {
-  return async (c: Context<{ Bindings: Env; Variables: AppContext }>, next: Next) => {
+  return async (c: Context<{ Bindings: Env; Variables: AppContext }>, next: Next): Promise<Response | void> => {
     const user = c.get('user')
     
     if (!user || !roles.includes(user.role)) {

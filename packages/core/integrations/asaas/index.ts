@@ -96,11 +96,11 @@ export class AsaasClient {
     email: string
     cpfCnpj?: string
     phone?: string
-  }) {
+  }): Promise<any> {
     return this.request('POST', '/customers', data)
   }
 
-  async getCustomer(customerId: string) {
+  async getCustomer(customerId: string): Promise<any> {
     return this.request('GET', `/customers/${customerId}`)
   }
 
@@ -109,7 +109,7 @@ export class AsaasClient {
     email: string
     cpfCnpj: string
     phone: string
-  }>) {
+  }>): Promise<any> {
     return this.request('PUT', `/customers/${customerId}`, data)
   }
 
@@ -124,15 +124,15 @@ export class AsaasClient {
     nextDueDate: string // YYYY-MM-DD
     cycle: 'MONTHLY' | 'YEARLY'
     description?: string
-  }) {
+  }): Promise<any> {
     return this.request('POST', '/subscriptions', data)
   }
 
-  async getSubscription(subscriptionId: string) {
+  async getSubscription(subscriptionId: string): Promise<any> {
     return this.request('GET', `/subscriptions/${subscriptionId}`)
   }
 
-  async cancelSubscription(subscriptionId: string) {
+  async cancelSubscription(subscriptionId: string): Promise<any> {
     return this.request('DELETE', `/subscriptions/${subscriptionId}`)
   }
 
@@ -172,7 +172,7 @@ export async function createOrUpdateAsaasCustomer(
   }
 
   // Create new
-  const result = await client.createCustomer(data)
+  const result = await client.createCustomer(data) as { id: string }
   const asaasCustomerId = result.id
 
   // Save to DB
@@ -224,10 +224,10 @@ export async function createAsaasSubscription(
     customer: asaasCustomerId,
     billingType: 'PIX', // Default; pode ser configurável
     value,
-    nextDueDate: nextDueDate.toISOString().split('T')[0],
+    nextDueDate: nextDueDate.toISOString().split('T')[0] as string,
     cycle: plan.billing_cycle === 'monthly' ? 'MONTHLY' : 'YEARLY',
     description: `Assinatura ${plan.name}`,
-  })
+  }) as { id: string }
 
   // Save to DB
   await env.DB.prepare(`
@@ -243,7 +243,7 @@ export async function createAsaasSubscription(
     asaasCustomerId,
     'pending',
     nextDueDate.toISOString(),
-    config.environment,
+    config.environment || 'sandbox',
     plan.price_cents,
     plan.billing_cycle
   ).run()
@@ -296,7 +296,7 @@ export async function handleAsaasWebhook(
   // Buscar subscription no DB
   const subscription = await env.DB.prepare(
     'SELECT * FROM asaas_subscriptions WHERE asaas_subscription_id = ?'
-  ).bind(payment.subscription).first<any>()
+  ).bind(payment.subscription).first() as Record<string, any> | null
 
   if (!subscription) {
     console.warn('Subscription não encontrada:', payment.subscription)
@@ -323,7 +323,7 @@ export async function handleAsaasWebhook(
   }
 }
 
-async function activateSubscription(env: Env, subscription: any, requestId: string): Promise<void> {
+async function activateSubscription(env: Env, subscription: Record<string, any>, requestId: string): Promise<void> {
   // Update subscription status
   await env.DB.prepare(`
     UPDATE asaas_subscriptions 
@@ -370,7 +370,7 @@ async function activateSubscription(env: Env, subscription: any, requestId: stri
   ).run()
 }
 
-async function suspendSubscription(env: Env, subscription: any, requestId: string): Promise<void> {
+async function suspendSubscription(env: Env, subscription: Record<string, any>, requestId: string): Promise<void> {
   await env.DB.prepare(`
     UPDATE asaas_subscriptions 
     SET status = 'suspended', updated_at = datetime('now')
@@ -400,7 +400,7 @@ async function suspendSubscription(env: Env, subscription: any, requestId: strin
   ).run()
 }
 
-async function cancelSubscription(env: Env, subscription: any, requestId: string): Promise<void> {
+async function cancelSubscription(env: Env, subscription: Record<string, any>, requestId: string): Promise<void> {
   await env.DB.prepare(`
     UPDATE asaas_subscriptions 
     SET status = 'canceled', updated_at = datetime('now')

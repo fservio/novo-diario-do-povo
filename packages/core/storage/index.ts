@@ -125,8 +125,9 @@ export async function serveMedia(env: Env, r2Key: string): Promise<Response> {
   headers.set('ETag', object.httpEtag)
   
   // Suporte a range requests (vídeos)
-  if (object.range) {
-    headers.set('Content-Range', `bytes ${object.range.offset}-${object.range.length}/${object.size}`)
+  if (object.range && 'offset' in object.range) {
+    const rangeData = object.range as { offset: number; length: number }
+    headers.set('Content-Range', `bytes ${rangeData.offset}-${rangeData.length}/${object.size}`)
     return new Response(object.body, { status: 206, headers })
   }
 

@@ -52,6 +52,10 @@ function base64UrlDecode(str: string): string {
 }
 
 export async function signJWT(payload: Omit<JWTPayload, 'iat' | 'exp'>, secret: string, expiresIn: number = 86400): Promise<string> {
+  if (!secret) {
+    throw new Error('JWT secret is required')
+  }
+  
   const now = Math.floor(Date.now() / 1000)
   const fullPayload: JWTPayload = {
     ...payload,
@@ -80,6 +84,10 @@ export async function signJWT(payload: Omit<JWTPayload, 'iat' | 'exp'>, secret: 
 }
 
 export async function verifyJWT(token: string, secret: string): Promise<JWTPayload | null> {
+  if (!secret) {
+    throw new Error('JWT secret is required')
+  }
+  
   try {
     const parts = token.split('.')
     if (parts.length !== 3) return null
@@ -119,6 +127,10 @@ export async function verifyJWT(token: string, secret: string): Promise<JWTPaylo
 // ============================================================================
 
 export async function authenticateUser(env: Env, email: string, password: string): Promise<User | null> {
+  if (!env.JWT_SECRET) {
+    throw new Error('JWT_SECRET not configured')
+  }
+  
   const result = await env.DB.prepare(
     'SELECT * FROM users WHERE email = ? AND is_active = 1'
   ).bind(email).first<User>()
@@ -222,7 +234,7 @@ export async function createMagicLink(env: Env, email: string): Promise<string> 
   // Salvar token temporário no KV
   await env.KV.put(`magic:${token}`, email, { expirationTtl: 900 }) // 15 min
 
-  return `${env.PUBLIC_BASE_URL}/reader/auth/magic?token=${token}`
+  return `${env.PUBLIC_BASE_URL || ''}/reader/auth/magic?token=${token}`
 }
 
 export async function verifyMagicLink(env: Env, token: string): Promise<string | null> {
