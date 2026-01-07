@@ -8,7 +8,7 @@ INSERT OR IGNORE INTO settings (key, value_json, scope, updated_at) VALUES
 ('ads.adsense.client_id', '""', 'public', datetime('now')),
 ('ads.gam.network_code', '""', 'public', datetime('now')),
 ('ads.consent.enabled', 'false', 'public', datetime('now')),
-('ads.csp_allowlist', '["https://*.googlesyndication.com", "https://*.google.com", "https://*.doubleclick.net", "https://*.googletagservices.com"]', 'public', datetime('now')),
+('ads.csp_allowlist', '["*.googlesyndication.com", "*.google.com", "*.doubleclick.net", "*.googletagservices.com", "securepubads.g.doubleclick.net", "googleads.g.doubleclick.net", "tpc.googlesyndication.com"]', 'public', datetime('now')),
 ('ads.subscriber_mode.enabled', 'true', 'public', datetime('now')),
 ('ads.subscriber_mode.article_disable_sticky', 'true', 'public', datetime('now')),
 ('ads.subscriber_mode.article_max_inread', '1', 'public', datetime('now'));

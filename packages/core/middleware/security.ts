@@ -35,7 +35,7 @@ export async function securityHeaders(c: Context<{ Bindings: Env }>, next: Next)
     'https://*.doubleclick.net',
   ]
 
-  const allSources = [...defaultSources, ...adSources, ...cspAllowlist]
+  const allSources = [...defaultSources, ...adSources, ...cspAllowlist.map(h => `https://${h}`)]
 
   const csp = [
     `default-src 'self'`,

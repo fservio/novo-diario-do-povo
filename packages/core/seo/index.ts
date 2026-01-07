@@ -12,6 +12,9 @@ import type { Env, Post, Category } from '../types'
 export async function generateNewsSitemap(env: Env, baseUrl: string): Promise<string> {
   const twoDaysAgo = new Date()
   twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+  
+  const { getSetting } = await import('../db')
+  const siteName = (await getSetting(env, 'site_name', 'public')) || 'Jornal'
 
   const recentPosts = await env.DB.prepare(`
     SELECT p.*, c.name as category_name
@@ -29,7 +32,7 @@ export async function generateNewsSitemap(env: Env, baseUrl: string): Promise<st
     <loc>${baseUrl}/noticia/${post.slug}</loc>
     <news:news>
       <news:publication>
-        <news:name>Jornal Demo</news:name>
+        <news:name>${escapeXml(siteName)}</news:name>
         <news:language>pt</news:language>
       </news:publication>
       <news:publication_date>${post.published_at}</news:publication_date>
