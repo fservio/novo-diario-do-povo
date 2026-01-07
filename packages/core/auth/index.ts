@@ -187,21 +187,28 @@ export async function createReaderToken(reader: ReaderUser, env: Env): Promise<s
 }
 
 // ============================================================================
-// Bootstrap Admin (primeira execução)
+// Bootstrap Admin (primeira execução - idempotente)
 // ============================================================================
 
 export async function bootstrapAdmin(env: Env): Promise<void> {
-  // Verificar se já existe admin
+  // Check KV flag first (fast path)
+  const bootstrapped = await env.KV.get('bootstrap:done')
+  if (bootstrapped === '1') {
+    return
+  }
+
+  // Double-check DB
   const existingAdmin = await env.DB.prepare(
     'SELECT id FROM users WHERE role = ? LIMIT 1'
   ).bind('admin').first()
 
   if (existingAdmin) {
-    console.log('Admin user already exists, skipping bootstrap')
+    // Set flag to avoid future checks
+    await env.KV.put('bootstrap:done', '1')
     return
   }
 
-  // Criar admin
+  // Create admin
   const passwordHash = await hashPassword(env.ADMIN_BOOTSTRAP_PASSWORD)
   await env.DB.prepare(`
     INSERT INTO users (email, password_hash, name, role, is_active)
@@ -214,6 +221,8 @@ export async function bootstrapAdmin(env: Env): Promise<void> {
     1
   ).run()
 
+  // Set flag
+  await env.KV.put('bootstrap:done', '1')
   console.log('Admin user created successfully')
 }
 

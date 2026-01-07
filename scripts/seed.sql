@@ -102,6 +102,10 @@ INSERT OR IGNORE INTO settings (key, value_json, scope) VALUES
   ('n8n_enabled', 'true', 'public'),
   ('n8n_auto_publish', 'false', 'public');
 
+-- ASAAS (private settings - devem ser configurados via CMS)
+INSERT OR IGNORE INTO settings (key, value_json, scope) VALUES
+  ('asaas_webhook_token', '"change-me-secret-token-min-32-chars"', 'private');
+
 -- ============================================================================
 -- 6. Ad Slots Configuration
 -- ============================================================================

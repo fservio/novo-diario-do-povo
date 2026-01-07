@@ -8,8 +8,7 @@ import { serveStatic } from 'hono/cloudflare-workers'
 import type { Env, AppContext } from '../packages/core/types'
 import { 
   loggingMiddleware, 
-  securityHeaders, 
-  corsMiddleware,
+  securityHeaders,
   errorHandler 
 } from '../packages/core/middleware'
 import { bootstrapAdmin } from '../packages/core/auth'
@@ -19,6 +18,19 @@ import { bootstrapAdmin } from '../packages/core/auth'
 // ============================================================================
 
 const app = new Hono<{ Bindings: Env; Variables: AppContext }>()
+
+// ============================================================================
+// Bootstrap Admin (PRIMEIRO - Idempotente)
+// ============================================================================
+
+app.use('*', async (c, next) => {
+  try {
+    await bootstrapAdmin(c.env)
+  } catch (error) {
+    console.error('Bootstrap error:', error)
+  }
+  await next()
+})
 
 // ============================================================================
 // Global Middleware
@@ -110,6 +122,29 @@ app.get('/sitemap.xml', async (c) => {
   return c.text(xml, 200, { 'Content-Type': 'application/xml' })
 })
 
+app.get('/sitemap-news.xml', async (c) => {
+  const { generateNewsSitemap } = await import('../packages/core/seo')
+  const xml = await generateNewsSitemap(c.env, c.env.PUBLIC_BASE_URL)
+  return c.text(xml, 200, { 'Content-Type': 'application/xml' })
+})
+
+// ============================================================================
+// RSS Feeds
+// ============================================================================
+
+app.get('/rss.xml', async (c) => {
+  const { generateRssFeed } = await import('../packages/core/seo')
+  const xml = await generateRssFeed(c.env, c.env.PUBLIC_BASE_URL)
+  return c.text(xml, 200, { 'Content-Type': 'application/rss+xml' })
+})
+
+app.get('/rss/:section.xml', async (c) => {
+  const section = c.req.param('section')
+  const { generateRssFeed } = await import('../packages/core/seo')
+  const xml = await generateRssFeed(c.env, c.env.PUBLIC_BASE_URL, section)
+  return c.text(xml, 200, { 'Content-Type': 'application/rss+xml' })
+})
+
 // ============================================================================
 // Public API Routes
 // ============================================================================
@@ -153,7 +188,6 @@ app.get('/', async (c) => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>${siteName} - Notícias em tempo real</title>
         <meta name="description" content="Acompanhe as principais notícias do Brasil e do mundo">
-        <script src="https://cdn.tailwindcss.com"></script>
         <link href="/static/styles.css" rel="stylesheet">
     </head>
     <body class="bg-gray-50">
@@ -198,22 +232,82 @@ app.get('/', async (c) => {
   `)
 })
 
-app.get('/noticia/:slug', async (c) => {
+app.get('/categoria/:slug', async (c) => {
   const slug = c.req.param('slug')
-  const { findPostWithRelations, getSetting } = await import('../packages/core/db')
-  const { checkPostAccess } = await import('../packages/core/paywall')
+  const { findCategoryBySlug, findPublishedPosts, getSetting } = await import('../packages/core/db')
   
-  const postData = await findPostWithRelations(c.env, slug)
-  
-  if (!postData || postData.status !== 'published') {
+  const category = await findCategoryBySlug(c.env, slug)
+  if (!category) {
     return c.notFound()
   }
   
-  // Check access (simplified - should get reader context from cookie/token)
-  const accessCheck = await checkPostAccess(c.env, postData, {
-    isSubscriber: false,
-    anonIdentifier: 'demo',
-  })
+  const posts = await findPublishedPosts(c.env, { categoryId: category.id, limit: 30 })
+  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+  
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${category.name} | ${siteName}</title>
+        <meta name="description" content="${category.description || `Notícias de ${category.name}`}">
+        <link href="/static/styles.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-50">
+        <header class="bg-white border-b">
+            <div class="container mx-auto px-4 py-4">
+                <a href="/" class="text-2xl font-bold text-gray-900">${siteName}</a>
+            </div>
+        </header>
+        
+        <main class="container mx-auto px-4 py-8">
+            <h1 class="text-4xl font-bold mb-8">${category.name}</h1>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                ${posts.map(post => `
+                    <article class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition">
+                        <a href="/noticia/${post.slug}">
+                            <div class="p-4">
+                                <h2 class="text-xl font-bold mb-2 text-gray-900">${post.title}</h2>
+                                <p class="text-gray-600 text-sm">${post.excerpt || ''}</p>
+                                <span class="text-xs text-gray-400 mt-2 block">
+                                    ${new Date(post.published_at || '').toLocaleDateString('pt-BR')}
+                                </span>
+                            </div>
+                        </a>
+                    </article>
+                `).join('')}
+            </div>
+        </main>
+        
+        <footer class="bg-gray-900 text-white mt-12 py-8">
+            <div class="container mx-auto px-4 text-center">
+                <p>&copy; 2024 ${siteName}. Todos os direitos reservados.</p>
+            </div>
+        </footer>
+    </body>
+    </html>
+  `)
+})
+
+app.get('/tag/:slug', async (c) => {
+  const slug = c.req.param('slug')
+  const { findTagBySlug, getSetting } = await import('../packages/core/db')
+  
+  const tag = await findTagBySlug(c.env, slug)
+  if (!tag) {
+    return c.notFound()
+  }
+  
+  // Get posts by tag
+  const posts = await c.env.DB.prepare(`
+    SELECT p.* FROM posts p
+    INNER JOIN post_tags pt ON pt.post_id = p.id
+    WHERE pt.tag_id = ? AND p.status = 'published'
+    ORDER BY p.published_at DESC
+    LIMIT 30
+  `).bind(tag.id).all()
   
   const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
   
@@ -223,10 +317,168 @@ app.get('/noticia/:slug', async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${postData.title} | ${siteName}</title>
-        <meta name="description" content="${postData.excerpt || ''}">
-        <link rel="canonical" href="${c.env.PUBLIC_BASE_URL}/noticia/${postData.slug}">
-        <script src="https://cdn.tailwindcss.com"></script>
+        <title>${tag.name} | ${siteName}</title>
+        <meta name="description" content="${tag.description || `Notícias sobre ${tag.name}`}">
+        ${tag.seo_noindex ? '<meta name="robots" content="noindex, follow">' : ''}
+        <link href="/static/styles.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-50">
+        <header class="bg-white border-b">
+            <div class="container mx-auto px-4 py-4">
+                <a href="/" class="text-2xl font-bold text-gray-900">${siteName}</a>
+            </div>
+        </header>
+        
+        <main class="container mx-auto px-4 py-8">
+            <h1 class="text-4xl font-bold mb-8">${tag.name}</h1>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                ${(posts.results || []).map((post: any) => `
+                    <article class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition">
+                        <a href="/noticia/${post.slug}">
+                            <div class="p-4">
+                                <h2 class="text-xl font-bold mb-2 text-gray-900">${post.title}</h2>
+                                <p class="text-gray-600 text-sm">${post.excerpt || ''}</p>
+                                <span class="text-xs text-gray-400 mt-2 block">
+                                    ${new Date(post.published_at || '').toLocaleDateString('pt-BR')}
+                                </span>
+                            </div>
+                        </a>
+                    </article>
+                `).join('')}
+            </div>
+        </main>
+        
+        <footer class="bg-gray-900 text-white mt-12 py-8">
+            <div class="container mx-auto px-4 text-center">
+                <p>&copy; 2024 ${siteName}. Todos os direitos reservados.</p>
+            </div>
+        </footer>
+    </body>
+    </html>
+  `)
+})
+
+app.get('/autor/:slug', async (c) => {
+  const slug = c.req.param('slug')
+  const { findAuthorBySlug, findPublishedPosts, getSetting } = await import('../packages/core/db')
+  
+  const author = await findAuthorBySlug(c.env, slug)
+  if (!author) {
+    return c.notFound()
+  }
+  
+  const posts = await findPublishedPosts(c.env, { authorId: author.id, limit: 30 })
+  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+  
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${author.name} | ${siteName}</title>
+        <meta name="description" content="${author.bio || `Artigos de ${author.name}`}">
+        <link href="/static/styles.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-50">
+        <header class="bg-white border-b">
+            <div class="container mx-auto px-4 py-4">
+                <a href="/" class="text-2xl font-bold text-gray-900">${siteName}</a>
+            </div>
+        </header>
+        
+        <main class="container mx-auto px-4 py-8 max-w-4xl">
+            <div class="mb-8">
+                <h1 class="text-4xl font-bold mb-4">${author.name}</h1>
+                ${author.bio ? `<p class="text-xl text-gray-700">${author.bio}</p>` : ''}
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                ${posts.map(post => `
+                    <article class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition">
+                        <a href="/noticia/${post.slug}">
+                            <div class="p-4">
+                                <h2 class="text-xl font-bold mb-2 text-gray-900">${post.title}</h2>
+                                <p class="text-gray-600 text-sm">${post.excerpt || ''}</p>
+                                <span class="text-xs text-gray-400 mt-2 block">
+                                    ${new Date(post.published_at || '').toLocaleDateString('pt-BR')}
+                                </span>
+                            </div>
+                        </a>
+                    </article>
+                `).join('')}
+            </div>
+        </main>
+        
+        <footer class="bg-gray-900 text-white mt-12 py-8">
+            <div class="container mx-auto px-4 text-center">
+                <p>&copy; 2024 ${siteName}. Todos os direitos reservados.</p>
+            </div>
+        </footer>
+    </body>
+    </html>
+  `)
+})
+
+app.get('/noticia/:slug', async (c) => {
+  const slug = c.req.param('slug')
+  const { findPostWithRelations, getSetting } = await import('../packages/core/db')
+  const { checkPostAccess } = await import('../packages/core/paywall')
+  const { getReaderContext } = await import('../packages/core/paywall/helpers')
+  const { createSafeSnippet, escapeHtml } = await import('../packages/core/paywall/snippet')
+  const { generateArticleJsonLd, generateBreadcrumbJsonLd } = await import('../packages/core/seo')
+  
+  const postData = await findPostWithRelations(c.env, slug)
+  
+  if (!postData || postData.status !== 'published') {
+    return c.notFound()
+  }
+  
+  // Get reader context (with cookie)
+  const readerContext = await getReaderContext(c as any)
+  
+  // Check access
+  const accessCheck = await checkPostAccess(c.env, postData, {
+    isSubscriber: readerContext.isSubscriber,
+    readerUserId: readerContext.readerId,
+    anonIdentifier: readerContext.anonIdentifier,
+  })
+  
+  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+  
+  // Prepare content
+  let contentHtml = postData.content
+  if (!accessCheck.allowed) {
+    const ratio = accessCheck.lockRatio || 0.22
+    contentHtml = createSafeSnippet(postData.content, ratio)
+  }
+  
+  // JSON-LD
+  const articleJsonLd = generateArticleJsonLd(postData, c.env.PUBLIC_BASE_URL, siteName)
+  const breadcrumbJsonLd = generateBreadcrumbJsonLd([
+    { name: 'Home', url: c.env.PUBLIC_BASE_URL },
+    { name: postData.category?.name || 'Notícias', url: `${c.env.PUBLIC_BASE_URL}/categoria/${postData.category?.slug}` },
+    { name: postData.title, url: `${c.env.PUBLIC_BASE_URL}/noticia/${postData.slug}` },
+  ], c.env.PUBLIC_BASE_URL)
+  
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${postData.seo_title || postData.title} | ${siteName}</title>
+        <meta name="description" content="${postData.seo_description || postData.excerpt || ''}">
+        <link rel="canonical" href="${postData.seo_canonical || `${c.env.PUBLIC_BASE_URL}/noticia/${postData.slug}`}">
+        <meta property="og:title" content="${escapeHtml(postData.title)}">
+        <meta property="og:description" content="${escapeHtml(postData.excerpt || '')}">
+        <meta property="og:url" content="${c.env.PUBLIC_BASE_URL}/noticia/${postData.slug}">
+        <meta property="og:type" content="article">
+        <meta name="twitter:card" content="summary_large_image">
+        <link href="/static/styles.css" rel="stylesheet">
+        <script type="application/ld+json">${articleJsonLd}</script>
+        <script type="application/ld+json">${breadcrumbJsonLd}</script>
     </head>
     <body class="bg-gray-50">
         <header class="bg-white border-b">
@@ -238,13 +490,15 @@ app.get('/noticia/:slug', async (c) => {
         <main class="container mx-auto px-4 py-8 max-w-3xl">
             <article class="bg-white rounded-lg shadow-sm p-8">
                 <div class="mb-4">
-                    <span class="text-blue-600 font-semibold">${postData.category?.name || ''}</span>
+                    <a href="/categoria/${postData.category?.slug}" class="text-blue-600 font-semibold hover:text-blue-700">
+                        ${postData.category?.name || ''}
+                    </a>
                 </div>
                 
                 <h1 class="text-4xl font-bold mb-4">${postData.title}</h1>
                 
                 <div class="text-gray-600 mb-6">
-                    <span>Por ${postData.author?.name || 'Redação'}</span>
+                    <span>Por <a href="/autor/${postData.author?.slug}" class="hover:text-blue-600">${postData.author?.name || 'Redação'}</a></span>
                     <span class="mx-2">•</span>
                     <time>${new Date(postData.published_at || '').toLocaleDateString('pt-BR')}</time>
                 </div>
@@ -252,18 +506,138 @@ app.get('/noticia/:slug', async (c) => {
                 ${postData.excerpt ? `<p class="text-xl text-gray-700 mb-6">${postData.excerpt}</p>` : ''}
                 
                 <div class="prose max-w-none">
-                    ${accessCheck.allowed ? postData.content : `
-                        <p>${postData.content.substring(0, 500)}...</p>
-                        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 mt-6 text-center">
+                    ${contentHtml}
+                    ${!accessCheck.allowed ? `
+                        <div class="paywall-box">
                             <h3 class="text-2xl font-bold mb-2">Continue lendo com acesso ilimitado</h3>
-                            <p class="text-gray-700 mb-4">Assine para liberar todas as matérias</p>
-                            <a href="/assinar" class="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700">
+                            <p class="text-gray-700 mb-4">Assine para liberar todas as matérias e apoiar o jornalismo independente</p>
+                            <a href="/assinar" class="paywall-cta">
                                 Assinar agora
                             </a>
+                            <div class="mt-4">
+                                <a href="/conta" class="text-sm text-gray-600 hover:text-blue-600">Já sou assinante</a>
+                            </div>
                         </div>
-                    `}
+                    ` : ''}
                 </div>
             </article>
+        </main>
+        
+        <footer class="bg-gray-900 text-white mt-12 py-8">
+            <div class="container mx-auto px-4 text-center">
+                <p>&copy; 2024 ${siteName}. Todos os direitos reservados.</p>
+            </div>
+        </footer>
+    </body>
+    </html>
+  `)
+})
+
+app.get('/assinar', async (c) => {
+  const { findActivePlans, getSetting } = await import('../packages/core/db')
+  
+  const plans = await findActivePlans(c.env)
+  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+  
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Assine | ${siteName}</title>
+        <meta name="description" content="Assine e tenha acesso ilimitado a todo o conteúdo">
+        <link href="/static/styles.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-50">
+        <header class="bg-white border-b">
+            <div class="container mx-auto px-4 py-4">
+                <a href="/" class="text-2xl font-bold text-gray-900">${siteName}</a>
+            </div>
+        </header>
+        
+        <main class="container mx-auto px-4 py-8 max-w-4xl">
+            <div class="text-center mb-12">
+                <h1 class="text-4xl font-bold mb-4">Assine ${siteName}</h1>
+                <p class="text-xl text-gray-700">Acesso ilimitado a todas as notícias</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                ${plans.map(plan => {
+                  const benefits = plan.benefits_json ? JSON.parse(plan.benefits_json) : []
+                  const price = (plan.price_cents / 100).toFixed(2).replace('.', ',')
+                  
+                  return `
+                    <div class="bg-white rounded-lg shadow-sm p-8 hover:shadow-md transition">
+                        <h2 class="text-2xl font-bold mb-4">${plan.name}</h2>
+                        <div class="mb-6">
+                            <span class="text-4xl font-bold">R$ ${price}</span>
+                            <span class="text-gray-600">/${plan.billing_cycle === 'monthly' ? 'mês' : 'ano'}</span>
+                        </div>
+                        ${plan.trial_days > 0 ? `<p class="text-sm text-blue-600 mb-4">${plan.trial_days} dias grátis</p>` : ''}
+                        <ul class="mb-6">
+                            ${benefits.map((benefit: string) => `
+                                <li class="mb-2 text-gray-700">✓ ${benefit}</li>
+                            `).join('')}
+                        </ul>
+                        <a href="#" class="block bg-blue-600 text-white text-center px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+                            Assinar ${plan.name}
+                        </a>
+                    </div>
+                  `
+                }).join('')}
+            </div>
+            
+            <div class="mt-12 text-center text-gray-600">
+                <p class="mb-4">Pagamento seguro via ASAAS</p>
+                <p class="text-sm">
+                    <a href="/p/termos" class="hover:text-blue-600">Termos de Uso</a> •
+                    <a href="/p/privacidade" class="hover:text-blue-600">Privacidade</a>
+                </p>
+            </div>
+        </main>
+        
+        <footer class="bg-gray-900 text-white mt-12 py-8">
+            <div class="container mx-auto px-4 text-center">
+                <p>&copy; 2024 ${siteName}. Todos os direitos reservados.</p>
+            </div>
+        </footer>
+    </body>
+    </html>
+  `)
+})
+
+app.get('/conta', async (c) => {
+  const { getSetting } = await import('../packages/core/db')
+  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+  
+  // TODO: Implementar página de conta com status de assinatura
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Minha Conta | ${siteName}</title>
+        <link href="/static/styles.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-50">
+        <header class="bg-white border-b">
+            <div class="container mx-auto px-4 py-4">
+                <a href="/" class="text-2xl font-bold text-gray-900">${siteName}</a>
+            </div>
+        </header>
+        
+        <main class="container mx-auto px-4 py-8 max-w-4xl">
+            <h1 class="text-4xl font-bold mb-8">Minha Conta</h1>
+            
+            <div class="bg-white rounded-lg shadow-sm p-8">
+                <h2 class="text-2xl font-bold mb-4">Status da Assinatura</h2>
+                <p class="text-gray-700 mb-6">Funcionalidade em desenvolvimento. Em breve você poderá gerenciar sua assinatura aqui.</p>
+                <a href="/assinar" class="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700">
+                    Assinar Agora
+                </a>
+            </div>
         </main>
         
         <footer class="bg-gray-900 text-white mt-12 py-8">
@@ -282,21 +656,42 @@ app.get('/noticia/:slug', async (c) => {
 
 app.post('/api/webhooks/asaas', async (c) => {
   const { rateLimiter } = await import('../packages/core/middleware')
+  const { getSetting } = await import('../packages/core/db')
+  const { asaasWebhookEventSchema, handleAsaasWebhook } = await import('../packages/core/integrations/asaas')
+  
+  // Rate limiting
   const limiter = rateLimiter('webhook')
   await limiter(c as any, async () => {})
   
-  const { asaasWebhookEventSchema, handleAsaasWebhook } = await import('../packages/core/integrations/asaas')
-  
   try {
-    const body = await c.req.json()
+    // Authenticate webhook
+    const webhookToken = await getSetting(c.env, 'asaas_webhook_token', 'private')
+    const providedToken = c.req.header('x-asaas-token')
+    
+    if (webhookToken && providedToken !== webhookToken) {
+      return c.json({ success: false, error: 'Unauthorized' }, 401)
+    }
+    
+    const rawBody = await c.req.text()
+    const body = JSON.parse(rawBody)
+    
+    // Validate with Zod
     const event = asaasWebhookEventSchema.parse(body)
-    const requestId = c.get('requestId')
+    const requestId = c.get('requestId') || 'unknown'
+    
+    // Compute payload hash (SHA-256)
+    const encoder = new TextEncoder()
+    const data = encoder.encode(rawBody)
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const payloadHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
     
     // Idempotency check
-    const eventId = `asaas_${event.payment.id}_${event.event}`
+    const eventId = `asaas_${event.payment.id}_${event.event}_${event.payment.status}`
+    
     const existing = await c.env.DB.prepare(
-      'SELECT id FROM webhook_events WHERE provider = ? AND event_id = ?'
-    ).bind('asaas', eventId).first()
+      'SELECT id FROM webhook_events WHERE provider = ? AND (event_id = ? OR payload_hash = ?)'
+    ).bind('asaas', eventId, payloadHash).first()
     
     if (existing) {
       return c.json({ success: true, message: 'Event already processed' })
@@ -310,8 +705,8 @@ app.post('/api/webhooks/asaas', async (c) => {
       'asaas',
       eventId,
       event.event,
-      'hash',
-      JSON.stringify(body)
+      payloadHash,
+      rawBody
     ).run()
     
     // Process
@@ -324,22 +719,9 @@ app.post('/api/webhooks/asaas', async (c) => {
     
     return c.json({ success: true })
   } catch (error) {
+    console.error('Webhook error:', error)
     return c.json({ success: false, error: (error as Error).message }, 400)
   }
-})
-
-// ============================================================================
-// Bootstrap (first run)
-// ============================================================================
-
-app.use('*', async (c, next) => {
-  // Bootstrap admin on first request
-  try {
-    await bootstrapAdmin(c.env)
-  } catch (error) {
-    console.error('Bootstrap error:', error)
-  }
-  await next()
 })
 
 // ============================================================================
@@ -349,11 +731,37 @@ app.use('*', async (c, next) => {
 app.onError(errorHandler)
 
 // ============================================================================
-// 404 Handler
+// 404 Handler (JSON para /api/*, HTML para resto)
 // ============================================================================
 
 app.notFound((c) => {
-  return c.json({ success: false, error: 'Não encontrado' }, 404)
+  const path = new URL(c.req.url).pathname
+  
+  if (path.startsWith('/api/')) {
+    return c.json({ success: false, error: 'Endpoint não encontrado' }, 404)
+  }
+  
+  // HTML 404
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Página não encontrada</title>
+        <link href="/static/styles.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-50">
+        <div class="container mx-auto px-4 py-8 text-center">
+            <h1 class="text-6xl font-bold text-gray-900 mb-4">404</h1>
+            <p class="text-xl text-gray-700 mb-8">Página não encontrada</p>
+            <a href="/" class="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700">
+                Voltar para Home
+            </a>
+        </div>
+    </body>
+    </html>
+  `, 404)
 })
 
 // ============================================================================
