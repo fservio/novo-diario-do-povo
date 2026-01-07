@@ -2,7 +2,11 @@ import { defineConfig } from 'vite'
 import pages from '@hono/vite-cloudflare-pages'
 
 export default defineConfig({
-  plugins: [pages()],
+  plugins: [
+    pages({
+      entry: 'functions/index.ts'
+    })
+  ],
   build: {
     outDir: 'dist',
     emptyOutDir: true,

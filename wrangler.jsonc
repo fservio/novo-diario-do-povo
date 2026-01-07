@@ -1,33 +1,30 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "jornal",
-  "main": "functions/index.ts",
-  "compatibility_date": "2024-01-01",
+  "name": "webapp",
+  "compatibility_date": "2024-09-23",
   "compatibility_flags": ["nodejs_compat"],
   "pages_build_output_dir": "./dist",
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "jornal-production",
-      "database_id": "REPLACE_WITH_ACTUAL_ID_AFTER_CREATION"
+      "database_name": "webapp-production",
+      "database_id": "78184365-08ff-4bbc-a28a-4dfe33c1b2d1"
     }
   ],
   "kv_namespaces": [
     {
       "binding": "KV",
-      "id": "REPLACE_WITH_ACTUAL_ID_AFTER_CREATION",
-      "preview_id": "REPLACE_WITH_ACTUAL_PREVIEW_ID_AFTER_CREATION"
+      "id": "ef54494bcf754b889308976043a8c47b"
     },
     {
       "binding": "CACHE",
-      "id": "REPLACE_WITH_ACTUAL_ID_AFTER_CREATION",
-      "preview_id": "REPLACE_WITH_ACTUAL_PREVIEW_ID_AFTER_CREATION"
+      "id": "627e53560f4845948da9ef9f69a842cc"
     }
   ],
   "r2_buckets": [
     {
       "binding": "R2",
-      "bucket_name": "jornal-media"
+      "bucket_name": "webapp-media"
     }
   ]
 }
