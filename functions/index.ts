@@ -553,61 +553,46 @@ app.get('/ultimas', async (c) => {
 
 app.get('/categoria/:slug', async (c) => {
   const slug = c.req.param('slug')
-  const { findCategoryBySlug, findPublishedPosts, getSetting } = await import('../packages/core/db')
+  const page = parseInt(c.req.query('page') || '1', 10)
   
-  const category = await findCategoryBySlug(c.env, slug)
-  if (!category) {
+  const { getCategoryPageData } = await import('../packages/core/db/category')
+  const { getHomeSections } = await import('../packages/core/db/home')
+  const { renderCategoryPage } = await import('../packages/core/web/category')
+  const { getSetting } = await import('../packages/core/db')
+  
+  // Get category data with pagination
+  const data = await getCategoryPageData(c.env, slug, page, 20)
+  if (!data) {
     return c.notFound()
   }
   
-  const posts = await findPublishedPosts(c.env, { categoryId: category.id, limit: 30 })
-  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+  // Get CMS settings
+  const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
+  const coverR2Key = (await getSetting(c.env, 'cover_of_day.r2_key', 'public') as string) || ''
+  const coverAlt = (await getSetting(c.env, 'cover_of_day.alt', 'public') as string) || 'Capa do Dia'
+  const coverAspectRatio = (await getSetting(c.env, 'cover_of_day.aspect_ratio', 'public') as string) || '3/4'
   
-  return c.html(`
-    <!DOCTYPE html>
-    <html lang="pt-BR">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${category.name} | ${siteName}</title>
-        <meta name="description" content="${category.description || `Notícias de ${category.name}`}">
-        <link href="/static/styles.css" rel="stylesheet">
-    </head>
-    <body class="bg-gray-50">
-        <header class="bg-white border-b">
-            <div class="container mx-auto px-4 py-4">
-                <a href="/" class="text-2xl font-bold text-gray-900">${siteName}</a>
-            </div>
-        </header>
-        
-        <main class="container mx-auto px-4 py-8">
-            <h1 class="text-4xl font-bold mb-8">${category.name}</h1>
-            
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                ${posts.map(post => `
-                    <article class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition">
-                        <a href="/noticia/${post.slug}">
-                            <div class="p-4">
-                                <h2 class="text-xl font-bold mb-2 text-gray-900">${post.title}</h2>
-                                <p class="text-gray-600 text-sm">${post.excerpt || ''}</p>
-                                <span class="text-xs text-gray-400 mt-2 block">
-                                    ${new Date(post.published_at || '').toLocaleDateString('pt-BR')}
-                                </span>
-                            </div>
-                        </a>
-                    </article>
-                `).join('')}
-            </div>
-        </main>
-        
-        <footer class="bg-gray-900 text-white mt-12 py-8">
-            <div class="container mx-auto px-4 text-center">
-                <p>&copy; 2024 ${siteName}. Todos os direitos reservados.</p>
-            </div>
-        </footer>
-    </body>
-    </html>
-  `)
+  const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
+  
+  // Get nav sections
+  const sections = await getHomeSections(c.env)
+  const navItems = sections
+    .filter(s => s.enabled)
+    .map(s => ({
+      label: s.title,
+      href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
+      active: s.slug === slug
+    }))
+  
+  // Render category page
+  const html = await renderCategoryPage(c, data, {
+    baseUrl,
+    siteName,
+    navItems,
+    coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null
+  })
+  
+  return c.html(html)
 })
 
 app.get('/tag/:slug', async (c) => {
