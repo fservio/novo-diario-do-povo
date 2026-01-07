@@ -1660,14 +1660,22 @@ app.post('/api/debug/verify', async (c) => {
   // Capture logs
   const logs: any[] = []
   const originalLog = console.log
+  const originalError = console.error
+  
   console.log = (...args: any[]) => {
-    logs.push(args)
+    logs.push(['[LOG]', ...args])
     originalLog(...args)
+  }
+  
+  console.error = (...args: any[]) => {
+    logs.push(['[ERROR]', ...args])
+    originalError(...args)
   }
   
   try {
     const result = await verifyPassword(password, user.password_hash)
     console.log = originalLog
+    console.error = originalError
     
     return c.json({
       ok: result.ok,
@@ -1678,6 +1686,7 @@ app.post('/api/debug/verify', async (c) => {
     })
   } catch (error) {
     console.log = originalLog
+    console.error = originalError
     return c.json({
       error: error instanceof Error ? error.message : 'Unknown',
       stack: error instanceof Error ? error.stack : undefined,
