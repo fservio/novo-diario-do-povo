@@ -68,9 +68,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
   })
 
   // Cover drawer JS (if cover exists)
-  const drawerScript = coverOfDay ? renderScript({
-    nonce,
-    js: `
+  const drawerScript = coverOfDay ? renderScript(`
       const coverBtn = document.getElementById('coverBtn');
       const coverOverlay = document.getElementById('coverOverlay');
       const coverPanel = document.getElementById('coverPanel');
@@ -102,8 +100,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
           }
         });
       }
-    `
-  }).replace('<script', '<script data-script="cover-drawer"') : ''
+    `, nonce).replace('<script', '<script data-script="cover-drawer"') : ''
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">

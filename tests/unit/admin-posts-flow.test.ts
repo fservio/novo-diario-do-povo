@@ -7,26 +7,37 @@ import { describe, it, expect } from 'vitest'
 describe('Admin Posts Integration Flow', () => {
   describe('Create → Edit → Publish Flow', () => {
     it('cria draft → edita → publica', async () => {
-      // Simular fluxo completo
+      // Simular fluxo completo com mock completo
       const mockDB = {
-        prepare: (query: string) => ({
-          bind: (...args: any[]) => ({
-            run: async () => ({ meta: { last_row_id: 1 } }),
-            first: async () => {
-              if (query.includes('SELECT') && query.includes('posts')) {
-                return {
-                  id: 1,
-                  title: 'Test Post',
-                  content: 'Content',
-                  status: 'draft',
-                  category_id: 1,
-                  author_id: 1
+        prepare: (query: string) => {
+          return {
+            bind: (...args: any[]) => {
+              return {
+                run: async () => ({ meta: { last_row_id: 1 }, success: true }),
+                first: async () => {
+                  // Para verificações de slug único (SELECT id FROM posts WHERE slug = ?)
+                  if (query.toUpperCase().includes('SELECT ID') && query.toUpperCase().includes('WHERE SLUG')) {
+                    return null // Slug disponível
+                  }
+                  
+                  // Para SELECT de post
+                  if (query.toUpperCase().includes('SELECT') && query.toUpperCase().includes('FROM POSTS')) {
+                    return {
+                      id: 1,
+                      title: 'Test Post',
+                      content: 'Content',
+                      status: 'draft',
+                      category_id: 1,
+                      author_id: 1
+                    }
+                  }
+                  
+                  return null
                 }
               }
-              return null
             }
-          })
-        })
+          }
+        }
       }
       
       const { createPost, updatePost, publishPost } = await import('../../packages/core/db/posts')
@@ -41,7 +52,7 @@ describe('Admin Posts Integration Flow', () => {
       
       expect(postId).toBe(1)
       
-      // 2. Editar
+      // 2. Editar (sem mudar slug)
       await updatePost(mockDB as any, postId, {
         title: 'Updated Title'
       })
