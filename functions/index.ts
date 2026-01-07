@@ -391,8 +391,11 @@ app.post('/admin/login', async (c) => {
       }
     }
 
+    console.log('[Login] Step 1: Generating session ID...')
     // Generate session
     const sessionId = randomHex(16)
+    console.log('[Login] Step 2: Signing JWT...', { sessionId: sessionId.substring(0, 8) })
+    
     const token = await signJWT(
       {
         sub: user.id.toString(),
@@ -404,9 +407,13 @@ app.post('/admin/login', async (c) => {
       c.env.JWT_SECRET,
       7 * 24 * 60 * 60 // 7 days
     )
+    
+    console.log('[Login] Step 3: Generating CSRF token...')
 
     // Generate CSRF token
     const csrfToken = await generateCSRFToken(c.env, user.id, sessionId)
+    
+    console.log('[Login] Step 4: Setting cookies...')
 
     // Set cookies BEFORE redirect (Cloudflare Workers requirement)
     // IMPORTANT: Path=/ to work with /api/admin/* routes too
@@ -428,6 +435,7 @@ app.post('/admin/login', async (c) => {
       maxAge: 60 * 60, // 1 hour
     })
     
+    console.log('[Login] Step 5: Redirecting...')
     return c.redirect('/admin', 302)
   } catch (error) {
     console.error('[Login] EXCEPTION:', {
