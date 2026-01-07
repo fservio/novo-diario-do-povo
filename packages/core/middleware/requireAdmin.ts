@@ -18,8 +18,8 @@ export async function requireAdmin(c: Context<{ Bindings: Env; Variables: AppCon
     return
   }
 
-  // Skip for login page (GET)
-  if (path === '/admin/login' && c.req.method === 'GET') {
+  // Skip for login page (GET) and login POST
+  if (path === '/admin/login') {
     await next()
     return
   }

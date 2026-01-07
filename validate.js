@@ -1150,6 +1150,80 @@ if (existsSync(functionsIndexFile)) {
 }
 
 // ============================================================================
+// 21. Password Module (PBKDF2 + bcrypt compat)
+// ============================================================================
+
+section('21. Password Module - PBKDF2 WebCrypto')
+
+// Test 1: password.ts exists
+const passwordFile = 'packages/core/auth/password.ts'
+if (existsSync(passwordFile)) {
+  const passwordCode = readFileSync(passwordFile, 'utf-8')
+  
+  if (passwordCode.includes('pbkdf2_sha256$')) {
+    success('Password: PBKDF2 format implemented')
+  } else {
+    error('Password: PBKDF2 format missing')
+  }
+  
+  if (passwordCode.includes('hashPassword') && passwordCode.includes('verifyPassword')) {
+    success('Password: hashPassword + verifyPassword exported')
+  } else {
+    error('Password: missing hashPassword or verifyPassword')
+  }
+  
+  if (passwordCode.includes('needsRehash')) {
+    success('Password: needsRehash mechanism present')
+  } else {
+    error('Password: needsRehash mechanism missing')
+  }
+  
+  if (passwordCode.includes('crypto.subtle') || passwordCode.includes('WebCrypto')) {
+    success('Password: uses WebCrypto API')
+  } else {
+    warning('Password: WebCrypto usage not detected')
+  }
+  
+  if (passwordCode.includes('bcrypt')) {
+    success('Password: bcrypt compatibility (backward compat)')
+  } else {
+    warning('Password: no bcrypt fallback detected')
+  }
+  
+  if (!passwordCode.includes('console.log(password)') && !passwordCode.includes('console.log(email)')) {
+    success('Password: no password/email logging detected')
+  } else {
+    error('Password: contains password/email logging')
+  }
+} else {
+  error('Password: packages/core/auth/password.ts not found')
+}
+
+// Test 2: login uses verifyPassword
+const passwordIndexFile = 'functions/index.ts'
+if (existsSync(passwordIndexFile)) {
+  const indexCode = readFileSync(passwordIndexFile, 'utf-8')
+  
+  if (indexCode.includes('verifyPassword')) {
+    success('Login: uses verifyPassword from password module')
+  } else {
+    error('Login: not using verifyPassword')
+  }
+  
+  if (indexCode.includes('needsRehash') && indexCode.includes('UPDATE users SET password_hash')) {
+    success('Login: implements auto-rehash on legacy bcrypt')
+  } else {
+    warning('Login: auto-rehash not detected')
+  }
+  
+  if (indexCode.includes('maskEmail')) {
+    success('Login: uses maskEmail for secure logging')
+  } else {
+    warning('Login: maskEmail not used')
+  }
+}
+
+// ============================================================================
 // Resumo Final
 // ============================================================================
 

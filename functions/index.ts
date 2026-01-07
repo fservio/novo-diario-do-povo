@@ -92,6 +92,37 @@ app.get('/api/health', (c) => {
   })
 })
 
+// DEBUG: Test bcrypt and login flow
+app.get('/api/debug/test-bcrypt', async (c) => {
+  try {
+    const bcrypt = await import('bcryptjs')
+    
+    const user = await c.env.DB.prepare('SELECT id, email, password_hash FROM users WHERE email = ? LIMIT 1')
+      .bind('fabioservi@gmail.com')
+      .first<any>()
+    
+    if (!user) {
+      return c.json({ error: 'User not found in DB' }, 404)
+    }
+    
+    const testPassword = 'LIwGSnHLyZIR/yQZj3PZ7Ji9UcdkiTvu'
+    const isValid = await bcrypt.compare(testPassword, user.password_hash)
+    
+    return c.json({
+      user_found: true,
+      user_id: user.id,
+      user_email: user.email,
+      hash_prefix: user.password_hash.substring(0, 15),
+      password_correct: isValid,
+      jwt_secret_configured: !!c.env.JWT_SECRET
+    })
+  } catch (error) {
+    return c.json({
+      error: error instanceof Error ? error.message : String(error)
+    }, 500)
+  }
+})
+
 // ============================================================================
 // SEO Routes
 // ============================================================================
@@ -197,67 +228,115 @@ app.get('/admin/login', async (c) => {
 
 // POST /admin/login
 app.post('/admin/login', async (c) => {
+  const requestId = c.get('requestId')
   const { renderLoginPage } = await import('../packages/core/admin/ui')
+  const { verifyPassword, maskEmail, hashPassword } = await import('../packages/core/auth/password')
   const { signJWT } = await import('../packages/core/auth')
   const { generateCSRFToken } = await import('../packages/core/middleware/security')
   const { randomHex } = await import('../packages/core/utils')
-  const { z } = await import('zod')
-
-  const loginSchema = z.object({
-    email: z.string().email(),
-    password: z.string().min(6)
-  })
 
   try {
+    // Parse form data
     const formData = await c.req.parseBody()
-    const { email, password } = loginSchema.parse(formData)
+    const email = String(formData.email || '').trim().toLowerCase()
+    const password = String(formData.password || '')
+    
+    console.log('[Login] Attempt:', {
+      requestId,
+      email: maskEmail(email),
+      timestamp: new Date().toISOString(),
+    })
 
-    // Authenticate
-    const user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ? AND is_active = 1 LIMIT 1')
-      .bind(email)
-      .first<any>()
+    if (!email || !password) {
+      console.log('[Login] INVALID_CREDENTIALS: missing email or password')
+      return c.html(renderLoginPage('Credenciais inválidas'), 401)
+    }
+
+    // Query user
+    const user = await c.env.DB.prepare(
+      'SELECT id, email, password_hash, role, name FROM users WHERE email = ? AND is_active = 1 LIMIT 1'
+    ).bind(email).first<any>()
 
     if (!user) {
+      console.log('[Login] INVALID_CREDENTIALS: user not found', {
+        requestId,
+        email: maskEmail(email),
+      })
       return c.html(renderLoginPage('Credenciais inválidas'), 401)
     }
 
-    // Verify password (bcrypt)
-    const bcrypt = await import('bcryptjs')
-    const isValid = await bcrypt.compare(password, user.password_hash)
+    // Verify password (PBKDF2 or bcrypt with auto-rehash)
+    const verifyResult = await verifyPassword(password, user.password_hash)
 
-    if (!isValid) {
+    if (!verifyResult.ok) {
+      console.log('[Login] INVALID_CREDENTIALS: password mismatch', {
+        requestId,
+        userId: user.id,
+        email: maskEmail(email),
+      })
       return c.html(renderLoginPage('Credenciais inválidas'), 401)
     }
 
-    // Generate session ID (once per login)
+    console.log('[Login] SUCCESS', {
+      requestId,
+      userId: user.id,
+      email: maskEmail(email),
+      needsRehash: verifyResult.needsRehash,
+    })
+
+    // Auto-rehash legacy bcrypt to PBKDF2
+    if (verifyResult.needsRehash) {
+      try {
+        const newHash = await hashPassword(password)
+        await c.env.DB.prepare(
+          'UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?'
+        ).bind(newHash, new Date().toISOString(), user.id).run()
+        
+        console.log('[Login] REHASHED: upgraded bcrypt to PBKDF2', {
+          requestId,
+          userId: user.id,
+        })
+      } catch (rehashError) {
+        // Log but don't block login
+        console.error('[Login] REHASH_ERROR: failed to upgrade hash', {
+          requestId,
+          userId: user.id,
+          error: rehashError instanceof Error ? rehashError.message : 'Unknown',
+        })
+      }
+    }
+
+    // Generate session
     const sessionId = randomHex(16)
-
-    // Generate JWT with session ID
     const token = await signJWT(
       {
         sub: user.id.toString(),
         email: user.email,
         role: user.role,
-        type: 'admin',
-        sid: sessionId  // Session ID for CSRF binding
+        type: 'admin' as const,
+        sid: sessionId,
       },
       c.env.JWT_SECRET,
       7 * 24 * 60 * 60 // 7 days
     )
 
-    // Generate CSRF token once per session
+    // Generate CSRF token
     const csrfToken = await generateCSRFToken(c.env, user.id, sessionId)
 
     // Set cookies
     const cookieOptions = 'Secure; SameSite=Lax; Path=/admin'
     c.header('Set-Cookie', [
       `admin_session=${token}; HttpOnly; ${cookieOptions}; Max-Age=604800`,
-      `admin_csrf=${csrfToken}; HttpOnly; ${cookieOptions}; Max-Age=3600`  // HttpOnly: SSR-only, no JS access needed
+      `admin_csrf=${csrfToken}; HttpOnly; ${cookieOptions}; Max-Age=3600`,
     ].join(', '))
 
     return c.redirect('/admin', 302)
   } catch (error) {
-    console.error('Login error:', error)
+    console.error('[Login] EXCEPTION:', {
+      requestId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    })
     return c.html(renderLoginPage('Erro ao fazer login'), 500)
   }
 })

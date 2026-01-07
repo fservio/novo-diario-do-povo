@@ -21,6 +21,8 @@ export interface Env {
   JWT_SECRET: string
   ADMIN_BOOTSTRAP_EMAIL: string
   ADMIN_BOOTSTRAP_PASSWORD: string
+  ADMIN_BOOTSTRAP_TOKEN?: string
+  ALLOW_ADMIN_BOOTSTRAP?: string
   N8N_WEBHOOK_SECRET: string
   R2_BUCKET_NAME: string
   PUBLIC_BASE_URL: string
@@ -51,6 +53,8 @@ export const envSchema = z.object({
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   ADMIN_BOOTSTRAP_EMAIL: z.string().email('Invalid ADMIN_BOOTSTRAP_EMAIL'),
   ADMIN_BOOTSTRAP_PASSWORD: z.string().min(8, 'ADMIN_BOOTSTRAP_PASSWORD must be at least 8 characters'),
+  ADMIN_BOOTSTRAP_TOKEN: z.string().min(32, 'ADMIN_BOOTSTRAP_TOKEN must be at least 32 characters').optional(),
+  ALLOW_ADMIN_BOOTSTRAP: z.string().optional(),
   N8N_WEBHOOK_SECRET: z.string().min(32, 'N8N_WEBHOOK_SECRET must be at least 32 characters'),
   R2_BUCKET_NAME: z.string().min(1, 'R2_BUCKET_NAME is required'),
   PUBLIC_BASE_URL: z.string().url('Invalid PUBLIC_BASE_URL'),
