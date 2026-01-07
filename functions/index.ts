@@ -351,7 +351,12 @@ app.get('/rss/:section.xml', async (c) => {
 // ============================================================================
 
 // Apply admin middleware to all /admin routes
+// Apply admin authentication middleware (except /admin/login and /admin/logout)
 app.use('/admin/*', async (c, next) => {
+  // Skip middleware for login/logout routes
+  if (c.req.path === '/admin/login' || c.req.path === '/admin/logout') {
+    return next()
+  }
   const { requireAdmin } = await import('../packages/core/middleware')
   return requireAdmin(c, next)
 })
@@ -529,25 +534,60 @@ app.post('/admin/logout', async (c) => {
 
 // GET /admin (Dashboard)
 app.get('/admin', async (c) => {
-  const { renderAdminLayout } = await import('../packages/core/admin/ui')
-  const { getSetting } = await import('../packages/core/db')
-  const user = c.get('adminUser')
-  const csrfToken = c.get('csrfToken')
+  try {
+    console.log('[Dashboard] Step 1: Import getCookie')
+    const { getCookie } = await import('hono/cookie')
+    const token = getCookie(c, 'admin_session')
+    
+    console.log('[Dashboard] Step 2: Check token', { hasToken: !!token })
+    if (!token) {
+      return c.redirect('/admin/login', 302)
+    }
 
-  // Get stats
-  const postsCount = await c.env.DB.prepare('SELECT COUNT(*) as count FROM posts WHERE status = ?')
-    .bind('published')
-    .first<{ count: number }>()
+    console.log('[Dashboard] Step 3: Verify JWT')
+    const { verifyJWT } = await import('../packages/core/auth')
+    const payload = await verifyJWT(token, c.env.JWT_SECRET)
+    
+    console.log('[Dashboard] Step 4: Check payload', { hasPayload: !!payload, type: payload?.type })
+    if (!payload || payload.type !== 'admin') {
+      return c.redirect('/admin/login', 302)
+    }
 
-  const plansCount = await c.env.DB.prepare('SELECT COUNT(*) as count FROM plans WHERE is_active = 1')
-    .first<{ count: number }>()
+    console.log('[Dashboard] Step 5: Query user')
+    const user = await c.env.DB.prepare(
+      'SELECT id, email, role, name, is_active FROM users WHERE id = ? AND is_active = 1 LIMIT 1'
+    ).bind(payload.sub).first<{ id: number; email: string; role: string; name: string; is_active: number }>()
 
-  const adsCount = await c.env.DB.prepare('SELECT COUNT(*) as count FROM ads_slots WHERE is_active = 1')
-    .first<{ count: number }>()
+    console.log('[Dashboard] Step 6: Check user', { hasUser: !!user })
+    if (!user) {
+      return c.redirect('/admin/login', 302)
+    }
 
-  const asaasConfigured = await getSetting(c.env, 'asaas.api_key', 'private')
+    console.log('[Dashboard] Step 7: Set context')
+    c.set('adminUser', user)
+    c.set('csrfToken', getCookie(c, 'admin_csrf'))
 
-  const bodyHtml = `
+    console.log('[Dashboard] Step 8: Import renderAdminLayout')
+    const { renderAdminLayout } = await import('../packages/core/admin/ui')
+    const { getSetting } = await import('../packages/core/db')
+    const csrfToken = getCookie(c, 'admin_csrf')
+
+    console.log('[Dashboard] Step 9: Query stats')
+
+    // Get stats
+    const postsCount = await c.env.DB.prepare('SELECT COUNT(*) as count FROM posts WHERE status = ?')
+      .bind('published')
+      .first<{ count: number }>()
+
+    const plansCount = await c.env.DB.prepare('SELECT COUNT(*) as count FROM plans WHERE is_active = 1')
+      .first<{ count: number }>()
+
+    const adsCount = await c.env.DB.prepare('SELECT COUNT(*) as count FROM ads_slots WHERE is_active = 1')
+      .first<{ count: number }>()
+
+    const asaasConfigured = await getSetting(c.env, 'asaas.api_key', 'private')
+
+    const bodyHtml = `
     <div class="grid grid-4" style="margin-bottom: 2rem;">
       <div class="card">
         <div class="card-label">Posts Publicados</div>
@@ -586,13 +626,32 @@ app.get('/admin', async (c) => {
     </div>
   `
 
-  return c.html(renderAdminLayout({
-    title: 'Dashboard',
-    user,
-    bodyHtml,
-    activeTab: 'dashboard',
-    csrfToken
-  }))
+    console.log('[Dashboard] Step 10: Render layout', {
+      hasUser: !!user,
+      userEmail: user?.email,
+      userId: user?.id,
+      userRole: user?.role,
+      hasCsrfToken: !!csrfToken,
+      bodyLength: bodyHtml.length
+    })
+
+    const renderResult = renderAdminLayout({
+      title: 'Dashboard',
+      user,
+      bodyHtml,
+      activeTab: 'dashboard',
+      csrfToken
+    })
+
+    console.log('[Dashboard] Step 11: Render complete', {
+      htmlLength: renderResult.length
+    })
+
+    return c.html(renderResult)
+  } catch (error) {
+    console.error('[Admin Dashboard] Error:', error)
+    return c.json({ success: false, error: 'Erro interno do servidor' }, 500)
+  }
 })
 
 // ============================================================================
