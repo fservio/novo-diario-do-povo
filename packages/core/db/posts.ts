@@ -191,7 +191,7 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
       p.*,
       c.name as category_name,
       a.name as author_name,
-      m.public_url as cover_media_url
+      m.r2_key as cover_media_url
     FROM posts p
     LEFT JOIN categories c ON c.id = p.category_id
     LEFT JOIN authors a ON a.id = p.author_id
@@ -217,7 +217,7 @@ export async function getPostById(db: D1Database, id: number): Promise<Post | nu
       p.*,
       c.name as category_name,
       a.name as author_name,
-      m.public_url as cover_media_url
+      m.r2_key as cover_media_url
     FROM posts p
     LEFT JOIN categories c ON c.id = p.category_id
     LEFT JOIN authors a ON a.id = p.author_id
@@ -250,7 +250,7 @@ export async function getPostBySlug(db: D1Database, slug: string): Promise<Post 
       p.*,
       c.name as category_name,
       a.name as author_name,
-      m.public_url as cover_media_url
+      m.r2_key as cover_media_url
     FROM posts p
     LEFT JOIN categories c ON c.id = p.category_id
     LEFT JOIN authors a ON a.id = p.author_id
