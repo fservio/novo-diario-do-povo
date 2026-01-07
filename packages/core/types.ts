@@ -79,6 +79,11 @@ export interface AppContext {
     email: string
     role: 'admin' | 'editor'
   }
+  adminUser?: {
+    id: number
+    email: string
+    role: string
+  }
   readerUser?: {
     id: number
     email: string

@@ -104,6 +104,12 @@ const requiredFiles = [
   'packages/core/paywall/snippet.ts',
   'packages/core/seo/index.ts',
   'packages/core/integrations/asaas/index.ts',
+  'packages/core/ads/index.ts',
+  'packages/core/admin/ui.ts',
+  'packages/core/admin/settings.ts',
+  'packages/core/admin/asaas.ts',
+  'packages/core/admin/ads.ts',
+  'packages/core/middleware/requireAdmin.ts',
   'public/static/styles.css',
   'public/static/app.js'
 ]
@@ -208,7 +214,13 @@ if (existsSync(indexFile)) {
     { path: "app.get('/sitemap-news.xml', ", desc: 'Sitemap Google News' },
     { path: "app.get('/rss.xml', ", desc: 'RSS geral' },
     { path: "app.post('/api/webhooks/asaas', ", desc: 'Webhook Asaas' },
-    { path: "/i/:key", desc: 'Serving R2 imagens' } // Busca mais flexível
+    { path: "/i/:key", desc: 'Serving R2 imagens' },
+    { path: "app.get('/admin/login', ", desc: 'Admin Login' },
+    { path: "app.post('/admin/login', ", desc: 'Admin Login POST' },
+    { path: "app.get('/admin', ", desc: 'Admin Dashboard' },
+    { path: "app.get('/admin/settings', ", desc: 'Admin Settings' },
+    { path: "app.get('/admin/asaas', ", desc: 'Admin Asaas' },
+    { path: "app.get('/admin/ads', ", desc: 'Admin Ads' }
   ]
   
   routes.forEach(({ path, desc }) => {
@@ -475,6 +487,55 @@ if (existsSync(indexFile)) {
   } else {
     error('404: Handler não configurado')
   }
+}
+
+// ============================================================================
+// 14. ADMIN & ADS ENGINE
+// ============================================================================
+
+section('14. Admin & Ads Engine')
+
+// Check admin modules
+const adminModules = [
+  'packages/core/admin/ui.ts',
+  'packages/core/admin/settings.ts',
+  'packages/core/admin/asaas.ts',
+  'packages/core/admin/ads.ts',
+  'packages/core/middleware/requireAdmin.ts'
+]
+
+adminModules.forEach(file => {
+  if (existsSync(file)) {
+    success(`Admin: ${file.split('/').pop()}`)
+  } else {
+    error(`Admin: faltando ${file}`)
+  }
+})
+
+// Check ads module
+const adsFile = 'packages/core/ads/index.ts'
+if (existsSync(adsFile)) {
+  const code = readFileSync(adsFile, 'utf-8')
+  
+  if (code.includes('export function renderAdSlot')) {
+    success('Ads: renderAdSlot() exportado')
+  } else {
+    error('Ads: renderAdSlot() não encontrado')
+  }
+  
+  if (code.includes('export async function findActiveSlotsByTemplate')) {
+    success('Ads: findActiveSlotsByTemplate() exportado')
+  } else {
+    error('Ads: findActiveSlotsByTemplate() não encontrado')
+  }
+  
+  if (code.includes('export async function generateAdsLoaderScript')) {
+    success('Ads: generateAdsLoaderScript() exportado')
+  } else {
+    error('Ads: generateAdsLoaderScript() não encontrado')
+  }
+} else {
+  error('Ads: packages/core/ads/index.ts não encontrado')
 }
 
 // ============================================================================

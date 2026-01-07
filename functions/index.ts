@@ -174,6 +174,229 @@ app.get('/rss/:section.xml', async (c) => {
 })
 
 // ============================================================================
+// Admin Routes (Protected)
+// ============================================================================
+
+// Apply admin middleware to all /admin routes
+app.use('/admin/*', async (c, next) => {
+  const { requireAdmin } = await import('../packages/core/middleware')
+  return requireAdmin(c, next)
+})
+
+app.use('/api/admin/*', async (c, next) => {
+  const { requireAdmin } = await import('../packages/core/middleware')
+  return requireAdmin(c, next)
+})
+
+// GET /admin/login (public)
+app.get('/admin/login', async (c) => {
+  const { renderLoginPage } = await import('../packages/core/admin/ui')
+  const error = c.req.query('error')
+  return c.html(renderLoginPage(error))
+})
+
+// POST /admin/login
+app.post('/admin/login', async (c) => {
+  const { renderLoginPage } = await import('../packages/core/admin/ui')
+  const { signJWT } = await import('../packages/core/auth')
+  const { z } = await import('zod')
+
+  const loginSchema = z.object({
+    email: z.string().email(),
+    password: z.string().min(6)
+  })
+
+  try {
+    const formData = await c.req.parseBody()
+    const { email, password } = loginSchema.parse(formData)
+
+    // Authenticate
+    const user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ? AND is_active = 1 LIMIT 1')
+      .bind(email)
+      .first<any>()
+
+    if (!user) {
+      return c.html(renderLoginPage('Credenciais inválidas'), 401)
+    }
+
+    // Verify password (bcrypt)
+    const bcrypt = await import('bcryptjs')
+    const isValid = await bcrypt.compare(password, user.password_hash)
+
+    if (!isValid) {
+      return c.html(renderLoginPage('Credenciais inválidas'), 401)
+    }
+
+    // Generate JWT
+    const token = await signJWT(
+      {
+        sub: user.id.toString(),
+        email: user.email,
+        role: user.role,
+        type: 'admin'
+      },
+      c.env.JWT_SECRET,
+      7 * 24 * 60 * 60 // 7 days
+    )
+
+    // Set cookie
+    c.header(
+      'Set-Cookie',
+      `admin_session=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800`
+    )
+
+    return c.redirect('/admin', 302)
+  } catch (error) {
+    console.error('Login error:', error)
+    return c.html(renderLoginPage('Erro ao fazer login'), 500)
+  }
+})
+
+// POST /admin/logout
+app.post('/admin/logout', async (c) => {
+  c.header('Set-Cookie', 'admin_session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0')
+  return c.redirect('/admin/login', 302)
+})
+
+// GET /admin (Dashboard)
+app.get('/admin', async (c) => {
+  const { renderAdminLayout } = await import('../packages/core/admin/ui')
+  const { getSetting } = await import('../packages/core/db')
+  const user = c.get('adminUser')
+
+  // Get stats
+  const postsCount = await c.env.DB.prepare('SELECT COUNT(*) as count FROM posts WHERE status = ?')
+    .bind('published')
+    .first<{ count: number }>()
+
+  const plansCount = await c.env.DB.prepare('SELECT COUNT(*) as count FROM plans WHERE is_active = 1')
+    .first<{ count: number }>()
+
+  const adsCount = await c.env.DB.prepare('SELECT COUNT(*) as count FROM ads_slots WHERE is_active = 1')
+    .first<{ count: number }>()
+
+  const asaasConfigured = await getSetting(c.env, 'asaas.api_key', 'private')
+
+  const bodyHtml = `
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-white p-6 rounded-lg shadow">
+        <div class="text-gray-500 text-sm">Posts Publicados</div>
+        <div class="text-3xl font-bold mt-2">${postsCount?.count || 0}</div>
+      </div>
+
+      <div class="bg-white p-6 rounded-lg shadow">
+        <div class="text-gray-500 text-sm">Planos Ativos</div>
+        <div class="text-3xl font-bold mt-2">${plansCount?.count || 0}</div>
+      </div>
+
+      <div class="bg-white p-6 rounded-lg shadow">
+        <div class="text-gray-500 text-sm">Slots de Ads Ativos</div>
+        <div class="text-3xl font-bold mt-2">${adsCount?.count || 0}</div>
+      </div>
+
+      <div class="bg-white p-6 rounded-lg shadow">
+        <div class="text-gray-500 text-sm">Asaas</div>
+        <div class="text-lg font-semibold mt-2 ${asaasConfigured ? 'text-green-600' : 'text-red-600'}">
+          ${asaasConfigured ? '✓ Configurado' : '✗ Não configurado'}
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6">
+      <h2 class="text-xl font-semibold mb-4">Ações Rápidas</h2>
+      <div class="space-y-2">
+        <a href="/admin/settings" class="block bg-white p-4 rounded-lg shadow hover:bg-gray-50">
+          → Gerenciar Settings
+        </a>
+        <a href="/admin/asaas" class="block bg-white p-4 rounded-lg shadow hover:bg-gray-50">
+          → Configurar Asaas
+        </a>
+        <a href="/admin/ads" class="block bg-white p-4 rounded-lg shadow hover:bg-gray-50">
+          → Gerenciar Anúncios
+        </a>
+      </div>
+    </div>
+  `
+
+  return c.html(renderAdminLayout({
+    title: 'Dashboard',
+    user,
+    bodyHtml,
+    activeTab: 'dashboard'
+  }))
+})
+
+// GET /admin/settings
+app.get('/admin/settings', async (c) => {
+  const { renderSettingsListPage } = await import('../packages/core/admin/settings')
+  return renderSettingsListPage(c)
+})
+
+// GET /admin/settings/:scope/:key
+app.get('/admin/settings/:scope/:key', async (c) => {
+  const { renderSettingEditPage } = await import('../packages/core/admin/settings')
+  const scope = c.req.param('scope') as 'public' | 'private'
+  const key = c.req.param('key')
+  const error = c.req.query('error')
+  return renderSettingEditPage(c, scope, key, error)
+})
+
+// POST /admin/settings/:scope/:key
+app.post('/admin/settings/:scope/:key', async (c) => {
+  const { handleSettingUpdate } = await import('../packages/core/admin/settings')
+  const scope = c.req.param('scope') as 'public' | 'private'
+  const key = c.req.param('key')
+  return handleSettingUpdate(c, scope, key)
+})
+
+// GET /admin/asaas
+app.get('/admin/asaas', async (c) => {
+  const { renderAsaasPage } = await import('../packages/core/admin/asaas')
+  const error = c.req.query('error')
+  return renderAsaasPage(c, error)
+})
+
+// POST /admin/asaas
+app.post('/admin/asaas', async (c) => {
+  const { handleAsaasSave } = await import('../packages/core/admin/asaas')
+  return handleAsaasSave(c)
+})
+
+// GET /admin/ads
+app.get('/admin/ads', async (c) => {
+  const { renderAdsListPage } = await import('../packages/core/admin/ads')
+  return renderAdsListPage(c)
+})
+
+// GET /admin/ads/slots/new
+app.get('/admin/ads/slots/new', async (c) => {
+  const { renderAdSlotForm } = await import('../packages/core/admin/ads')
+  const error = c.req.query('error')
+  return renderAdSlotForm(c, undefined, error)
+})
+
+// POST /admin/ads/slots
+app.post('/admin/ads/slots', async (c) => {
+  const { handleAdSlotSave } = await import('../packages/core/admin/ads')
+  return handleAdSlotSave(c)
+})
+
+// GET /admin/ads/slots/:id
+app.get('/admin/ads/slots/:id', async (c) => {
+  const { renderAdSlotForm } = await import('../packages/core/admin/ads')
+  const id = parseInt(c.req.param('id'))
+  const error = c.req.query('error')
+  return renderAdSlotForm(c, id, error)
+})
+
+// POST /admin/ads/slots/:id
+app.post('/admin/ads/slots/:id', async (c) => {
+  const { handleAdSlotSave } = await import('../packages/core/admin/ads')
+  const id = parseInt(c.req.param('id'))
+  return handleAdSlotSave(c, id)
+})
+
+// ============================================================================
 // Public API Routes
 // ============================================================================
 
@@ -692,11 +915,11 @@ app.post('/api/webhooks/asaas', async (c) => {
   await limiter(c as any, async () => {})
   
   try {
-    // Authenticate webhook
-    const webhookToken = await getSetting(c.env, 'asaas_webhook_token', 'private')
+    // Authenticate webhook via settings
+    const webhookToken = await getSetting(c.env, 'asaas.webhook_token', 'private')
     const providedToken = c.req.header('x-asaas-token')
     
-    if (webhookToken && providedToken !== webhookToken) {
+    if (!webhookToken || providedToken !== webhookToken) {
       return c.json({ success: false, error: 'Unauthorized' }, 401)
     }
     
@@ -713,19 +936,19 @@ app.post('/api/webhooks/asaas', async (c) => {
     const event = validation.data
     const requestId = c.get('requestId') || 'unknown'
     
-    // Compute payload hash (SHA-256)
+    // Compute payload hash (SHA-256) - more robust idempotency
     const encoder = new TextEncoder()
     const data = encoder.encode(rawBody)
     const hashBuffer = await crypto.subtle.digest('SHA-256', data)
     const hashArray = Array.from(new Uint8Array(hashBuffer))
     const payloadHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
     
-    // Idempotency check
-    const eventId = `asaas_${event.payment.id}_${event.event}_${event.payment.status}`
+    // Idempotency check by hash
+    const eventId = payloadHash
     
     const existing = await c.env.DB.prepare(
-      'SELECT id FROM webhook_events WHERE provider = ? AND (event_id = ? OR payload_hash = ?)'
-    ).bind('asaas', eventId, payloadHash).first()
+      'SELECT id FROM webhook_events WHERE provider = ? AND event_id = ?'
+    ).bind('asaas', eventId).first()
     
     if (existing) {
       return c.json({ success: true, message: 'Event already processed' })
