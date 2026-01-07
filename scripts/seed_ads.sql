@@ -22,7 +22,9 @@ INSERT OR IGNORE INTO settings (key, value_json, scope, updated_at) VALUES
 -- Cover of the Day settings
 ('cover_of_day.r2_key', '"default-cover.jpg"', 'public', datetime('now')),
 ('cover_of_day.alt', '"Capa do Jornal"', 'public', datetime('now')),
-('cover_of_day.aspect_ratio', '"3/4"', 'public', datetime('now'));
+('cover_of_day.aspect_ratio', '"3/4"', 'public', datetime('now')),
+-- Home sections (CMS-driven nav and blocks)
+('home.fixed_sections', '[{"slug":"brasil","title":"Brasil","enabled":true},{"slug":"economia","title":"Economia","enabled":true},{"slug":"politica","title":"Política","enabled":true},{"slug":"cidades","title":"Cidades","enabled":true},{"slug":"esporte","title":"Esporte","enabled":true}]', 'public', datetime('now'));
 
 -- Ads Slots defaults
 INSERT OR IGNORE INTO ads_slots (name, template, provider, sizes_json, lazy, min_height, is_active, gam_unit_path, adsense_format) VALUES

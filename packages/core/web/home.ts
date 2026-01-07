@@ -412,16 +412,23 @@ export async function renderHomePage(
   
   const adsLoaderScript = await generateAdsLoaderScript(c.env)
   
-  // Category blocks with ads insertion
+  // Category blocks with smart ads insertion
   const categoryBlocksHtml = data.categoryBlocks.map((block, i) => {
     const blockHtml = renderCategoryBlockLeadList(block, baseUrl)
     
-    // Insert ad after "Economia" (index 1)
-    if (i === 1) {
+    // Try to insert ads after specific slugs (economia, cidades)
+    // Fallback: insert after 2nd and 4th blocks if economia/cidades not present
+    
+    // Insert home_infeed_1 after "economia" OR after 2nd block (index 1)
+    const shouldInsertInfeed1 = (block.slug === 'economia') || (i === 1 && !data.categoryBlocks.some(b => b.slug === 'economia'))
+    
+    // Insert home_infeed_2 after "cidades" OR after 4th block (index 3)
+    const shouldInsertInfeed2 = (block.slug === 'cidades') || (i === 3 && !data.categoryBlocks.some(b => b.slug === 'cidades'))
+    
+    if (shouldInsertInfeed1 && adInfeed1) {
       return blockHtml + '\n' + adInfeed1
     }
-    // Insert ad after "Cidades" (index 3)
-    if (i === 3) {
+    if (shouldInsertInfeed2 && adInfeed2) {
       return blockHtml + '\n' + adInfeed2
     }
     return blockHtml
@@ -502,12 +509,13 @@ export async function renderHomePage(
       
       <!-- Nav -->
       <nav class="border-t border-gray-200">
-        <a href="/categoria/brasil">Brasil</a>
-        <a href="/categoria/economia">Economia</a>
-        <a href="/categoria/politica">Política</a>
-        <a href="/categoria/cidades">Cidades</a>
-        <a href="/categoria/esporte">Esporte</a>
-        <a href="/categoria/explicador">Explicadores</a>
+        ${data.sections.map(section => {
+          if (section.type === 'tag') {
+            return `<a href="${baseUrl}/tag/${escapeAttr(section.tagSlug || section.slug)}">${escapeHtml(section.title)}</a>`
+          } else {
+            return `<a href="${baseUrl}/categoria/${escapeAttr(section.slug)}">${escapeHtml(section.title)}</a>`
+          }
+        }).join('\n        ')}
       </nav>
     </div>
   </header>

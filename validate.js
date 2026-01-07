@@ -842,19 +842,13 @@ if (existsSync(homeRendererFile)) {
     error('Home: Hot Rail "Agora" não encontrado')
   }
   
-  // Test 3: Has category blocks (Brasil, Economia, etc)
-  const categories = ['brasil', 'economia', 'politica', 'cidades', 'esporte']
-  let allCategoriesPresent = true
-  categories.forEach(cat => {
-    if (!homeCode.includes(cat)) {
-      allCategoriesPresent = false
-    }
-  })
-  
-  if (allCategoriesPresent) {
-    success('Home: 5 editorias fixas presentes (Brasil, Economia, Política, Cidades, Esporte)')
+  // Test 3: Uses dynamic category blocks (not hardcoded)
+  if (homeCode.includes('data.categoryBlocks') && homeCode.includes('.map(')) {
+    success('Home: usa category blocks dinâmicos (CMS-configurable)')
+  } else if (homeCode.includes('brasil') && homeCode.includes('economia')) {
+    warning('Home: pode conter referências hardcoded (mas OK para fallback/ads)')
   } else {
-    error('Home: Nem todas as 5 editorias fixas estão presentes')
+    error('Home: category blocks não encontrados')
   }
   
   // Test 4: Has ad slots
@@ -916,6 +910,85 @@ if (existsSync(functionsIndexFile)) {
     success('Home: rota /ultimas implementada')
   } else {
     warning('Home: rota /ultimas não encontrada (hot rail "ver todas")')
+  }
+}
+
+// ============================================================================
+// 18. CMS-Driven Home Sections
+// ============================================================================
+
+section('18. CMS-Driven Home Sections')
+
+// Test 1: getHomeSections function exists
+if (existsSync(homeDataFile)) {
+  const dataCode = readFileSync(homeDataFile, 'utf-8')
+  
+  if (dataCode.includes('getHomeSections') && dataCode.includes('home.fixed_sections')) {
+    success('CMS: getHomeSections lê setting home.fixed_sections')
+  } else {
+    error('CMS: getHomeSections não implementado')
+  }
+  
+  // Test 2: Fallback present
+  if (dataCode.includes('getDefaultSections') || 
+      (dataCode.includes('brasil') && 
+       dataCode.includes('economia') && 
+       dataCode.includes('politica') && 
+       dataCode.includes('cidades') && 
+       dataCode.includes('esporte'))) {
+    success('CMS: fallback determinístico presente (brasil/economia/politica/cidades/esporte)')
+  } else {
+    error('CMS: fallback não encontrado')
+  }
+  
+  // Test 3: Zod validation
+  if (dataCode.includes('homeSectionSchema') || dataCode.includes('z.object')) {
+    success('CMS: validação Zod de home sections presente')
+  } else {
+    error('CMS: validação Zod ausente')
+  }
+  
+  // Test 4: Dynamic category blocks
+  if (dataCode.includes('for (const section of categorySections)') || 
+      dataCode.includes('categorySections.forEach') ||
+      dataCode.includes('categorySections.map')) {
+    success('CMS: category blocks dinâmicos baseados em sections')
+  } else {
+    error('CMS: category blocks ainda hardcoded')
+  }
+}
+
+// Test 5: Nav not hardcoded
+if (existsSync(homeRendererFile)) {
+  const homeCode = readFileSync(homeRendererFile, 'utf-8')
+  
+  // Check nav is dynamic (uses data.sections)
+  if (homeCode.includes('data.sections.map') && homeCode.includes('<nav')) {
+    success('CMS: nav dinâmico baseado em data.sections')
+  } else if (homeCode.includes('<a href="/categoria/brasil">Brasil</a>')) {
+    error('CMS: nav ainda hardcoded (contém literais Brasil, Economia, etc)')
+  } else {
+    warning('CMS: nav não confirmado como dinâmico')
+  }
+  
+  // Test 6: Smart ads insertion
+  if (homeCode.includes("block.slug === 'economia'") && 
+      homeCode.includes("block.slug === 'cidades'")) {
+    success('CMS: ads inseridos por slug (economia/cidades) com fallback posicional')
+  } else if (homeCode.includes('shouldInsertInfeed1') || homeCode.includes('shouldInsertInfeed2')) {
+    success('CMS: ads inseridos com lógica inteligente')
+  } else {
+    error('CMS: ads ainda inseridos por índice fixo')
+  }
+}
+
+// Test 7: Seed includes home.fixed_sections
+if (existsSync(seedAdsFile)) {
+  const seedCode = readFileSync(seedAdsFile, 'utf-8')
+  if (seedCode.includes('home.fixed_sections')) {
+    success('CMS: seed inclui home.fixed_sections')
+  } else {
+    error('CMS: seed não inclui home.fixed_sections')
   }
 }
 
