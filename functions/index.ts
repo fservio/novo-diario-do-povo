@@ -323,14 +323,13 @@ app.post('/admin/login', async (c) => {
     // Generate CSRF token
     const csrfToken = await generateCSRFToken(c.env, user.id, sessionId)
 
-    // Set cookies
+    // Set cookies (must use multiple headers, not comma-separated)
     const cookieOptions = 'Secure; SameSite=Lax; Path=/admin'
-    c.header('Set-Cookie', [
-      `admin_session=${token}; HttpOnly; ${cookieOptions}; Max-Age=604800`,
-      `admin_csrf=${csrfToken}; HttpOnly; ${cookieOptions}; Max-Age=3600`,
-    ].join(', '))
-
-    return c.redirect('/admin', 302)
+    const response = c.redirect('/admin', 302)
+    response.headers.append('Set-Cookie', `admin_session=${token}; HttpOnly; ${cookieOptions}; Max-Age=604800`)
+    response.headers.append('Set-Cookie', `admin_csrf=${csrfToken}; HttpOnly; ${cookieOptions}; Max-Age=3600`)
+    
+    return response
   } catch (error) {
     console.error('[Login] EXCEPTION:', {
       requestId,
