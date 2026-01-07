@@ -210,10 +210,11 @@ export async function getHomeData(env: Env): Promise<HomeData> {
     explainersResult = await env.DB.prepare(`
       SELECT 
         p.id, p.slug, p.title, p.excerpt, p.published_at, 
-        p.featured_image_r2_key,
+        m.r2_key as featured_image_r2_key,
         c.name as category_name, c.slug as category_slug
       FROM posts p
       INNER JOIN categories c ON p.category_id = c.id
+      LEFT JOIN media m ON m.id = p.cover_media_id
       WHERE p.status = 'published' 
         AND p.published_at <= ?
         AND p.seo_noindex = 0
