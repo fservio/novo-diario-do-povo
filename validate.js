@@ -1297,18 +1297,20 @@ if (existsSync(postsIndexFile)) {
   const indexCode = readFileSync(postsIndexFile, 'utf-8')
   
   const routes = [
-    '/admin/posts',
-    '/admin/posts/new',
-    '/admin/posts/:id',
-    '/admin/posts/:id/publish',
-    '/admin/posts/:id/schedule',
-    '/admin/posts/:id/archive',
-    '/admin/posts/:id/preview'
+    "app.get('/admin/posts'",
+    "app.get('/admin/posts/new'",
+    "app.post('/admin/posts'",
+    "app.get('/admin/posts/:id'",
+    "app.post('/admin/posts/:id'",
+    "app.post('/admin/posts/:id/publish'",
+    "app.post('/admin/posts/:id/schedule'",
+    "app.post('/admin/posts/:id/archive'",
+    "app.get('/admin/posts/:id/preview'"
   ]
   
   let routesOk = 0
   routes.forEach(route => {
-    if (indexCode.includes(`'${route}'`) || indexCode.includes(`"${route}"`)) {
+    if (indexCode.includes(route)) {
       routesOk++
     }
   })
