@@ -440,11 +440,56 @@ app.get('/api/public/plans', async (c) => {
 // ============================================================================
 
 app.get('/', async (c) => {
-  const { findPublishedPosts, findAllCategories, getSetting } = await import('../packages/core/db')
+  const { getHomeData } = await import('../packages/core/db/home')
+  const { renderHomePage } = await import('../packages/core/web/home')
+  const { getSetting } = await import('../packages/core/db')
   
-  const posts = await findPublishedPosts(c.env, { limit: 20 })
-  const categories = await findAllCategories(c.env)
-  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+  // Get home data (optimized queries)
+  const data = await getHomeData(c.env)
+  
+  // Get CMS settings
+  const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
+  const coverR2Key = (await getSetting(c.env, 'cover_of_day.r2_key', 'public') as string) || 'default-cover.jpg'
+  const coverAlt = (await getSetting(c.env, 'cover_of_day.alt', 'public') as string) || 'Capa do Dia'
+  const coverAspectRatio = (await getSetting(c.env, 'cover_of_day.aspect_ratio', 'public') as string) || '3/4'
+  
+  const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
+  
+  // Render home page (Verge style)
+  const html = await renderHomePage(c, data, {
+    baseUrl,
+    siteName,
+    coverR2Key,
+    coverAlt,
+    coverAspectRatio
+  })
+  
+  return c.html(html)
+})
+
+app.get('/ultimas', async (c) => {
+  const { getSetting } = await import('../packages/core/db')
+  const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
+  
+  // Simple paginated list of latest posts
+  const page = parseInt(c.req.query('page') || '1')
+  const limit = 30
+  const offset = (page - 1) * limit
+  
+  const posts = await c.env.DB.prepare(`
+    SELECT 
+      p.id, p.slug, p.title, p.published_at,
+      c.name as category_name, c.slug as category_slug
+    FROM posts p
+    INNER JOIN categories c ON p.category_id = c.id
+    WHERE p.status = 'published' 
+      AND p.published_at <= datetime('now')
+      AND p.seo_noindex = 0
+    ORDER BY p.published_at DESC
+    LIMIT ? OFFSET ?
+  `).bind(limit, offset).all()
+  
+  const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
   
   return c.html(`
     <!DOCTYPE html>
@@ -452,47 +497,55 @@ app.get('/', async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${siteName} - Notícias em tempo real</title>
-        <meta name="description" content="Acompanhe as principais notícias do Brasil e do mundo">
+        <title>Últimas Notícias | ${siteName}</title>
         <link href="/static/styles.css" rel="stylesheet">
+        <style>
+          body { background-color: #f6f7f8; margin: 0; font-family: system-ui, -apple-system, sans-serif; }
+          .container { max-width: 1536px; margin: 0 auto; padding: 0 1rem; }
+          header { background: white; border-bottom: 1px solid #e5e7eb; }
+        </style>
     </head>
-    <body class="bg-gray-50">
-        <header class="bg-white border-b">
-            <div class="container mx-auto px-4 py-4">
-                <h1 class="text-3xl font-bold text-gray-900">${siteName}</h1>
-                <nav class="mt-4 flex gap-4">
-                    ${categories.map(cat => `
-                        <a href="/categoria/${cat.slug}" class="text-gray-700 hover:text-blue-600">${cat.name}</a>
-                    `).join('')}
-                </nav>
+    <body>
+        <header>
+            <div class="container py-4">
+                <a href="/" class="text-2xl font-bold">${siteName}</a>
             </div>
         </header>
         
-        <main class="container mx-auto px-4 py-8">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                ${posts.map(post => `
-                    <article class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition">
-                        <a href="/noticia/${post.slug}">
-                            <div class="p-4">
-                                <h2 class="text-xl font-bold mb-2 text-gray-900">${post.title}</h2>
-                                <p class="text-gray-600 text-sm">${post.excerpt || ''}</p>
-                                <span class="text-xs text-gray-400 mt-2 block">
-                                    ${new Date(post.published_at || '').toLocaleDateString('pt-BR')}
+        <main class="container py-8">
+            <h1 class="text-4xl font-bold mb-8">Últimas Notícias</h1>
+            
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <ul class="space-y-4">
+                    ${(posts.results || []).map((post: any) => `
+                        <li class="border-b last:border-0 pb-4 last:pb-0">
+                            <a href="${baseUrl}/noticia/${post.slug}" class="block hover:text-[#FF4D00] transition-colors">
+                                <div class="flex items-baseline gap-2">
+                                    <span class="text-xs text-gray-500 font-mono">
+                                        ${new Date(post.published_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                    <span class="flex-1 font-medium">${post.title}</span>
+                                </div>
+                                <span class="text-xs text-[#FF4D00] font-bold uppercase mt-1 inline-block">
+                                    ${post.category_name}
                                 </span>
-                            </div>
-                        </a>
-                    </article>
-                `).join('')}
+                            </a>
+                        </li>
+                    `).join('')}
+                </ul>
+                
+                <div class="flex gap-4 mt-6 pt-6 border-t">
+                    ${page > 1 ? `<a href="/ultimas?page=${page - 1}" class="px-4 py-2 bg-[#FF4D00] text-white rounded hover:bg-[#E04400]">← Anterior</a>` : ''}
+                    ${(posts.results || []).length === limit ? `<a href="/ultimas?page=${page + 1}" class="px-4 py-2 bg-[#FF4D00] text-white rounded hover:bg-[#E04400]">Próximo →</a>` : ''}
+                </div>
             </div>
         </main>
         
         <footer class="bg-gray-900 text-white mt-12 py-8">
-            <div class="container mx-auto px-4 text-center">
-                <p>&copy; 2024 ${siteName}. Todos os direitos reservados.</p>
+            <div class="container text-center">
+                <p>&copy; ${new Date().getFullYear()} ${siteName}. Todos os direitos reservados.</p>
             </div>
         </footer>
-        
-        <script src="/static/app.js"></script>
     </body>
     </html>
   `)

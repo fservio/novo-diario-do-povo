@@ -18,12 +18,17 @@ INSERT OR IGNORE INTO settings (key, value_json, scope, updated_at) VALUES
 ('ads.csp_allowlist', '["*.googlesyndication.com", "*.google.com", "*.doubleclick.net", "*.googletagservices.com", "securepubads.g.doubleclick.net", "googleads.g.doubleclick.net", "tpc.googlesyndication.com"]', 'public', datetime('now')),
 ('ads.subscriber_mode.enabled', 'true', 'public', datetime('now')),
 ('ads.subscriber_mode.article_disable_sticky', 'true', 'public', datetime('now')),
-('ads.subscriber_mode.article_max_inread', '1', 'public', datetime('now'));
+('ads.subscriber_mode.article_max_inread', '1', 'public', datetime('now')),
+-- Cover of the Day settings
+('cover_of_day.r2_key', '"default-cover.jpg"', 'public', datetime('now')),
+('cover_of_day.alt', '"Capa do Jornal"', 'public', datetime('now')),
+('cover_of_day.aspect_ratio', '"3/4"', 'public', datetime('now'));
 
 -- Ads Slots defaults
 INSERT OR IGNORE INTO ads_slots (name, template, provider, sizes_json, lazy, min_height, is_active, gam_unit_path, adsense_format) VALUES
 ('home_top_leaderboard', 'home', 'gam', '[[970,250],[728,90],[320,100]]', 0, 250, 1, '/home/top', 'horizontal'),
 ('home_infeed_1', 'home', 'gam', '[[300,250]]', 1, 250, 1, '/home/infeed1', 'rectangle'),
+('home_infeed_2', 'home', 'gam', '[[300,250]]', 1, 250, 1, '/home/infeed2', 'rectangle'),
 ('home_sidebar_1', 'home', 'gam', '[[300,600],[300,250]]', 1, 600, 1, '/home/sidebar1', 'vertical'),
 ('article_top', 'article', 'gam', '[[728,90],[320,100]]', 0, 90, 1, '/article/top', 'horizontal'),
 ('article_inread_1', 'article', 'gam', '[[300,250]]', 1, 250, 1, '/article/inread1', 'rectangle'),

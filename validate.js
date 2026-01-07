@@ -818,6 +818,108 @@ if (securityFile && existsSync(securityFile)) {
 }
 
 // ============================================================================
+// 17. Home Layout (Verge Style)
+// ============================================================================
+
+section('17. Home Layout (Verge Style)')
+
+// Test home renderer exists
+const homeRendererFile = 'packages/core/web/home.ts'
+if (existsSync(homeRendererFile)) {
+  const homeCode = readFileSync(homeRendererFile, 'utf-8')
+  
+  // Test 1: Has Cover Drawer
+  if (homeCode.includes('coverBtn') && homeCode.includes('coverOverlay')) {
+    success('Home: Drawer "Capa do Dia" implementado')
+  } else {
+    error('Home: Drawer "Capa do Dia" não encontrado')
+  }
+  
+  // Test 2: Has Hot Rail "Agora"
+  if (homeCode.includes('Agora')) {
+    success('Home: Hot Rail "Agora" implementado')
+  } else {
+    error('Home: Hot Rail "Agora" não encontrado')
+  }
+  
+  // Test 3: Has category blocks (Brasil, Economia, etc)
+  const categories = ['brasil', 'economia', 'politica', 'cidades', 'esporte']
+  let allCategoriesPresent = true
+  categories.forEach(cat => {
+    if (!homeCode.includes(cat)) {
+      allCategoriesPresent = false
+    }
+  })
+  
+  if (allCategoriesPresent) {
+    success('Home: 5 editorias fixas presentes (Brasil, Economia, Política, Cidades, Esporte)')
+  } else {
+    error('Home: Nem todas as 5 editorias fixas estão presentes')
+  }
+  
+  // Test 4: Has ad slots
+  if (homeCode.includes('home_top_leaderboard') && 
+      homeCode.includes('home_infeed_1') && 
+      homeCode.includes('home_infeed_2')) {
+    success('Home: 3 slots de ads presentes (top_leaderboard, infeed_1, infeed_2)')
+  } else {
+    error('Home: Nem todos os slots de ads estão presentes')
+  }
+  
+  // Test 5: No Tailwind CDN
+  if (homeCode.includes('cdn.tailwindcss.com')) {
+    error('Home: contém Tailwind CDN (deve ser removido)')
+  } else {
+    success('Home: não contém Tailwind CDN')
+  }
+  
+  // Test 6: Has nonce in script
+  if (homeCode.includes('nonce="${nonce}"') || homeCode.includes('nonce={nonce}')) {
+    success('Home: scripts inline usam CSP nonce')
+  } else {
+    error('Home: scripts inline não usam CSP nonce')
+  }
+  
+  // Test 7: Escape functions present
+  if (homeCode.includes('escapeHtml') && homeCode.includes('escapeAttr')) {
+    success('Home: funções de escape HTML/attr presentes')
+  } else {
+    error('Home: funções de escape HTML/attr ausentes')
+  }
+} else {
+  error('Home: packages/core/web/home.ts não encontrado')
+}
+
+// Test home data module
+const homeDataFile = 'packages/core/db/home.ts'
+if (existsSync(homeDataFile)) {
+  const dataCode = readFileSync(homeDataFile, 'utf-8')
+  
+  if (dataCode.includes('getHomeData') && 
+      dataCode.includes('hero') && 
+      dataCode.includes('dualFeatures') &&
+      dataCode.includes('hotRail') &&
+      dataCode.includes('explainers') &&
+      dataCode.includes('categoryBlocks')) {
+    success('Home Data: módulo getHomeData com todas as seções')
+  } else {
+    error('Home Data: módulo incompleto')
+  }
+} else {
+  error('Home Data: packages/core/db/home.ts não encontrado')
+}
+
+// Test /ultimas route
+if (existsSync(functionsIndexFile)) {
+  const indexCode = readFileSync(functionsIndexFile, 'utf-8')
+  if (indexCode.includes("app.get('/ultimas'")) {
+    success('Home: rota /ultimas implementada')
+  } else {
+    warning('Home: rota /ultimas não encontrada (hot rail "ver todas")')
+  }
+}
+
+// ============================================================================
 // RESUMO FINAL
 // ============================================================================
 section('Resumo Final')
