@@ -7,7 +7,7 @@
 -- ============================================================================
 -- Password: AdminPass123!
 INSERT OR IGNORE INTO users (email, password_hash, name, role) VALUES
-  ('admin@portal.local', 'pbkdf2_sha256$210000$Q4-buaO7hDhdffjnapj0Lg$Mp0T2mq6bFyArpK0tAEcJX1mcySwdV-zVw2dkXB3dzg', 'Admin', 'admin');
+  ('admin@portal.local', 'pbkdf2_sha256$100000$dDgbIwHR8mHTBd7N9_7VBQ$IcCYO5bVvbeAv32LAT29YrlEUJKZfp5qlLB8pRIeK4w', 'Admin', 'admin');
 
 -- ============================================================================
 -- 2. Categories
