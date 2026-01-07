@@ -27,12 +27,16 @@ export function renderAdminLayout(params: {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <title>${escapeHtml(title)}</title>
-  <link rel="stylesheet" href="/static/styles.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; }
+  </style>
 </head>
 <body class="bg-gray-50 text-gray-900">
   <div class="min-h-screen flex">
-    <aside class="w-64 bg-white border-r p-4">
-      <div class="text-xl font-bold mb-6">Jornal CMS</div>
+    <aside class="w-64 bg-white border-r border-gray-200 p-4">
+      <div class="text-xl font-bold mb-6 text-gray-900">Jornal CMS</div>
       <nav class="flex flex-col gap-2 text-sm">
         <a class="px-3 py-2 rounded hover:bg-gray-100 ${isActive('dashboard')}" href="/admin">Dashboard</a>
         <a class="px-3 py-2 rounded hover:bg-gray-100 ${isActive('settings')}" href="/admin/settings">Settings</a>
@@ -44,14 +48,14 @@ export function renderAdminLayout(params: {
     </aside>
 
     <main class="flex-1">
-      <header class="bg-white border-b p-4 flex items-center justify-between">
+      <header class="bg-white border-b border-gray-200 p-4 flex items-center justify-between">
         <div>
-          <div class="text-lg font-semibold">${escapeHtml(title)}</div>
+          <div class="text-lg font-semibold text-gray-900">${escapeHtml(title)}</div>
           <div class="text-xs text-gray-500">${escapeHtml(user.email)}</div>
         </div>
         <form method="post" action="/admin/logout">
           ${csrfToken ? `<input type="hidden" name="csrf" value="${escapeHtml(csrfToken)}">` : ''}
-          <button class="px-3 py-2 rounded bg-gray-900 text-white text-sm hover:bg-gray-700">Sair</button>
+          <button class="px-4 py-2 rounded bg-gray-900 text-white text-sm hover:bg-gray-700 transition">Sair</button>
         </form>
       </header>
 
@@ -72,32 +76,50 @@ export function renderLoginPage(error?: string): string {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <title>Login - Jornal CMS</title>
-  <link rel="stylesheet" href="/static/styles.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; }
+  </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
-  <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-    <h1 class="text-2xl font-bold mb-6 text-center">Jornal CMS</h1>
+  <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+    <h1 class="text-2xl font-bold mb-6 text-center text-gray-900">Jornal CMS</h1>
     
-    ${error ? `<div class="mb-4 p-3 bg-red-50 text-red-700 rounded text-sm">${escapeHtml(error)}</div>` : ''}
+    ${error ? `<div class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">${escapeHtml(error)}</div>` : ''}
     
     <form method="post" action="/admin/login" class="space-y-4">
       <div>
-        <label class="block text-sm font-medium mb-1">Email</label>
+        <label class="block text-sm font-medium mb-1 text-gray-700">Email</label>
         <input 
           type="email" 
           name="email" 
           required 
-          class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
       </div>
       
       <div>
-        <label class="block text-sm font-medium mb-1">Senha</label>
+        <label class="block text-sm font-medium mb-1 text-gray-700">Senha</label>
         <input 
           type="password" 
           name="password" 
           required 
-          class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+      </div>
+      
+      <button 
+        type="submit" 
+        class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition font-medium"
+      >
+        Entrar
+      </button>
+    </form>
+  </div>
+</body>
+</html>`
+}
         >
       </div>
       

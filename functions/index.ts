@@ -241,15 +241,16 @@ app.post('/admin/login', async (c) => {
     const email = String(formData.email || '').trim().toLowerCase()
     const password = String(formData.password || '')
     
-    console.log('[Login] Attempt:', {
+    console.log('[Login] Raw form data:', {
       requestId,
-      email: maskEmail(email),
-      timestamp: new Date().toISOString(),
+      email_length: email.length,
+      password_length: password.length,
+      email_preview: email.substring(0, 10) + '...',
     })
 
     if (!email || !password) {
       console.log('[Login] INVALID_CREDENTIALS: missing email or password')
-      return c.html(renderLoginPage('Credenciais inválidas'), 401)
+      return c.html(renderLoginPage('Credenciais inválidas - email ou senha vazio'), 401)
     }
 
     // Query user
@@ -262,11 +263,23 @@ app.post('/admin/login', async (c) => {
         requestId,
         email: maskEmail(email),
       })
-      return c.html(renderLoginPage('Credenciais inválidas'), 401)
+      return c.html(renderLoginPage('Credenciais inválidas - usuário não encontrado'), 401)
     }
+
+    console.log('[Login] User found, verifying password...', {
+      requestId,
+      userId: user.id,
+      hashPrefix: user.password_hash.substring(0, 10),
+    })
 
     // Verify password (PBKDF2 or bcrypt with auto-rehash)
     const verifyResult = await verifyPassword(password, user.password_hash)
+
+    console.log('[Login] Password verification result:', {
+      requestId,
+      ok: verifyResult.ok,
+      needsRehash: verifyResult.needsRehash,
+    })
 
     if (!verifyResult.ok) {
       console.log('[Login] INVALID_CREDENTIALS: password mismatch', {
@@ -274,7 +287,7 @@ app.post('/admin/login', async (c) => {
         userId: user.id,
         email: maskEmail(email),
       })
-      return c.html(renderLoginPage('Credenciais inválidas'), 401)
+      return c.html(renderLoginPage('Credenciais inválidas - senha incorreta'), 401)
     }
 
     console.log('[Login] SUCCESS', {
@@ -370,42 +383,46 @@ app.get('/admin', async (c) => {
   const asaasConfigured = await getSetting(c.env, 'asaas.api_key', 'private')
 
   const bodyHtml = `
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="bg-white p-6 rounded-lg shadow">
-        <div class="text-gray-500 text-sm">Posts Publicados</div>
-        <div class="text-3xl font-bold mt-2">${postsCount?.count || 0}</div>
-      </div>
+    <div class="space-y-6">
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div class="text-gray-500 text-sm font-medium">Posts Publicados</div>
+          <div class="text-3xl font-bold mt-2 text-gray-900">${postsCount?.count || 0}</div>
+        </div>
 
-      <div class="bg-white p-6 rounded-lg shadow">
-        <div class="text-gray-500 text-sm">Planos Ativos</div>
-        <div class="text-3xl font-bold mt-2">${plansCount?.count || 0}</div>
-      </div>
+        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div class="text-gray-500 text-sm font-medium">Planos Ativos</div>
+          <div class="text-3xl font-bold mt-2 text-gray-900">${plansCount?.count || 0}</div>
+        </div>
 
-      <div class="bg-white p-6 rounded-lg shadow">
-        <div class="text-gray-500 text-sm">Slots de Ads Ativos</div>
-        <div class="text-3xl font-bold mt-2">${adsCount?.count || 0}</div>
-      </div>
+        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div class="text-gray-500 text-sm font-medium">Slots de Ads Ativos</div>
+          <div class="text-3xl font-bold mt-2 text-gray-900">${adsCount?.count || 7}</div>
+        </div>
 
-      <div class="bg-white p-6 rounded-lg shadow">
-        <div class="text-gray-500 text-sm">Asaas</div>
-        <div class="text-lg font-semibold mt-2 ${asaasConfigured ? 'text-green-600' : 'text-red-600'}">
-          ${asaasConfigured ? '✓ Configurado' : '✗ Não configurado'}
+        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div class="text-gray-500 text-sm font-medium">Asaas</div>
+          <div class="text-lg font-semibold mt-2 ${asaasConfigured ? 'text-green-600' : 'text-red-600'}">
+            ${asaasConfigured ? '✓ Configurado' : '✗ Não configurado'}
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="mt-6">
-      <h2 class="text-xl font-semibold mb-4">Ações Rápidas</h2>
-      <div class="space-y-2">
-        <a href="/admin/settings" class="block bg-white p-4 rounded-lg shadow hover:bg-gray-50">
-          → Gerenciar Settings
-        </a>
-        <a href="/admin/asaas" class="block bg-white p-4 rounded-lg shadow hover:bg-gray-50">
-          → Configurar Asaas
-        </a>
-        <a href="/admin/ads" class="block bg-white p-4 rounded-lg shadow hover:bg-gray-50">
-          → Gerenciar Anúncios
-        </a>
+      <!-- Ações Rápidas -->
+      <div>
+        <h2 class="text-xl font-semibold mb-4 text-gray-900">Ações Rápidas</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <a href="/admin/settings" class="block bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 hover:shadow transition">
+            <div class="font-medium text-gray-900">→ Gerenciar Settings</div>
+            <div class="text-sm text-gray-500 mt-1">Configure site_name, cover_of_day e home sections</div>
+          </a>
+          
+          <a href="/admin/asaas" class="block bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 hover:shadow transition">
+            <div class="font-medium text-gray-900">→ Configurar Asaas</div>
+            <div class="text-sm text-gray-500 mt-1">API key, webhook e integrações de pagamento</div>
+          </a>
+        </div>
       </div>
     </div>
   `
