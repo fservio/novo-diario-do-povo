@@ -32,6 +32,7 @@ interface JWTPayload {
   type: 'admin' | 'reader'
   email: string
   role?: string
+  sid?: string // session ID (para CSRF bound)
   iat: number
   exp: number
 }

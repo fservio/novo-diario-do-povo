@@ -199,6 +199,8 @@ app.get('/admin/login', async (c) => {
 app.post('/admin/login', async (c) => {
   const { renderLoginPage } = await import('../packages/core/admin/ui')
   const { signJWT } = await import('../packages/core/auth')
+  const { generateCSRFToken } = await import('../packages/core/middleware/security')
+  const { randomHex } = await import('../packages/core/utils')
   const { z } = await import('zod')
 
   const loginSchema = z.object({
@@ -227,23 +229,31 @@ app.post('/admin/login', async (c) => {
       return c.html(renderLoginPage('Credenciais inválidas'), 401)
     }
 
-    // Generate JWT
+    // Generate session ID (once per login)
+    const sessionId = randomHex(16)
+
+    // Generate JWT with session ID
     const token = await signJWT(
       {
         sub: user.id.toString(),
         email: user.email,
         role: user.role,
-        type: 'admin'
+        type: 'admin',
+        sid: sessionId  // Session ID for CSRF binding
       },
       c.env.JWT_SECRET,
       7 * 24 * 60 * 60 // 7 days
     )
 
-    // Set cookie
-    c.header(
-      'Set-Cookie',
-      `admin_session=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800`
-    )
+    // Generate CSRF token once per session
+    const csrfToken = await generateCSRFToken(c.env, user.id, sessionId)
+
+    // Set cookies
+    const cookieOptions = 'Secure; SameSite=Lax; Path=/admin'
+    c.header('Set-Cookie', [
+      `admin_session=${token}; HttpOnly; ${cookieOptions}; Max-Age=604800`,
+      `admin_csrf=${csrfToken}; ${cookieOptions}; Max-Age=3600`  // Non-HttpOnly for JS access
+    ].join(', '))
 
     return c.redirect('/admin', 302)
   } catch (error) {
@@ -254,7 +264,10 @@ app.post('/admin/login', async (c) => {
 
 // POST /admin/logout
 app.post('/admin/logout', async (c) => {
-  c.header('Set-Cookie', 'admin_session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0')
+  c.header('Set-Cookie', [
+    'admin_session=; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=0',
+    'admin_csrf=; Secure; SameSite=Lax; Path=/admin; Max-Age=0'
+  ].join(', '))
   return c.redirect('/admin/login', 302)
 })
 
@@ -966,24 +979,33 @@ app.post('/api/webhooks/asaas', async (c) => {
       stableKey = `asaas:${eventType}:invoice:${(event as any).invoice.id}`
     }
     
-    // Idempotency check 1: by payload_hash
+    // RACE-FREE IDEMPOTENCY: Try INSERT into webhook_idempotency first
+    // If stable_key exists, PRIMARY KEY will reject (no race condition)
+    if (stableKey) {
+      try {
+        await c.env.DB.prepare(`
+          INSERT INTO webhook_idempotency (provider, stable_key, event_id)
+          VALUES (?, ?, ?)
+        `).bind('asaas', stableKey, eventId).run()
+        
+        // Success: this is the FIRST request with this stable_key → continue
+      } catch (error: any) {
+        // PRIMARY KEY collision → duplicate stable_key
+        if (error.message && error.message.includes('UNIQUE constraint failed')) {
+          return c.json({ success: true, message: 'Event already processed (stable_key race-free)' })
+        }
+        // Other error → log and continue (fallback to hash check)
+        console.error('Idempotency table error:', error)
+      }
+    }
+    
+    // Fallback idempotency check: by payload_hash
     const existingByHash = await c.env.DB.prepare(
       'SELECT id FROM webhook_events WHERE provider = ? AND event_id = ?'
     ).bind('asaas', eventId).first()
     
     if (existingByHash) {
       return c.json({ success: true, message: 'Event already processed (by hash)' })
-    }
-    
-    // Idempotency check 2: by stable_key (if exists)
-    if (stableKey) {
-      const existingByKey = await c.env.DB.prepare(
-        'SELECT id FROM webhook_events WHERE provider = ? AND stable_key = ? AND status IN (?, ?)'
-      ).bind('asaas', stableKey, 'pending', 'processed').first()
-      
-      if (existingByKey) {
-        return c.json({ success: true, message: 'Event already processed (by stable_key)' })
-      }
     }
     
     // Store event with hybrid idempotency

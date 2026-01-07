@@ -1,13 +1,12 @@
 /**
  * Admin Auth Middleware
  * Protege rotas /admin e /api/admin
- * Gera CSRF token para cada request
+ * Lê CSRF do cookie admin_csrf (gerado no login)
  */
 
 import type { Context, Next } from 'hono'
 import type { Env, AppContext } from '../types'
 import { verifyJWT } from '../auth'
-import { generateCSRFToken } from './security'
 
 export async function requireAdmin(c: Context<{ Bindings: Env; Variables: AppContext }>, next: Next): Promise<Response | void> {
   const path = c.req.path
@@ -19,7 +18,7 @@ export async function requireAdmin(c: Context<{ Bindings: Env; Variables: AppCon
     return
   }
 
-  // Skip CSRF generation for login page (GET)
+  // Skip for login page (GET)
   if (path === '/admin/login' && c.req.method === 'GET') {
     await next()
     return
@@ -28,11 +27,17 @@ export async function requireAdmin(c: Context<{ Bindings: Env; Variables: AppCon
   // Extract cookie
   const cookieHeader = c.req.header('cookie')
   let token: string | null = null
+  let csrfToken: string | null = null
 
   if (cookieHeader) {
-    const match = cookieHeader.match(/admin_session=([^;]+)/)
-    if (match) {
-      token = match[1]
+    const sessionMatch = cookieHeader.match(/admin_session=([^;]+)/)
+    if (sessionMatch) {
+      token = sessionMatch[1]
+    }
+    
+    const csrfMatch = cookieHeader.match(/admin_csrf=([^;]+)/)
+    if (csrfMatch) {
+      csrfToken = csrfMatch[1]
     }
   }
 
@@ -59,9 +64,10 @@ export async function requireAdmin(c: Context<{ Bindings: Env; Variables: AppCon
     role: payload.role
   })
 
-  // Generate CSRF token for this session
-  const csrfToken = await generateCSRFToken(c.env, adminUserId)
-  c.set('csrfToken', csrfToken)
+  // Store CSRF token from cookie (no KV write per request)
+  if (csrfToken) {
+    c.set('csrfToken', csrfToken)
+  }
 
   await next()
 }

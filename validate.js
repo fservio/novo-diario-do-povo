@@ -600,7 +600,7 @@ if (existsSync(securityFile)) {
   }
   
   // Test 6: CSRF bound à sessão (verifica owner)
-  if (secCode.includes('adminUser') && secCode.includes('storedOwnerId')) {
+  if (secCode.includes('adminUser.id') && (secCode.includes('uid !== adminUser.id') || secCode.includes('storedData'))) {
     success('CSRF: bound à sessão (verifica owner)')
   } else {
     error('CSRF: não bound à sessão')
@@ -658,7 +658,7 @@ if (existsSync(seedAdsFile)) {
   }
 }
 
-// Test 11: Migration stable_key
+// Test 11: Migration stable_key (0003)
 const webhookMigrationFile = 'migrations/0003_webhook_stable_key.sql'
 if (existsSync(webhookMigrationFile)) {
   success('Migration: 0003_webhook_stable_key.sql presente')
@@ -666,7 +666,20 @@ if (existsSync(webhookMigrationFile)) {
   error('Migration: 0003_webhook_stable_key.sql ausente')
 }
 
-// Test 12: renderScript helper com nonce
+// Test 12: Migration webhook_idempotency (0004) - RACE-FREE
+const idempotencyMigrationFile = 'migrations/0004_webhook_idempotency.sql'
+if (existsSync(idempotencyMigrationFile)) {
+  const migCode = readFileSync(idempotencyMigrationFile, 'utf-8')
+  if (migCode.includes('PRIMARY KEY (provider, stable_key)')) {
+    success('Migration: 0004_webhook_idempotency.sql com PRIMARY KEY race-free')
+  } else {
+    error('Migration: 0004 existe mas sem PRIMARY KEY correto')
+  }
+} else {
+  error('Migration: 0004_webhook_idempotency.sql ausente')
+}
+
+// Test 13: renderScript helper com nonce
 const uiFile = 'packages/core/admin/ui.ts'
 if (existsSync(uiFile)) {
   const uiCode = readFileSync(uiFile, 'utf-8')
@@ -674,6 +687,108 @@ if (existsSync(uiFile)) {
     success('UI: renderScript helper com nonce presente')
   } else {
     warning('UI: renderScript helper não detectado')
+  }
+}
+
+// ============================================================================
+// 16. MICRO-AJUSTES OPERACIONAIS (3 critical)
+// ============================================================================
+
+section('16. Micro-Ajustes Operacionais (Nonce, CSRF, Webhook)')
+
+// MICRO-AJUSTE 1: Nonce helper seguro (sem spread)
+const cryptoFile = 'packages/core/utils/crypto.ts'
+if (existsSync(cryptoFile)) {
+  const cryptoCode = readFileSync(cryptoFile, 'utf-8')
+  
+  // Test 1.1: randomBytes sem spread
+  if (cryptoCode.includes('String.fromCharCode(...bytes)')) {
+    error('MICRO 1: crypto.ts usa spread operator (...bytes) - risco de stack overflow')
+  } else if (cryptoCode.includes('randomBytes') && cryptoCode.includes('for (let i = 0; i < len; i++)')) {
+    success('MICRO 1: crypto.ts usa loop seguro (sem spread operator)')
+  } else {
+    warning('MICRO 1: crypto.ts não confirmado com loop seguro')
+  }
+  
+  // Test 1.2: toBase64 sem spread
+  if (cryptoCode.includes('toBase64') && cryptoCode.includes('for (let i = 0; i < len; i++)')) {
+    success('MICRO 1: toBase64 usa loop seguro')
+  } else {
+    error('MICRO 1: toBase64 não usa loop seguro')
+  }
+  
+  // Test 1.3: randomHex presente
+  if (cryptoCode.includes('randomHex') && cryptoCode.includes('toHex')) {
+    success('MICRO 1: randomHex helper presente')
+  } else {
+    error('MICRO 1: randomHex helper ausente')
+  }
+} else {
+  error('MICRO 1: packages/core/utils/crypto.ts ausente')
+}
+
+// MICRO-AJUSTE 2: CSRF por sessão (não por request)
+const requireAdminFile = 'packages/core/middleware/requireAdmin.ts'
+if (existsSync(requireAdminFile)) {
+  const reqAdminCode = readFileSync(requireAdminFile, 'utf-8')
+  
+  // Test 2.1: requireAdmin lê cookie admin_csrf (não gera)
+  if (reqAdminCode.includes('admin_csrf') && reqAdminCode.includes('csrfMatch')) {
+    success('MICRO 2: requireAdmin lê cookie admin_csrf (não gera por request)')
+  } else {
+    error('MICRO 2: requireAdmin não lê cookie admin_csrf')
+  }
+  
+  // Test 2.2: Não gera CSRF em requireAdmin
+  if (reqAdminCode.includes('generateCSRFToken')) {
+    error('MICRO 2: requireAdmin ainda gera CSRF (deve ser gerado no login)')
+  } else {
+    success('MICRO 2: requireAdmin não gera CSRF (correto)')
+  }
+} else {
+  error('MICRO 2: packages/core/middleware/requireAdmin.ts ausente')
+}
+
+// Test 2.3: Login gera sessionId e CSRF
+if (existsSync(functionsIndexFile)) {
+  const indexCode = readFileSync(functionsIndexFile, 'utf-8')
+  
+  if (indexCode.includes('randomHex(16)') && 
+      indexCode.includes('sid: sessionId') &&
+      indexCode.includes('admin_csrf')) {
+    success('MICRO 2: Login gera sessionId + CSRF e seta cookie admin_csrf')
+  } else {
+    error('MICRO 2: Login não gera sessionId/CSRF corretamente')
+  }
+  
+  // Test 2.4: csrfProtection valida {uid, sid}
+  if (securityFile && existsSync(securityFile)) {
+    const secCode = readFileSync(securityFile, 'utf-8')
+    if (secCode.includes('uid !== adminUser.id') && secCode.includes('sid !== sessionId')) {
+      success('MICRO 2: csrfProtection valida uid + sid (CSRF bound à sessão)')
+    } else {
+      error('MICRO 2: csrfProtection não valida uid + sid')
+    }
+  }
+}
+
+// MICRO-AJUSTE 3: Webhook stable_key race-free
+if (existsSync(functionsIndexFile)) {
+  const indexCode = readFileSync(functionsIndexFile, 'utf-8')
+  
+  // Test 3.1: INSERT race-free em webhook_idempotency
+  if (indexCode.includes('INSERT INTO webhook_idempotency') && 
+      indexCode.includes('UNIQUE constraint failed')) {
+    success('MICRO 3: Webhook usa INSERT race-free em webhook_idempotency')
+  } else {
+    error('MICRO 3: Webhook não usa INSERT race-free (ainda tem race condition)')
+  }
+  
+  // Test 3.2: PRIMARY KEY collision detection
+  if (indexCode.includes('already processed (stable_key race-free)')) {
+    success('MICRO 3: Webhook detecta PRIMARY KEY collision (race-free)')
+  } else {
+    warning('MICRO 3: Webhook não retorna mensagem de collision específica')
   }
 }
 

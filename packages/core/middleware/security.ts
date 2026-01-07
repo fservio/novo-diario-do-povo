@@ -4,16 +4,15 @@
 
 import type { Context, Next } from 'hono'
 import type { Env, AppContext } from '../types'
+import { randomBytes, toBase64 } from '../utils'
 
 /**
  * Generate CSP nonce (16 random bytes → base64)
+ * Uses safe helper without spread operator
  */
 function generateNonce(): string {
-  const bytes = new Uint8Array(16)
-  crypto.getRandomValues(bytes)
-  // Base64 encode
-  const base64 = btoa(String.fromCharCode(...bytes))
-  return base64
+  const bytes = randomBytes(16)
+  return toBase64(bytes)
 }
 
 export async function securityHeaders(c: Context<{ Bindings: Env; Variables: AppContext }>, next: Next): Promise<void> {
@@ -190,26 +189,64 @@ export async function csrfProtection(c: Context<{ Bindings: Env; Variables: AppC
     }
   }
 
-  // Verificar token no KV e validar owner
-  const storedOwnerId = await c.env.KV.get(`csrf:${token}`)
-  if (!storedOwnerId || storedOwnerId !== adminUser.id.toString()) {
+  // Get session ID from JWT (via requireAdmin)
+  const cookieHeader = c.req.header('cookie')
+  let sessionId: string | null = null
+  
+  if (cookieHeader) {
+    const match = cookieHeader.match(/admin_session=([^;]+)/)
+    if (match) {
+      const { verifyJWT } = await import('../auth')
+      const payload = await verifyJWT(match[1], c.env.JWT_SECRET)
+      if (payload && payload.sid) {
+        sessionId = payload.sid
+      }
+    }
+  }
+
+  // Verificar token no KV e validar owner + sessionId
+  const storedData = await c.env.KV.get(`csrf:${token}`)
+  if (!storedData) {
     if (path.startsWith('/api/')) {
       return c.json({ success: false, error: 'CSRF token inválido ou expirado' }, 403)
     } else {
-      return c.html('<h1>403 Forbidden</h1><p>CSRF token inválido ou não pertence à sessão atual</p>', 403)
+      return c.html('<h1>403 Forbidden</h1><p>CSRF token inválido ou expirado</p>', 403)
+    }
+  }
+
+  try {
+    const { uid, sid } = JSON.parse(storedData)
+    
+    // Validate: userId matches AND sessionId matches
+    if (uid !== adminUser.id || sid !== sessionId) {
+      if (path.startsWith('/api/')) {
+        return c.json({ success: false, error: 'CSRF token não pertence à sessão atual' }, 403)
+      } else {
+        return c.html('<h1>403 Forbidden</h1><p>CSRF token não pertence à sessão atual</p>', 403)
+      }
+    }
+  } catch (error) {
+    console.error('Failed to parse CSRF data:', error)
+    if (path.startsWith('/api/')) {
+      return c.json({ success: false, error: 'CSRF token corrompido' }, 403)
+    } else {
+      return c.html('<h1>403 Forbidden</h1><p>CSRF token corrompido</p>', 403)
     }
   }
 
   await next()
 }
 
-export async function generateCSRFToken(env: Env, adminUserId: number): Promise<string> {
-  const bytes = new Uint8Array(32)
-  crypto.getRandomValues(bytes)
-  const token = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
+export async function generateCSRFToken(env: Env, adminUserId: number, sessionId: string): Promise<string> {
+  const { randomHex } = await import('../utils')
+  const token = randomHex(32)
   
-  // Store with admin user ID as owner (TTL 1 hora)
-  await env.KV.put(`csrf:${token}`, adminUserId.toString(), { expirationTtl: 3600 })
+  // Store with admin user ID and session ID as owner (TTL 1 hora)
+  await env.KV.put(
+    `csrf:${token}`, 
+    JSON.stringify({ uid: adminUserId, sid: sessionId }), 
+    { expirationTtl: 3600 }
+  )
   
   return token
 }
