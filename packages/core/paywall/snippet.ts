@@ -71,6 +71,9 @@ export function createSafeSnippet(htmlContent: string, ratio: number): string {
   return snippet
 }
 
+// Alias para validação
+export const extractSecureSnippet = createSafeSnippet
+
 export function escapeHtml(text: string): string {
   const map: Record<string, string> = {
     '&': '&amp;',

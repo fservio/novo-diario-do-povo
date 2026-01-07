@@ -59,6 +59,7 @@ export async function securityHeaders(c: Context<{ Bindings: Env }>, next: Next)
   c.header('X-XSS-Protection', '1; mode=block')
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin')
   c.header('Permissions-Policy', 'geolocation=(), microphone=(), camera=()')
+  c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload')
 }
 
 // ============================================================================

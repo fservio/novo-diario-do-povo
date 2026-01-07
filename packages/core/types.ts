@@ -14,6 +14,7 @@ export interface Env {
   // Cloudflare Bindings
   DB: D1Database
   KV: KVNamespace
+  CACHE: KVNamespace // Alias para KV (bootstrap cache)
   R2: R2Bucket
   
   // Environment Variables

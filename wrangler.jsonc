@@ -17,6 +17,11 @@
       "binding": "KV",
       "id": "REPLACE_WITH_ACTUAL_ID_AFTER_CREATION",
       "preview_id": "REPLACE_WITH_ACTUAL_PREVIEW_ID_AFTER_CREATION"
+    },
+    {
+      "binding": "CACHE",
+      "id": "REPLACE_WITH_ACTUAL_ID_AFTER_CREATION",
+      "preview_id": "REPLACE_WITH_ACTUAL_PREVIEW_ID_AFTER_CREATION"
     }
   ],
   "r2_buckets": [

@@ -9,6 +9,25 @@ import { getSetting } from '../../db'
 import { z } from 'zod'
 
 // ============================================================================
+// Zod Schema for Webhook Validation
+// ============================================================================
+
+export const asaasWebhookSchema = z.object({
+  event: z.string(),
+  payment: z.object({
+    id: z.string(),
+    customer: z.string(),
+    subscription: z.string().optional(),
+    value: z.number(),
+    netValue: z.number().optional(),
+    status: z.enum(['PENDING', 'CONFIRMED', 'RECEIVED', 'OVERDUE', 'REFUNDED', 'CANCELED']),
+    billingType: z.string(),
+    dueDate: z.string(),
+    confirmedDate: z.string().nullable().optional(),
+  }).passthrough(),
+}).passthrough()
+
+// ============================================================================
 // ASAAS Configuration (from CMS settings)
 // ============================================================================
 

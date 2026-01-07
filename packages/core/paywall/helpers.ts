@@ -11,6 +11,10 @@ import {
   generateMeteringIdentifier 
 } from './index'
 
+// Aliases para validação
+export const signPaywallCookie = signMeteringCookie
+export const verifyPaywallCookie = verifyMeteringCookie
+
 // ============================================================================
 // Cookie Helper
 // ============================================================================

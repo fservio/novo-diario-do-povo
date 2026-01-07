@@ -129,7 +129,23 @@ CREATE INDEX idx_posts_published ON posts(published_at);
 CREATE INDEX idx_posts_premium ON posts(is_premium);
 
 -- ============================================================================
--- 6. Editorial: Post Revisions
+-- 6. Editorial: Posts Tags (Many-to-Many)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS posts_tags (
+  post_id INTEGER NOT NULL,
+  tag_id INTEGER NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (post_id, tag_id),
+  FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+  FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_posts_tags_post ON posts_tags(post_id);
+CREATE INDEX idx_posts_tags_tag ON posts_tags(tag_id);
+
+-- ============================================================================
+-- 7. Editorial: Post Revisions
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS post_revisions (
@@ -145,21 +161,6 @@ CREATE TABLE IF NOT EXISTS post_revisions (
 );
 
 CREATE INDEX idx_revisions_post ON post_revisions(post_id);
-
--- ============================================================================
--- 7. Editorial: Post Tags (many-to-many)
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS post_tags (
-  post_id INTEGER NOT NULL,
-  tag_id INTEGER NOT NULL,
-  PRIMARY KEY (post_id, tag_id),
-  FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
-  FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_post_tags_post ON post_tags(post_id);
-CREATE INDEX idx_post_tags_tag ON post_tags(tag_id);
 
 -- ============================================================================
 -- 8. Editorial: Pages (estáticas)
@@ -198,7 +199,30 @@ CREATE INDEX idx_menus_location ON menus(location);
 CREATE INDEX idx_menus_parent ON menus(parent_id);
 
 -- ============================================================================
--- 10. Editorial: Redirects (301/302)
+-- 10. Editorial: Hubs Editoriais
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS editorial_hubs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT UNIQUE NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  cover_media_id INTEGER,
+  layout TEXT NOT NULL DEFAULT 'grid', -- grid, timeline, featured
+  is_active INTEGER NOT NULL DEFAULT 1,
+  display_order INTEGER NOT NULL DEFAULT 0,
+  seo_title TEXT,
+  seo_description TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (cover_media_id) REFERENCES media(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_editorial_hubs_slug ON editorial_hubs(slug);
+CREATE INDEX idx_editorial_hubs_active ON editorial_hubs(is_active);
+
+-- ============================================================================
+-- 11. Editorial: Redirects (301/302)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS redirects (
@@ -281,7 +305,25 @@ CREATE INDEX idx_media_r2_key ON media(r2_key);
 CREATE INDEX idx_media_uploaded ON media(uploaded_at);
 
 -- ============================================================================
--- 14. Ads: Ad Slots (configuração por template)
+-- 14. Mídia: Media Variants (variantes responsivas)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS media_variants (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  media_id INTEGER NOT NULL,
+  width INTEGER NOT NULL,
+  r2_key TEXT UNIQUE NOT NULL,
+  format TEXT NOT NULL, -- webp, avif, jpeg
+  size_bytes INTEGER NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (media_id) REFERENCES media(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_media_variants_media ON media_variants(media_id);
+CREATE INDEX idx_media_variants_width ON media_variants(width);
+
+-- ============================================================================
+-- 15. Ads: Ad Slots (configuração por template)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS ads_slots (
@@ -315,7 +357,44 @@ CREATE INDEX idx_ads_template ON ads_slots(template);
 CREATE INDEX idx_ads_active ON ads_slots(is_active);
 
 -- ============================================================================
--- 15. Webhooks: Events (idempotência n8n/asaas)
+-- 16. Ads: Campaigns (campanhas ativas)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS ads_campaigns (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  provider TEXT NOT NULL, -- adsense, gam, custom
+  campaign_id TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  priority INTEGER NOT NULL DEFAULT 0,
+  start_date DATETIME,
+  end_date DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_ads_campaigns_active ON ads_campaigns(is_active);
+CREATE INDEX idx_ads_campaigns_dates ON ads_campaigns(start_date, end_date);
+
+-- ============================================================================
+-- 17. Ads: Targeting Rules (regras de segmentação)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS ads_targeting_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  campaign_id INTEGER NOT NULL,
+  rule_type TEXT NOT NULL, -- category, tag, author, template, paywall
+  rule_value TEXT NOT NULL, -- slug ou id
+  include_exclude TEXT NOT NULL DEFAULT 'include', -- include, exclude
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (campaign_id) REFERENCES ads_campaigns(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_ads_targeting_campaign ON ads_targeting_rules(campaign_id);
+CREATE INDEX idx_ads_targeting_type ON ads_targeting_rules(rule_type);
+
+-- ============================================================================
+-- 18. Webhooks: Events (idempotência n8n/asaas)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS webhook_events (
@@ -511,7 +590,45 @@ CREATE INDEX idx_entitlements_status ON entitlements(status);
 CREATE INDEX idx_entitlements_period_end ON entitlements(current_period_end);
 
 -- ============================================================================
--- 23. Paywall: Metering Counters (anônimo + logado)
+-- 23. Paywall: Rules (regras de acesso)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS paywall_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  rule_type TEXT NOT NULL, -- category, tag, author, global
+  rule_value TEXT, -- slug ou null (para global)
+  paywall_tier TEXT NOT NULL, -- free, metered, hard
+  metered_limit INTEGER, -- artigos gratuitos antes do paywall
+  priority INTEGER NOT NULL DEFAULT 0,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_paywall_rules_type ON paywall_rules(rule_type);
+CREATE INDEX idx_paywall_rules_active ON paywall_rules(is_active);
+CREATE INDEX idx_paywall_rules_priority ON paywall_rules(priority);
+
+-- ============================================================================
+-- 24. Paywall: Views (tracking de leitura)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS paywall_views (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  anon_identifier TEXT NOT NULL,
+  post_id INTEGER NOT NULL,
+  viewed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  ip_address TEXT,
+  user_agent TEXT,
+  FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_paywall_views_anon ON paywall_views(anon_identifier);
+CREATE INDEX idx_paywall_views_post ON paywall_views(post_id);
+CREATE INDEX idx_paywall_views_date ON paywall_views(viewed_at);
+
+-- ============================================================================
+-- 25. Paywall: Metering Counters (anônimo + logado)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS metering_counters (

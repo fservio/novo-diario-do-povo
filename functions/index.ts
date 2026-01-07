@@ -23,12 +23,40 @@ const app = new Hono<{ Bindings: Env; Variables: AppContext }>()
 // Bootstrap Admin (PRIMEIRO - Idempotente)
 // ============================================================================
 
+const BOOTSTRAP_FLAG = 'bootstrap:done'
+let bootstrapExecuted = false // In-memory cache
+
 app.use('*', async (c, next) => {
-  try {
-    await bootstrapAdmin(c.env)
-  } catch (error) {
-    console.error('Bootstrap error:', error)
+  // Check in-memory first (fastest)
+  if (bootstrapExecuted) {
+    await next()
+    return
   }
+
+  try {
+    // Check KV flag (persistent)
+    const flagValue = await c.env.CACHE.get(BOOTSTRAP_FLAG)
+    
+    if (flagValue === 'true') {
+      bootstrapExecuted = true
+      await next()
+      return
+    }
+
+    // Execute bootstrap only once
+    console.log('Executing admin bootstrap...')
+    await bootstrapAdmin(c.env)
+    
+    // Set flags
+    await c.env.CACHE.put(BOOTSTRAP_FLAG, 'true', { expirationTtl: 3600 * 24 * 365 })
+    bootstrapExecuted = true
+    
+    console.log('✅ Admin bootstrap completed')
+  } catch (error) {
+    console.error('❌ Bootstrap error:', error)
+    // Don't block requests on bootstrap failure
+  }
+  
   await next()
 })
 
@@ -657,7 +685,7 @@ app.get('/conta', async (c) => {
 app.post('/api/webhooks/asaas', async (c) => {
   const { rateLimiter } = await import('../packages/core/middleware')
   const { getSetting } = await import('../packages/core/db')
-  const { asaasWebhookEventSchema, handleAsaasWebhook } = await import('../packages/core/integrations/asaas')
+  const { asaasWebhookSchema, handleAsaasWebhook } = await import('../packages/core/integrations/asaas')
   
   // Rate limiting
   const limiter = rateLimiter('webhook')
@@ -676,7 +704,13 @@ app.post('/api/webhooks/asaas', async (c) => {
     const body = JSON.parse(rawBody)
     
     // Validate with Zod
-    const event = asaasWebhookEventSchema.parse(body)
+    const validation = asaasWebhookSchema.safeParse(body)
+    if (!validation.success) {
+      console.error('Webhook validation error:', validation.error)
+      return c.json({ success: false, error: 'Invalid webhook payload' }, 400)
+    }
+    
+    const event = validation.data
     const requestId = c.get('requestId') || 'unknown'
     
     // Compute payload hash (SHA-256)
@@ -765,7 +799,43 @@ app.notFound((c) => {
 })
 
 // ============================================================================
-// Export
+// 13. R2 Image Serving
+// ============================================================================
+
+app.get('/i/:key{.+}', async (c) => {
+  try {
+    const key = c.req.param('key')
+    const { getMediaFromR2 } = await import('../packages/core/storage')
+    
+    const object = await getMediaFromR2(c.env, key)
+    
+    if (!object) {
+      return c.notFound()
+    }
+    
+    const headers = new Headers()
+    headers.set('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream')
+    headers.set('Cache-Control', 'public, max-age=31536000, immutable')
+    headers.set('ETag', object.httpEtag || '')
+    
+    // Check If-None-Match for 304
+    const ifNoneMatch = c.req.header('If-None-Match')
+    if (ifNoneMatch && ifNoneMatch === object.httpEtag) {
+      return c.body(null, 304, Object.fromEntries(headers))
+    }
+    
+    return new Response(object.body, {
+      headers,
+      status: 200
+    })
+  } catch (error) {
+    console.error('Image serving error:', error)
+    return c.notFound()
+  }
+})
+
+// ============================================================================
+// 14. 404 Handler
 // ============================================================================
 
 export default app

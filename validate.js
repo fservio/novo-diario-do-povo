@@ -1,222 +1,520 @@
 #!/usr/bin/env node
+
 /**
- * Validation Script
+ * Portal Jornalístico - Script de Validação Completo
  * 
- * Verifica integridade do projeto antes de deploy
+ * Valida toda infraestrutura antes do deploy:
+ * - TypeScript (sem erros)
+ * - Build (Vite SSR)
+ * - Rotas principais
+ * - SEO (sitemaps, RSS, JSON-LD)
+ * - Paywall (cookie, snippet)
+ * - Webhook Asaas (auth, idempotência)
+ * - Segurança
+ * - Performance
  */
 
-import { readFile } from 'fs/promises'
-import { join } from 'path'
 import { execSync } from 'child_process'
+import { existsSync, readFileSync, statSync } from 'fs'
+import { resolve } from 'path'
 
 const errors = []
 const warnings = []
 
-console.log('🔍 Validando projeto...\n')
+function error(msg) {
+  errors.push(`❌ ${msg}`)
+}
 
-// ============================================================================
-// 1. Node Version
-// ============================================================================
+function warning(msg) {
+  warnings.push(`⚠️  ${msg}`)
+}
 
-const nodeVersion = process.version
-const requiredMajor = 20
+function success(msg) {
+  console.log(`✅ ${msg}`)
+}
 
-const currentMajor = parseInt(nodeVersion.slice(1).split('.')[0])
-
-if (currentMajor < requiredMajor) {
-  errors.push(`Node.js ${requiredMajor}+ necessário. Atual: ${nodeVersion}`)
-} else {
-  console.log(`✅ Node.js version: ${nodeVersion}`)
+function section(title) {
+  console.log(`\n${'='.repeat(60)}`)
+  console.log(`  ${title}`)
+  console.log('='.repeat(60))
 }
 
 // ============================================================================
-// 2. Environment Variables
+// 1. TYPESCRIPT
 // ============================================================================
+section('1. TypeScript Type Check')
 
 try {
-  const envExample = await readFile('.dev.vars.example', 'utf-8')
-  const requiredVars = [
-    'JWT_SECRET',
-    'ADMIN_BOOTSTRAP_EMAIL',
-    'ADMIN_BOOTSTRAP_PASSWORD',
-    'N8N_WEBHOOK_SECRET',
-    'R2_BUCKET_NAME',
-    'PUBLIC_BASE_URL',
-    'CF_ENV',
-  ]
+  execSync('npm run typecheck', { stdio: 'pipe' })
+  success('TypeScript: Sem erros de tipo')
+} catch (e) {
+  error('TypeScript: Erros encontrados (execute npm run typecheck)')
+}
 
-  const missingVars = requiredVars.filter(v => !envExample.includes(v))
+// ============================================================================
+// 2. BUILD
+// ============================================================================
+section('2. Build Production')
+
+try {
+  execSync('npm run build', { stdio: 'pipe' })
+  success('Build: Sucesso')
   
-  if (missingVars.length > 0) {
-    errors.push(`Variáveis obrigatórias ausentes no .dev.vars.example: ${missingVars.join(', ')}`)
+  if (!existsSync('./dist/_worker.js')) {
+    error('Build: Faltando dist/_worker.js')
   } else {
-    console.log('✅ Environment variables template OK')
+    const size = statSync('./dist/_worker.js').size
+    success(`Build: _worker.js gerado (${(size / 1024).toFixed(2)} KB)`)
+    
+    if (size > 5 * 1024 * 1024) {
+      warning('Build: Worker muito grande (>5MB), otimizar')
+    }
   }
-
-  // Check ASAAS_BOOTSTRAP in production
-  if (process.env.CF_ENV === 'prod' && process.env.ASAAS_BOOTSTRAP_API_KEY) {
-    errors.push('ASAAS_BOOTSTRAP_API_KEY não deve estar presente em produção!')
+  
+  if (!existsSync('./dist/_routes.json')) {
+    warning('Build: Faltando dist/_routes.json (rotas não otimizadas)')
   }
-} catch (error) {
-  errors.push('.dev.vars.example não encontrado')
+} catch (e) {
+  error('Build: Falhou (execute npm run build)')
 }
 
 // ============================================================================
-// 3. TypeScript Check
+// 3. ESTRUTURA DE ARQUIVOS
 // ============================================================================
+section('3. Estrutura de Arquivos')
 
-try {
-  console.log('\n🔎 Verificando TypeScript...')
-  execSync('npm run typecheck', { stdio: 'inherit' })
-  console.log('✅ TypeScript OK')
-} catch (error) {
-  errors.push('TypeScript typecheck falhou')
-}
-
-// ============================================================================
-// 4. Essential Routes
-// ============================================================================
-
-const essentialRoutes = [
-  '/api/health',
-  '/robots.txt',
-  '/sitemap-index.xml',
-  '/sitemap.xml',
-  '/',
+const requiredFiles = [
+  'wrangler.jsonc',
+  'package.json',
+  'tsconfig.json',
+  'vite.config.ts',
+  'vitest.config.ts',
+  '.dev.vars.example',
+  'README.md',
+  'migrations/0001_initial_schema.sql',
+  'scripts/seed.sql',
+  'functions/index.ts',
+  'packages/core/types.ts',
+  'packages/core/auth/index.ts',
+  'packages/core/db/index.ts',
+  'packages/core/middleware/index.ts',
+  'packages/core/storage/index.ts',
+  'packages/core/paywall/index.ts',
+  'packages/core/paywall/helpers.ts',
+  'packages/core/paywall/snippet.ts',
+  'packages/core/seo/index.ts',
+  'packages/core/integrations/asaas/index.ts',
+  'public/static/styles.css',
+  'public/static/app.js'
 ]
 
-console.log('\n🔎 Verificando rotas essenciais...')
+requiredFiles.forEach(file => {
+  if (existsSync(file)) {
+    success(`Arquivo: ${file}`)
+  } else {
+    error(`Arquivo faltando: ${file}`)
+  }
+})
 
-// Simple check: verify routes are defined in functions/index.ts
+// ============================================================================
+// 4. CONFIGURAÇÃO WRANGLER
+// ============================================================================
+section('4. Configuração Wrangler')
+
 try {
-  const functionsIndex = await readFile('functions/index.ts', 'utf-8')
+  const wranglerContent = readFileSync('./wrangler.jsonc', 'utf-8')
+  const config = JSON.parse(
+    wranglerContent.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')
+  )
   
-  const routeChecks = {
-    '/api/health': functionsIndex.includes("'/api/health'"),
-    '/robots.txt': functionsIndex.includes("'/robots.txt'"),
-    '/sitemap-index.xml': functionsIndex.includes("'/sitemap-index.xml'"),
-    '/sitemap.xml': functionsIndex.includes("'/sitemap.xml'"),
-    '/': functionsIndex.includes("app.get('/'"),
+  if (!config.name) error('wrangler.jsonc: Faltando "name"')
+  else success(`wrangler.jsonc: name="${config.name}"`)
+  
+  if (!config.compatibility_date) error('wrangler.jsonc: Faltando "compatibility_date"')
+  else success(`wrangler.jsonc: compatibility_date="${config.compatibility_date}"`)
+  
+  if (!config.d1_databases || config.d1_databases.length === 0) {
+    warning('wrangler.jsonc: Nenhum banco D1 configurado')
+  } else {
+    success(`wrangler.jsonc: ${config.d1_databases.length} banco(s) D1 configurado(s)`)
   }
-
-  for (const [route, exists] of Object.entries(routeChecks)) {
-    if (exists) {
-      console.log(`✅ Rota ${route} definida`)
-    } else {
-      errors.push(`Rota ${route} não encontrada`)
-    }
+  
+  if (!config.kv_namespaces || config.kv_namespaces.length === 0) {
+    warning('wrangler.jsonc: Nenhum KV namespace configurado')
+  } else {
+    success(`wrangler.jsonc: ${config.kv_namespaces.length} KV namespace(s) configurado(s)`)
   }
-
-  // Check critical endpoints
-  const criticalEndpoints = [
-    '/api/webhooks/asaas',
-    '/i/:key',
-    '/noticia/:slug',
-  ]
-
-  for (const endpoint of criticalEndpoints) {
-    const pattern = endpoint.replace(':key', '').replace(':slug', '')
-    if (functionsIndex.includes(pattern)) {
-      console.log(`✅ Endpoint ${endpoint} definido`)
-    } else {
-      errors.push(`Endpoint ${endpoint} não encontrado`)
-    }
+  
+  if (!config.r2_buckets || config.r2_buckets.length === 0) {
+    warning('wrangler.jsonc: Nenhum bucket R2 configurado')
+  } else {
+    success(`wrangler.jsonc: ${config.r2_buckets.length} bucket(s) R2 configurado(s)`)
   }
-} catch (error) {
-  errors.push('Não foi possível verificar rotas: functions/index.ts não encontrado')
+} catch (e) {
+  error(`wrangler.jsonc: Erro ao parsear (${e.message})`)
 }
 
 // ============================================================================
-// 5. Migrations
+// 5. MIGRATIONS
 // ============================================================================
+section('5. Migrations SQL')
 
-console.log('\n🔎 Verificando migrations...')
-
-try {
-  const migration = await readFile('migrations/0001_initial_schema.sql', 'utf-8')
+const migrationFile = './migrations/0001_initial_schema.sql'
+if (existsSync(migrationFile)) {
+  const sql = readFileSync(migrationFile, 'utf-8')
   
   const requiredTables = [
-    'users',
-    'posts',
-    'categories',
-    'tags',
-    'media',
-    'plans',
-    'entitlements',
-    'asaas_subscriptions',
-    'webhook_events',
-    'settings',
-    'audit_log',
+    'categories', 'tags', 'authors', 'posts', 'posts_tags',
+    'pages', 'menus', 'editorial_hubs', 'liveblogs', 'liveblog_entries',
+    'stories', 'story_pages', 'media', 'media_variants',
+    'ads_slots', 'ads_campaigns', 'ads_targeting_rules',
+    'reader_users', 'plans', 'entitlements', 'asaas_customers',
+    'asaas_subscriptions', 'paywall_rules', 'paywall_views',
+    'newsletter_subscribers', 'push_subscriptions',
+    'webhook_events', 'settings', 'audit_log'
   ]
-
-  for (const table of requiredTables) {
-    if (migration.includes(`CREATE TABLE IF NOT EXISTS ${table}`)) {
-      console.log(`✅ Tabela ${table} definida`)
+  
+  requiredTables.forEach(table => {
+    if (sql.includes(`CREATE TABLE IF NOT EXISTS ${table}`)) {
+      success(`Migration: tabela "${table}"`)
     } else {
-      errors.push(`Tabela ${table} não encontrada na migration`)
+      error(`Migration: faltando tabela "${table}"`)
+    }
+  })
+} else {
+  error('Migration: arquivo 0001_initial_schema.sql não encontrado')
+}
+
+// ============================================================================
+// 6. ROTAS PRINCIPAIS
+// ============================================================================
+section('6. Rotas Principais')
+
+const indexFile = './functions/index.ts'
+if (existsSync(indexFile)) {
+  const code = readFileSync(indexFile, 'utf-8')
+  
+  const routes = [
+    { path: "app.get('/', ", desc: 'Homepage SSR' },
+    { path: "app.get('/noticia/:slug', ", desc: 'Artigo com paywall' },
+    { path: "app.get('/categoria/:slug', ", desc: 'Categoria (listagem)' },
+    { path: "app.get('/tag/:slug', ", desc: 'Tag (listagem)' },
+    { path: "app.get('/autor/:slug', ", desc: 'Autor (listagem)' },
+    { path: "app.get('/assinar', ", desc: 'Página de assinatura' },
+    { path: "app.get('/conta', ", desc: 'Área do leitor' },
+    { path: "app.get('/api/health', ", desc: 'Healthcheck' },
+    { path: "app.get('/robots.txt', ", desc: 'Robots.txt' },
+    { path: "app.get('/sitemap.xml', ", desc: 'Sitemap geral' },
+    { path: "app.get('/sitemap-news.xml', ", desc: 'Sitemap Google News' },
+    { path: "app.get('/rss.xml', ", desc: 'RSS geral' },
+    { path: "app.post('/api/webhooks/asaas', ", desc: 'Webhook Asaas' },
+    { path: "/i/:key", desc: 'Serving R2 imagens' } // Busca mais flexível
+  ]
+  
+  routes.forEach(({ path, desc }) => {
+    if (code.includes(path)) {
+      success(`Rota: ${desc}`)
+    } else {
+      error(`Rota faltando: ${desc} (${path})`)
+    }
+  })
+} else {
+  error('Arquivo functions/index.ts não encontrado')
+}
+
+// ============================================================================
+// 7. SEO
+// ============================================================================
+section('7. SEO Features')
+
+if (existsSync(indexFile)) {
+  const code = readFileSync(indexFile, 'utf-8')
+  
+  // Sitemap News
+  if (code.includes('/sitemap-news.xml')) {
+    success('SEO: Sitemap Google News')
+  } else {
+    error('SEO: Faltando /sitemap-news.xml')
+  }
+  
+  // RSS
+  if (code.includes('/rss.xml')) {
+    success('SEO: RSS Feed')
+  } else {
+    error('SEO: Faltando /rss.xml')
+  }
+  
+  // RSS por seção
+  if (code.includes("/rss/:section.xml'") || code.includes('/rss/:section.xml')) {
+    success('SEO: RSS por seção')
+  } else {
+    warning('SEO: RSS por seção não encontrado')
+  }
+  
+  // JSON-LD
+  if (code.includes('application/ld+json') || code.includes('generateJsonLD')) {
+    success('SEO: JSON-LD (Schema.org)')
+  } else {
+    warning('SEO: JSON-LD não encontrado')
+  }
+  
+  // Canonical
+  if (code.includes('rel="canonical"') || code.includes('canonical')) {
+    success('SEO: Canonical URL')
+  } else {
+    warning('SEO: Canonical URL não encontrado')
+  }
+}
+
+// ============================================================================
+// 8. PAYWALL
+// ============================================================================
+section('8. Paywall')
+
+const paywallHelpers = './packages/core/paywall/helpers.ts'
+const paywallSnippet = './packages/core/paywall/snippet.ts'
+
+if (existsSync(paywallHelpers)) {
+  const code = readFileSync(paywallHelpers, 'utf-8')
+  
+  if (code.includes('signPaywallCookie') && code.includes('verifyPaywallCookie')) {
+    success('Paywall: Cookie assinado (HMAC)')
+  } else {
+    error('Paywall: Faltando funções de cookie assinado')
+  }
+  
+  if (code.includes('getReaderContext')) {
+    success('Paywall: Reader context')
+  } else {
+    error('Paywall: Faltando getReaderContext')
+  }
+} else {
+  error('Paywall: arquivo helpers.ts não encontrado')
+}
+
+if (existsSync(paywallSnippet)) {
+  const code = readFileSync(paywallSnippet, 'utf-8')
+  
+  if (code.includes('extractSecureSnippet')) {
+    success('Paywall: Snippet seguro (sem cortar HTML)')
+  } else {
+    error('Paywall: Faltando extractSecureSnippet')
+  }
+} else {
+  error('Paywall: arquivo snippet.ts não encontrado')
+}
+
+// ============================================================================
+// 9. WEBHOOK ASAAS
+// ============================================================================
+section('9. Webhook Asaas')
+
+if (existsSync(indexFile)) {
+  const code = readFileSync(indexFile, 'utf-8')
+  
+  // Autenticação
+  if (code.includes('x-asaas-token') || code.includes('X-ASAAS-TOKEN')) {
+    success('Webhook: Autenticação via header')
+  } else {
+    error('Webhook: Faltando autenticação x-asaas-token')
+  }
+  
+  // Zod validation
+  if (code.includes('asaasWebhookSchema') || code.includes('.safeParse(')) {
+    success('Webhook: Validação Zod')
+  } else {
+    warning('Webhook: Validação Zod não detectada')
+  }
+  
+  // Idempotência
+  if (code.includes('sha256') || code.includes('payload_hash')) {
+    success('Webhook: Idempotência (SHA-256)')
+  } else {
+    error('Webhook: Faltando idempotência SHA-256')
+  }
+  
+  // Audit log
+  if (code.includes('audit_log') || code.includes('webhook_events')) {
+    success('Webhook: Audit log')
+  } else {
+    warning('Webhook: Audit log não detectado')
+  }
+}
+
+// ============================================================================
+// 10. SEGURANÇA
+// ============================================================================
+section('10. Segurança')
+
+const securityMw = './packages/core/middleware/security.ts'
+if (existsSync(securityMw)) {
+  const code = readFileSync(securityMw, 'utf-8')
+  
+  if (code.includes('X-Frame-Options')) {
+    success('Segurança: X-Frame-Options')
+  } else {
+    warning('Segurança: Faltando X-Frame-Options')
+  }
+  
+  if (code.includes('Content-Security-Policy')) {
+    success('Segurança: CSP')
+  } else {
+    warning('Segurança: Faltando CSP')
+  }
+  
+  if (code.includes('Strict-Transport-Security')) {
+    success('Segurança: HSTS')
+  } else {
+    warning('Segurança: Faltando HSTS')
+  }
+  
+  if (code.includes('X-Content-Type-Options')) {
+    success('Segurança: X-Content-Type-Options')
+  } else {
+    warning('Segurança: Faltando X-Content-Type-Options')
+  }
+} else {
+  error('Segurança: arquivo security.ts não encontrado')
+}
+
+// Rate limiting
+const rateLimitMw = './packages/core/middleware/ratelimit.ts'
+if (existsSync(rateLimitMw)) {
+  success('Segurança: Rate limiting configurado')
+} else {
+  warning('Segurança: Rate limiting não encontrado')
+}
+
+// ============================================================================
+// 11. BOOTSTRAP ADMIN
+// ============================================================================
+section('11. Bootstrap Admin')
+
+if (existsSync(indexFile)) {
+  const code = readFileSync(indexFile, 'utf-8')
+  
+  // Idempotência
+  if (code.includes('bootstrap:done') || code.includes('BOOTSTRAP_FLAG')) {
+    success('Bootstrap: Idempotente (flag KV)')
+  } else {
+    error('Bootstrap: Não é idempotente')
+  }
+  
+  // Posição (antes das rotas)
+  const bootstrapPos = code.indexOf('bootstrapAdmin')
+  const firstRoutePos = code.indexOf("app.get('/'")
+  
+  if (bootstrapPos > -1 && firstRoutePos > -1) {
+    if (bootstrapPos < firstRoutePos) {
+      success('Bootstrap: Executado antes das rotas')
+    } else {
+      error('Bootstrap: Deve ser executado ANTES das rotas')
     }
   }
-} catch (error) {
-  errors.push('Migration 0001_initial_schema.sql não encontrada')
 }
 
 // ============================================================================
-// 6. Build Check
+// 12. CSS BUILD
 // ============================================================================
+section('12. CSS Build-Time')
 
-console.log('\n🔎 Verificando build...')
-
-try {
-  execSync('npm run build', { stdio: 'inherit' })
-  console.log('✅ Build OK')
-} catch (error) {
-  errors.push('Build falhou')
-}
-
-// ============================================================================
-// 7. Security Check
-// ============================================================================
-
-console.log('\n🔎 Verificando segurança...')
-
-try {
-  const authMiddleware = await readFile('packages/core/middleware/auth.ts', 'utf-8')
-  const securityMiddleware = await readFile('packages/core/middleware/security.ts', 'utf-8')
+const cssFile = './public/static/styles.css'
+if (existsSync(cssFile)) {
+  const css = readFileSync(cssFile, 'utf-8')
   
-  if (!authMiddleware.includes('authMiddleware') || !authMiddleware.includes('verifyJWT')) {
-    errors.push('Auth middleware incompleto')
+  if (css.includes('tailwind') || css.includes('cdn.tailwindcss.com')) {
+    error('CSS: Ainda usa Tailwind CDN (deve usar build-time)')
   } else {
-    console.log('✅ Auth middleware OK')
+    success('CSS: Build-time (sem CDN)')
   }
+  
+  const size = statSync(cssFile).size
+  success(`CSS: ${(size / 1024).toFixed(2)} KB`)
+  
+  if (size > 100 * 1024) {
+    warning('CSS: Arquivo muito grande (>100KB), considerar purge')
+  }
+} else {
+  error('CSS: arquivo styles.css não encontrado')
+}
 
-  if (!securityMiddleware.includes('securityHeaders') || !securityMiddleware.includes('Content-Security-Policy')) {
-    errors.push('Security headers middleware incompleto')
+// Verificar HTML não tem Tailwind CDN
+if (existsSync(indexFile)) {
+  const code = readFileSync(indexFile, 'utf-8')
+  if (code.includes('cdn.tailwindcss.com')) {
+    error('HTML: Ainda usa Tailwind CDN')
   } else {
-    console.log('✅ Security headers OK')
+    success('HTML: Sem Tailwind CDN')
   }
-} catch (error) {
-  errors.push('Não foi possível verificar middlewares de segurança')
 }
 
 // ============================================================================
-// Results
+// 13. 404 HANDLER
 // ============================================================================
+section('13. 404 Handler')
 
-console.log('\n' + '='.repeat(60))
+if (existsSync(indexFile)) {
+  const code = readFileSync(indexFile, 'utf-8')
+  
+  if (code.includes('app.notFound')) {
+    success('404: Handler configurado')
+    
+    // Verificar se retorna JSON para /api
+    if (code.includes('/api') && code.includes('c.json(')) {
+      success('404: Retorna JSON para rotas /api')
+    } else {
+      warning('404: Não detectado retorno JSON para /api')
+    }
+    
+    // Verificar se retorna HTML para outras rotas
+    if (code.includes('c.html(')) {
+      success('404: Retorna HTML para outras rotas')
+    } else {
+      warning('404: Não detectado retorno HTML')
+    }
+  } else {
+    error('404: Handler não configurado')
+  }
+}
 
+// ============================================================================
+// RESUMO FINAL
+// ============================================================================
+section('Resumo Final')
+
+console.log('')
 if (errors.length > 0) {
-  console.log('\n❌ ERROS ENCONTRADOS:\n')
-  errors.forEach(err => console.log(`  - ${err}`))
-  console.log('\n')
-  process.exit(1)
+  console.log('❌ ERROS CRÍTICOS:')
+  errors.forEach(e => console.log(`   ${e}`))
+  console.log('')
 }
 
 if (warnings.length > 0) {
-  console.log('\n⚠️  AVISOS:\n')
-  warnings.forEach(warn => console.log(`  - ${warn}`))
+  console.log('⚠️  AVISOS:')
+  warnings.forEach(w => console.log(`   ${w}`))
+  console.log('')
 }
 
-console.log('\n✅ VALIDAÇÃO CONCLUÍDA COM SUCESSO!\n')
-console.log('Projeto pronto para deploy.\n')
-
-process.exit(0)
+const total = errors.length + warnings.length
+if (total === 0) {
+  console.log('✅ TUDO OK! Projeto pronto para deploy.')
+  console.log('')
+  console.log('Próximos passos:')
+  console.log('  1. npm run db:migrate:local')
+  console.log('  2. npm run db:seed')
+  console.log('  3. npm run build')
+  console.log('  4. pm2 start ecosystem.config.cjs')
+  console.log('  5. npm run deploy')
+  console.log('')
+  process.exit(0)
+} else {
+  console.log(`⚠️  ${errors.length} erro(s) e ${warnings.length} aviso(s) encontrados.`)
+  console.log('')
+  if (errors.length > 0) {
+    console.log('Corrija os erros antes do deploy.')
+    process.exit(1)
+  } else {
+    console.log('Avisos não bloqueiam deploy, mas devem ser revisados.')
+    process.exit(0)
+  }
+}

@@ -224,3 +224,16 @@ export async function deleteMedia(env: Env, mediaId: number): Promise<void> {
   // Deletar do D1
   await env.DB.prepare('DELETE FROM media WHERE id = ?').bind(mediaId).run()
 }
+
+// ============================================================================
+// Get Media from R2 (for serving)
+// ============================================================================
+
+export async function getMediaFromR2(env: Env, key: string): Promise<R2ObjectBody | null> {
+  try {
+    return await env.R2.get(key)
+  } catch (error) {
+    console.error(`Failed to get media from R2: ${key}`, error)
+    return null
+  }
+}
