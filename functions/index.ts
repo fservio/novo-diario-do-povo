@@ -163,6 +163,77 @@ app.get('/api/admin/diag/pbkdf2', async (c) => {
   }
 })
 
+// DEBUG: Test individual components
+app.get('/api/debug/test-session', async (c) => {
+  try {
+    const { randomHex } = await import('../packages/core/utils')
+    const { signJWT } = await import('../packages/core/auth')
+    const { generateCSRFToken } = await import('../packages/core/middleware/security')
+    const { setCookie } = await import('hono/cookie')
+    
+    const logs: string[] = []
+    
+    // Test 1: randomHex
+    logs.push('Test 1: randomHex...')
+    const sessionId = randomHex(16)
+    logs.push(`✅ sessionId: ${sessionId.substring(0, 8)}`)
+    
+    // Test 2: signJWT
+    logs.push('Test 2: signJWT...')
+    const token = await signJWT(
+      {
+        sub: '1',
+        email: 'test@example.com',
+        role: 'admin',
+        type: 'admin' as const,
+        sid: sessionId,
+      },
+      c.env.JWT_SECRET,
+      60 * 60 // 1 hour
+    )
+    logs.push(`✅ token: ${token.substring(0, 20)}...`)
+    
+    // Test 3: generateCSRFToken
+    logs.push('Test 3: generateCSRFToken...')
+    const csrfToken = await generateCSRFToken(c.env, 1, sessionId)
+    logs.push(`✅ csrfToken: ${csrfToken.substring(0, 16)}...`)
+    
+    // Test 4: setCookie
+    logs.push('Test 4: setCookie...')
+    const secure = new URL(c.req.url).protocol === 'https:'
+    
+    setCookie(c, 'test_session', token, {
+      httpOnly: true,
+      secure,
+      sameSite: 'Lax',
+      path: '/',
+      maxAge: 60 * 60,
+    })
+    logs.push('✅ setCookie admin_session')
+    
+    setCookie(c, 'test_csrf', csrfToken, {
+      httpOnly: true,
+      secure,
+      sameSite: 'Lax',
+      path: '/',
+      maxAge: 60 * 60,
+    })
+    logs.push('✅ setCookie admin_csrf')
+    
+    // Test 5: redirect
+    logs.push('Test 5: c.redirect...')
+    logs.push('✅ All tests passed!')
+    
+    return c.json({ success: true, logs })
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    }, 500)
+  }
+})
+
 // DEBUG: Test bcrypt and login flow
 app.get('/api/debug/test-bcrypt', async (c) => {
   try {
