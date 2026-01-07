@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022"],
+    "moduleResolution": "bundler",
+    "types": ["@cloudflare/workers-types", "vite/client", "node"],
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "checkJs": false,
+    "jsx": "react-jsx",
+    "jsxImportSource": "hono/jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "paths": {
+      "@jornal/core/*": ["./packages/core/*"],
+      "@jornal/ui/*": ["./packages/ui/*"],
+      "@jornal/tests/*": ["./packages/tests/*"]
+    }
+  },
+  "include": [
+    "functions/**/*",
+    "packages/**/*",
+    "apps/**/*",
+    "*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".wrangler"
+  ]
+}

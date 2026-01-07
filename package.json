@@ -1,0 +1,54 @@
+{
+  "name": "@jornal/monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npm run build && pm2 start ecosystem.config.cjs",
+    "dev:sandbox": "wrangler pages dev dist --d1=jornal-production --local --ip 0.0.0.0 --port 3000",
+    "build": "vite build",
+    "preview": "wrangler pages dev dist",
+    "deploy": "npm run build && wrangler pages deploy dist",
+    "deploy:prod": "npm run build && wrangler pages deploy dist --project-name webapp",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --ext .ts,.tsx",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "validate": "node validate.js",
+    "db:create:local": "wrangler d1 create jornal-production-local",
+    "db:create:prod": "wrangler d1 create jornal-production",
+    "db:migrate:local": "wrangler d1 migrations apply jornal-production --local",
+    "db:migrate:prod": "wrangler d1 migrations apply jornal-production",
+    "db:seed": "wrangler d1 execute jornal-production --local --file=./scripts/seed.sql",
+    "db:reset": "rm -rf .wrangler/state/v3/d1 && npm run db:migrate:local && npm run db:seed",
+    "db:console:local": "wrangler d1 execute jornal-production --local",
+    "db:console:prod": "wrangler d1 execute jornal-production",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "clean-port": "fuser -k 3000/tcp 2>/dev/null || true",
+    "git:init": "git init && git add . && git commit -m 'Initial commit'",
+    "git:commit": "git add . && git commit -m",
+    "git:status": "git status",
+    "git:log": "git log --oneline"
+  },
+  "dependencies": {
+    "hono": "^4.6.14",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250105.0",
+    "@hono/vite-cloudflare-pages": "^0.4.2",
+    "@types/node": "^22.10.5",
+    "@typescript-eslint/eslint-plugin": "^8.19.1",
+    "@typescript-eslint/parser": "^8.19.1",
+    "@vitest/coverage-v8": "^2.1.8",
+    "eslint": "^9.18.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5",
+    "vitest": "^2.1.8",
+    "wrangler": "^3.96.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

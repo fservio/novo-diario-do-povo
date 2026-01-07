@@ -1,0 +1,70 @@
+# ==============================================================================
+# CRITICAL: Essas variáveis são obrigatórias para inicialização do sistema.
+# Copie este arquivo para .dev.vars e preencha com valores reais.
+# ==============================================================================
+
+# ==============================================================================
+# JWT & Auth (OBRIGATÓRIO)
+# ==============================================================================
+JWT_SECRET=sua-chave-secreta-jwt-minimo-32-caracteres
+
+# ==============================================================================
+# Admin Bootstrap (OBRIGATÓRIO - Primeiro acesso)
+# ==============================================================================
+ADMIN_BOOTSTRAP_EMAIL=admin@exemplo.com
+ADMIN_BOOTSTRAP_PASSWORD=SenhaForte123!
+
+# ==============================================================================
+# n8n Webhook (OBRIGATÓRIO para integração n8n)
+# ==============================================================================
+N8N_WEBHOOK_SECRET=sua-chave-secreta-n8n-minimo-32-caracteres
+
+# ==============================================================================
+# R2 Bucket (OBRIGATÓRIO)
+# ==============================================================================
+R2_BUCKET_NAME=jornal-media
+
+# ==============================================================================
+# Public Base URL (OBRIGATÓRIO)
+# ==============================================================================
+PUBLIC_BASE_URL=http://localhost:3000
+
+# ==============================================================================
+# Cloudflare Environment
+# ==============================================================================
+CF_ENV=dev
+
+# ==============================================================================
+# Push Notifications - VAPID Keys (OBRIGATÓRIO se usar push)
+# Gerar com: npx web-push generate-vapid-keys
+# ==============================================================================
+PUSH_VAPID_PUBLIC_KEY=
+PUSH_VAPID_PRIVATE_KEY=
+PUSH_VAPID_SUBJECT=mailto:admin@exemplo.com
+
+# ==============================================================================
+# ASAAS (OBRIGATÓRIO para paywall/assinaturas)
+# Nota: Essas são BOOTSTRAP KEYS apenas para dev/staging.
+# Em produção, NÃO use env vars; configure via CMS (settings private).
+# ==============================================================================
+# IMPORTANTE: Remover ASAAS_BOOTSTRAP_API_KEY em produção!
+ASAAS_BOOTSTRAP_API_KEY=
+ASAAS_BOOTSTRAP_ENVIRONMENT=sandbox
+
+# ==============================================================================
+# Integrações Opcionais (controláveis via CMS também)
+# ==============================================================================
+
+# AdSense
+ADSENSE_CLIENT_ID=
+
+# Google Ad Manager
+GAM_NETWORK_CODE=
+
+# Newsletter Provider (mailchimp|sendgrid|internal)
+NEWSLETTER_PROVIDER=internal
+NEWSLETTER_API_KEY=
+
+# Stripe (se usar pagamentos diretos além de Asaas)
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
