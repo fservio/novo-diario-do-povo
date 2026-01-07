@@ -1,0 +1,22 @@
+name = "webapp"
+compatibility_date = "2024-09-23"
+
+# D1 Databases
+[[d1_databases]]
+binding = "DB"
+database_name = "webapp-production"
+database_id = "78184365-08ff-4bbc-a28a-4dfe33c1b2d1"
+
+# KV Namespaces
+[[kv_namespaces]]
+binding = "KV"
+id = "ef54494bcf754b889308976043a8c47b"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "627e53560f4845948da9ef9f69a842cc"
+
+# R2 Buckets
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "webapp-media"

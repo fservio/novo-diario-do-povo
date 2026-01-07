@@ -77,11 +77,13 @@ export async function findPublishedPostsByCategory(
   
   const result = await env.DB.prepare(`
     SELECT 
-      p.id, p.slug, p.title, p.excerpt, p.published_at, p.featured_image_r2_key,
+      p.id, p.slug, p.title, p.excerpt, p.published_at,
+      m.r2_key as featured_image_r2_key,
       c.name as category_name,
       c.slug as category_slug
     FROM posts p
     JOIN categories c ON p.category_id = c.id
+    LEFT JOIN media m ON p.cover_media_id = m.id
     WHERE p.category_id = ?
       AND p.status = 'published'
       AND p.published_at <= ?
@@ -102,11 +104,13 @@ export async function findLatestPosts(env: Env, options: { limit: number }): Pro
   
   const result = await env.DB.prepare(`
     SELECT 
-      p.id, p.slug, p.title, p.excerpt, p.published_at, p.featured_image_r2_key,
+      p.id, p.slug, p.title, p.excerpt, p.published_at,
+      m.r2_key as featured_image_r2_key,
       c.name as category_name,
       c.slug as category_slug
     FROM posts p
     JOIN categories c ON p.category_id = c.id
+    LEFT JOIN media m ON p.cover_media_id = m.id
     WHERE p.status = 'published'
       AND p.published_at <= ?
       AND p.seo_noindex = 0

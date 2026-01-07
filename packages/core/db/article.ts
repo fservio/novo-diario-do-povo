@@ -36,7 +36,8 @@ export async function findArticleBySlug(env: Env, slug: string): Promise<Article
   const result = await env.DB.prepare(`
     SELECT 
       p.id, p.slug, p.title, p.excerpt, p.content, p.published_at,
-      p.featured_image_r2_key, p.seo_noindex, p.seo_canonical, p.is_premium,
+      m.r2_key as featured_image_r2_key,
+      p.seo_noindex, p.seo_canonical, p.is_premium,
       c.id as category_id,
       c.name as category_name,
       c.slug as category_slug,
@@ -44,6 +45,7 @@ export async function findArticleBySlug(env: Env, slug: string): Promise<Article
     FROM posts p
     JOIN categories c ON p.category_id = c.id
     LEFT JOIN users u ON p.author_id = u.id
+    LEFT JOIN media m ON p.cover_media_id = m.id
     WHERE p.slug = ? AND p.status = 'published'
     LIMIT 1
   `).bind(slug).first<ArticlePost>()

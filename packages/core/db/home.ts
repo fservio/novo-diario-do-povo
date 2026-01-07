@@ -122,10 +122,11 @@ export async function getHomeData(env: Env): Promise<HomeData> {
   const heroResult = await env.DB.prepare(`
     SELECT 
       p.id, p.slug, p.title, p.excerpt, p.published_at, 
-      p.featured_image_r2_key,
+      m.r2_key as featured_image_r2_key,
       c.name as category_name, c.slug as category_slug
     FROM posts p
     INNER JOIN categories c ON p.category_id = c.id
+    LEFT JOIN media m ON p.cover_media_id = m.id
     WHERE p.status = 'published' 
       AND p.published_at <= ?
       AND p.seo_noindex = 0
@@ -138,10 +139,11 @@ export async function getHomeData(env: Env): Promise<HomeData> {
   const dualFeaturesResult = await env.DB.prepare(`
     SELECT 
       p.id, p.slug, p.title, p.excerpt, p.published_at, 
-      p.featured_image_r2_key,
+      m.r2_key as featured_image_r2_key,
       c.name as category_name, c.slug as category_slug
     FROM posts p
     INNER JOIN categories c ON p.category_id = c.id
+    LEFT JOIN media m ON p.cover_media_id = m.id
     WHERE p.status = 'published' 
       AND p.published_at <= ?
       AND p.seo_noindex = 0
@@ -189,10 +191,11 @@ export async function getHomeData(env: Env): Promise<HomeData> {
       explainersResult = await env.DB.prepare(`
         SELECT 
           p.id, p.slug, p.title, p.excerpt, p.published_at, 
-          p.featured_image_r2_key,
+          m.r2_key as featured_image_r2_key,
           c.name as category_name, c.slug as category_slug
         FROM posts p
         INNER JOIN categories c ON p.category_id = c.id
+        LEFT JOIN media m ON p.cover_media_id = m.id
         INNER JOIN post_tags pt ON pt.post_id = p.id
         WHERE p.status = 'published' 
           AND p.published_at <= ?
@@ -239,10 +242,11 @@ export async function getHomeData(env: Env): Promise<HomeData> {
       const postsResult = await env.DB.prepare(`
         SELECT 
           p.id, p.slug, p.title, p.excerpt, p.published_at, 
-          p.featured_image_r2_key,
+          m.r2_key as featured_image_r2_key,
           c.name as category_name, c.slug as category_slug
         FROM posts p
         INNER JOIN categories c ON p.category_id = c.id
+        LEFT JOIN media m ON p.cover_media_id = m.id
         WHERE p.status = 'published' 
           AND p.published_at <= ?
           AND p.seo_noindex = 0
