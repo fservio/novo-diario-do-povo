@@ -203,45 +203,53 @@ async function verifyPBKDF2(password: string, storedHash: string): Promise<boole
   const encoder = new TextEncoder()
   const passwordBuffer = encoder.encode(password)
   
-  // Import key
-  const key = await crypto.subtle.importKey(
-    'raw',
-    passwordBuffer,
-    { name: 'PBKDF2' },
-    false,
-    ['deriveBits']
-  )
-  
-  // Derive key bits
-  const derivedBits = await crypto.subtle.deriveBits(
-    {
-      name: 'PBKDF2',
-      hash: 'SHA-256',
-      salt: salt,
-      iterations: iterations,
-    },
-    key,
-    KEY_LENGTH * 8 // bits
-  )
-  
-  const derivedKey = new Uint8Array(derivedBits)
-  
-  // DEBUG: Log derived key prefix (safe for debugging)
-  const derivedHex = Array.from(derivedKey.slice(0, 8))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
-  const storedHex = Array.from(storedKey.slice(0, 8))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
-  
-  console.log('[PBKDF2 Compare]', {
-    derivedPrefix: derivedHex,
-    storedPrefix: storedHex,
-    match: derivedHex === storedHex
-  })
-  
-  // Timing-safe comparison
-  return timingSafeEqual(derivedKey, storedKey)
+  try {
+    // Import key
+    const key = await crypto.subtle.importKey(
+      'raw',
+      passwordBuffer,
+      { name: 'PBKDF2' },
+      false,
+      ['deriveBits']
+    )
+    
+    // Derive key bits
+    const derivedBits = await crypto.subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        hash: 'SHA-256',
+        salt: salt,
+        iterations: iterations,
+      },
+      key,
+      KEY_LENGTH * 8 // bits
+    )
+    
+    const derivedKey = new Uint8Array(derivedBits)
+    
+    // DEBUG: Log derived key prefix (safe for debugging)
+    const derivedHex = Array.from(derivedKey.slice(0, 8))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+    const storedHex = Array.from(storedKey.slice(0, 8))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+    
+    console.log('[PBKDF2 Compare]', {
+      derivedPrefix: derivedHex,
+      storedPrefix: storedHex,
+      match: derivedHex === storedHex
+    })
+    
+    // Timing-safe comparison
+    return timingSafeEqual(derivedKey, storedKey)
+  } catch (error) {
+    console.error('[PBKDF2 Crypto Error]', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    })
+    throw error
+  }
 }
 
 // ============================================================================
