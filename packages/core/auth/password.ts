@@ -180,9 +180,23 @@ async function verifyPBKDF2(password: string, storedHash: string): Promise<boole
   const salt = base64UrlDecode(saltEncoded)
   const storedKey = base64UrlDecode(keyEncoded)
   
+  // DEBUG: Log lengths
+  console.log('[PBKDF2 Debug]', {
+    parts: parts.length,
+    iters: iterations,
+    saltLen: salt.length,
+    keyLen: storedKey.length,
+    saltEncoded: saltEncoded.substring(0, 10),
+    keyEncoded: keyEncoded.substring(0, 10),
+  })
+  
   // Validate key length
   if (storedKey.length !== KEY_LENGTH) {
     throw new Error(`Invalid stored key length: ${storedKey.length}, expected ${KEY_LENGTH}`)
+  }
+  
+  if (salt.length !== SALT_LENGTH) {
+    throw new Error(`Invalid salt length: ${salt.length}, expected ${SALT_LENGTH}`)
   }
   
   // Encode password
@@ -211,6 +225,20 @@ async function verifyPBKDF2(password: string, storedHash: string): Promise<boole
   )
   
   const derivedKey = new Uint8Array(derivedBits)
+  
+  // DEBUG: Log derived key prefix (safe for debugging)
+  const derivedHex = Array.from(derivedKey.slice(0, 8))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+  const storedHex = Array.from(storedKey.slice(0, 8))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+  
+  console.log('[PBKDF2 Compare]', {
+    derivedPrefix: derivedHex,
+    storedPrefix: storedHex,
+    match: derivedHex === storedHex
+  })
   
   // Timing-safe comparison
   return timingSafeEqual(derivedKey, storedKey)

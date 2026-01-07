@@ -92,6 +92,77 @@ app.get('/api/health', (c) => {
   })
 })
 
+// ============================================================================
+// KAT (Known Answer Test) - PBKDF2 Diagnostics
+// ============================================================================
+
+app.get('/api/admin/diag/pbkdf2', async (c) => {
+  try {
+    // Test vectors: password="password", salt=fixed, iterations=1000
+    const testPassword = 'password'
+    const fixedSaltHex = '73616c7473616c7473616c7473616c74' // "saltsaltsaltsalt" (16 bytes)
+    const iterations = 1000
+    
+    // Convert hex salt to Uint8Array
+    const saltBytes = new Uint8Array(
+      fixedSaltHex.match(/.{2}/g)!.map(byte => parseInt(byte, 16))
+    )
+    
+    // Derive key using Web Crypto PBKDF2
+    const encoder = new TextEncoder()
+    const passwordBuffer = encoder.encode(testPassword)
+    
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw',
+      passwordBuffer,
+      'PBKDF2',
+      false,
+      ['deriveBits']
+    )
+    
+    const derivedBits = await crypto.subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        salt: saltBytes,
+        iterations: iterations,
+        hash: 'SHA-256'
+      },
+      keyMaterial,
+      256 // 32 bytes = 256 bits
+    )
+    
+    const derivedKey = new Uint8Array(derivedBits)
+    
+    // Convert to hex for comparison
+    const gotHex = Array.from(derivedKey)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+    
+    // Expected value computed with Node.js crypto.pbkdf2Sync
+    // node -e "const crypto = require('crypto'); const key = crypto.pbkdf2Sync('password', Buffer.from('73616c7473616c7473616c7473616c74', 'hex'), 1000, 32, 'sha256'); console.log(key.toString('hex'));"
+    const expectedHex = 'f275fb870144cc807c68f6a325360af3078741ce4d833d2915500abd2bb88d00'
+    
+    const match = gotHex === expectedHex
+    
+    return c.json({
+      ok: match,
+      test: 'PBKDF2-HMAC-SHA256',
+      password: testPassword,
+      saltHex: fixedSaltHex,
+      iterations,
+      gotPrefix: gotHex.substring(0, 16),
+      expectedPrefix: expectedHex.substring(0, 16),
+      fullMatch: match,
+      environment: c.env.ENVIRONMENT || 'unknown'
+    })
+  } catch (error) {
+    return c.json({
+      ok: false,
+      error: error instanceof Error ? error.message : String(error)
+    }, 500)
+  }
+})
+
 // DEBUG: Test bcrypt and login flow
 app.get('/api/debug/test-bcrypt', async (c) => {
   try {
@@ -1572,3 +1643,86 @@ app.get('/i/:key{.+}', async (c) => {
 // ============================================================================
 
 export default app
+
+// DEBUG: Test password verification (REMOVE AFTER DEBUG)
+app.post('/api/debug/verify', async (c) => {
+  const { email, password } = await c.req.json()
+  const { verifyPassword } = await import('../packages/core/auth/password')
+  
+  const user = await c.env.DB.prepare(
+    'SELECT password_hash FROM users WHERE email = ?'
+  ).bind(email).first<any>()
+  
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404)
+  }
+  
+  // Capture logs
+  const logs: any[] = []
+  const originalLog = console.log
+  console.log = (...args: any[]) => {
+    logs.push(args)
+    originalLog(...args)
+  }
+  
+  try {
+    const result = await verifyPassword(password, user.password_hash)
+    console.log = originalLog
+    
+    return c.json({
+      ok: result.ok,
+      needsRehash: result.needsRehash,
+      hashLength: user.password_hash.length,
+      hashPrefix: user.password_hash.substring(0, 30),
+      debugLogs: logs,
+    })
+  } catch (error) {
+    console.log = originalLog
+    return c.json({
+      error: error instanceof Error ? error.message : 'Unknown',
+      stack: error instanceof Error ? error.stack : undefined,
+      debugLogs: logs,
+    }, 500)
+  }
+})
+
+// DEBUG: Test WebCrypto PBKDF2 (REMOVE AFTER DEBUG)
+app.get('/api/debug/webcrypto', async (c) => {
+  try {
+    const encoder = new TextEncoder()
+    const password = encoder.encode('test123')
+    const salt = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+    
+    const key = await crypto.subtle.importKey(
+      'raw',
+      password,
+      { name: 'PBKDF2' },
+      false,
+      ['deriveBits']
+    )
+    
+    const derivedBits = await crypto.subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        hash: 'SHA-256',
+        salt: salt,
+        iterations: 1000,
+      },
+      key,
+      256
+    )
+    
+    const derivedKey = new Uint8Array(derivedBits)
+    
+    return c.json({
+      ok: true,
+      keyLength: derivedKey.length,
+      keyHex: Array.from(derivedKey).map(b => b.toString(16).padStart(2, '0')).join(''),
+    })
+  } catch (error) {
+    return c.json({
+      error: error instanceof Error ? error.message : 'Unknown',
+      stack: error instanceof Error ? error.stack : undefined,
+    }, 500)
+  }
+})
