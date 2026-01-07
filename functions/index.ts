@@ -430,6 +430,376 @@ app.get('/admin', async (c) => {
   }))
 })
 
+// ============================================================================
+// Admin Posts Routes
+// ============================================================================
+
+// GET /admin/posts - Lista de posts
+app.get('/admin/posts', async (c) => {
+  const { renderPostsListPage } = await import('../packages/core/admin/posts')
+  const { listPosts } = await import('../packages/core/db/posts')
+  const { findAllCategories } = await import('../packages/core/db')
+  
+  const user = c.get('adminUser')
+  const csrfToken = c.get('csrfToken')
+  
+  // Parse filters
+  const status = c.req.query('status') || undefined
+  const category_id = c.req.query('category_id') ? parseInt(c.req.query('category_id')!) : undefined
+  const is_premium = c.req.query('is_premium') ? parseInt(c.req.query('is_premium')!) : undefined
+  const search = c.req.query('search') || undefined
+  const limit = parseInt(c.req.query('limit') || '20')
+  const offset = parseInt(c.req.query('offset') || '0')
+  
+  // Get posts
+  const { posts, total } = await listPosts(c.env.DB, {
+    status,
+    category_id,
+    is_premium,
+    search,
+    limit,
+    offset
+  })
+  
+  // Get categories and authors for filters
+  const categories = await findAllCategories(c.env)
+  const authorsResult = await c.env.DB.prepare(
+    'SELECT id, name FROM authors WHERE is_active = 1 ORDER BY name ASC'
+  ).all<{ id: number, name: string }>()
+  
+  return c.html(renderPostsListPage({
+    posts,
+    total,
+    filters: { status, category_id, is_premium, search, limit, offset },
+    categories,
+    authors: authorsResult.results || [],
+    user,
+    csrfToken
+  }))
+})
+
+// GET /admin/posts/new - Form criar post
+app.get('/admin/posts/new', async (c) => {
+  const { renderPostFormPage } = await import('../packages/core/admin/posts')
+  const { findAllCategories } = await import('../packages/core/db')
+  
+  const user = c.get('adminUser')
+  const csrfToken = c.get('csrfToken')
+  
+  // Get categories, authors, tags
+  const categories = await findAllCategories(c.env)
+  
+  const authorsResult = await c.env.DB.prepare(
+    'SELECT id, name FROM authors WHERE is_active = 1 ORDER BY name ASC'
+  ).all<{ id: number, name: string }>()
+  
+  const tagsResult = await c.env.DB.prepare(
+    'SELECT id, name FROM tags ORDER BY name ASC'
+  ).all<{ id: number, name: string }>()
+  
+  return c.html(renderPostFormPage({
+    categories,
+    authors: authorsResult.results || [],
+    tags: tagsResult.results || [],
+    user,
+    csrfToken
+  }))
+})
+
+// POST /admin/posts - Criar post
+app.post('/admin/posts', async (c) => {
+  const { createPostSchema } = await import('../packages/core/admin/posts')
+  const { createPost } = await import('../packages/core/db/posts')
+  const { logAudit } = await import('../packages/core/db')
+  
+  const user = c.get('adminUser')
+  const requestId = c.get('requestId')
+  
+  try {
+    const formData = await c.req.parseBody()
+    
+    // Parse tags array
+    const tags = formData.tags 
+      ? (Array.isArray(formData.tags) ? formData.tags : [formData.tags]).map(t => parseInt(String(t)))
+      : []
+    
+    // Validate
+    const data = createPostSchema.parse({
+      ...formData,
+      tags,
+      cover_media_id: formData.cover_media_id ? parseInt(String(formData.cover_media_id)) : undefined
+    })
+    
+    // Create (cast to CreatePostInput pois Zod já validou required fields)
+    const postId = await createPost(c.env.DB, data as any)
+    
+    // Audit log
+    await logAudit(c.env, {
+      entityType: 'post',
+      entityId: postId,
+      action: 'created',
+      actorType: 'user',
+      actorId: user.id,
+      requestId
+    })
+    
+    return c.redirect(`/admin/posts/${postId}`, 303)
+  } catch (error) {
+    console.error('[Admin Posts] Create error:', error)
+    return c.redirect('/admin/posts/new?error=1', 303)
+  }
+})
+
+// GET /admin/posts/:id - Form editar post
+app.get('/admin/posts/:id', async (c) => {
+  const { renderPostFormPage } = await import('../packages/core/admin/posts')
+  const { getPostById } = await import('../packages/core/db/posts')
+  const { findAllCategories } = await import('../packages/core/db')
+  
+  const user = c.get('adminUser')
+  const csrfToken = c.get('csrfToken')
+  const id = parseInt(c.req.param('id'))
+  
+  const post = await getPostById(c.env.DB, id)
+  if (!post) {
+    return c.notFound()
+  }
+  
+  // Get categories, authors, tags
+  const categories = await findAllCategories(c.env)
+  
+  const authorsResult = await c.env.DB.prepare(
+    'SELECT id, name FROM authors WHERE is_active = 1 ORDER BY name ASC'
+  ).all<{ id: number, name: string }>()
+  
+  const tagsResult = await c.env.DB.prepare(
+    'SELECT id, name FROM tags ORDER BY name ASC'
+  ).all<{ id: number, name: string }>()
+  
+  return c.html(renderPostFormPage({
+    post,
+    categories,
+    authors: authorsResult.results || [],
+    tags: tagsResult.results || [],
+    user,
+    csrfToken,
+    error: c.req.query('error')
+  }))
+})
+
+// POST /admin/posts/:id - Atualizar post
+app.post('/admin/posts/:id', async (c) => {
+  const { updatePostSchema } = await import('../packages/core/admin/posts')
+  const { updatePost } = await import('../packages/core/db/posts')
+  const { logAudit } = await import('../packages/core/db')
+  
+  const user = c.get('adminUser')
+  const requestId = c.get('requestId')
+  const id = parseInt(c.req.param('id'))
+  
+  try {
+    const formData = await c.req.parseBody()
+    
+    // Parse tags array
+    const tags = formData.tags 
+      ? (Array.isArray(formData.tags) ? formData.tags : [formData.tags]).map(t => parseInt(String(t)))
+      : []
+    
+    // Validate
+    const data = updatePostSchema.parse({
+      ...formData,
+      tags,
+      cover_media_id: formData.cover_media_id ? parseInt(String(formData.cover_media_id)) : undefined
+    })
+    
+    // Update
+    await updatePost(c.env.DB, id, data)
+    
+    // Audit log
+    await logAudit(c.env, {
+      entityType: 'post',
+      entityId: id,
+      action: 'updated',
+      actorType: 'user',
+      actorId: user.id,
+      details: { fields: Object.keys(data) },
+      requestId
+    })
+    
+    return c.redirect(`/admin/posts/${id}`, 303)
+  } catch (error) {
+    console.error('[Admin Posts] Update error:', error)
+    return c.redirect(`/admin/posts/${id}?error=1`, 303)
+  }
+})
+
+// POST /admin/posts/:id/publish - Publicar post
+app.post('/admin/posts/:id/publish', async (c) => {
+  const { publishPost } = await import('../packages/core/db/posts')
+  const { logAudit } = await import('../packages/core/db')
+  
+  const user = c.get('adminUser')
+  const requestId = c.get('requestId')
+  const id = parseInt(c.req.param('id'))
+  
+  try {
+    await publishPost(c.env.DB, id)
+    
+    await logAudit(c.env, {
+      entityType: 'post',
+      entityId: id,
+      action: 'published',
+      actorType: 'user',
+      actorId: user.id,
+      requestId
+    })
+    
+    return c.redirect(`/admin/posts/${id}`, 303)
+  } catch (error) {
+    console.error('[Admin Posts] Publish error:', error)
+    return c.redirect(`/admin/posts/${id}?error=1`, 303)
+  }
+})
+
+// POST /admin/posts/:id/schedule - Agendar post
+app.post('/admin/posts/:id/schedule', async (c) => {
+  const { scheduleSchema } = await import('../packages/core/admin/posts')
+  const { schedulePost } = await import('../packages/core/db/posts')
+  const { logAudit } = await import('../packages/core/db')
+  
+  const user = c.get('adminUser')
+  const requestId = c.get('requestId')
+  const id = parseInt(c.req.param('id'))
+  
+  try {
+    const formData = await c.req.parseBody()
+    const data = scheduleSchema.parse(formData)
+    
+    await schedulePost(c.env.DB, id, data.scheduled_at)
+    
+    await logAudit(c.env, {
+      entityType: 'post',
+      entityId: id,
+      action: 'scheduled',
+      actorType: 'user',
+      actorId: user.id,
+      details: { scheduled_at: data.scheduled_at },
+      requestId
+    })
+    
+    return c.redirect(`/admin/posts/${id}`, 303)
+  } catch (error) {
+    console.error('[Admin Posts] Schedule error:', error)
+    return c.redirect(`/admin/posts/${id}?error=1`, 303)
+  }
+})
+
+// POST /admin/posts/:id/archive - Arquivar post
+app.post('/admin/posts/:id/archive', async (c) => {
+  const { archivePost } = await import('../packages/core/db/posts')
+  const { logAudit } = await import('../packages/core/db')
+  
+  const user = c.get('adminUser')
+  const requestId = c.get('requestId')
+  const id = parseInt(c.req.param('id'))
+  
+  try {
+    await archivePost(c.env.DB, id)
+    
+    await logAudit(c.env, {
+      entityType: 'post',
+      entityId: id,
+      action: 'archived',
+      actorType: 'user',
+      actorId: user.id,
+      requestId
+    })
+    
+    return c.redirect(`/admin/posts/${id}`, 303)
+  } catch (error) {
+    console.error('[Admin Posts] Archive error:', error)
+    return c.redirect(`/admin/posts/${id}?error=1`, 303)
+  }
+})
+
+// GET /admin/posts/:id/preview - Preview SSR (noindex)
+app.get('/admin/posts/:id/preview', async (c) => {
+  const { getPostById } = await import('../packages/core/db/posts')
+  const { escapeHtml } = await import('../packages/core/admin/ui')
+  
+  const user = c.get('adminUser')
+  const id = parseInt(c.req.param('id'))
+  
+  const post = await getPostById(c.env.DB, id)
+  if (!post) {
+    return c.notFound()
+  }
+  
+  // Get category and author
+  const category = await c.env.DB.prepare(
+    'SELECT * FROM categories WHERE id = ?'
+  ).bind(post.category_id).first<any>()
+  
+  const author = await c.env.DB.prepare(
+    'SELECT * FROM authors WHERE id = ?'
+  ).bind(post.author_id).first<any>()
+  
+  // Render preview simples com noindex
+  const previewHtml = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Preview: ${escapeHtml(post.title)}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; }
+    .preview-banner { 
+      background: #fef3c7; 
+      border-bottom: 2px solid #f59e0b; 
+      padding: 1rem; 
+      text-align: center; 
+      font-weight: 600;
+      color: #92400e;
+    }
+    .container { max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+    .category { color: #2563eb; font-size: 0.875rem; font-weight: 600; }
+    h1 { font-size: 2.5rem; margin: 1rem 0; }
+    .meta { color: #6b7280; font-size: 0.875rem; margin-bottom: 2rem; }
+    .content { line-height: 1.75; }
+    img { max-width: 100%; height: auto; }
+  </style>
+</head>
+<body>
+  <div class="preview-banner">
+    ⚠️ PREVIEW MODE - Este post não está publicado
+  </div>
+  
+  <div class="container">
+    <div class="category">${escapeHtml(category?.name || 'Sem categoria')}</div>
+    <h1>${escapeHtml(post.title)}</h1>
+    <div class="meta">
+      Por ${escapeHtml(author?.name || 'Autor desconhecido')} • 
+      Status: ${escapeHtml(post.status)} •
+      ${post.is_premium ? '🔒 Premium' : '🆓 Free'}
+    </div>
+    
+    ${post.cover_media_url ? `
+      <img src="${escapeHtml(post.cover_media_url)}" alt="${escapeHtml(post.title)}">
+    ` : ''}
+    
+    <div class="content">
+      ${post.content}
+    </div>
+  </div>
+</body>
+</html>
+  `
+  
+  return c.html(previewHtml)
+})
+
 // GET /admin/settings
 app.get('/admin/settings', async (c) => {
   const { renderSettingsListPage } = await import('../packages/core/admin/settings')

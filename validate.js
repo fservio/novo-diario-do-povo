@@ -1224,6 +1224,105 @@ if (existsSync(passwordIndexFile)) {
 }
 
 // ============================================================================
+// 22. Admin Posts CMS
+// ============================================================================
+
+section('22. Admin Posts CMS')
+
+// Test 1: arquivos existem
+const postsDbFile = 'packages/core/db/posts.ts'
+const postsAdminFile = 'packages/core/admin/posts.ts'
+
+if (existsSync(postsDbFile) && existsSync(postsAdminFile)) {
+  success('Posts: arquivos db + admin criados')
+  
+  // Test 2: SQL correto
+  const postsDb = readFileSync(postsDbFile, 'utf-8')
+  if (postsDb.includes('LEFT JOIN media') && !postsDb.includes('featured_image_r2_key')) {
+    success('Posts: SQL usa LEFT JOIN media corretamente')
+  } else {
+    error('Posts: SQL incorreto (featured_image ou sem LEFT JOIN)')
+  }
+  
+  // Test 3: Slug único com sufixo
+  if (postsDb.includes('generateUniqueSlug') && postsDb.includes('counter')) {
+    success('Posts: slug único com sufixo incremental')
+  } else {
+    warning('Posts: slug pode não ter sufixo único')
+  }
+  
+  // Test 4: CSRF
+  const postsAdmin = readFileSync(postsAdminFile, 'utf-8')
+  if (postsAdmin.includes('csrf')) {
+    success('Posts: forms incluem CSRF')
+  } else {
+    error('Posts: CSRF faltando nos forms')
+  }
+  
+  // Test 5: Preview noindex
+  if (postsAdmin.includes('noindex') || postsAdmin.includes('robots')) {
+    success('Posts: preview com robots noindex')
+  } else {
+    warning('Posts: preview pode não ter noindex')
+  }
+  
+  // Test 6: Zod validation
+  if (postsAdmin.includes('createPostSchema') && postsAdmin.includes('updatePostSchema')) {
+    success('Posts: Zod schemas criados')
+  } else {
+    error('Posts: faltando Zod schemas')
+  }
+  
+  // Test 7: Tags many-to-many
+  if (postsDb.includes('posts_tags')) {
+    success('Posts: tags many-to-many implementado')
+  } else {
+    warning('Posts: tags podem não estar implementadas')
+  }
+  
+  // Test 8: Workflow (publish, schedule, archive)
+  if (postsDb.includes('publishPost') && postsDb.includes('schedulePost') && postsDb.includes('archivePost')) {
+    success('Posts: workflow actions implementadas')
+  } else {
+    error('Posts: faltando workflow actions')
+  }
+  
+} else {
+  error('Posts: arquivos não encontrados')
+}
+
+// Test 9: Rotas registradas
+const postsIndexFile = 'functions/index.ts'
+if (existsSync(postsIndexFile)) {
+  const indexCode = readFileSync(postsIndexFile, 'utf-8')
+  
+  const routes = [
+    '/admin/posts',
+    '/admin/posts/new',
+    '/admin/posts/:id',
+    '/admin/posts/:id/publish',
+    '/admin/posts/:id/schedule',
+    '/admin/posts/:id/archive',
+    '/admin/posts/:id/preview'
+  ]
+  
+  let routesOk = 0
+  routes.forEach(route => {
+    if (indexCode.includes(`'${route}'`) || indexCode.includes(`"${route}"`)) {
+      routesOk++
+    }
+  })
+  
+  if (routesOk === routes.length) {
+    success(`Posts: todas ${routes.length} rotas registradas`)
+  } else {
+    error(`Posts: apenas ${routesOk}/${routes.length} rotas registradas`)
+  }
+} else {
+  error('Posts: functions/index.ts não encontrado')
+}
+
+// ============================================================================
 // Resumo Final
 // ============================================================================
 

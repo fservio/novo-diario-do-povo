@@ -348,3 +348,9 @@ export async function logAudit(
     params.userAgent || null
   ).run()
 }
+
+// ============================================================================
+// Posts Admin Repository (import from dedicated module)
+// ============================================================================
+
+export * from './posts'
