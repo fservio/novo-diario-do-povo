@@ -558,7 +558,22 @@ if (existsSync(securityFile)) {
     success('CSP: não contém cdn.tailwindcss.com')
   }
   
-  // Test 2: 'unsafe-eval' controlado por setting
+  // Test 2: CSP nonce instead of 'unsafe-inline' for script-src
+  if (codeNoComments.includes("'nonce-")) {
+    // Extract only the script-src directive line
+    const lines = secCode.split('\n')
+    const scriptSrcLine = lines.find(l => l.trim().startsWith('`script-src'))
+    
+    if (scriptSrcLine && scriptSrcLine.includes("'unsafe-inline'")) {
+      error("CSP: contém 'unsafe-inline' em script-src (deve usar nonce)")
+    } else {
+      success("CSP: usa nonce (sem 'unsafe-inline' em script-src)")
+    }
+  } else {
+    error("CSP: nonce não detectado em script-src")
+  }
+  
+  // Test 3: 'unsafe-eval' controlado por setting
   if (secCode.includes("'unsafe-eval'") && secCode.includes('allowUnsafeEval')) {
     success("CSP: 'unsafe-eval' controlado por setting")
   } else if (secCode.includes("'unsafe-eval'")) {
@@ -567,24 +582,34 @@ if (existsSync(securityFile)) {
     success("CSP: 'unsafe-eval' não presente")
   }
   
-  // Test 3: CSP lê de ads.csp_allowlist
-  if (secCode.includes('ads.csp_allowlist')) {
-    success('CSP: lê de ads.csp_allowlist')
+  // Test 4: CSP por diretiva (script/frame/connect/img)
+  if (secCode.includes('ads.csp.script_hosts') && 
+      secCode.includes('ads.csp.frame_hosts') &&
+      secCode.includes('ads.csp.connect_hosts') &&
+      secCode.includes('ads.csp.img_hosts')) {
+    success('CSP: lê allowlist por diretiva (script/frame/connect/img)')
   } else {
-    error('CSP: não lê de ads.csp_allowlist')
+    error('CSP: não lê allowlist por diretiva')
   }
   
-  // Test 4: CSRF aceita form field
+  // Test 5: CSRF aceita form field
   if (secCode.includes('parseBody') && secCode.includes("body['csrf']")) {
     success('CSRF: aceita form field csrf')
   } else {
     error('CSRF: não aceita form field csrf (apenas header)')
   }
+  
+  // Test 6: CSRF bound à sessão (verifica owner)
+  if (secCode.includes('adminUser') && secCode.includes('storedOwnerId')) {
+    success('CSRF: bound à sessão (verifica owner)')
+  } else {
+    error('CSRF: não bound à sessão')
+  }
 } else {
   error('Security: packages/core/middleware/security.ts não encontrado')
 }
 
-// Test 5: Webhook Asaas usa arrayBuffer para hash
+// Test 7: Webhook Asaas usa arrayBuffer para hash
 const functionsIndexFile = 'functions/index.ts'
 if (existsSync(functionsIndexFile)) {
   const indexCode = readFileSync(functionsIndexFile, 'utf-8')
@@ -597,15 +622,22 @@ if (existsSync(functionsIndexFile)) {
     error('Webhook: método de hash não detectado')
   }
   
-  // Test 6: payload_hash tem 64 hex chars
+  // Test 8: payload_hash tem 64 hex chars
   if (indexCode.includes('padStart(2') && indexCode.includes("join('')")) {
     success('Webhook: payload_hash formato hex correto')
   } else {
     warning('Webhook: formato de hash não confirmado')
   }
+  
+  // Test 9: Webhook stable_key (hybrid idempotency)
+  if (indexCode.includes('stable_key') && indexCode.includes('stableKey')) {
+    success('Webhook: idempotência híbrida (payload_hash + stable_key)')
+  } else {
+    error('Webhook: sem idempotência híbrida (stable_key ausente)')
+  }
 }
 
-// Test 7: Seed ads contém ads.csp_allow_unsafe_eval
+// Test 10: Seed ads contém settings CSP por diretiva
 const seedAdsFile = 'scripts/seed_ads.sql'
 if (existsSync(seedAdsFile)) {
   const seedCode = readFileSync(seedAdsFile, 'utf-8')
@@ -614,6 +646,34 @@ if (existsSync(seedAdsFile)) {
     success('Seed: ads.csp_allow_unsafe_eval presente')
   } else {
     warning('Seed: ads.csp_allow_unsafe_eval ausente')
+  }
+  
+  if (seedCode.includes('ads.csp.script_hosts') &&
+      seedCode.includes('ads.csp.frame_hosts') &&
+      seedCode.includes('ads.csp.connect_hosts') &&
+      seedCode.includes('ads.csp.img_hosts')) {
+    success('Seed: CSP por diretiva (script/frame/connect/img)')
+  } else {
+    error('Seed: CSP por diretiva ausente')
+  }
+}
+
+// Test 11: Migration stable_key
+const webhookMigrationFile = 'migrations/0003_webhook_stable_key.sql'
+if (existsSync(webhookMigrationFile)) {
+  success('Migration: 0003_webhook_stable_key.sql presente')
+} else {
+  error('Migration: 0003_webhook_stable_key.sql ausente')
+}
+
+// Test 12: renderScript helper com nonce
+const uiFile = 'packages/core/admin/ui.ts'
+if (existsSync(uiFile)) {
+  const uiCode = readFileSync(uiFile, 'utf-8')
+  if (uiCode.includes('renderScript') && uiCode.includes('nonce')) {
+    success('UI: renderScript helper com nonce presente')
+  } else {
+    warning('UI: renderScript helper não detectado')
   }
 }
 

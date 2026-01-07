@@ -1,11 +1,13 @@
 /**
  * Admin Auth Middleware
  * Protege rotas /admin e /api/admin
+ * Gera CSRF token para cada request
  */
 
 import type { Context, Next } from 'hono'
 import type { Env, AppContext } from '../types'
 import { verifyJWT } from '../auth'
+import { generateCSRFToken } from './security'
 
 export async function requireAdmin(c: Context<{ Bindings: Env; Variables: AppContext }>, next: Next): Promise<Response | void> {
   const path = c.req.path
@@ -13,6 +15,12 @@ export async function requireAdmin(c: Context<{ Bindings: Env; Variables: AppCon
   const isAdminApiRoute = path.startsWith('/api/admin')
 
   if (!isAdminRoute && !isAdminApiRoute) {
+    await next()
+    return
+  }
+
+  // Skip CSRF generation for login page (GET)
+  if (path === '/admin/login' && c.req.method === 'GET') {
     await next()
     return
   }
@@ -44,11 +52,16 @@ export async function requireAdmin(c: Context<{ Bindings: Env; Variables: AppCon
   }
 
   // Store user in context
+  const adminUserId = parseInt(payload.sub, 10)
   c.set('adminUser', {
-    id: parseInt(payload.sub, 10),
+    id: adminUserId,
     email: payload.email || 'admin@example.com',
     role: payload.role
   })
+
+  // Generate CSRF token for this session
+  const csrfToken = await generateCSRFToken(c.env, adminUserId)
+  c.set('csrfToken', csrfToken)
 
   await next()
 }

@@ -144,3 +144,14 @@ export function renderCsrfInput(csrfToken?: string): string {
   if (!csrfToken) return ''
   return `<input type="hidden" name="csrf" value="${escapeHtml(csrfToken)}">`
 }
+
+/**
+ * Render inline script with CSP nonce
+ */
+export function renderScript(params: { nonce?: string; js: string }): string {
+  const { nonce, js } = params
+  if (nonce) {
+    return `<script nonce="${escapeHtml(nonce)}">${js}</script>`
+  }
+  return `<script>${js}</script>`
+}

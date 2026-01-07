@@ -74,6 +74,8 @@ export const envSchema = z.object({
 
 export interface AppContext {
   requestId: string
+  cspNonce?: string  // CSP nonce for script-src
+  csrfToken?: string  // CSRF token for admin forms
   user?: {
     id: number
     email: string

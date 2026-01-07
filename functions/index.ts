@@ -263,6 +263,7 @@ app.get('/admin', async (c) => {
   const { renderAdminLayout } = await import('../packages/core/admin/ui')
   const { getSetting } = await import('../packages/core/db')
   const user = c.get('adminUser')
+  const csrfToken = c.get('csrfToken')
 
   // Get stats
   const postsCount = await c.env.DB.prepare('SELECT COUNT(*) as count FROM posts WHERE status = ?')
@@ -322,7 +323,8 @@ app.get('/admin', async (c) => {
     title: 'Dashboard',
     user,
     bodyHtml,
-    activeTab: 'dashboard'
+    activeTab: 'dashboard',
+    csrfToken
   }))
 })
 
@@ -945,27 +947,56 @@ app.post('/api/webhooks/asaas', async (c) => {
     const event = validation.data
     const requestId = c.get('requestId') || 'unknown'
     
-    // Idempotency check by hash (64 hex chars)
+    // Primary idempotency: payload_hash (64 hex chars)
     const eventId = payloadHash
     
-    const existing = await c.env.DB.prepare(
+    // Secondary idempotency: stable_key (derived from semantic content)
+    let stableKey: string | null = null
+    
+    // Derive stable_key: asaas:<eventType>:<entityId>
+    const eventType = event.event
+    if (event.payment?.id) {
+      stableKey = `asaas:${eventType}:payment:${event.payment.id}`
+    } else if ((event as any).subscription?.id) {
+      stableKey = `asaas:${eventType}:subscription:${(event as any).subscription.id}`
+    } else if ((event as any).customer?.id || (event as any).customer) {
+      const custId = (event as any).customer?.id || (event as any).customer
+      stableKey = `asaas:${eventType}:customer:${custId}`
+    } else if ((event as any).invoice?.id) {
+      stableKey = `asaas:${eventType}:invoice:${(event as any).invoice.id}`
+    }
+    
+    // Idempotency check 1: by payload_hash
+    const existingByHash = await c.env.DB.prepare(
       'SELECT id FROM webhook_events WHERE provider = ? AND event_id = ?'
     ).bind('asaas', eventId).first()
     
-    if (existing) {
-      return c.json({ success: true, message: 'Event already processed' })
+    if (existingByHash) {
+      return c.json({ success: true, message: 'Event already processed (by hash)' })
     }
     
-    // Store event with payload_hash = SHA-256 of raw bytes
+    // Idempotency check 2: by stable_key (if exists)
+    if (stableKey) {
+      const existingByKey = await c.env.DB.prepare(
+        'SELECT id FROM webhook_events WHERE provider = ? AND stable_key = ? AND status IN (?, ?)'
+      ).bind('asaas', stableKey, 'pending', 'processed').first()
+      
+      if (existingByKey) {
+        return c.json({ success: true, message: 'Event already processed (by stable_key)' })
+      }
+    }
+    
+    // Store event with hybrid idempotency
     await c.env.DB.prepare(`
-      INSERT INTO webhook_events (provider, event_id, event_type, payload_hash, payload_json, status, created_at)
-      VALUES (?, ?, ?, ?, ?, 'pending', datetime('now'))
+      INSERT INTO webhook_events (provider, event_id, event_type, payload_hash, payload_json, stable_key, status, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'pending', datetime('now'))
     `).bind(
       'asaas',
       eventId,
       event.event,
       payloadHash,
-      bodyText
+      bodyText,
+      stableKey
     ).run()
     
     // Process

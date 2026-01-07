@@ -3,9 +3,24 @@
  */
 
 import type { Context, Next } from 'hono'
-import type { Env } from '../types'
+import type { Env, AppContext } from '../types'
 
-export async function securityHeaders(c: Context<{ Bindings: Env }>, next: Next): Promise<void> {
+/**
+ * Generate CSP nonce (16 random bytes → base64)
+ */
+function generateNonce(): string {
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  // Base64 encode
+  const base64 = btoa(String.fromCharCode(...bytes))
+  return base64
+}
+
+export async function securityHeaders(c: Context<{ Bindings: Env; Variables: AppContext }>, next: Next): Promise<void> {
+  // Generate nonce BEFORE processing request
+  const nonce = generateNonce()
+  c.set('cspNonce', nonce)
+  
   await next()
 
   const { getSetting } = await import('../db')
@@ -13,16 +28,27 @@ export async function securityHeaders(c: Context<{ Bindings: Env }>, next: Next)
   // Get ads provider mode and CSP settings
   const providerMode = (await getSetting(c.env, 'ads.provider_mode', 'public')) as string || 'off'
   const allowUnsafeEval = (await getSetting(c.env, 'ads.csp_allow_unsafe_eval', 'public')) as boolean || false
-  const cspAllowlistRaw = (await getSetting(c.env, 'ads.csp_allowlist', 'public')) as string[] || []
   
-  // Ensure allowlist is array of hosts (no https:// prefix)
-  const cspAllowlist: string[] = Array.isArray(cspAllowlistRaw) ? cspAllowlistRaw : []
+  // CSP by directive (fallback to legacy csp_allowlist)
+  let scriptHosts = (await getSetting(c.env, 'ads.csp.script_hosts', 'public')) as string[] || []
+  let frameHosts = (await getSetting(c.env, 'ads.csp.frame_hosts', 'public')) as string[] || []
+  let connectHosts = (await getSetting(c.env, 'ads.csp.connect_hosts', 'public')) as string[] || []
+  let imgHosts = (await getSetting(c.env, 'ads.csp.img_hosts', 'public')) as string[] || []
+  
+  // Fallback to legacy csp_allowlist if new settings don't exist
+  const legacyAllowlist = (await getSetting(c.env, 'ads.csp_allowlist', 'public')) as string[] || []
+  if (Array.isArray(legacyAllowlist) && legacyAllowlist.length > 0) {
+    if (!scriptHosts || scriptHosts.length === 0) scriptHosts = legacyAllowlist
+    if (!frameHosts || frameHosts.length === 0) frameHosts = legacyAllowlist
+    if (!connectHosts || connectHosts.length === 0) connectHosts = legacyAllowlist
+    if (!imgHosts || imgHosts.length === 0) imgHosts = legacyAllowlist
+  }
 
-  // Base sources (NO cdn.tailwindcss.com)
+  // Base sources
   const baseSources = ["'self'", 'https://cdn.jsdelivr.net']
   
   // Ads sources (only if provider_mode != 'off')
-  const adsHosts = providerMode !== 'off' ? [
+  const adsScriptHosts = providerMode !== 'off' ? [
     '*.googletagservices.com',
     '*.googlesyndication.com',
     '*.google.com',
@@ -30,16 +56,40 @@ export async function securityHeaders(c: Context<{ Bindings: Env }>, next: Next)
     'securepubads.g.doubleclick.net',
     'googleads.g.doubleclick.net',
     'tpc.googlesyndication.com',
-    ...cspAllowlist
-  ] : []
+    ...scriptHosts
+  ] : scriptHosts
   
-  const adsSourcesWithPrefix = adsHosts.map(h => `https://${h}`)
+  const adsFrameHosts = providerMode !== 'off' ? [
+    '*.googlesyndication.com',
+    '*.google.com',
+    '*.doubleclick.net',
+    ...frameHosts
+  ] : frameHosts
+  
+  const adsConnectHosts = providerMode !== 'off' ? [
+    '*.googlesyndication.com',
+    '*.google.com',
+    '*.doubleclick.net',
+    ...connectHosts
+  ] : connectHosts
+  
+  const adsImgHosts = providerMode !== 'off' ? [
+    '*.googlesyndication.com',
+    '*.google.com',
+    '*.doubleclick.net',
+    ...imgHosts
+  ] : imgHosts
+  
+  const scriptSourcesWithPrefix = adsScriptHosts.map(h => `https://${h}`)
+  const frameSourcesWithPrefix = adsFrameHosts.map(h => `https://${h}`)
+  const connectSourcesWithPrefix = adsConnectHosts.map(h => `https://${h}`)
+  const imgSourcesWithPrefix = adsImgHosts.map(h => `https://${h}`)
 
-  // Build CSP directives
+  // Build CSP directives with NONCE (NO 'unsafe-inline' for script-src)
   const scriptSources = [
     ...baseSources,
-    ...adsSourcesWithPrefix,
-    "'unsafe-inline'", // Required for inline scripts
+    ...scriptSourcesWithPrefix,
+    `'nonce-${nonce}'`,  // ✅ NONCE instead of unsafe-inline
   ]
   
   // Add 'unsafe-eval' only if explicitly enabled
@@ -50,11 +100,11 @@ export async function securityHeaders(c: Context<{ Bindings: Env }>, next: Next)
   const csp = [
     `default-src 'self'`,
     `script-src ${scriptSources.join(' ')}`,
-    `style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net`,
-    `img-src 'self' data: blob: ${adsSourcesWithPrefix.join(' ')}`,
+    `style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net`,  // style can keep unsafe-inline
+    `img-src 'self' data: blob: ${imgSourcesWithPrefix.join(' ')}`,
     `font-src 'self' data: https://cdn.jsdelivr.net`,
-    `connect-src 'self' ${adsSourcesWithPrefix.join(' ')}`,
-    `frame-src ${adsSourcesWithPrefix.join(' ')}`,
+    `connect-src 'self' ${connectSourcesWithPrefix.join(' ')}`,
+    `frame-src ${frameSourcesWithPrefix.join(' ')}`,
     `media-src 'self' blob:`,
     `object-src 'none'`,
     `base-uri 'self'`,
@@ -97,7 +147,7 @@ export async function corsMiddleware(c: Context, next: Next): Promise<Response |
 // CSRF Protection (admin SSR forms + API)
 // ============================================================================
 
-export async function csrfProtection(c: Context<{ Bindings: Env }>, next: Next): Promise<Response | void> {
+export async function csrfProtection(c: Context<{ Bindings: Env; Variables: AppContext }>, next: Next): Promise<Response | void> {
   if (c.req.method === 'GET' || c.req.method === 'HEAD' || c.req.method === 'OPTIONS') {
     await next()
     return
@@ -129,26 +179,37 @@ export async function csrfProtection(c: Context<{ Bindings: Env }>, next: Next):
     }
   }
 
-  // Verificar token no KV (gerado no login)
-  const storedToken = await c.env.KV.get(`csrf:${token}`)
-  if (!storedToken) {
+  // Get admin user from context (set by requireAdmin)
+  const adminUser = c.get('adminUser') as { id: number; email: string; role: string } | undefined
+  if (!adminUser) {
+    // No admin user in context → reject
+    if (path.startsWith('/api/')) {
+      return c.json({ success: false, error: 'Não autenticado' }, 401)
+    } else {
+      return c.html('<h1>401 Unauthorized</h1><p>Não autenticado</p>', 401)
+    }
+  }
+
+  // Verificar token no KV e validar owner
+  const storedOwnerId = await c.env.KV.get(`csrf:${token}`)
+  if (!storedOwnerId || storedOwnerId !== adminUser.id.toString()) {
     if (path.startsWith('/api/')) {
       return c.json({ success: false, error: 'CSRF token inválido ou expirado' }, 403)
     } else {
-      return c.html('<h1>403 Forbidden</h1><p>CSRF token inválido ou expirado</p>', 403)
+      return c.html('<h1>403 Forbidden</h1><p>CSRF token inválido ou não pertence à sessão atual</p>', 403)
     }
   }
 
   await next()
 }
 
-export async function generateCSRFToken(env: Env): Promise<string> {
+export async function generateCSRFToken(env: Env, adminUserId: number): Promise<string> {
   const bytes = new Uint8Array(32)
   crypto.getRandomValues(bytes)
   const token = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
   
-  // Armazenar por 1 hora
-  await env.KV.put(`csrf:${token}`, 'valid', { expirationTtl: 3600 })
+  // Store with admin user ID as owner (TTL 1 hora)
+  await env.KV.put(`csrf:${token}`, adminUserId.toString(), { expirationTtl: 3600 })
   
   return token
 }

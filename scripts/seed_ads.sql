@@ -9,6 +9,12 @@ INSERT OR IGNORE INTO settings (key, value_json, scope, updated_at) VALUES
 ('ads.gam.network_code', '""', 'public', datetime('now')),
 ('ads.consent.enabled', 'false', 'public', datetime('now')),
 ('ads.csp_allow_unsafe_eval', 'false', 'public', datetime('now')),
+-- CSP by directive (hosts without https://)
+('ads.csp.script_hosts', '["*.googlesyndication.com", "*.google.com", "*.doubleclick.net", "*.googletagservices.com"]', 'public', datetime('now')),
+('ads.csp.frame_hosts', '["*.googlesyndication.com", "*.google.com", "*.doubleclick.net"]', 'public', datetime('now')),
+('ads.csp.connect_hosts', '["*.googlesyndication.com", "*.google.com", "*.doubleclick.net"]', 'public', datetime('now')),
+('ads.csp.img_hosts', '["*.googlesyndication.com", "*.google.com", "*.doubleclick.net"]', 'public', datetime('now')),
+-- Legacy fallback (mantido para compatibilidade)
 ('ads.csp_allowlist', '["*.googlesyndication.com", "*.google.com", "*.doubleclick.net", "*.googletagservices.com", "securepubads.g.doubleclick.net", "googleads.g.doubleclick.net", "tpc.googlesyndication.com"]', 'public', datetime('now')),
 ('ads.subscriber_mode.enabled', 'true', 'public', datetime('now')),
 ('ads.subscriber_mode.article_disable_sticky', 'true', 'public', datetime('now')),
