@@ -4,15 +4,16 @@
 
 import type { Context, Next } from 'hono'
 import type { Env, AppContext } from '../types'
-import { randomBytes, toBase64 } from '../utils'
+import { randomBytes, toBase64Url } from '../utils'
 
 /**
- * Generate CSP nonce (16 random bytes → base64)
+ * Generate CSP nonce (16 random bytes → base64url)
  * Uses safe helper without spread operator
+ * base64url is URL-safe (no +, /, or = chars)
  */
 function generateNonce(): string {
   const bytes = randomBytes(16)
-  return toBase64(bytes)
+  return toBase64Url(bytes)
 }
 
 export async function securityHeaders(c: Context<{ Bindings: Env; Variables: AppContext }>, next: Next): Promise<void> {

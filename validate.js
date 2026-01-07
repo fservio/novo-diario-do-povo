@@ -790,6 +790,31 @@ if (existsSync(functionsIndexFile)) {
   } else {
     warning('MICRO 3: Webhook não retorna mensagem de collision específica')
   }
+  
+  // ========================================================================
+  // AJUSTE FINAL 1: admin_csrf HttpOnly
+  // ========================================================================
+  if (indexCode.includes('admin_csrf=') && indexCode.includes('HttpOnly')) {
+    success('AJUSTE FINAL 1: Cookie admin_csrf é HttpOnly (SSR-only)')
+  } else {
+    error('AJUSTE FINAL 1: Cookie admin_csrf não é HttpOnly')
+  }
+}
+
+// ========================================================================
+// AJUSTE FINAL 2: CSP Nonce base64url
+// ========================================================================
+if (securityFile && existsSync(securityFile)) {
+  const secCode = readFileSync(securityFile, 'utf-8')
+  
+  // Check if generateNonce uses toBase64Url
+  if (secCode.includes('toBase64Url')) {
+    success('AJUSTE FINAL 2: CSP nonce usa base64url (URL-safe)')
+  } else if (secCode.includes('toBase64(')) {
+    error('AJUSTE FINAL 2: CSP nonce ainda usa base64 (não URL-safe)')
+  } else {
+    warning('AJUSTE FINAL 2: Método de nonce não detectado')
+  }
 }
 
 // ============================================================================

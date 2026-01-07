@@ -252,7 +252,7 @@ app.post('/admin/login', async (c) => {
     const cookieOptions = 'Secure; SameSite=Lax; Path=/admin'
     c.header('Set-Cookie', [
       `admin_session=${token}; HttpOnly; ${cookieOptions}; Max-Age=604800`,
-      `admin_csrf=${csrfToken}; ${cookieOptions}; Max-Age=3600`  // Non-HttpOnly for JS access
+      `admin_csrf=${csrfToken}; HttpOnly; ${cookieOptions}; Max-Age=3600`  // HttpOnly: SSR-only, no JS access needed
     ].join(', '))
 
     return c.redirect('/admin', 302)
@@ -266,7 +266,7 @@ app.post('/admin/login', async (c) => {
 app.post('/admin/logout', async (c) => {
   c.header('Set-Cookie', [
     'admin_session=; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=0',
-    'admin_csrf=; Secure; SameSite=Lax; Path=/admin; Max-Age=0'
+    'admin_csrf=; HttpOnly; Secure; SameSite=Lax; Path=/admin; Max-Age=0'
   ].join(', '))
   return c.redirect('/admin/login', 302)
 })
