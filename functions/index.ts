@@ -727,114 +727,72 @@ app.get('/autor/:slug', async (c) => {
 
 app.get('/noticia/:slug', async (c) => {
   const slug = c.req.param('slug')
-  const { findPostWithRelations, getSetting } = await import('../packages/core/db')
+  
+  // Dynamic imports
+  const { findArticleBySlug, findRelatedPosts, findMostRead } = await import('../packages/core/db/article')
+  const { getHomeSections } = await import('../packages/core/db/home')
+  const { renderArticlePage } = await import('../packages/core/web/article')
   const { checkPostAccess } = await import('../packages/core/paywall')
   const { getReaderContext } = await import('../packages/core/paywall/helpers')
-  const { createSafeSnippet, escapeHtml } = await import('../packages/core/paywall/snippet')
-  const { generateArticleJsonLd, generateBreadcrumbJsonLd } = await import('../packages/core/seo')
+  const { getSetting } = await import('../packages/core/db')
   
-  const postData = await findPostWithRelations(c.env, slug)
-  
-  if (!postData || postData.status !== 'published') {
+  // Find post
+  const post = await findArticleBySlug(c.env, slug)
+  if (!post || post.seo_noindex) {
     return c.notFound()
   }
   
   // Get reader context (with cookie)
   const readerContext = await getReaderContext(c as any)
   
-  // Check access
-  const accessCheck = await checkPostAccess(c.env, postData, {
+  // Check access (convert ArticlePost to format expected by checkPostAccess)
+  const postForPaywall = {
+    id: post.id,
+    slug: post.slug,
+    is_premium: post.is_premium,
+    category: { id: post.category_id, name: post.category_name, slug: post.category_slug }
+  }
+  
+  const accessCheck = await checkPostAccess(c.env, postForPaywall as any, {
     isSubscriber: readerContext.isSubscriber,
     readerUserId: readerContext.readerId,
     anonIdentifier: readerContext.anonIdentifier,
   })
   
-  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+  // Get CMS settings
+  const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
+  const coverR2Key = (await getSetting(c.env, 'cover_of_day.r2_key', 'public') as string) || ''
+  const coverAlt = (await getSetting(c.env, 'cover_of_day.alt', 'public') as string) || 'Capa do Dia'
+  const coverAspectRatio = (await getSetting(c.env, 'cover_of_day.aspect_ratio', 'public') as string) || '3/4'
   
-  // Prepare content
-  let contentHtml = postData.content
-  if (!accessCheck.allowed) {
-    const ratio = accessCheck.lockRatio || 0.22
-    contentHtml = createSafeSnippet(postData.content, ratio)
-  }
+  const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
   
-  // JSON-LD
-  const articleJsonLd = generateArticleJsonLd(postData, c.env.PUBLIC_BASE_URL, siteName)
-  const breadcrumbJsonLd = generateBreadcrumbJsonLd([
-    { name: 'Home', url: c.env.PUBLIC_BASE_URL },
-    { name: postData.category?.name || 'Notícias', url: `${c.env.PUBLIC_BASE_URL}/categoria/${postData.category?.slug}` },
-    { name: postData.title, url: `${c.env.PUBLIC_BASE_URL}/noticia/${postData.slug}` },
-  ], c.env.PUBLIC_BASE_URL)
+  // Get nav sections
+  const sections = await getHomeSections(c.env)
+  const navItems = sections
+    .filter(s => s.enabled)
+    .map(s => ({
+      label: s.title,
+      href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
+      active: false
+    }))
   
-  return c.html(`
-    <!DOCTYPE html>
-    <html lang="pt-BR">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${postData.seo_title || postData.title} | ${siteName}</title>
-        <meta name="description" content="${postData.seo_description || postData.excerpt || ''}">
-        <link rel="canonical" href="${postData.seo_canonical || `${c.env.PUBLIC_BASE_URL}/noticia/${postData.slug}`}">
-        <meta property="og:title" content="${escapeHtml(postData.title)}">
-        <meta property="og:description" content="${escapeHtml(postData.excerpt || '')}">
-        <meta property="og:url" content="${c.env.PUBLIC_BASE_URL}/noticia/${postData.slug}">
-        <meta property="og:type" content="article">
-        <meta name="twitter:card" content="summary_large_image">
-        <link href="/static/styles.css" rel="stylesheet">
-        <script type="application/ld+json">${articleJsonLd}</script>
-        <script type="application/ld+json">${breadcrumbJsonLd}</script>
-    </head>
-    <body class="bg-gray-50">
-        <header class="bg-white border-b">
-            <div class="container mx-auto px-4 py-4">
-                <a href="/" class="text-2xl font-bold text-gray-900">${siteName}</a>
-            </div>
-        </header>
-        
-        <main class="container mx-auto px-4 py-8 max-w-3xl">
-            <article class="bg-white rounded-lg shadow-sm p-8">
-                <div class="mb-4">
-                    <a href="/categoria/${postData.category?.slug}" class="text-blue-600 font-semibold hover:text-blue-700">
-                        ${postData.category?.name || ''}
-                    </a>
-                </div>
-                
-                <h1 class="text-4xl font-bold mb-4">${postData.title}</h1>
-                
-                <div class="text-gray-600 mb-6">
-                    <span>Por <a href="/autor/${postData.author?.slug}" class="hover:text-blue-600">${postData.author?.name || 'Redação'}</a></span>
-                    <span class="mx-2">•</span>
-                    <time>${new Date(postData.published_at || '').toLocaleDateString('pt-BR')}</time>
-                </div>
-                
-                ${postData.excerpt ? `<p class="text-xl text-gray-700 mb-6">${postData.excerpt}</p>` : ''}
-                
-                <div class="prose max-w-none">
-                    ${contentHtml}
-                    ${!accessCheck.allowed ? `
-                        <div class="paywall-box">
-                            <h3 class="text-2xl font-bold mb-2">Continue lendo com acesso ilimitado</h3>
-                            <p class="text-gray-700 mb-4">Assine para liberar todas as matérias e apoiar o jornalismo independente</p>
-                            <a href="/assinar" class="paywall-cta">
-                                Assinar agora
-                            </a>
-                            <div class="mt-4">
-                                <a href="/conta" class="text-sm text-gray-600 hover:text-blue-600">Já sou assinante</a>
-                            </div>
-                        </div>
-                    ` : ''}
-                </div>
-            </article>
-        </main>
-        
-        <footer class="bg-gray-900 text-white mt-12 py-8">
-            <div class="container mx-auto px-4 text-center">
-                <p>&copy; 2024 ${siteName}. Todos os direitos reservados.</p>
-            </div>
-        </footer>
-    </body>
-    </html>
-  `)
+  // Get related posts and most read
+  const relatedPosts = await findRelatedPosts(c.env, post.id, post.category_id, { limit: 4 })
+  const mostRead = await findMostRead(c.env, { limit: 6 })
+  
+  // Render article page
+  const html = await renderArticlePage(c, post, {
+    baseUrl,
+    siteName,
+    navItems,
+    coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null,
+    relatedPosts,
+    mostRead,
+    isBlocked: !accessCheck.allowed
+  })
+  
+  return c.html(html)
 })
 
 app.get('/assinar', async (c) => {

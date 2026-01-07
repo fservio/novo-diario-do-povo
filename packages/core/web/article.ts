@@ -278,14 +278,14 @@ export async function renderArticlePage(
     { name: post.title, url: canonicalUrl }
   ], baseUrl)
   
-  // Extra head HTML (JSON-LD + OG tags)
+  // Extra head HTML (JSON-LD + OG tags) - WITH CSP NONCE
   const extraHeadHtml = `
     ${post.seo_noindex ? '<meta name="robots" content="noindex, follow">' : ''}
     ${generateOGTags(post, baseUrl)}
-    <script type="application/ld+json">
+    <script type="application/ld+json" nonce="${nonce}">
       ${JSON.stringify(articleJsonLd)}
     </script>
-    <script type="application/ld+json">
+    <script type="application/ld+json" nonce="${nonce}">
       ${JSON.stringify(breadcrumbJsonLd)}
     </script>
   `

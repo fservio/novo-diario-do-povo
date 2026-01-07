@@ -997,6 +997,164 @@ if (existsSync(seedAdsFile)) {
 // ============================================================================
 section('Resumo Final')
 
+// ============================================================================
+// 19. Category & Article Verge Style
+// ============================================================================
+
+section('19. Category & Article Verge Style')
+
+// Test 1: layout.ts exists and exports renderPublicLayout
+const layoutFile = 'packages/core/web/layout.ts'
+if (existsSync(layoutFile)) {
+  const layoutCode = readFileSync(layoutFile, 'utf-8')
+  
+  if (layoutCode.includes('renderPublicLayout')) {
+    success('Layout: renderPublicLayout exportado')
+  } else {
+    error('Layout: renderPublicLayout não encontrado')
+  }
+  
+  // Check for CSP nonce in drawer script
+  if (layoutCode.includes('data-script="cover-drawer"') && layoutCode.includes('nonce=')) {
+    success('Layout: drawer script com CSP nonce')
+  } else {
+    warning('Layout: drawer script sem CSP nonce detectável')
+  }
+} else {
+  error('Layout: packages/core/web/layout.ts não encontrado')
+}
+
+// Test 2: category.ts uses renderPublicLayout
+const categoryFile = 'packages/core/web/category.ts'
+if (existsSync(categoryFile)) {
+  const categoryCode = readFileSync(categoryFile, 'utf-8')
+  
+  if (categoryCode.includes('renderPublicLayout')) {
+    success('Category: usa renderPublicLayout')
+  } else {
+    error('Category: não usa renderPublicLayout')
+  }
+  
+  // Check HTML markers
+  const markers = ['categoryTitle', 'categoryList', 'pagination']
+  markers.forEach(marker => {
+    if (categoryCode.includes(`id="${marker}"`)) {
+      success(`Category: marker id="${marker}" presente`)
+    } else {
+      error(`Category: marker id="${marker}" ausente`)
+    }
+  })
+  
+  // Check ad slots
+  const adSlots = ['listing_top', 'listing_infeed_1', 'listing_infeed_2']
+  adSlots.forEach(slot => {
+    if (categoryCode.includes(slot)) {
+      success(`Category: ad slot ${slot} presente`)
+    } else {
+      error(`Category: ad slot ${slot} ausente`)
+    }
+  })
+  
+  // Check no Tailwind CDN
+  if (categoryCode.includes('cdn.tailwindcss.com')) {
+    error('Category: contém Tailwind CDN (deve ser removido)')
+  } else {
+    success('Category: sem Tailwind CDN')
+  }
+} else {
+  error('Category: packages/core/web/category.ts não encontrado')
+}
+
+// Test 3: article.ts uses renderPublicLayout
+const articleFile = 'packages/core/web/article.ts'
+if (existsSync(articleFile)) {
+  const articleCode = readFileSync(articleFile, 'utf-8')
+  
+  if (articleCode.includes('renderPublicLayout')) {
+    success('Article: usa renderPublicLayout')
+  } else {
+    error('Article: não usa renderPublicLayout')
+  }
+  
+  // Check HTML markers
+  const markers = ['articleTitle', 'breadcrumb', 'articleBody', 'paywallCta']
+  markers.forEach(marker => {
+    if (articleCode.includes(`id="${marker}"`)) {
+      success(`Article: marker id="${marker}" presente`)
+    } else if (marker === 'paywallCta') {
+      warning(`Article: marker id="${marker}" ausente (ok se sempre mostrado)`)
+    } else {
+      error(`Article: marker id="${marker}" ausente`)
+    }
+  })
+  
+  // Check ad slots
+  const adSlots = ['article_top', 'article_inread_1', 'article_footer']
+  adSlots.forEach(slot => {
+    if (articleCode.includes(slot)) {
+      success(`Article: ad slot ${slot} presente`)
+    } else {
+      warning(`Article: ad slot ${slot} ausente`)
+    }
+  })
+  
+  // Check JSON-LD with nonce
+  if (articleCode.includes('application/ld+json') && articleCode.includes('nonce=')) {
+    success('Article: JSON-LD scripts com CSP nonce')
+  } else if (articleCode.includes('application/ld+json')) {
+    warning('Article: JSON-LD presente mas sem CSP nonce detectável')
+  } else {
+    error('Article: JSON-LD scripts ausentes')
+  }
+  
+  // Check NewsArticle type
+  const seoFile = 'packages/core/seo/index.ts'
+  if (existsSync(seoFile)) {
+    const seoCode = readFileSync(seoFile, 'utf-8')
+    if (seoCode.includes('"@type": "NewsArticle"') || seoCode.includes("'@type': 'NewsArticle'")) {
+      success('Article: JSON-LD NewsArticle type presente (via SEO module)')
+    } else {
+      error('Article: JSON-LD NewsArticle type ausente')
+    }
+  } else if (articleCode.includes('"@type": "NewsArticle"') || articleCode.includes("'@type': 'NewsArticle'")) {
+    success('Article: JSON-LD NewsArticle type presente')
+  } else {
+    error('Article: JSON-LD NewsArticle type ausente')
+  }
+  
+  // Check no Tailwind CDN
+  if (articleCode.includes('cdn.tailwindcss.com')) {
+    error('Article: contém Tailwind CDN (deve ser removido)')
+  } else {
+    success('Article: sem Tailwind CDN')
+  }
+} else {
+  error('Article: packages/core/web/article.ts não encontrado')
+}
+
+// Test 4: Routes in functions/index.ts
+if (existsSync(functionsIndexFile)) {
+  const indexCode = readFileSync(functionsIndexFile, 'utf-8')
+  
+  // Category route
+  if (indexCode.includes('renderCategoryPage')) {
+    success('Routes: /categoria/:slug usa renderCategoryPage')
+  } else {
+    error('Routes: /categoria/:slug não usa renderCategoryPage')
+  }
+  
+  // Article route
+  if (indexCode.includes('renderArticlePage')) {
+    success('Routes: /noticia/:slug usa renderArticlePage')
+  } else {
+    error('Routes: /noticia/:slug não usa renderArticlePage')
+  }
+}
+
+// ============================================================================
+// Resumo Final
+// ============================================================================
+
 console.log('')
 if (errors.length > 0) {
   console.log('❌ ERROS CRÍTICOS:')
