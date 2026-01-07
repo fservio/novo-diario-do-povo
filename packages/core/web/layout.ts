@@ -340,7 +340,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
       <div class="container">
         <nav>
           ${navItems.map(item => `
-            <a href="${escapeAttr(item.href)}"${item.active ? ' class="active"' : ''}>
+            <a href="${escapeAttr(item.href)}"${item.active ? ' class="active" aria-current="page"' : ''}>
               ${escapeHtml(item.label)}
             </a>
           `).join('')}
