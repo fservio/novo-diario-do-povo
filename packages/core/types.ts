@@ -89,6 +89,8 @@ export interface AppContext {
     id: number
     email: string
     role: string
+    is_active?: number
+    name?: string
   }
   readerUser?: {
     id: number

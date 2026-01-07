@@ -7,6 +7,8 @@ export interface AdminUser {
   id: number
   email: string
   role: string
+  is_active?: number
+  name?: string
 }
 
 // Utility functions
@@ -35,8 +37,37 @@ export function renderAdminLayout(params: {
   bodyHtml: string
   activeTab?: string
   csrfToken?: string
-}): string {
-  const { title, user, bodyHtml, activeTab = '', csrfToken = '' } = params
+}): string
+
+// Overload for simple calls: renderAdminLayout(bodyHtml, user, csrfToken)
+export function renderAdminLayout(bodyHtml: string, user: AdminUser, csrfToken?: string): string
+
+export function renderAdminLayout(
+  paramsOrBodyHtml: { title: string; user: AdminUser; bodyHtml: string; activeTab?: string; csrfToken?: string } | string,
+  user?: AdminUser,
+  csrfToken?: string
+): string {
+  // Handle overload
+  let title: string
+  let bodyHtml: string
+  let actualUser: AdminUser
+  let activeTab = ''
+  let actualCsrfToken = ''
+
+  if (typeof paramsOrBodyHtml === 'string') {
+    // Simple call: renderAdminLayout(bodyHtml, user, csrfToken)
+    bodyHtml = paramsOrBodyHtml
+    actualUser = user!
+    title = 'Admin'
+    actualCsrfToken = csrfToken || ''
+  } else {
+    // Object call: renderAdminLayout({ title, user, bodyHtml, ... })
+    title = paramsOrBodyHtml.title
+    actualUser = paramsOrBodyHtml.user
+    bodyHtml = paramsOrBodyHtml.bodyHtml
+    activeTab = paramsOrBodyHtml.activeTab || ''
+    actualCsrfToken = paramsOrBodyHtml.csrfToken || ''
+  }
 
   const isActive = (tab: string) => activeTab === tab ? 'background: #f3f4f6;' : ''
 
@@ -133,6 +164,8 @@ export function renderAdminLayout(params: {
       <div class="logo">Jornal CMS</div>
       <nav class="nav">
         <a style="${isActive('dashboard')}" href="/admin">Dashboard</a>
+        <a style="${isActive('posts')}" href="/admin/posts">Posts</a>
+        <a style="${isActive('users')}" href="/admin/users">Usuários</a>
         <a style="${isActive('settings')}" href="/admin/settings">Settings</a>
         <a style="${isActive('asaas')}" href="/admin/asaas">Asaas</a>
         <a style="${isActive('ads')}" href="/admin/ads">Ads</a>

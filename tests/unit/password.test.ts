@@ -21,7 +21,7 @@ describe('hashPassword (PBKDF2)', () => {
     
     expect(parts).toHaveLength(4)
     expect(parts[0]).toBe('pbkdf2_sha256')
-    expect(parseInt(parts[1])).toBeGreaterThanOrEqual(120000) // min iterations
+    expect(parseInt(parts[1])).toBeGreaterThanOrEqual(100000) // Cloudflare Workers max
     expect(parts[2]).toBeTruthy() // salt
     expect(parts[3]).toBeTruthy() // derived key
   })
@@ -153,12 +153,12 @@ describe('maskEmail', () => {
 // ============================================================================
 
 describe('Security properties', () => {
-  it('should use high iteration count (>=120k)', async () => {
+  it('should use high iteration count (>=100k Cloudflare Workers limit)', async () => {
     const hash = await hashPassword('test')
     const parts = hash.split('$')
     const iterations = parseInt(parts[1])
     
-    expect(iterations).toBeGreaterThanOrEqual(120000)
+    expect(iterations).toBe(100000) // Cloudflare Workers max
   })
 
   it('should use sufficient salt length', async () => {

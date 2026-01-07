@@ -1325,6 +1325,140 @@ if (existsSync(postsIndexFile)) {
 }
 
 // ============================================================================
+section('23. Staff & Roles (RBAC)')
+// ============================================================================
+
+// Verificar arquivos
+const staffFiles = [
+  'packages/core/db/users.ts',
+  'packages/core/admin/users.ts',
+  'packages/core/middleware/rbac.ts',
+  'migrations/0005_staff_roles.sql',
+]
+
+let staffFilesOk = 0
+staffFiles.forEach(file => {
+  if (existsSync(resolve(file))) {
+    staffFilesOk++
+  } else {
+    error(`Staff: arquivo ${file} não encontrado`)
+  }
+})
+
+if (staffFilesOk === staffFiles.length) {
+  success('Staff: todos os arquivos criados')
+} else {
+  error(`Staff: apenas ${staffFilesOk}/${staffFiles.length} arquivos encontrados`)
+}
+
+// Verificar funções utilitárias em users.ts
+if (existsSync(resolve('packages/core/db/users.ts'))) {
+  const usersContent = readFileSync(resolve('packages/core/db/users.ts'), 'utf8')
+  
+  const functions = [
+    'normalizeRole',
+    'roleRank',
+    'hasRole',
+    'listStaffUsers',
+    'createStaffUser',
+    'updateStaffUser',
+    'setStaffPassword',
+    'setStaffActive',
+    'ensureAtLeastOneDirectorRule'
+  ]
+  
+  let functionsOk = 0
+  functions.forEach(fn => {
+    if (usersContent.includes(`function ${fn}`) || usersContent.includes(`export function ${fn}`)) {
+      functionsOk++
+    }
+  })
+  
+  if (functionsOk === functions.length) {
+    success(`Staff: todas ${functions.length} funções repository implementadas`)
+  } else {
+    error(`Staff: apenas ${functionsOk}/${functions.length} funções encontradas`)
+  }
+}
+
+// Verificar middleware RBAC
+if (existsSync(resolve('packages/core/middleware/rbac.ts'))) {
+  const rbacContent = readFileSync(resolve('packages/core/middleware/rbac.ts'), 'utf8')
+  
+  const middlewares = ['requireStaff', 'requireDirector', 'requireEditor']
+  
+  let middlewaresOk = 0
+  middlewares.forEach(mw => {
+    if (rbacContent.includes(`export async function ${mw}`) || rbacContent.includes(`export function ${mw}`)) {
+      middlewaresOk++
+    }
+  })
+  
+  if (middlewaresOk === middlewares.length) {
+    success(`Staff: todos ${middlewares.length} middlewares RBAC implementados`)
+  } else {
+    error(`Staff: apenas ${middlewaresOk}/${middlewares.length} middlewares encontrados`)
+  }
+}
+
+// Verificar rotas em functions/index.ts
+if (existsSync(resolve('functions/index.ts'))) {
+  const indexContent = readFileSync(resolve('functions/index.ts'), 'utf8')
+  
+  const routes = [
+    '/admin/users',
+    '/admin/users/new',
+    '/admin/users/:id',
+    '/admin/users/:id/reset-password',
+    '/admin/users/:id/disable',
+    '/admin/users/:id/enable'
+  ]
+  
+  let routesOk = 0
+  routes.forEach(route => {
+    const escaped = route.replace(/:/g, '\\:')
+    if (indexContent.includes(`'${route}'`) || indexContent.includes(`"${route}"`)) {
+      routesOk++
+    }
+  })
+  
+  // Verificar uso de requireDirector
+  const hasRequireDirector = indexContent.includes('requireDirector')
+  
+  if (routesOk === routes.length) {
+    success(`Staff: todas ${routes.length} rotas registradas`)
+  } else {
+    error(`Staff: apenas ${routesOk}/${routes.length} rotas registradas`)
+  }
+  
+  if (hasRequireDirector) {
+    success('Staff: middleware requireDirector aplicado nas rotas')
+  } else {
+    error('Staff: middleware requireDirector não encontrado')
+  }
+}
+
+// Verificar SSR render markers
+if (existsSync(resolve('packages/core/admin/users.ts'))) {
+  const usersAdminContent = readFileSync(resolve('packages/core/admin/users.ts'), 'utf8')
+  
+  const markers = ['id="usersTable"', 'name="csrf_token"', 'name="role"']
+  
+  let markersOk = 0
+  markers.forEach(marker => {
+    if (usersAdminContent.includes(marker)) {
+      markersOk++
+    }
+  })
+  
+  if (markersOk === markers.length) {
+    success(`Staff: todos ${markers.length} markers SSR encontrados`)
+  } else {
+    warning(`Staff: apenas ${markersOk}/${markers.length} markers SSR encontrados`)
+  }
+}
+
+// ============================================================================
 // Resumo Final
 // ============================================================================
 

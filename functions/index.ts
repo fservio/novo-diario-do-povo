@@ -153,7 +153,7 @@ app.get('/api/admin/diag/pbkdf2', async (c) => {
       gotPrefix: gotHex.substring(0, 16),
       expectedPrefix: expectedHex.substring(0, 16),
       fullMatch: match,
-      environment: c.env.ENVIRONMENT || 'unknown'
+      environment: 'cloudflare-workers'
     })
   } catch (error) {
     return c.json({
@@ -1694,6 +1694,82 @@ app.notFound((c) => {
     </body>
     </html>
   `, 404)
+})
+
+// ============================================================================
+// Admin Users Routes (RBAC: Director only)
+// ============================================================================
+
+// GET /admin/users - List users
+app.get('/admin/users', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => {})
+  
+  const { handleUsersList } = await import('../packages/core/admin/users')
+  return handleUsersList(c)
+})
+
+// GET /admin/users/new - New user form
+app.get('/admin/users/new', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => {})
+  
+  const { handleUsersNew } = await import('../packages/core/admin/users')
+  return handleUsersNew(c)
+})
+
+// POST /admin/users - Create user
+app.post('/admin/users', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => {})
+  
+  const { handleUsersCreate } = await import('../packages/core/admin/users')
+  return handleUsersCreate(c)
+})
+
+// GET /admin/users/:id - Edit user form
+app.get('/admin/users/:id', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => {})
+  
+  const { handleUsersEdit } = await import('../packages/core/admin/users')
+  return handleUsersEdit(c)
+})
+
+// POST /admin/users/:id - Update user
+app.post('/admin/users/:id', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => {})
+  
+  const { handleUsersUpdate } = await import('../packages/core/admin/users')
+  return handleUsersUpdate(c)
+})
+
+// POST /admin/users/:id/reset-password - Reset password
+app.post('/admin/users/:id/reset-password', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => {})
+  
+  const { handleUsersResetPassword } = await import('../packages/core/admin/users')
+  return handleUsersResetPassword(c)
+})
+
+// POST /admin/users/:id/disable - Disable user
+app.post('/admin/users/:id/disable', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => {})
+  
+  const { handleUsersDisable } = await import('../packages/core/admin/users')
+  return handleUsersDisable(c)
+})
+
+// POST /admin/users/:id/enable - Enable user
+app.post('/admin/users/:id/enable', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => {})
+  
+  const { handleUsersEnable } = await import('../packages/core/admin/users')
+  return handleUsersEnable(c)
 })
 
 // ============================================================================
