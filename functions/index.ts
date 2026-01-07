@@ -383,47 +383,41 @@ app.get('/admin', async (c) => {
   const asaasConfigured = await getSetting(c.env, 'asaas.api_key', 'private')
 
   const bodyHtml = `
-    <div class="space-y-6">
-      <!-- Stats Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div class="text-gray-500 text-sm font-medium">Posts Publicados</div>
-          <div class="text-3xl font-bold mt-2 text-gray-900">${postsCount?.count || 0}</div>
-        </div>
-
-        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div class="text-gray-500 text-sm font-medium">Planos Ativos</div>
-          <div class="text-3xl font-bold mt-2 text-gray-900">${plansCount?.count || 0}</div>
-        </div>
-
-        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div class="text-gray-500 text-sm font-medium">Slots de Ads Ativos</div>
-          <div class="text-3xl font-bold mt-2 text-gray-900">${adsCount?.count || 7}</div>
-        </div>
-
-        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div class="text-gray-500 text-sm font-medium">Asaas</div>
-          <div class="text-lg font-semibold mt-2 ${asaasConfigured ? 'text-green-600' : 'text-red-600'}">
-            ${asaasConfigured ? '✓ Configurado' : '✗ Não configurado'}
-          </div>
-        </div>
+    <div class="grid grid-4" style="margin-bottom: 2rem;">
+      <div class="card">
+        <div class="card-label">Posts Publicados</div>
+        <div class="card-value">${postsCount?.count || 0}</div>
       </div>
 
-      <!-- Ações Rápidas -->
-      <div>
-        <h2 class="text-xl font-semibold mb-4 text-gray-900">Ações Rápidas</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <a href="/admin/settings" class="block bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 hover:shadow transition">
-            <div class="font-medium text-gray-900">→ Gerenciar Settings</div>
-            <div class="text-sm text-gray-500 mt-1">Configure site_name, cover_of_day e home sections</div>
-          </a>
-          
-          <a href="/admin/asaas" class="block bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 hover:shadow transition">
-            <div class="font-medium text-gray-900">→ Configurar Asaas</div>
-            <div class="text-sm text-gray-500 mt-1">API key, webhook e integrações de pagamento</div>
-          </a>
+      <div class="card">
+        <div class="card-label">Planos Ativos</div>
+        <div class="card-value">${plansCount?.count || 0}</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Slots de Ads Ativos</div>
+        <div class="card-value">${adsCount?.count || 7}</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Asaas</div>
+        <div class="card-value ${asaasConfigured ? 'text-green' : 'text-red'}" style="font-size: 1.125rem;">
+          ${asaasConfigured ? '✓ Configurado' : '✗ Não configurado'}
         </div>
       </div>
+    </div>
+
+    <h2 class="section-title">Ações Rápidas</h2>
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
+      <a href="/admin/settings" class="link-card">
+        <div class="link-title">→ Gerenciar Settings</div>
+        <div class="link-desc">Configure site_name, cover_of_day e home sections</div>
+      </a>
+      
+      <a href="/admin/asaas" class="link-card">
+        <div class="link-title">→ Configurar Asaas</div>
+        <div class="link-desc">API key, webhook e integrações de pagamento</div>
+      </a>
     </div>
   `
 

@@ -9,6 +9,26 @@ export interface AdminUser {
   role: string
 }
 
+// Utility functions
+export function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+export function maskSecretValue(value: string): string {
+  if (!value || value.length < 8) return '***'
+  return value.substring(0, 4) + '***' + value.substring(value.length - 4)
+}
+
+export function renderScript(code: string, nonce?: string): string {
+  const nonceAttr = nonce ? ` nonce="${escapeHtml(nonce)}"` : ''
+  return `<script${nonceAttr}>${code}</script>`
+}
+
 export function renderAdminLayout(params: {
   title: string
   user: AdminUser
@@ -18,7 +38,7 @@ export function renderAdminLayout(params: {
 }): string {
   const { title, user, bodyHtml, activeTab = '', csrfToken = '' } = params
 
-  const isActive = (tab: string) => activeTab === tab ? 'bg-gray-100' : ''
+  const isActive = (tab: string) => activeTab === tab ? 'background: #f3f4f6;' : ''
 
   return `<!doctype html>
 <html lang="pt-BR">
@@ -27,39 +47,113 @@ export function renderAdminLayout(params: {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <title>${escapeHtml(title)}</title>
-  <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, sans-serif; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #f9fafb;
+      color: #111827;
+    }
+    .container { display: flex; min-height: 100vh; }
+    .sidebar { 
+      width: 16rem; 
+      background: white; 
+      border-right: 1px solid #e5e7eb; 
+      padding: 1rem;
+    }
+    .logo { font-size: 1.25rem; font-weight: 700; margin-bottom: 1.5rem; }
+    .nav { display: flex; flex-direction: column; gap: 0.5rem; }
+    .nav a { 
+      padding: 0.5rem 0.75rem; 
+      border-radius: 0.375rem; 
+      text-decoration: none; 
+      color: #374151;
+      font-size: 0.875rem;
+      transition: background 0.2s;
+    }
+    .nav a:hover { background: #f3f4f6; }
+    .main { flex: 1; }
+    .header { 
+      background: white; 
+      border-bottom: 1px solid #e5e7eb; 
+      padding: 1rem; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center;
+    }
+    .header-title { font-size: 1.125rem; font-weight: 600; }
+    .header-email { font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem; }
+    .btn { 
+      padding: 0.5rem 1rem; 
+      background: #111827; 
+      color: white; 
+      border: none; 
+      border-radius: 0.375rem; 
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: #374151; }
+    .content { padding: 1.5rem; }
+    .grid { display: grid; gap: 1.5rem; }
+    .grid-4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+    .card { 
+      background: white; 
+      padding: 1.5rem; 
+      border-radius: 0.5rem; 
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .card-label { color: #6b7280; font-size: 0.875rem; font-weight: 500; }
+    .card-value { font-size: 1.875rem; font-weight: 700; margin-top: 0.5rem; }
+    .section-title { font-size: 1.25rem; font-weight: 600; margin: 2rem 0 1rem; }
+    .link-card {
+      background: white;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      border: 1px solid #e5e7eb;
+      text-decoration: none;
+      color: #111827;
+      display: block;
+      transition: all 0.2s;
+    }
+    .link-card:hover {
+      background: #f9fafb;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .link-title { font-weight: 500; }
+    .link-desc { font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem; }
+    .text-green { color: #059669; }
+    .text-red { color: #dc2626; }
   </style>
 </head>
-<body class="bg-gray-50 text-gray-900">
-  <div class="min-h-screen flex">
-    <aside class="w-64 bg-white border-r border-gray-200 p-4">
-      <div class="text-xl font-bold mb-6 text-gray-900">Jornal CMS</div>
-      <nav class="flex flex-col gap-2 text-sm">
-        <a class="px-3 py-2 rounded hover:bg-gray-100 ${isActive('dashboard')}" href="/admin">Dashboard</a>
-        <a class="px-3 py-2 rounded hover:bg-gray-100 ${isActive('settings')}" href="/admin/settings">Settings</a>
-        <a class="px-3 py-2 rounded hover:bg-gray-100 ${isActive('asaas')}" href="/admin/asaas">Asaas</a>
-        <a class="px-3 py-2 rounded hover:bg-gray-100 ${isActive('ads')}" href="/admin/ads">Ads</a>
-        <a class="px-3 py-2 rounded hover:bg-gray-100 ${isActive('media')}" href="/admin/media">Media</a>
-        <a class="px-3 py-2 rounded hover:bg-gray-100" href="/">Voltar ao site</a>
+<body>
+  <div class="container">
+    <aside class="sidebar">
+      <div class="logo">Jornal CMS</div>
+      <nav class="nav">
+        <a style="${isActive('dashboard')}" href="/admin">Dashboard</a>
+        <a style="${isActive('settings')}" href="/admin/settings">Settings</a>
+        <a style="${isActive('asaas')}" href="/admin/asaas">Asaas</a>
+        <a style="${isActive('ads')}" href="/admin/ads">Ads</a>
+        <a style="${isActive('media')}" href="/admin/media">Media</a>
+        <a href="/">Voltar ao site</a>
       </nav>
     </aside>
 
-    <main class="flex-1">
-      <header class="bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+    <main class="main">
+      <header class="header">
         <div>
-          <div class="text-lg font-semibold text-gray-900">${escapeHtml(title)}</div>
-          <div class="text-xs text-gray-500">${escapeHtml(user.email)}</div>
+          <div class="header-title">${escapeHtml(title)}</div>
+          <div class="header-email">${escapeHtml(user.email)}</div>
         </div>
         <form method="post" action="/admin/logout">
           ${csrfToken ? `<input type="hidden" name="csrf" value="${escapeHtml(csrfToken)}">` : ''}
-          <button class="px-4 py-2 rounded bg-gray-900 text-white text-sm hover:bg-gray-700 transition">Sair</button>
+          <button class="btn">Sair</button>
         </form>
       </header>
 
-      <section class="p-6">
+      <section class="content">
         ${bodyHtml}
       </section>
     </main>
@@ -76,104 +170,90 @@ export function renderLoginPage(error?: string): string {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <title>Login - Jornal CMS</title>
-  <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, sans-serif; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f3f4f6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .login-box {
+      background: white;
+      padding: 2rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 400px;
+    }
+    .title { 
+      font-size: 1.5rem; 
+      font-weight: 700; 
+      text-align: center; 
+      margin-bottom: 1.5rem;
+    }
+    .error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 0.75rem;
+      border-radius: 0.375rem;
+      margin-bottom: 1rem;
+      font-size: 0.875rem;
+    }
+    .form { display: flex; flex-direction: column; gap: 1rem; }
+    .field { display: flex; flex-direction: column; gap: 0.25rem; }
+    label { 
+      font-size: 0.875rem; 
+      font-weight: 500; 
+      color: #374151;
+    }
+    input {
+      padding: 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 0.375rem;
+      font-size: 1rem;
+    }
+    input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    }
+    .btn {
+      padding: 0.75rem;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 0.375rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: #1d4ed8; }
   </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
-  <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
-    <h1 class="text-2xl font-bold mb-6 text-center text-gray-900">Jornal CMS</h1>
+<body>
+  <div class="login-box">
+    <h1 class="title">Jornal CMS</h1>
     
-    ${error ? `<div class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">${escapeHtml(error)}</div>` : ''}
+    ${error ? `<div class="error">${escapeHtml(error)}</div>` : ''}
     
-    <form method="post" action="/admin/login" class="space-y-4">
-      <div>
-        <label class="block text-sm font-medium mb-1 text-gray-700">Email</label>
-        <input 
-          type="email" 
-          name="email" 
-          required 
-          class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
+    <form method="post" action="/admin/login" class="form">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" name="email" required autofocus>
       </div>
       
-      <div>
-        <label class="block text-sm font-medium mb-1 text-gray-700">Senha</label>
-        <input 
-          type="password" 
-          name="password" 
-          required 
-          class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
+      <div class="field">
+        <label>Senha</label>
+        <input type="password" name="password" required>
       </div>
       
-      <button 
-        type="submit" 
-        class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition font-medium"
-      >
-        Entrar
-      </button>
+      <button type="submit" class="btn">Entrar</button>
     </form>
   </div>
 </body>
 </html>`
-}
-        >
-      </div>
-      
-      <button 
-        type="submit" 
-        class="w-full bg-gray-900 text-white py-2 rounded hover:bg-gray-700 font-medium"
-      >
-        Entrar
-      </button>
-    </form>
-  </div>
-</body>
-</html>`
-}
-
-export function escapeHtml(text: string): string {
-  const map: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  }
-  return text.replace(/[&<>"']/g, m => map[m] || m)
-}
-
-export function maskSecretValue(value: any): string {
-  if (typeof value !== 'string' || value.length === 0) {
-    return '(configurado)'
-  }
-
-  if (value.length <= 4) {
-    return '****'
-  }
-
-  const visible = value.slice(-4)
-  return `****${visible}`
-}
-
-/**
- * Render CSRF hidden input for SSR forms
- */
-export function renderCsrfInput(csrfToken?: string): string {
-  if (!csrfToken) return ''
-  return `<input type="hidden" name="csrf" value="${escapeHtml(csrfToken)}">`
-}
-
-/**
- * Render inline script with CSP nonce
- */
-export function renderScript(params: { nonce?: string; js: string }): string {
-  const { nonce, js } = params
-  if (nonce) {
-    return `<script nonce="${escapeHtml(nonce)}">${js}</script>`
-  }
-  return `<script>${js}</script>`
 }
