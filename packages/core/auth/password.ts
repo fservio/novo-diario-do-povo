@@ -28,6 +28,8 @@ function base64UrlEncode(buffer: Uint8Array): string {
 }
 
 function base64UrlDecode(str: string): Uint8Array {
+  // Sanitize: trim whitespace and remove internal spaces/newlines
+  str = (str || '').trim().replace(/\s+/g, '')
   str = str.replace(/-/g, '+').replace(/_/g, '/')
   while (str.length % 4) str += '='
   const binary = atob(str)
@@ -102,6 +104,13 @@ export async function verifyPassword(
   password: string,
   storedHash: string
 ): Promise<VerifyResult> {
+  // Sanitize stored hash (trim whitespace, remove quotes if jsonified)
+  storedHash = (storedHash || '').trim()
+  
+  if (storedHash.startsWith('"') && storedHash.endsWith('"')) {
+    storedHash = storedHash.slice(1, -1).trim()
+  }
+  
   // Case 1: PBKDF2 hash
   if (storedHash.startsWith(PBKDF2_PREFIX)) {
     try {
@@ -110,6 +119,9 @@ export async function verifyPassword(
     } catch (error) {
       console.error('[Password] PBKDF2 verification error:', {
         error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        hashLength: storedHash.length,
+        hashPrefix: storedHash.substring(0, 30),
       })
       return { ok: false, needsRehash: false }
     }
@@ -146,8 +158,11 @@ export async function verifyPassword(
 // ============================================================================
 
 async function verifyPBKDF2(password: string, storedHash: string): Promise<boolean> {
+  // Sanitize hash
+  storedHash = storedHash.trim()
+  
   // Parse hash: pbkdf2_sha256$<iterations>$<salt_b64url>$<key_b64url>
-  const parts = storedHash.split('$')
+  const parts = storedHash.split('$').map(p => p.trim())
   
   if (parts.length !== 4 || parts[0] !== 'pbkdf2_sha256') {
     throw new Error('Invalid PBKDF2 hash format')
@@ -164,6 +179,11 @@ async function verifyPBKDF2(password: string, storedHash: string): Promise<boole
   // Decode salt and stored key
   const salt = base64UrlDecode(saltEncoded)
   const storedKey = base64UrlDecode(keyEncoded)
+  
+  // Validate key length
+  if (storedKey.length !== KEY_LENGTH) {
+    throw new Error(`Invalid stored key length: ${storedKey.length}, expected ${KEY_LENGTH}`)
+  }
   
   // Encode password
   const encoder = new TextEncoder()
