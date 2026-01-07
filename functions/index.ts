@@ -666,6 +666,8 @@ app.get('/admin/posts', async (c) => {
   
   const user = c.get('adminUser')
   const csrfToken = c.get('csrfToken')
+
+  console.log('[Admin Posts] User from context', { hasUser: !!user, user })
   
   // Parse filters
   const status = c.req.query('status') || undefined

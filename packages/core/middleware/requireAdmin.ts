@@ -48,7 +48,7 @@ export async function requireAdmin(c: Context<{ Bindings: Env; Variables: AppCon
   }
 
   // Unauthorized
-  if (!payload || payload.role !== 'admin') {
+  if (!payload || payload.type !== 'admin') {
     if (isAdminApiRoute) {
       return c.json({ success: false, error: 'Unauthorized' }, 401)
     } else {
@@ -56,13 +56,33 @@ export async function requireAdmin(c: Context<{ Bindings: Env; Variables: AppCon
     }
   }
 
-  // Store user in context
+  // Store user in context (query full user from DB)
   const adminUserId = parseInt(payload.sub, 10)
-  c.set('adminUser', {
-    id: adminUserId,
-    email: payload.email || 'admin@example.com',
-    role: payload.role
-  })
+  console.log('[requireAdmin] Querying user', { adminUserId, sub: payload.sub })
+  
+  const fullUser = await c.env.DB.prepare(
+    'SELECT id, email, role, name, is_active FROM users WHERE id = ? AND is_active = 1 LIMIT 1'
+  ).bind(adminUserId).first<{ id: number; email: string; role: string; name: string; is_active: number }>()
+
+  console.log('[requireAdmin] User query result', { hasUser: !!fullUser, user: fullUser })
+
+  if (!fullUser) {
+    if (isAdminApiRoute) {
+      return c.json({ success: false, error: 'User not found or inactive' }, 401)
+    } else {
+      return c.redirect('/admin/login', 302)
+    }
+  }
+
+  const userContext = {
+    id: fullUser.id,
+    email: fullUser.email,
+    role: fullUser.role,
+    is_active: fullUser.is_active === 1
+  }
+
+  console.log('[requireAdmin] Setting context', { userContext })
+  c.set('adminUser', userContext)
 
   // Store CSRF token from cookie (no KV write per request)
   if (csrfToken) {
