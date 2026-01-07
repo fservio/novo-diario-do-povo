@@ -305,6 +305,7 @@ app.post('/admin/login', async (c) => {
   const { signJWT } = await import('../packages/core/auth')
   const { generateCSRFToken } = await import('../packages/core/middleware/security')
   const { randomHex } = await import('../packages/core/utils')
+  const { setCookie } = await import('hono/cookie')
 
   try {
     // Parse form data
@@ -407,13 +408,27 @@ app.post('/admin/login', async (c) => {
     // Generate CSRF token
     const csrfToken = await generateCSRFToken(c.env, user.id, sessionId)
 
-    // Set cookies (must use multiple headers, not comma-separated)
-    const cookieOptions = 'Secure; SameSite=Lax; Path=/admin'
-    const response = c.redirect('/admin', 302)
-    response.headers.append('Set-Cookie', `admin_session=${token}; HttpOnly; ${cookieOptions}; Max-Age=604800`)
-    response.headers.append('Set-Cookie', `admin_csrf=${csrfToken}; HttpOnly; ${cookieOptions}; Max-Age=3600`)
+    // Set cookies BEFORE redirect (Cloudflare Workers requirement)
+    // IMPORTANT: Path=/ to work with /api/admin/* routes too
+    const secure = new URL(c.req.url).protocol === 'https:'
     
-    return response
+    setCookie(c, 'admin_session', token, {
+      httpOnly: true,
+      secure,
+      sameSite: 'Lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    })
+
+    setCookie(c, 'admin_csrf', csrfToken, {
+      httpOnly: true,
+      secure,
+      sameSite: 'Lax',
+      path: '/',
+      maxAge: 60 * 60, // 1 hour
+    })
+    
+    return c.redirect('/admin', 302)
   } catch (error) {
     console.error('[Login] EXCEPTION:', {
       requestId,
