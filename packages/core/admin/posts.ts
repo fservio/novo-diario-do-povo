@@ -249,10 +249,11 @@ function renderPostFormPage(params: {
   tags: any[]
   user: AdminUser
   csrfToken: string
+  cspNonce: string
   error?: string
   defaultAuthorId?: number
 }): string {
-  const { post, categories, authors, tags, user, csrfToken, error, defaultAuthorId } = params
+  const { post, categories, authors, tags, user, csrfToken, cspNonce, error, defaultAuthorId } = params
   const isNew = !post
   
   const bodyHtml = `
@@ -311,7 +312,7 @@ function renderPostFormPage(params: {
         ${renderMarkdownEditor({
           name: 'content',
           value: post?.content_markdown || post?.content || '',
-          nonce: csrfToken,
+          nonce: cspNonce,
           id: 'mdEditor'
         })}
         <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">

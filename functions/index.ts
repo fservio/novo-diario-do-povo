@@ -763,6 +763,7 @@ app.get('/admin/posts/new', async (c) => {
   
   const user = c.get('adminUser')
   const csrfToken = c.get('csrfToken')
+  const cspNonce = c.get('cspNonce')
   
   // Garantir que existe autor para o usuário logado
   const ensuredAuthor = await ensureAuthorForAdminUser(c.env, user)
@@ -793,6 +794,7 @@ app.get('/admin/posts/new', async (c) => {
     tags: tagsResult.results || [],
     user,
     csrfToken,
+    cspNonce,
     defaultAuthorId
   }))
 })
@@ -868,6 +870,7 @@ app.get('/admin/posts/:id', async (c) => {
   
   const user = c.get('adminUser')
   const csrfToken = c.get('csrfToken')
+  const cspNonce = c.get('cspNonce')
   const id = parseInt(c.req.param('id'))
   
   const post = await getPostById(c.env.DB, id)
@@ -893,6 +896,7 @@ app.get('/admin/posts/:id', async (c) => {
     tags: tagsResult.results || [],
     user,
     csrfToken,
+    cspNonce,
     error: c.req.query('error')
   }))
 })
