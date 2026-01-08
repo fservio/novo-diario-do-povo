@@ -1416,8 +1416,12 @@ if (existsSync(resolve('functions/index.ts'))) {
   
   let routesOk = 0
   routes.forEach(route => {
-    const escaped = route.replace(/:/g, '\\:')
-    if (indexContent.includes(`'${route}'`) || indexContent.includes(`"${route}"`)) {
+    // Check both with and without regex pattern
+    const routeWithRegex = route.replace(':id', ':id{[0-9]+}')
+    if (indexContent.includes(`'${route}'`) || 
+        indexContent.includes(`"${route}"`) ||
+        indexContent.includes(`'${routeWithRegex}'`) || 
+        indexContent.includes(`"${routeWithRegex}"`)) {
       routesOk++
     }
   })
@@ -1622,6 +1626,17 @@ if (existsSync(resolve('packages/core/admin/users.ts'))) {
   } else {
     error('Users: ordem de rotas incorreta - "new" pode ser capturado como :id')
   }
+  
+  // Verificar regex numérica nas rotas paramétricas
+  // Simplificado: buscar por :id{ que indica regex pattern
+  const regexMatches = (indexContent.match(/:id\{/g) || []).length
+  const usersRegexCount = (indexContent.match(/\/admin\/users\/:id\{/g) || []).length
+  
+  if (usersRegexCount >= 3) {
+    success(`Users: regex numérica :id{[0-9]+} encontrada em ${usersRegexCount} rotas paramétricas`)
+  } else {
+    warning(`Users: regex numérica encontrada em apenas ${usersRegexCount} rotas (esperado >= 3)`)
+  }
 }
 
 // Verificar teste unitário de validação
@@ -1648,6 +1663,59 @@ if (existsSync(resolve('tests/unit/admin-users-validation.test.ts'))) {
   }
 } else {
   warning('Users: arquivo de teste admin-users-validation.test.ts não encontrado')
+}
+
+// Validação sistêmica de Categories
+console.log('\n============================================================')
+console.log('  26. Admin Categories - Form Action & Numeric Regex')
+console.log('============================================================')
+
+if (existsSync(resolve('packages/core/admin/categories.ts'))) {
+  const categoriesAdminContent = readFileSync(resolve('packages/core/admin/categories.ts'), 'utf8')
+  
+  // Verificar form action dinâmico
+  if (categoriesAdminContent.includes('formAction') && 
+      categoriesAdminContent.includes('action="${formAction}"') &&
+      categoriesAdminContent.includes('/admin/categories')) {
+    success('Categories: form action dinâmico implementado corretamente')
+  } else {
+    error('Categories: form action dinâmico ausente ou incorreto')
+  }
+  
+  // Verificar validação de ID
+  const idValidationPattern = /Number\.isFinite\(id\)/g
+  const occurrences = (categoriesAdminContent.match(idValidationPattern) || []).length
+  
+  if (occurrences >= 2) {
+    success(`Categories: validação de ID encontrada em ${occurrences} handlers`)
+  } else {
+    warning(`Categories: validação de ID encontrada em apenas ${occurrences} handlers (esperado >= 2)`)
+  }
+  
+  // Verificar mensagens de erro apropriadas
+  if (categoriesAdminContent.includes('Invalid category id') && 
+      categoriesAdminContent.includes('Category not found')) {
+    success('Categories: mensagens de erro diferenciadas (400 vs 404)')
+  } else {
+    warning('Categories: mensagens de erro podem estar ausentes')
+  }
+  
+  // Verificar ordem de rotas
+  const routeOrder = indexContent.indexOf('/admin/categories/new') < indexContent.indexOf('/admin/categories/:id')
+  if (routeOrder) {
+    success('Categories: ordem de rotas correta (GET /new antes de GET /:id)')
+  } else {
+    error('Categories: ordem de rotas incorreta - "new" pode ser capturado como :id')
+  }
+  
+  // Verificar regex numérica nas rotas de categories
+  const categoryRegexCount = (indexContent.match(/\/admin\/categories\/:id\{/g) || []).length
+  
+  if (categoryRegexCount >= 2) {
+    success(`Categories: regex numérica :id{[0-9]+} encontrada em ${categoryRegexCount} rotas`)
+  } else {
+    warning(`Categories: regex numérica encontrada em apenas ${categoryRegexCount} rotas (esperado >= 2)`)
+  }
 }
 
 // ============================================================================

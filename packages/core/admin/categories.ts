@@ -147,6 +147,7 @@ function renderCategoryForm(params: {
 }): string {
   const { category, error, user, csrfToken, allCategories } = params
   const isNew = !category
+  const formAction = isNew ? '/admin/categories' : `/admin/categories/${category!.id}`
 
   const bodyHtml = `
     <div style="margin-bottom: 1.5rem;">
@@ -163,7 +164,7 @@ function renderCategoryForm(params: {
     ` : ''}
 
     <div class="card" style="background: white; padding: 2rem; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-      <form method="POST" id="categoryForm">
+      <form method="POST" action="${formAction}" id="categoryForm">
         <input type="hidden" name="csrf" value="${escapeHtml(csrfToken)}">
 
         <div style="margin-bottom: 1.5rem;">
@@ -392,7 +393,12 @@ export async function handleCategoriesCreate(c: Context<{ Bindings: Env; Variabl
 export async function handleCategoriesEdit(c: Context<{ Bindings: Env; Variables: AppContext }>) {
   const user = c.get('adminUser')
   const csrfToken = c.get('csrfToken')
-  const id = parseInt(c.req.param('id'))
+  const id = Number(c.req.param('id'))
+
+  // Validate id is a valid number
+  if (!Number.isFinite(id) || id <= 0) {
+    return c.html('<h1>Invalid category id</h1>', 400)
+  }
 
   const category = await findCategoryById(c.env, id)
   if (!category) {
@@ -415,7 +421,12 @@ export async function handleCategoriesEdit(c: Context<{ Bindings: Env; Variables
 export async function handleCategoriesUpdate(c: Context<{ Bindings: Env; Variables: AppContext }>) {
   const user = c.get('adminUser')
   const csrfToken = c.get('csrfToken')
-  const id = parseInt(c.req.param('id'))
+  const id = Number(c.req.param('id'))
+
+  // Validate id is a valid number
+  if (!Number.isFinite(id) || id <= 0) {
+    return c.html('<h1>Invalid category id</h1>', 400)
+  }
 
   const category = await findCategoryById(c.env, id)
   if (!category) {
@@ -473,7 +484,12 @@ export async function handleCategoriesUpdate(c: Context<{ Bindings: Env; Variabl
  * POST /admin/categories/:id/toggle - Toggle category status
  */
 export async function handleCategoriesToggle(c: Context<{ Bindings: Env; Variables: AppContext }>) {
-  const id = parseInt(c.req.param('id'))
+  const id = Number(c.req.param('id'))
+
+  // Validate id is a valid number
+  if (!Number.isFinite(id) || id <= 0) {
+    return c.text('Invalid category id', 400)
+  }
 
   try {
     await toggleCategory(c.env, id)

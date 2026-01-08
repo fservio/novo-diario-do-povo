@@ -650,17 +650,20 @@ app.post('/admin/categories', async (c) => {
   return handleCategoriesCreate(c)
 })
 
-app.get('/admin/categories/:id', async (c) => {
+// GET /admin/categories/:id - Edit category
+app.get('/admin/categories/:id{[0-9]+}', async (c) => {
   const { handleCategoriesEdit } = await import('../packages/core/admin/categories')
   return handleCategoriesEdit(c)
 })
 
-app.post('/admin/categories/:id', async (c) => {
+// POST /admin/categories/:id - Update category
+app.post('/admin/categories/:id{[0-9]+}', async (c) => {
   const { handleCategoriesUpdate } = await import('../packages/core/admin/categories')
   return handleCategoriesUpdate(c)
 })
 
-app.post('/admin/categories/:id/toggle', async (c) => {
+// POST /admin/categories/:id/toggle - Toggle active
+app.post('/admin/categories/:id{[0-9]+}/toggle', async (c) => {
   const { handleCategoriesToggle } = await import('../packages/core/admin/categories')
   return handleCategoriesToggle(c)
 })
@@ -1798,7 +1801,7 @@ app.post('/admin/users', async (c) => {
 })
 
 // GET /admin/users/:id - Edit user form
-app.get('/admin/users/:id', async (c) => {
+app.get('/admin/users/:id{[0-9]+}', async (c) => {
   const { requireDirector } = await import('../packages/core/middleware/rbac')
   await requireDirector(c, async () => {})
   
@@ -1807,7 +1810,7 @@ app.get('/admin/users/:id', async (c) => {
 })
 
 // POST /admin/users/:id - Update user
-app.post('/admin/users/:id', async (c) => {
+app.post('/admin/users/:id{[0-9]+}', async (c) => {
   const { requireDirector } = await import('../packages/core/middleware/rbac')
   await requireDirector(c, async () => {})
   
@@ -1816,7 +1819,7 @@ app.post('/admin/users/:id', async (c) => {
 })
 
 // POST /admin/users/:id/reset-password - Reset password
-app.post('/admin/users/:id/reset-password', async (c) => {
+app.post('/admin/users/:id{[0-9]+}/reset-password', async (c) => {
   const { requireDirector } = await import('../packages/core/middleware/rbac')
   await requireDirector(c, async () => {})
   
@@ -1825,7 +1828,7 @@ app.post('/admin/users/:id/reset-password', async (c) => {
 })
 
 // POST /admin/users/:id/disable - Disable user
-app.post('/admin/users/:id/disable', async (c) => {
+app.post('/admin/users/:id{[0-9]+}/disable', async (c) => {
   const { requireDirector } = await import('../packages/core/middleware/rbac')
   await requireDirector(c, async () => {})
   
@@ -1834,7 +1837,7 @@ app.post('/admin/users/:id/disable', async (c) => {
 })
 
 // POST /admin/users/:id/enable - Enable user
-app.post('/admin/users/:id/enable', async (c) => {
+app.post('/admin/users/:id{[0-9]+}/enable', async (c) => {
   const { requireDirector } = await import('../packages/core/middleware/rbac')
   await requireDirector(c, async () => {})
   
