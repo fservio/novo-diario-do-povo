@@ -147,13 +147,15 @@ function renderUserForm(user: any | null, csrfToken: string, error?: string): st
     </div>
   ` : ''
 
+  const formAction = isEdit ? `/admin/users/${user!.id}` : '/admin/users'
+
   return `
     <div class="max-w-2xl">
       <h1 class="text-2xl font-bold mb-6">${title}</h1>
 
       ${errorHTML}
 
-      <form method="POST" class="bg-white rounded-lg shadow p-6">
+      <form method="POST" action="${formAction}" class="bg-white rounded-lg shadow p-6">
         <input type="hidden" name="csrf_token" value="${csrfToken}" />
 
         <div class="mb-4">
@@ -369,6 +371,11 @@ export async function handleUsersEdit(c: Context<{ Bindings: Env; Variables: App
   const csrfToken = c.get('csrfToken') as string
   const userId = parseInt(c.req.param('id'))
 
+  // Validate id is a valid number
+  if (!Number.isFinite(userId) || userId <= 0) {
+    return c.html('<h1>Invalid user id</h1>', 400)
+  }
+
   const user = await getStaffUserById(c.env, userId)
   
   if (!user) {
@@ -386,6 +393,11 @@ export async function handleUsersUpdate(c: Context<{ Bindings: Env; Variables: A
   const adminUser = c.get('adminUser') as AdminUser
   const csrfToken = c.get('csrfToken') as string
   const userId = parseInt(c.req.param('id'))
+
+  // Validate id is a valid number
+  if (!Number.isFinite(userId) || userId <= 0) {
+    return c.html('<h1>Invalid user id</h1>', 400)
+  }
 
   try {
     const formData = await c.req.parseBody()
@@ -414,6 +426,11 @@ export async function handleUsersResetPassword(c: Context<{ Bindings: Env; Varia
   const adminUser = c.get('adminUser') as AdminUser
   const userId = parseInt(c.req.param('id'))
 
+  // Validate id is a valid number
+  if (!Number.isFinite(userId) || userId <= 0) {
+    return c.json({ error: 'Invalid user id' }, 400)
+  }
+
   try {
     const formData = await c.req.parseBody()
     
@@ -440,6 +457,11 @@ export async function handleUsersDisable(c: Context<{ Bindings: Env; Variables: 
   const adminUser = c.get('adminUser') as AdminUser
   const userId = parseInt(c.req.param('id'))
 
+  // Validate id is a valid number
+  if (!Number.isFinite(userId) || userId <= 0) {
+    return c.json({ error: 'Invalid user id' }, 400)
+  }
+
   try {
     await setStaffActive(c.env, userId, false, adminUser.id)
     return c.redirect(`/admin/users/${userId}`, 302)
@@ -455,6 +477,11 @@ export async function handleUsersDisable(c: Context<{ Bindings: Env; Variables: 
 export async function handleUsersEnable(c: Context<{ Bindings: Env; Variables: AppContext }>) {
   const adminUser = c.get('adminUser') as AdminUser
   const userId = parseInt(c.req.param('id'))
+
+  // Validate id is a valid number
+  if (!Number.isFinite(userId) || userId <= 0) {
+    return c.json({ error: 'Invalid user id' }, 400)
+  }
 
   try {
     await setStaffActive(c.env, userId, true, adminUser.id)

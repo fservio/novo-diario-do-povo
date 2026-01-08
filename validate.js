@@ -1577,6 +1577,80 @@ if (existsSync(resolve('packages/core/admin/categories.ts'))) {
 }
 
 // ============================================================================
+console.log('\n============================================================')
+console.log('  25. Admin Users - Form Action & ID Validation')
+console.log('============================================================')
+
+const indexContent = existsSync(resolve('functions/index.ts')) 
+  ? readFileSync(resolve('functions/index.ts'), 'utf8')
+  : ''
+
+if (existsSync(resolve('packages/core/admin/users.ts'))) {
+  const usersAdminContent = readFileSync(resolve('packages/core/admin/users.ts'), 'utf8')
+  
+  // Verificar form action dinâmico
+  if (usersAdminContent.includes('formAction') && 
+      usersAdminContent.includes('action="${formAction}"') &&
+      usersAdminContent.includes('/admin/users')) {
+    success('Users: form action dinâmico implementado corretamente')
+  } else {
+    error('Users: form action dinâmico ausente ou incorreto')
+  }
+  
+  // Verificar validação de ID
+  const idValidationPattern = /Number\.isFinite\(userId\)/g
+  const occurrences = (usersAdminContent.match(idValidationPattern) || []).length
+  
+  if (occurrences >= 3) {
+    success(`Users: validação de ID encontrada em ${occurrences} handlers`)
+  } else {
+    warning(`Users: validação de ID encontrada em apenas ${occurrences} handlers (esperado >= 3)`)
+  }
+  
+  // Verificar mensagens de erro apropriadas
+  if (usersAdminContent.includes('Invalid user id') && 
+      usersAdminContent.includes('User not found')) {
+    success('Users: mensagens de erro diferenciadas (400 vs 404)')
+  } else {
+    warning('Users: mensagens de erro podem estar ausentes')
+  }
+  
+  // Verificar que GET /admin/users/new não cai em :id pattern
+  const routeOrder = indexContent.indexOf('/admin/users/new') < indexContent.indexOf('/admin/users/:id')
+  if (routeOrder) {
+    success('Users: ordem de rotas correta (GET /new antes de GET /:id)')
+  } else {
+    error('Users: ordem de rotas incorreta - "new" pode ser capturado como :id')
+  }
+}
+
+// Verificar teste unitário de validação
+if (existsSync(resolve('tests/unit/admin-users-validation.test.ts'))) {
+  const testContent = readFileSync(resolve('tests/unit/admin-users-validation.test.ts'), 'utf8')
+  
+  const testCases = [
+    'should reject "new" as id',
+    'should use /admin/users action for create form',
+    'should return 400 for invalid id'
+  ]
+  
+  let testsOk = 0
+  testCases.forEach(testCase => {
+    if (testContent.includes(testCase)) {
+      testsOk++
+    }
+  })
+  
+  if (testsOk === testCases.length) {
+    success(`Users: todos ${testCases.length} testes críticos implementados`)
+  } else {
+    warning(`Users: apenas ${testsOk}/${testCases.length} testes críticos encontrados`)
+  }
+} else {
+  warning('Users: arquivo de teste admin-users-validation.test.ts não encontrado')
+}
+
+// ============================================================================
 // Resumo Final
 // ============================================================================
 
