@@ -1038,6 +1038,22 @@ app.get('/admin/posts/:id/preview', async (c) => {
   return c.html(previewHtml)
 })
 
+// API /api/admin/media/search - Buscar mídia para inserir no editor
+app.get('/api/admin/media/search', async (c) => {
+  const { searchMedia } = await import('../packages/core/db/media')
+  
+  const q = c.req.query('q') || ''
+  const limit = parseInt(c.req.query('limit') || '20')
+  
+  try {
+    const results = await searchMedia(c.env, q, limit)
+    return c.json({ success: true, results })
+  } catch (error: any) {
+    console.error('Error searching media:', error)
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
 // GET /admin/settings
 app.get('/admin/settings', async (c) => {
   const { renderSettingsListPage } = await import('../packages/core/admin/settings')

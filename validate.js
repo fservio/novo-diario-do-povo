@@ -15,7 +15,7 @@
  */
 
 import { execSync } from 'child_process'
-import { existsSync, readFileSync, statSync } from 'fs'
+import { existsSync, readFileSync, statSync, readdirSync } from 'fs'
 import { resolve } from 'path'
 
 const errors = []
@@ -1715,6 +1715,118 @@ if (existsSync(resolve('packages/core/admin/categories.ts'))) {
     success(`Categories: regex numérica :id{[0-9]+} encontrada em ${categoryRegexCount} rotas`)
   } else {
     warning(`Categories: regex numérica encontrada em apenas ${categoryRegexCount} rotas (esperado >= 2)`)
+  }
+}
+
+// ============================================================================
+// 27. Post Editor Markdown + Images (PR5)
+// ============================================================================
+console.log('')
+console.log('27. Post Editor Markdown + Images (PR5)')
+
+{
+  // 1. Verificar biblioteca de sanitização
+  const sanitizeFile = resolve('packages/core/render/sanitize.ts')
+  if (existsSync(sanitizeFile)) {
+    success('Editor: biblioteca de sanitização criada')
+    
+    const sanitizeContent = readFileSync(sanitizeFile, 'utf8')
+    
+    // Verificar função sanitizeHtml
+    if (sanitizeContent.includes('export function sanitizeHtml')) {
+      success('Editor: função sanitizeHtml implementada')
+    } else {
+      warning('Editor: função sanitizeHtml pode estar ausente')
+    }
+    
+    // Verificar tags permitidas (figure, img, figcaption)
+    if (sanitizeContent.includes('figure') && 
+        sanitizeContent.includes('img') && 
+        sanitizeContent.includes('figcaption')) {
+      success('Editor: suporte a figure/img/figcaption implementado')
+    } else {
+      warning('Editor: tags de imagem podem estar ausentes')
+    }
+    
+    // Verificar bloqueio de scripts
+    if (sanitizeContent.includes('script') && sanitizeContent.includes('javascript:')) {
+      success('Editor: proteção contra XSS (script, javascript:) implementada')
+    } else {
+      warning('Editor: proteção XSS pode estar incompleta')
+    }
+  } else {
+    error('Editor: arquivo packages/core/render/sanitize.ts não encontrado')
+  }
+  
+  // 2. Verificar repositório de media
+  const mediaFile = resolve('packages/core/db/media.ts')
+  if (existsSync(mediaFile)) {
+    success('Editor: repositório de media criado')
+    
+    const mediaContent = readFileSync(mediaFile, 'utf8')
+    if (mediaContent.includes('export async function searchMedia')) {
+      success('Editor: função searchMedia implementada')
+    } else {
+      warning('Editor: função searchMedia pode estar ausente')
+    }
+  } else {
+    warning('Editor: arquivo packages/core/db/media.ts não encontrado')
+  }
+  
+  // 3. Verificar rota API de busca de media
+  if (indexContent.includes('/api/admin/media/search')) {
+    success('Editor: rota /api/admin/media/search registrada')
+  } else {
+    warning('Editor: rota de busca de media pode estar ausente')
+  }
+  
+  // 4. Verificar toolbar no editor de posts
+  const postsAdminFile = resolve('packages/core/admin/posts.ts')
+  if (existsSync(postsAdminFile)) {
+    const postsAdminContent = readFileSync(postsAdminFile, 'utf8')
+    
+    // Verificar toolbar com data-editor
+    if (postsAdminContent.includes('data-editor="markdown"') || 
+        postsAdminContent.includes('id="editor-toolbar"')) {
+      success('Editor: toolbar Markdown implementada no form de posts')
+    } else {
+      warning('Editor: toolbar Markdown pode estar ausente')
+    }
+    
+    // Verificar botões de formatação
+    const hasButtons = ['data-action="bold"', 'data-action="italic"', 
+                       'data-action="h2"', 'data-action="h3"', 
+                       'data-action="image"'].every(
+      action => postsAdminContent.includes(action)
+    )
+    if (hasButtons) {
+      success('Editor: botões de formatação (bold, italic, h2, h3, image) implementados')
+    } else {
+      warning('Editor: alguns botões de formatação podem estar ausentes')
+    }
+    
+    // Verificar CSP nonce em scripts inline
+    if (postsAdminContent.includes('renderScript') || postsAdminContent.includes('nonce=')) {
+      success('Editor: scripts inline usam CSP nonce')
+    } else {
+      warning('Editor: CSP nonce pode não estar configurado')
+    }
+  }
+  
+  // 5. Verificar migration para content_markdown
+  const migrationFiles = readdirSync(resolve('migrations'))
+    .filter(f => f.endsWith('.sql'))
+    .sort()
+  
+  const hasContentMarkdown = migrationFiles.some(file => {
+    const content = readFileSync(resolve('migrations', file), 'utf8')
+    return content.includes('content_markdown')
+  })
+  
+  if (hasContentMarkdown) {
+    success('Editor: migration para content_markdown criada')
+  } else {
+    warning('Editor: coluna content_markdown pode não existir')
   }
 }
 

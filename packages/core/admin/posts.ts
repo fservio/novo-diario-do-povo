@@ -303,17 +303,94 @@ function renderPostFormPage(params: {
         >${escapeHtml(post?.excerpt || '')}</textarea>
       </div>
       
-      <!-- Content -->
+      <!-- Content with Markdown Toolbar -->
       <div class="field" style="margin-bottom: 1rem;">
-        <label style="font-weight: 600;">Conteúdo (HTML) *</label>
+        <label style="font-weight: 600;">Conteúdo *</label>
+        
+        <!-- Toolbar -->
+        <div id="editorToolbar" style="border: 1px solid #d1d5db; border-bottom: none; background: #f9fafb; padding: 0.5rem; border-radius: 0.375rem 0.375rem 0 0; display: flex; gap: 0.25rem; flex-wrap: wrap;">
+          <button type="button" class="toolbar-btn" data-action="bold" title="Bold (Ctrl+B)">
+            <strong>B</strong>
+          </button>
+          <button type="button" class="toolbar-btn" data-action="italic" title="Italic (Ctrl+I)">
+            <em>I</em>
+          </button>
+          <button type="button" class="toolbar-btn" data-action="h2" title="Heading 2">
+            H2
+          </button>
+          <button type="button" class="toolbar-btn" data-action="h3" title="Heading 3">
+            H3
+          </button>
+          <button type="button" class="toolbar-btn" data-action="quote" title="Blockquote">
+            ""
+          </button>
+          <button type="button" class="toolbar-btn" data-action="ul" title="Unordered List">
+            • List
+          </button>
+          <button type="button" class="toolbar-btn" data-action="ol" title="Ordered List">
+            1. List
+          </button>
+          <button type="button" class="toolbar-btn" data-action="link" title="Insert Link">
+            🔗 Link
+          </button>
+          <button type="button" class="toolbar-btn" data-action="image" title="Insert Image">
+            🖼️ Image
+          </button>
+        </div>
+        
         <textarea 
-          name="content" 
+          id="contentEditor"
+          name="content_markdown" 
           rows="15"
           required
-          style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-family: monospace; font-size: 0.875rem;"
-        >${escapeHtml(post?.content || '')}</textarea>
+          data-editor="markdown"
+          style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0 0 0.375rem 0.375rem; font-family: monospace; font-size: 0.875rem;"
+        >${escapeHtml(post?.content_markdown || post?.content || '')}</textarea>
+        
+        <!-- Hidden HTML fallback for compatibility -->
+        <input type="hidden" name="content" value="${escapeHtml(post?.content || '')}" id="contentHtml">
+        
         <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">
-          Suporta HTML. Use editor externo ou Markdown converter.
+          Use Markdown ou HTML. Toolbar insere Markdown automaticamente.
+        </div>
+      </div>
+      
+      <!-- Image Modal (hidden by default) -->
+      <div id="imageModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 2rem; border-radius: 0.5rem; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+          <h3 style="margin: 0 0 1rem 0;">Inserir Imagem</h3>
+          
+          <div style="margin-bottom: 1rem;">
+            <input 
+              type="text" 
+              id="imageSearch" 
+              placeholder="Buscar imagem..." 
+              style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;"
+            >
+          </div>
+          
+          <div id="imageResults" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 0.5rem; margin-bottom: 1rem; max-height: 300px; overflow-y: auto;">
+            <!-- Images will be loaded here -->
+          </div>
+          
+          <div style="margin-bottom: 1rem;">
+            <label>Legenda (opcional)</label>
+            <input 
+              type="text" 
+              id="imageCaption" 
+              placeholder="Descrição da imagem..." 
+              style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;"
+            >
+          </div>
+          
+          <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+            <button type="button" id="cancelImage" style="padding: 0.5rem 1rem; border: 1px solid #d1d5db; background: white; border-radius: 0.375rem; cursor: pointer;">
+              Cancelar
+            </button>
+            <button type="button" id="insertImage" style="padding: 0.5rem 1rem; background: #3b82f6; color: white; border: none; border-radius: 0.375rem; cursor: pointer;" disabled>
+              Inserir
+            </button>
+          </div>
         </div>
       </div>
       
@@ -493,6 +570,162 @@ function renderPostFormPage(params: {
           Cancelar
         </a>
       </div>
+      
+      <!-- Editor Script (inline with CSP nonce) -->
+      <script nonce="${csrfToken}">
+      (function() {
+        const editor = document.getElementById('contentEditor');
+        const toolbar = document.getElementById('editorToolbar');
+        const imageModal = document.getElementById('imageModal');
+        const imageSearch = document.getElementById('imageSearch');
+        const imageResults = document.getElementById('imageResults');
+        const imageCaption = document.getElementById('imageCaption');
+        const insertImageBtn = document.getElementById('insertImage');
+        const cancelImageBtn = document.getElementById('cancelImage');
+        
+        let selectedImage = null;
+        let searchTimeout = null;
+        
+        // Toolbar actions
+        const actions = {
+          bold: () => insertMarkdown('**', '**', 'texto em negrito'),
+          italic: () => insertMarkdown('*', '*', 'texto em itálico'),
+          h2: () => insertMarkdown('## ', '', 'Título'),
+          h3: () => insertMarkdown('### ', '', 'Subtítulo'),
+          quote: () => insertMarkdown('> ', '', 'citação'),
+          ul: () => insertMarkdown('* ', '', 'item da lista'),
+          ol: () => insertMarkdown('1. ', '', 'item numerado'),
+          link: () => {
+            const url = prompt('URL do link:');
+            if (url) insertMarkdown('[', '](' + url + ')', 'texto do link');
+          },
+          image: () => {
+            imageModal.style.display = 'flex';
+            loadImages('');
+          }
+        };
+        
+        // Insert markdown at cursor
+        function insertMarkdown(before, after, placeholder) {
+          const start = editor.selectionStart;
+          const end = editor.selectionEnd;
+          const text = editor.value;
+          const selected = text.substring(start, end) || placeholder;
+          
+          editor.value = text.substring(0, start) + before + selected + after + text.substring(end);
+          editor.focus();
+          editor.selectionStart = start + before.length;
+          editor.selectionEnd = start + before.length + selected.length;
+        }
+        
+        // Toolbar button clicks
+        toolbar.addEventListener('click', (e) => {
+          const btn = e.target.closest('.toolbar-btn');
+          if (!btn) return;
+          
+          e.preventDefault();
+          const action = btn.dataset.action;
+          if (actions[action]) actions[action]();
+        });
+        
+        // Load images from API
+        async function loadImages(query) {
+          try {
+            const response = await fetch('/api/admin/media/search?q=' + encodeURIComponent(query));
+            const data = await response.json();
+            
+            imageResults.innerHTML = data.media.map(img => 
+              '<div class="image-item" data-id="' + img.id + '" data-key="' + img.r2_key + '" data-alt="' + (img.alt || '') + '" data-width="' + (img.width || '') + '" data-height="' + (img.height || '') + '" style="cursor: pointer; border: 2px solid transparent; border-radius: 0.25rem; overflow: hidden; aspect-ratio: 1;">' +
+                '<img src="/i/' + img.r2_key + '" alt="' + (img.alt || img.filename) + '" style="width: 100%; height: 100%; object-fit: cover;">' +
+              '</div>'
+            ).join('');
+          } catch (err) {
+            console.error('Failed to load images:', err);
+          }
+        }
+        
+        // Image search
+        imageSearch.addEventListener('input', (e) => {
+          clearTimeout(searchTimeout);
+          searchTimeout = setTimeout(() => loadImages(e.target.value), 300);
+        });
+        
+        // Image selection
+        imageResults.addEventListener('click', (e) => {
+          const item = e.target.closest('.image-item');
+          if (!item) return;
+          
+          // Deselect previous
+          imageResults.querySelectorAll('.image-item').forEach(i => i.style.borderColor = 'transparent');
+          
+          // Select current
+          item.style.borderColor = '#3b82f6';
+          selectedImage = {
+            r2_key: item.dataset.key,
+            alt: item.dataset.alt,
+            width: item.dataset.width,
+            height: item.dataset.height
+          };
+          insertImageBtn.disabled = false;
+        });
+        
+        // Insert image
+        insertImageBtn.addEventListener('click', () => {
+          if (!selectedImage) return;
+          
+          const caption = imageCaption.value.trim();
+          const figureHtml = 
+            '<figure>\\n' +
+            '  <img src="/i/' + selectedImage.r2_key + '" alt="' + (selectedImage.alt || '') + '" loading="lazy"' +
+            (selectedImage.width ? ' width="' + selectedImage.width + '"' : '') +
+            (selectedImage.height ? ' height="' + selectedImage.height + '"' : '') +
+            '>\\n' +
+            (caption ? '  <figcaption>' + caption + '</figcaption>\\n' : '') +
+            '</figure>\\n\\n';
+          
+          const start = editor.selectionStart;
+          editor.value = editor.value.substring(0, start) + figureHtml + editor.value.substring(start);
+          
+          // Close modal
+          imageModal.style.display = 'none';
+          imageCaption.value = '';
+          selectedImage = null;
+          insertImageBtn.disabled = true;
+          editor.focus();
+        });
+        
+        // Cancel image
+        cancelImageBtn.addEventListener('click', () => {
+          imageModal.style.display = 'none';
+          imageCaption.value = '';
+          selectedImage = null;
+          insertImageBtn.disabled = true;
+        });
+        
+        // Close modal on backdrop click
+        imageModal.addEventListener('click', (e) => {
+          if (e.target === imageModal) cancelImageBtn.click();
+        });
+        
+        // Keyboard shortcuts
+        editor.addEventListener('keydown', (e) => {
+          if (e.ctrlKey || e.metaKey) {
+            if (e.key === 'b') {
+              e.preventDefault();
+              actions.bold();
+            } else if (e.key === 'i') {
+              e.preventDefault();
+              actions.italic();
+            }
+          }
+        });
+        
+        // Toolbar button styles
+        const style = document.createElement('style');
+        style.textContent = '.toolbar-btn { padding: 0.25rem 0.5rem; border: 1px solid #d1d5db; background: white; border-radius: 0.25rem; cursor: pointer; font-size: 0.875rem; } .toolbar-btn:hover { background: #f3f4f6; }';
+        document.head.appendChild(style);
+      })();
+      </script>
     </form>
   `
   

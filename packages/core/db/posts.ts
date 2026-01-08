@@ -11,6 +11,7 @@ export interface Post {
   title: string
   excerpt: string | null
   content: string
+  content_markdown: string | null // Markdown source (optional, for new editor)
   category_id: number
   author_id: number
   cover_media_id: number | null
@@ -59,6 +60,7 @@ export interface CreatePostInput {
   slug?: string
   excerpt?: string
   content: string
+  content_markdown?: string
   category_id: number
   author_id: number
   cover_media_id?: number
@@ -78,6 +80,7 @@ export interface UpdatePostInput {
   slug?: string
   excerpt?: string
   content?: string
+  content_markdown?: string
   category_id?: number
   author_id?: number
   cover_media_id?: number
