@@ -178,10 +178,10 @@ export function renderAdminLayout(
       <header class="header">
         <div>
           <div class="header-title">${escapeHtml(title)}</div>
-          <div class="header-email">${escapeHtml(user.email)}</div>
+          <div class="header-email">${escapeHtml(actualUser.email)}</div>
         </div>
         <form method="post" action="/admin/logout">
-          ${csrfToken ? `<input type="hidden" name="csrf" value="${escapeHtml(csrfToken)}">` : ''}
+          ${actualCsrfToken ? `<input type="hidden" name="csrf" value="${escapeHtml(actualCsrfToken)}">` : ''}
           <button class="btn">Sair</button>
         </form>
       </header>

@@ -58,13 +58,10 @@ export async function requireAdmin(c: Context<{ Bindings: Env; Variables: AppCon
 
   // Store user in context (query full user from DB)
   const adminUserId = parseInt(payload.sub, 10)
-  console.log('[requireAdmin] Querying user', { adminUserId, sub: payload.sub })
   
   const fullUser = await c.env.DB.prepare(
     'SELECT id, email, role, name, is_active FROM users WHERE id = ? AND is_active = 1 LIMIT 1'
   ).bind(adminUserId).first<{ id: number; email: string; role: string; name: string; is_active: number }>()
-
-  console.log('[requireAdmin] User query result', { hasUser: !!fullUser, user: fullUser })
 
   if (!fullUser) {
     if (isAdminApiRoute) {
@@ -74,15 +71,12 @@ export async function requireAdmin(c: Context<{ Bindings: Env; Variables: AppCon
     }
   }
 
-  const userContext = {
+  c.set('adminUser', {
     id: fullUser.id,
     email: fullUser.email,
     role: fullUser.role,
     is_active: fullUser.is_active === 1
-  }
-
-  console.log('[requireAdmin] Setting context', { userContext })
-  c.set('adminUser', userContext)
+  })
 
   // Store CSRF token from cookie (no KV write per request)
   if (csrfToken) {

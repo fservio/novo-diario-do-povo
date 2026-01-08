@@ -535,44 +535,36 @@ app.post('/admin/logout', async (c) => {
 // GET /admin (Dashboard)
 app.get('/admin', async (c) => {
   try {
-    console.log('[Dashboard] Step 1: Import getCookie')
     const { getCookie } = await import('hono/cookie')
     const token = getCookie(c, 'admin_session')
     
-    console.log('[Dashboard] Step 2: Check token', { hasToken: !!token })
     if (!token) {
       return c.redirect('/admin/login', 302)
     }
 
-    console.log('[Dashboard] Step 3: Verify JWT')
     const { verifyJWT } = await import('../packages/core/auth')
     const payload = await verifyJWT(token, c.env.JWT_SECRET)
     
-    console.log('[Dashboard] Step 4: Check payload', { hasPayload: !!payload, type: payload?.type })
     if (!payload || payload.type !== 'admin') {
       return c.redirect('/admin/login', 302)
     }
 
-    console.log('[Dashboard] Step 5: Query user')
+    // Query user from DB
     const user = await c.env.DB.prepare(
       'SELECT id, email, role, name, is_active FROM users WHERE id = ? AND is_active = 1 LIMIT 1'
     ).bind(payload.sub).first<{ id: number; email: string; role: string; name: string; is_active: number }>()
 
-    console.log('[Dashboard] Step 6: Check user', { hasUser: !!user })
     if (!user) {
       return c.redirect('/admin/login', 302)
     }
 
-    console.log('[Dashboard] Step 7: Set context')
+    // Set context
     c.set('adminUser', user)
     c.set('csrfToken', getCookie(c, 'admin_csrf'))
 
-    console.log('[Dashboard] Step 8: Import renderAdminLayout')
     const { renderAdminLayout } = await import('../packages/core/admin/ui')
     const { getSetting } = await import('../packages/core/db')
     const csrfToken = getCookie(c, 'admin_csrf')
-
-    console.log('[Dashboard] Step 9: Query stats')
 
     // Get stats
     const postsCount = await c.env.DB.prepare('SELECT COUNT(*) as count FROM posts WHERE status = ?')
@@ -626,28 +618,13 @@ app.get('/admin', async (c) => {
     </div>
   `
 
-    console.log('[Dashboard] Step 10: Render layout', {
-      hasUser: !!user,
-      userEmail: user?.email,
-      userId: user?.id,
-      userRole: user?.role,
-      hasCsrfToken: !!csrfToken,
-      bodyLength: bodyHtml.length
-    })
-
-    const renderResult = renderAdminLayout({
+    return c.html(renderAdminLayout({
       title: 'Dashboard',
       user,
       bodyHtml,
       activeTab: 'dashboard',
       csrfToken
-    })
-
-    console.log('[Dashboard] Step 11: Render complete', {
-      htmlLength: renderResult.length
-    })
-
-    return c.html(renderResult)
+    }))
   } catch (error) {
     console.error('[Admin Dashboard] Error:', error)
     return c.json({ success: false, error: 'Erro interno do servidor' }, 500)
@@ -666,8 +643,6 @@ app.get('/admin/posts', async (c) => {
   
   const user = c.get('adminUser')
   const csrfToken = c.get('csrfToken')
-
-  console.log('[Admin Posts] User from context', { hasUser: !!user, user })
   
   // Parse filters
   const status = c.req.query('status') || undefined
