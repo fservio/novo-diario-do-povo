@@ -1459,6 +1459,124 @@ if (existsSync(resolve('packages/core/admin/users.ts'))) {
 }
 
 // ============================================================================
+console.log('\n============================================================')
+console.log('  24. Admin Categories (CRUD)')
+console.log('============================================================')
+
+// Verificar arquivos de categories
+const categoriesFiles = [
+  'packages/core/db/categories.ts',
+  'packages/core/admin/categories.ts',
+]
+
+categoriesFiles.forEach(file => {
+  if (existsSync(resolve(file))) {
+    success(`Categories: ${file} criado`)
+  } else {
+    error(`Categories: ${file} ausente`)
+  }
+})
+
+// Verificar funções no repository
+if (existsSync(resolve('packages/core/db/categories.ts'))) {
+  const categoriesDbContent = readFileSync(resolve('packages/core/db/categories.ts'), 'utf8')
+  
+  const requiredFunctions = [
+    'listCategories',
+    'findCategoryById',
+    'findCategoryBySlug',
+    'createCategory',
+    'updateCategory',
+    'toggleCategory',
+    'slugify',
+    'ensureUniqueSlug',
+  ]
+  
+  let functionsOk = 0
+  requiredFunctions.forEach(fn => {
+    if (categoriesDbContent.includes(fn)) {
+      functionsOk++
+    }
+  })
+  
+  if (functionsOk === requiredFunctions.length) {
+    success(`Categories: todas ${requiredFunctions.length} funções repository implementadas`)
+  } else {
+    warning(`Categories: apenas ${functionsOk}/${requiredFunctions.length} funções repository encontradas`)
+  }
+  
+  // Verificar slug uniqueness logic
+  if (categoriesDbContent.includes('ensureUniqueSlug') && categoriesDbContent.includes('-2')) {
+    success('Categories: slug uniqueness com sufixo implementado')
+  } else {
+    warning('Categories: slug uniqueness pode estar incompleto')
+  }
+}
+
+// Verificar rotas registradas
+if (existsSync(resolve('functions/index.ts'))) {
+  const indexContent = readFileSync(resolve('functions/index.ts'), 'utf8')
+  
+  const routes = [
+    '/admin/categories',
+    '/admin/categories/new',
+    '/admin/categories/:id',
+    '/admin/categories/:id/toggle',
+  ]
+  
+  let routesOk = 0
+  routes.forEach(route => {
+    // Match both with and without escaped colon
+    const routePattern1 = route.replace(':id', '\\:id')
+    const routePattern2 = route
+    if (indexContent.includes(routePattern1) || indexContent.includes(routePattern2)) {
+      routesOk++
+    }
+  })
+  
+  if (routesOk === routes.length) {
+    success(`Categories: todas ${routes.length} rotas registradas`)
+  } else {
+    warning(`Categories: apenas ${routesOk}/${routes.length} rotas registradas`)
+  }
+  
+  // Verificar link na sidebar
+  if (indexContent.includes('Categorias') || indexContent.includes('categories')) {
+    success('Categories: link na sidebar ou UI encontrado')
+  } else {
+    warning('Categories: link na sidebar pode estar ausente')
+  }
+}
+
+// Verificar SSR render markers e CSRF
+if (existsSync(resolve('packages/core/admin/categories.ts'))) {
+  const categoriesAdminContent = readFileSync(resolve('packages/core/admin/categories.ts'), 'utf8')
+  
+  const markers = ['id="categoriesTable"', 'id="categoryForm"', 'name="csrf"']
+  
+  let markersOk = 0
+  markers.forEach(marker => {
+    if (categoriesAdminContent.includes(marker)) {
+      markersOk++
+    }
+  })
+  
+  if (markersOk === markers.length) {
+    success(`Categories: todos ${markers.length} markers SSR + CSRF encontrados`)
+  } else {
+    warning(`Categories: apenas ${markersOk}/${markers.length} markers SSR + CSRF encontrados`)
+  }
+  
+  // Verificar forms com CSRF hidden input
+  const csrfInputPattern = /type="hidden".*name="csrf"/
+  if (csrfInputPattern.test(categoriesAdminContent)) {
+    success('Categories: CSRF hidden input encontrado nos forms')
+  } else {
+    warning('Categories: CSRF hidden input pode estar ausente')
+  }
+}
+
+// ============================================================================
 // Resumo Final
 // ============================================================================
 

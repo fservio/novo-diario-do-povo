@@ -165,6 +165,7 @@ export function renderAdminLayout(
       <nav class="nav">
         <a style="${isActive('dashboard')}" href="/admin">Dashboard</a>
         <a style="${isActive('posts')}" href="/admin/posts">Posts</a>
+        <a style="${isActive('categories')}" href="/admin/categories">Categorias</a>
         <a style="${isActive('users')}" href="/admin/users">Usuários</a>
         <a style="${isActive('settings')}" href="/admin/settings">Settings</a>
         <a style="${isActive('asaas')}" href="/admin/asaas">Asaas</a>

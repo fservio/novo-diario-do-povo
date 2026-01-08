@@ -632,6 +632,40 @@ app.get('/admin', async (c) => {
 })
 
 // ============================================================================
+// Admin Categories Routes
+// ============================================================================
+
+app.get('/admin/categories', async (c) => {
+  const { handleCategoriesList } = await import('../packages/core/admin/categories')
+  return handleCategoriesList(c)
+})
+
+app.get('/admin/categories/new', async (c) => {
+  const { handleCategoriesNew } = await import('../packages/core/admin/categories')
+  return handleCategoriesNew(c)
+})
+
+app.post('/admin/categories', async (c) => {
+  const { handleCategoriesCreate } = await import('../packages/core/admin/categories')
+  return handleCategoriesCreate(c)
+})
+
+app.get('/admin/categories/:id', async (c) => {
+  const { handleCategoriesEdit } = await import('../packages/core/admin/categories')
+  return handleCategoriesEdit(c)
+})
+
+app.post('/admin/categories/:id', async (c) => {
+  const { handleCategoriesUpdate } = await import('../packages/core/admin/categories')
+  return handleCategoriesUpdate(c)
+})
+
+app.post('/admin/categories/:id/toggle', async (c) => {
+  const { handleCategoriesToggle } = await import('../packages/core/admin/categories')
+  return handleCategoriesToggle(c)
+})
+
+// ============================================================================
 // Admin Posts Routes
 // ============================================================================
 

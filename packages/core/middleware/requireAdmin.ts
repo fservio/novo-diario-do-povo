@@ -75,7 +75,7 @@ export async function requireAdmin(c: Context<{ Bindings: Env; Variables: AppCon
     id: fullUser.id,
     email: fullUser.email,
     role: fullUser.role,
-    is_active: fullUser.is_active === 1
+    is_active: fullUser.is_active
   })
 
   // Store CSRF token from cookie (no KV write per request)
