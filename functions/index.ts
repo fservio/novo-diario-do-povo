@@ -877,7 +877,27 @@ app.post('/admin/posts', async (c) => {
     return c.redirect(`/admin/posts/${postId}`, 303)
   } catch (error) {
     console.error('[Admin Posts] Create error:', error)
-    return c.redirect('/admin/posts/new?error=1', 303)
+    
+    // ✅ MOSTRAR ERRO NA TELA
+    const { renderPostFormPage } = await import('../packages/core/admin/posts')
+    const { findAllCategories, listActiveAuthors } = await import('../packages/core/db')
+    
+    const categories = await findAllCategories(c.env)
+    const authors = await listActiveAuthors(c.env)
+    const tagsResult = await c.env.DB.prepare(`SELECT id, name FROM tags ORDER BY name ASC`).all<{ id: number, name: string }>()
+    
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    
+    return c.html(renderPostFormPage({
+      categories,
+      authors,
+      tags: tagsResult.results || [],
+      user: c.get('adminUser'),
+      csrfToken: c.get('csrfToken'),
+      cspNonce: c.get('cspNonce'),
+      error: `❌ ERRO AO CRIAR POST: ${errorMessage}`,
+      defaultAuthorId: authors.length > 0 ? authors[0].id : undefined
+    }))
   }
 })
 
