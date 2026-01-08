@@ -176,6 +176,8 @@ export async function csrfProtection(c: Context<{ Bindings: Env; Variables: AppC
       else {
         const body = await c.req.parseBody()
         token = body['csrf'] as string
+        // ✅ CRITICAL: Cache parsed body so handlers can reuse it
+        c.set('parsedBody', body)
       }
     } catch (error) {
       console.error('Failed to parse body for CSRF:', error)

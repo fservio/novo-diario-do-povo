@@ -809,7 +809,8 @@ app.post('/admin/posts', async (c) => {
   const requestId = c.get('requestId')
   
   try {
-    const formData = await c.req.parseBody()
+    // ✅ CRITICAL: Reuse cached body from CSRF middleware
+    const formData = (c.get('parsedBody') || await c.req.parseBody()) as Record<string, any>
     
     // Se author_id vier vazio, garantir autor para o usuário logado
     let authorId = formData.author_id ? parseInt(String(formData.author_id)) : undefined
@@ -914,7 +915,8 @@ app.post('/admin/posts/:id', async (c) => {
   const id = parseInt(c.req.param('id'))
   
   try {
-    const formData = await c.req.parseBody()
+    // ✅ CRITICAL: Reuse cached body from CSRF middleware
+    const formData = (c.get('parsedBody') || await c.req.parseBody()) as Record<string, any>
     
     // Se author_id vier, validar que existe e está ativo
     let authorId = formData.author_id ? parseInt(String(formData.author_id)) : undefined
