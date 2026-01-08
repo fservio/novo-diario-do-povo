@@ -845,12 +845,20 @@ app.post('/admin/posts', async (c) => {
       : []
     
     // Validate
-    const data = createPostSchema.parse({
-      ...formData,
-      author_id: authorId,
-      tags,
-      cover_media_id: formData.cover_media_id ? parseInt(String(formData.cover_media_id)) : undefined
-    })
+    console.log('[POST /admin/posts] Before Zod validation')
+    let data
+    try {
+      data = createPostSchema.parse({
+        ...formData,
+        author_id: authorId,
+        tags,
+        cover_media_id: formData.cover_media_id ? parseInt(String(formData.cover_media_id)) : undefined
+      })
+      console.log('[POST /admin/posts] Zod validation passed')
+    } catch (zodError) {
+      console.error('[POST /admin/posts] ZOD VALIDATION FAILED:', zodError)
+      throw zodError
+    }
     
     // Create (cast to CreatePostInput pois Zod já validou required fields)
     const postId = await createPost(c.env.DB, data as any)
