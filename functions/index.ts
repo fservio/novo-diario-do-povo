@@ -759,28 +759,41 @@ app.get('/admin/posts', async (c) => {
 // GET /admin/posts/new - Form criar post
 app.get('/admin/posts/new', async (c) => {
   const { renderPostFormPage } = await import('../packages/core/admin/posts')
-  const { findAllCategories } = await import('../packages/core/db')
+  const { findAllCategories, listActiveAuthors, ensureAuthorForAdminUser, ensureDefaultRedacao } = await import('../packages/core/db')
   
   const user = c.get('adminUser')
   const csrfToken = c.get('csrfToken')
   
+  // Garantir que existe autor para o usuário logado
+  const ensuredAuthor = await ensureAuthorForAdminUser(c.env, user)
+  
+  // Garantir que existe autor "Redação" (fallback)
+  await ensureDefaultRedacao(c.env)
+  
   // Get categories, authors, tags
   const categories = await findAllCategories(c.env)
-  
-  const authorsResult = await c.env.DB.prepare(
-    'SELECT id, name FROM authors WHERE is_active = 1 ORDER BY name ASC'
-  ).all<{ id: number, name: string }>()
+  const authors = await listActiveAuthors(c.env)
   
   const tagsResult = await c.env.DB.prepare(
     'SELECT id, name FROM tags ORDER BY name ASC'
   ).all<{ id: number, name: string }>()
   
+  // Determinar autor padrão para pré-selecionar
+  let defaultAuthorId: number | undefined
+  if (ensuredAuthor) {
+    defaultAuthorId = ensuredAuthor.id
+  } else if (authors.length > 0) {
+    // Fallback: primeiro da lista (provavelmente "Redação")
+    defaultAuthorId = authors[0].id
+  }
+  
   return c.html(renderPostFormPage({
     categories,
-    authors: authorsResult.results || [],
+    authors,
     tags: tagsResult.results || [],
     user,
-    csrfToken
+    csrfToken,
+    defaultAuthorId
   }))
 })
 
@@ -788,13 +801,31 @@ app.get('/admin/posts/new', async (c) => {
 app.post('/admin/posts', async (c) => {
   const { createPostSchema } = await import('../packages/core/admin/posts')
   const { createPost } = await import('../packages/core/db/posts')
-  const { logAudit } = await import('../packages/core/db')
+  const { logAudit, ensureAuthorForAdminUser, validateAuthorId } = await import('../packages/core/db')
   
   const user = c.get('adminUser')
   const requestId = c.get('requestId')
   
   try {
     const formData = await c.req.parseBody()
+    
+    // Se author_id vier vazio, garantir autor para o usuário logado
+    let authorId = formData.author_id ? parseInt(String(formData.author_id)) : undefined
+    
+    if (!authorId || isNaN(authorId)) {
+      const ensuredAuthor = await ensureAuthorForAdminUser(c.env, user)
+      if (ensuredAuthor) {
+        authorId = ensuredAuthor.id
+      } else {
+        return c.redirect('/admin/posts/new?error=author_required', 303)
+      }
+    }
+    
+    // Validar que o autor existe e está ativo
+    const isValidAuthor = await validateAuthorId(c.env, authorId)
+    if (!isValidAuthor) {
+      return c.redirect('/admin/posts/new?error=invalid_author', 303)
+    }
     
     // Parse tags array
     const tags = formData.tags 
@@ -804,6 +835,7 @@ app.post('/admin/posts', async (c) => {
     // Validate
     const data = createPostSchema.parse({
       ...formData,
+      author_id: authorId,
       tags,
       cover_media_id: formData.cover_media_id ? parseInt(String(formData.cover_media_id)) : undefined
     })
@@ -832,7 +864,7 @@ app.post('/admin/posts', async (c) => {
 app.get('/admin/posts/:id', async (c) => {
   const { renderPostFormPage } = await import('../packages/core/admin/posts')
   const { getPostById } = await import('../packages/core/db/posts')
-  const { findAllCategories } = await import('../packages/core/db')
+  const { findAllCategories, listActiveAuthors, ensureDefaultRedacao } = await import('../packages/core/db')
   
   const user = c.get('adminUser')
   const csrfToken = c.get('csrfToken')
@@ -843,12 +875,12 @@ app.get('/admin/posts/:id', async (c) => {
     return c.notFound()
   }
   
+  // Garantir que existe autor "Redação" (fallback)
+  await ensureDefaultRedacao(c.env)
+  
   // Get categories, authors, tags
   const categories = await findAllCategories(c.env)
-  
-  const authorsResult = await c.env.DB.prepare(
-    'SELECT id, name FROM authors WHERE is_active = 1 ORDER BY name ASC'
-  ).all<{ id: number, name: string }>()
+  const authors = await listActiveAuthors(c.env)
   
   const tagsResult = await c.env.DB.prepare(
     'SELECT id, name FROM tags ORDER BY name ASC'
@@ -857,7 +889,7 @@ app.get('/admin/posts/:id', async (c) => {
   return c.html(renderPostFormPage({
     post,
     categories,
-    authors: authorsResult.results || [],
+    authors,
     tags: tagsResult.results || [],
     user,
     csrfToken,
@@ -869,7 +901,7 @@ app.get('/admin/posts/:id', async (c) => {
 app.post('/admin/posts/:id', async (c) => {
   const { updatePostSchema } = await import('../packages/core/admin/posts')
   const { updatePost } = await import('../packages/core/db/posts')
-  const { logAudit } = await import('../packages/core/db')
+  const { logAudit, ensureAuthorForAdminUser, validateAuthorId } = await import('../packages/core/db')
   
   const user = c.get('adminUser')
   const requestId = c.get('requestId')
@@ -877,6 +909,16 @@ app.post('/admin/posts/:id', async (c) => {
   
   try {
     const formData = await c.req.parseBody()
+    
+    // Se author_id vier, validar que existe e está ativo
+    let authorId = formData.author_id ? parseInt(String(formData.author_id)) : undefined
+    
+    if (authorId && !isNaN(authorId)) {
+      const isValidAuthor = await validateAuthorId(c.env, authorId)
+      if (!isValidAuthor) {
+        return c.redirect(`/admin/posts/${id}?error=invalid_author`, 303)
+      }
+    }
     
     // Parse tags array
     const tags = formData.tags 
@@ -886,6 +928,7 @@ app.post('/admin/posts/:id', async (c) => {
     // Validate
     const data = updatePostSchema.parse({
       ...formData,
+      author_id: authorId,
       tags,
       cover_media_id: formData.cover_media_id ? parseInt(String(formData.cover_media_id)) : undefined
     })

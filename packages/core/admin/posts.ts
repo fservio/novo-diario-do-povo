@@ -249,8 +249,9 @@ function renderPostFormPage(params: {
   user: AdminUser
   csrfToken: string
   error?: string
+  defaultAuthorId?: number
 }): string {
-  const { post, categories, authors, tags, user, csrfToken, error } = params
+  const { post, categories, authors, tags, user, csrfToken, error, defaultAuthorId } = params
   const isNew = !post
   
   const bodyHtml = `
@@ -411,13 +412,27 @@ function renderPostFormPage(params: {
         <div class="field">
           <label style="font-weight: 600;">Autor *</label>
           <select name="author_id" required style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;">
-            <option value="">Selecione...</option>
-            ${authors.map(author => `
-              <option value="${author.id}" ${post?.author_id === author.id ? 'selected' : ''}>
-                ${escapeHtml(author.name)}
-              </option>
-            `).join('')}
+            ${authors.length === 0 ? `
+              <option value="">Nenhum autor disponível</option>
+            ` : `
+              <option value="">Selecione...</option>
+              ${authors.map(author => {
+                const isSelected = post 
+                  ? post.author_id === author.id
+                  : defaultAuthorId === author.id
+                return `
+                  <option value="${author.id}" ${isSelected ? 'selected' : ''}>
+                    ${escapeHtml(author.name)}
+                  </option>
+                `
+              }).join('')}
+            `}
           </select>
+          ${authors.length === 0 ? `
+            <p style="color: #ef4444; font-size: 0.875rem; margin-top: 0.25rem;">
+              ⚠️ Nenhum autor ativo encontrado. Entre em contato com o administrador.
+            </p>
+          ` : ''}
         </div>
       </div>
       
