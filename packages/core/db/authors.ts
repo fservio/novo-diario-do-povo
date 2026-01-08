@@ -1,6 +1,35 @@
 /**
  * Authors Repository
  * Gerencia autores do jornal (authors table)
+ * 
+ * ROLE-BASED PERMISSIONS (definidas em users.role):
+ * 
+ * - 'redator': 
+ *   • Pode criar posts como draft
+ *   • NÃO pode publicar posts
+ *   • NÃO pode editar posts de outros
+ *   • Apenas leitura em categorias
+ * 
+ * - 'editor':
+ *   • Pode criar, editar e publicar posts
+ *   • Pode editar posts de outros autores
+ *   • Pode gerenciar tags
+ *   • Apenas leitura em categorias
+ * 
+ * - 'diretor':
+ *   • Todas as permissões de editor
+ *   • Pode criar/editar/excluir categorias
+ *   • Pode gerenciar autores
+ *   • Acesso a analytics
+ * 
+ * - 'admin':
+ *   • Acesso total (superuser)
+ *   • Pode gerenciar users
+ *   • Pode acessar settings
+ *   • Pode gerenciar ads/paywall
+ * 
+ * IMPORTANTE: Todo user automaticamente tem um author vinculado (user_id).
+ * Autores "editoriais" (Redação, Colunista) não têm user_id (null).
  */
 
 import type { Env } from '../types'
@@ -17,6 +46,7 @@ export interface Author {
   social_instagram: string | null
   social_linkedin: string | null
   is_active: number
+  user_id: number | null
   created_at: string
   updated_at: string
 }
@@ -31,6 +61,7 @@ export interface CreateAuthorInput {
   social_instagram?: string | null
   social_linkedin?: string | null
   is_active?: number
+  user_id?: number | null
 }
 
 /**
@@ -41,7 +72,7 @@ export async function listActiveAuthors(env: Env): Promise<Author[]> {
     SELECT 
       id, slug, name, bio, avatar_media_id, email,
       social_twitter, social_instagram, social_linkedin,
-      is_active, created_at, updated_at
+      is_active, user_id, created_at, updated_at
     FROM authors
     WHERE is_active = 1
     ORDER BY name ASC
@@ -58,11 +89,28 @@ export async function findAuthorByEmail(env: Env, email: string): Promise<Author
     SELECT 
       id, slug, name, bio, avatar_media_id, email,
       social_twitter, social_instagram, social_linkedin,
-      is_active, created_at, updated_at
+      is_active, user_id, created_at, updated_at
     FROM authors
     WHERE email = ?
     LIMIT 1
   `).bind(email).first<Author>()
+  
+  return result || null
+}
+
+/**
+ * Busca autor por user_id
+ */
+export async function findAuthorByUserId(env: Env, userId: number): Promise<Author | null> {
+  const result = await env.DB.prepare(`
+    SELECT 
+      id, slug, name, bio, avatar_media_id, email,
+      social_twitter, social_instagram, social_linkedin,
+      is_active, user_id, created_at, updated_at
+    FROM authors
+    WHERE user_id = ?
+    LIMIT 1
+  `).bind(userId).first<Author>()
   
   return result || null
 }
@@ -75,7 +123,7 @@ export async function findAuthorBySlug(env: Env, slug: string): Promise<Author |
     SELECT 
       id, slug, name, bio, avatar_media_id, email,
       social_twitter, social_instagram, social_linkedin,
-      is_active, created_at, updated_at
+      is_active, user_id, created_at, updated_at
     FROM authors
     WHERE slug = ?
     LIMIT 1
@@ -92,7 +140,7 @@ export async function findAuthorById(env: Env, id: number): Promise<Author | nul
     SELECT 
       id, slug, name, bio, avatar_media_id, email,
       social_twitter, social_instagram, social_linkedin,
-      is_active, created_at, updated_at
+      is_active, user_id, created_at, updated_at
     FROM authors
     WHERE id = ?
     LIMIT 1
@@ -143,8 +191,8 @@ export async function createAuthor(env: Env, data: CreateAuthorInput): Promise<n
     INSERT INTO authors (
       slug, name, bio, avatar_media_id, email,
       social_twitter, social_instagram, social_linkedin,
-      is_active, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      is_active, user_id, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
   `).bind(
     data.slug,
     data.name,
@@ -154,7 +202,8 @@ export async function createAuthor(env: Env, data: CreateAuthorInput): Promise<n
     data.social_twitter || null,
     data.social_instagram || null,
     data.social_linkedin || null,
-    data.is_active ?? 1
+    data.is_active ?? 1,
+    data.user_id || null
   ).run()
   
   if (!result.success || !result.meta.last_row_id) {
@@ -166,23 +215,23 @@ export async function createAuthor(env: Env, data: CreateAuthorInput): Promise<n
 
 /**
  * Garante que existe um autor para o usuário admin logado
- * Se não existir, cria automaticamente usando o email
+ * Usa user_id como vínculo principal (mais robusto que email)
  */
 export async function ensureAuthorForAdminUser(env: Env, adminUser: AdminUser): Promise<Author | null> {
-  if (!adminUser.email) {
+  if (!adminUser.id) {
     return null
   }
   
-  // Tenta buscar autor existente pelo email
-  let author = await findAuthorByEmail(env, adminUser.email)
+  // Tenta buscar autor existente pelo user_id
+  let author = await findAuthorByUserId(env, adminUser.id)
   
   if (author) {
     return author
   }
   
-  // Não existe, cria novo autor
-  // Nome: usa adminUser.name se existir, senão usa parte antes do @
-  const name = adminUser.name || adminUser.email.split('@')[0]
+  // Não existe, cria novo autor vinculado ao user
+  // Nome: usa adminUser.name se existir, senão usa email antes do @
+  const name = adminUser.name || (adminUser.email ? adminUser.email.split('@')[0] : `User${adminUser.id}`)
   
   // Gera slug único
   const slug = await generateUniqueSlug(env, name)
@@ -191,7 +240,8 @@ export async function ensureAuthorForAdminUser(env: Env, adminUser: AdminUser): 
   const authorId = await createAuthor(env, {
     slug,
     name,
-    email: adminUser.email,
+    email: adminUser.email || null,
+    user_id: adminUser.id,
     is_active: 1
   })
   
