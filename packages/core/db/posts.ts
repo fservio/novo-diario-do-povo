@@ -294,7 +294,7 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
       seo_title, seo_description, seo_canonical, seo_noindex,
       is_premium, paywall_tier, metering_exempt,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     slug,
     input.title,
@@ -303,6 +303,7 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
     input.category_id,
     input.author_id,
     input.cover_media_id || null,
+    'draft',  // status sempre 'draft' ao criar
     input.template || 'article',
     input.seo_title || null,
     input.seo_description || null,

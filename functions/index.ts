@@ -843,7 +843,14 @@ app.post('/admin/posts', async (c) => {
     })
     
     // Create (cast to CreatePostInput pois Zod já validou required fields)
-    const postId = await createPost(c.env.DB, data as any)
+    console.log('[DEBUG] Creating post with data:', JSON.stringify(data, null, 2))
+    try {
+      const postId = await createPost(c.env.DB, data as any)
+      console.log('[DEBUG] Post created with ID:', postId)
+    } catch (err) {
+      console.error('[DEBUG] createPost ERROR:', err)
+      throw err
+    }
     
     // Audit log
     await logAudit(c.env, {
