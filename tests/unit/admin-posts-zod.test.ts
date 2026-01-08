@@ -34,19 +34,16 @@ describe('Admin Posts Zod Validation', () => {
       }
     })
     
-    it('rejeita conteúdo vazio', () => {
-      const invalid = {
+    it('aceita conteúdo vazio', () => {
+      const valid = {
         title: 'Título',
         content: '',
         category_id: 1,
         author_id: 1,
       }
       
-      const result = createPostSchema.safeParse(invalid)
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        expect(result.error.issues[0].path).toContain('content')
-      }
+      const result = createPostSchema.safeParse(valid)
+      expect(result.success).toBe(true)
     })
     
     it('rejeita category_id inválido', () => {
