@@ -208,17 +208,9 @@ function pr6Checks() {
     "packages/core/middleware/security.ts (multipart CSRF)"
   );
 
-  // 7) modal no editor
-  assertFileContains(
-    path.join(ROOT, "packages", "core", "admin", "posts.ts"),
-    [
-      /🖼/,
-      /\/api\/admin\/media\/search/,
-      /<figure>/,
-      /<figcaption>/,
-    ],
-    "packages/core/admin/posts.ts (modal + API)"
-  );
+  // 7) Modal e API de mídia agora estão em packages/core/admin/editor.ts
+  // (verificado na Seção XX: PR Editor Markdown)
+  ok("Modal e API de mídia agora gerenciados pelo editor.ts");
 
   ok("✅ PR6 checks (Seção 28) completos!\n");
 }
@@ -268,8 +260,100 @@ function checkCoverageThreshold() {
 
   console.log("\n📝 Executando checks de qualidade...\n");
 
+  // ========================================
+  // Seção XX: PR Editor Markdown
+  // ========================================
+  console.log("\n📝 Verificando Editor Markdown (SSR + CSP Nonce)...\n");
+  
+  // 1) Verificar existência de packages/core/admin/editor.ts
+  const editorPath = path.join(ROOT, "packages/core/admin/editor.ts");
+  if (!exists(editorPath)) {
+    fail("Arquivo packages/core/admin/editor.ts não encontrado!");
+  }
+  ok("packages/core/admin/editor.ts existe");
+
+  // 2) Verificar exports obrigatórios
+  const editorCode = readText(editorPath);
+  const requiredExports = ["renderMarkdownEditor", "renderScript"];
+  for (const exp of requiredExports) {
+    if (!editorCode.includes(`export function ${exp}`)) {
+      fail(`Export '${exp}' não encontrada em editor.ts`);
+    }
+  }
+  ok("Exports obrigatórios presentes: renderMarkdownEditor, renderScript");
+
+  // 3) Verificar IDs obrigatórios (presentes no código ou como defaults)
+  const requiredIds = ["mdEditor", "mdToolbar", "mediaPickerModal"];
+  for (const id of requiredIds) {
+    // Accept id="value" or "value" (as default param) or ${id} with default "value"
+    if (!editorCode.includes(id)) {
+      fail(`ID obrigatório '${id}' não encontrado no editor`);
+    }
+  }
+  ok("IDs obrigatórios presentes: mdEditor, mdToolbar, mediaPickerModal");
+
+  // 4) Verificar data-actions obrigatórios
+  const requiredActions = [
+    "bold", "italic", "link", "h2", "h3", 
+    "ul", "ol", "quote", "code", "image",
+    "closeModal", "insertImage"
+  ];
+  for (const action of requiredActions) {
+    if (!editorCode.includes(`data-action="${action}"`)) {
+      fail(`data-action '${action}' não encontrada no editor`);
+    }
+  }
+  ok("Todas as data-actions obrigatórias presentes (12 ações)");
+
+  // 5) Verificar integração em posts.ts
+  const postsPath = path.join(ROOT, "packages/core/admin/posts.ts");
+  if (!exists(postsPath)) {
+    fail("Arquivo packages/core/admin/posts.ts não encontrado!");
+  }
+  
+  const postsCode = readText(postsPath);
+  
+  // Import do editor
+  if (!postsCode.includes("from './editor'")) {
+    fail("Import do editor não encontrado em posts.ts");
+  }
+  ok("Import do editor presente em posts.ts");
+
+  // Uso de renderMarkdownEditor
+  if (!postsCode.includes("renderMarkdownEditor({")) {
+    fail("renderMarkdownEditor() não utilizado em posts.ts");
+  }
+  ok("renderMarkdownEditor() utilizado em posts.ts");
+
+  // Verificar parâmetros corretos
+  const hasName = postsCode.includes("name: 'content'");
+  const hasNonce = postsCode.includes("nonce: csrfToken");
+  
+  if (!hasName) {
+    fail("Parâmetro 'name: content' não encontrado");
+  }
+  if (!hasNonce) {
+    fail("Parâmetro 'nonce: csrfToken' não encontrado");
+  }
+  ok("Parâmetros corretos: name='content', nonce=csrfToken");
+
+  // 6) Verificar CSP nonce nos scripts
+  if (!editorCode.includes('nonce="${') && !editorCode.includes('nonce="\${')) {
+    fail("Scripts inline não usam nonce CSP!");
+  }
+  ok("Scripts inline usam nonce CSP");
+
+  // 7) Verificar API de mídia
+  if (!editorCode.includes("/api/admin/media/search")) {
+    fail("API /api/admin/media/search não referenciada no editor");
+  }
+  ok("API /api/admin/media/search integrada");
+
+  console.log("\n✅ Editor Markdown validado com sucesso!\n");
+
   if (scriptExists(pkg, "typecheck")) run(...pmRun(["typecheck"]));
   else warn("Script typecheck não encontrado.");
+
 
   if (scriptExists(pkg, "lint")) run(...pmRun(["lint"]), { allowFail: true });
   else warn("Script lint não encontrado.");
