@@ -287,15 +287,7 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
   const baseSlug = input.slug || slugify(input.title)
   const slug = await generateUniqueSlug(db, baseSlug)
   
-  const result = await db.prepare(`
-    INSERT INTO posts (
-      slug, title, excerpt, content, category_id, author_id, cover_media_id,
-      status, template,
-      seo_title, seo_description, seo_canonical, seo_noindex,
-      is_premium, paywall_tier, metering_exempt,
-      created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
+  const bindValues = [
     slug,
     input.title,
     input.excerpt || null,
@@ -308,13 +300,29 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
     input.seo_title || null,
     input.seo_description || null,
     input.seo_canonical || null,
-    input.seo_noindex || 0,
-    input.is_premium || 0,
+    input.seo_noindex ?? 0,
+    input.is_premium ?? 0,
     input.paywall_tier || null,
-    input.metering_exempt || 0,
+    input.metering_exempt ?? 0,
     now,
     now
-  ).run()
+  ]
+  
+  console.log('[createPost] Bind values:', {
+    count: bindValues.length,
+    values: bindValues,
+    input: input
+  })
+  
+  const result = await db.prepare(`
+    INSERT INTO posts (
+      slug, title, excerpt, content, category_id, author_id, cover_media_id,
+      status, template,
+      seo_title, seo_description, seo_canonical, seo_noindex,
+      is_premium, paywall_tier, metering_exempt,
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(...bindValues).run()
   
   const postId = result.meta.last_row_id
   
