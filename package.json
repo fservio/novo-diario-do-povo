@@ -32,6 +32,7 @@
     "git:log": "git log --oneline"
   },
   "dependencies": {
+    "@node-rs/argon2": "^2.0.2",
     "@types/bcryptjs": "^2.4.6",
     "bcryptjs": "^3.0.3",
     "hono": "^4.6.14",
