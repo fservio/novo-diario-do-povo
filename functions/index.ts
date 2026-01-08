@@ -812,6 +812,15 @@ app.post('/admin/posts', async (c) => {
     // ✅ CRITICAL: Reuse cached body from CSRF middleware
     const formData = (c.get('parsedBody') || await c.req.parseBody()) as Record<string, any>
     
+    console.log('[POST /admin/posts] Body received:', {
+      keys: Object.keys(formData),
+      title: formData.title,
+      content: formData.content,
+      category_id: formData.category_id,
+      author_id: formData.author_id,
+      hasParsedBody: !!c.get('parsedBody')
+    })
+    
     // Se author_id vier vazio, garantir autor para o usuário logado
     let authorId = formData.author_id ? parseInt(String(formData.author_id)) : undefined
     
