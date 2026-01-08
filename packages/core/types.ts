@@ -80,6 +80,7 @@ export interface AppContext {
   requestId: string
   cspNonce?: string  // CSP nonce for script-src
   csrfToken?: string  // CSRF token for admin forms
+  formData?: FormData  // FormData for multipart/form-data uploads
   user?: {
     id: number
     email: string
@@ -97,6 +98,14 @@ export interface AppContext {
     email: string
     isSubscriber: boolean
   }
+}
+
+export interface AdminUser {
+  id: number
+  email: string
+  role: string
+  name?: string
+  is_active?: number
 }
 
 // ============================================================================

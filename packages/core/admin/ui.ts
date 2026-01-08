@@ -21,6 +21,13 @@ export function escapeHtml(unsafe: string): string {
     .replace(/'/g, '&#039;')
 }
 
+/**
+ * Render CSRF hidden input
+ */
+export function renderCsrfInput(csrfToken: string): string {
+  return `<input type="hidden" name="csrf" value="${escapeHtml(csrfToken)}">`
+}
+
 export function maskSecretValue(value: string): string {
   if (!value || value.length < 8) return '***'
   return value.substring(0, 4) + '***' + value.substring(value.length - 4)

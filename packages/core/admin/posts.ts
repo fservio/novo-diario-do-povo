@@ -631,16 +631,22 @@ function renderPostFormPage(params: {
         // Load images from API
         async function loadImages(query) {
           try {
-            const response = await fetch('/api/admin/media/search?q=' + encodeURIComponent(query));
+            const response = await fetch('/api/admin/media/search?q=' + encodeURIComponent(query) + '&limit=20');
             const data = await response.json();
             
-            imageResults.innerHTML = data.media.map(img => 
+            if (!data.success || !data.results) {
+              imageResults.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">Nenhuma imagem encontrada</p>';
+              return;
+            }
+            
+            imageResults.innerHTML = data.results.map(img => 
               '<div class="image-item" data-id="' + img.id + '" data-key="' + img.r2_key + '" data-alt="' + (img.alt || '') + '" data-width="' + (img.width || '') + '" data-height="' + (img.height || '') + '" style="cursor: pointer; border: 2px solid transparent; border-radius: 0.25rem; overflow: hidden; aspect-ratio: 1;">' +
                 '<img src="/i/' + img.r2_key + '" alt="' + (img.alt || img.filename) + '" style="width: 100%; height: 100%; object-fit: cover;">' +
               '</div>'
-            ).join('');
+            ).join('') || '<p style="text-align: center; color: #6b7280; padding: 2rem;">Nenhuma imagem encontrada</p>';
           } catch (err) {
             console.error('Failed to load images:', err);
+            imageResults.innerHTML = '<p style="text-align: center; color: #dc2626; padding: 2rem;">Erro ao carregar imagens</p>';
           }
         }
         

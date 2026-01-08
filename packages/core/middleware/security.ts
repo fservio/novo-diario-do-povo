@@ -163,8 +163,20 @@ export async function csrfProtection(c: Context<{ Bindings: Env; Variables: AppC
   // SSR routes (/admin/*) → check form field
   else if (path.startsWith('/admin/')) {
     try {
-      const body = await c.req.parseBody()
-      token = body['csrf'] as string
+      const contentType = c.req.header('content-type') || ''
+      
+      // Handle multipart/form-data (file uploads)
+      if (contentType.startsWith('multipart/form-data')) {
+        const formData = await c.req.formData()
+        token = formData.get('csrf') as string
+        // Store formData in context for handler reuse
+        c.set('formData', formData)
+      } 
+      // Handle regular form data
+      else {
+        const body = await c.req.parseBody()
+        token = body['csrf'] as string
+      }
     } catch (error) {
       console.error('Failed to parse body for CSRF:', error)
     }

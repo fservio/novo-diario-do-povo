@@ -632,6 +632,46 @@ app.get('/admin', async (c) => {
 })
 
 // ============================================================================
+// Admin Media Routes
+// ============================================================================
+
+// GET /admin/media - List media
+app.get('/admin/media', async (c) => {
+  const { handleMediaList } = await import('../packages/core/admin/media')
+  return handleMediaList(c)
+})
+
+// GET /admin/media/upload - Upload form
+app.get('/admin/media/upload', async (c) => {
+  const { handleMediaUpload } = await import('../packages/core/admin/media')
+  return handleMediaUpload(c)
+})
+
+// POST /admin/media - Handle upload
+app.post('/admin/media', async (c) => {
+  const { handleMediaCreate } = await import('../packages/core/admin/media')
+  return handleMediaCreate(c)
+})
+
+// GET /admin/media/:id - Media detail
+app.get('/admin/media/:id{[0-9]+}', async (c) => {
+  const { handleMediaDetail } = await import('../packages/core/admin/media')
+  return handleMediaDetail(c)
+})
+
+// POST /admin/media/:id - Update metadata
+app.post('/admin/media/:id{[0-9]+}', async (c) => {
+  const { handleMediaUpdate } = await import('../packages/core/admin/media')
+  return handleMediaUpdate(c)
+})
+
+// POST /admin/media/:id/delete - Delete media
+app.post('/admin/media/:id{[0-9]+}/delete', async (c) => {
+  const { handleMediaDelete } = await import('../packages/core/admin/media')
+  return handleMediaDelete(c)
+})
+
+// ============================================================================
 // Admin Categories Routes
 // ============================================================================
 
@@ -1050,6 +1090,24 @@ app.get('/api/admin/media/search', async (c) => {
     return c.json({ success: true, results })
   } catch (error: any) {
     console.error('Error searching media:', error)
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
+// API /api/admin/media/:id - Get media by ID (JSON)
+app.get('/api/admin/media/:id{[0-9]+}', async (c) => {
+  const { getMediaById } = await import('../packages/core/db/media')
+  
+  const id = parseInt(c.req.param('id'))
+  
+  try {
+    const media = await getMediaById(c.env, id)
+    if (!media) {
+      return c.json({ success: false, error: 'Media not found' }, 404)
+    }
+    return c.json({ success: true, media })
+  } catch (error: any) {
+    console.error('Error getting media:', error)
     return c.json({ success: false, error: error.message }, 500)
   }
 })
