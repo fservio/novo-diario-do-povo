@@ -28,7 +28,7 @@ const createPostSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório').max(500),
   slug: z.string().optional(),
   excerpt: z.string().max(1000).optional(),
-  content: z.string().min(1, 'Conteúdo é obrigatório'),
+  content: z.string(),
   category_id: z.coerce.number().int().positive(),
   author_id: z.coerce.number().int().positive(),
   cover_media_id: z.coerce.number().int().positive().optional(),

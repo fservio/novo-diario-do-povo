@@ -844,8 +844,9 @@ app.post('/admin/posts', async (c) => {
     
     // Create (cast to CreatePostInput pois Zod já validou required fields)
     console.log('[DEBUG] Creating post with data:', JSON.stringify(data, null, 2))
+    let postId: number
     try {
-      const postId = await createPost(c.env.DB, data as any)
+      postId = await createPost(c.env.DB, data as any)
       console.log('[DEBUG] Post created with ID:', postId)
     } catch (err) {
       console.error('[DEBUG] createPost ERROR:', err)
@@ -967,7 +968,7 @@ app.post('/admin/posts/:id', async (c) => {
 
 // POST /admin/posts/:id/publish - Publicar post
 app.post('/admin/posts/:id/publish', async (c) => {
-  const { publishPost } = await import('../packages/core/db/posts')
+  const { getPostById, publishPost } = await import('../packages/core/db/posts')
   const { logAudit } = await import('../packages/core/db')
   
   const user = c.get('adminUser')
@@ -975,6 +976,15 @@ app.post('/admin/posts/:id/publish', async (c) => {
   const id = parseInt(c.req.param('id'))
   
   try {
+    const post = await getPostById(c.env.DB, id)
+    if (!post) {
+      return c.notFound()
+    }
+    if (!post.content || post.content.trim().length === 0) {
+      const errorMessage = encodeURIComponent('Conteúdo é obrigatório para publicar')
+      return c.redirect(`/admin/posts/${id}?error=${errorMessage}`, 303)
+    }
+
     await publishPost(c.env.DB, id)
     
     await logAudit(c.env, {
@@ -996,7 +1006,7 @@ app.post('/admin/posts/:id/publish', async (c) => {
 // POST /admin/posts/:id/schedule - Agendar post
 app.post('/admin/posts/:id/schedule', async (c) => {
   const { scheduleSchema } = await import('../packages/core/admin/posts')
-  const { schedulePost } = await import('../packages/core/db/posts')
+  const { getPostById, schedulePost } = await import('../packages/core/db/posts')
   const { logAudit } = await import('../packages/core/db')
   
   const user = c.get('adminUser')
@@ -1004,6 +1014,15 @@ app.post('/admin/posts/:id/schedule', async (c) => {
   const id = parseInt(c.req.param('id'))
   
   try {
+    const post = await getPostById(c.env.DB, id)
+    if (!post) {
+      return c.notFound()
+    }
+    if (!post.content || post.content.trim().length === 0) {
+      const errorMessage = encodeURIComponent('Conteúdo é obrigatório para agendar')
+      return c.redirect(`/admin/posts/${id}?error=${errorMessage}`, 303)
+    }
+
     const formData = await c.req.parseBody()
     const data = scheduleSchema.parse(formData)
     
