@@ -257,18 +257,30 @@ export async function handleMediaCreate(c: Context<{ Bindings: Env; Variables: A
       }
     })
     
-    // Save to database
-    const mediaId = await createMedia(c.env, {
-      r2_key: r2Key,
-      filename: file.name,
-      mime_type: file.type,
-      size_bytes: file.size,
-      width: dimensions?.width,
-      height: dimensions?.height,
-      alt: alt || null,
-      credits: credits || null,
-      uploaded_by_user_id: user.id
-    })
+    // Save to database with rollback on failure
+    let mediaId: number
+    try {
+      mediaId = await createMedia(c.env, {
+        r2_key: r2Key,
+        filename: file.name,
+        mime_type: file.type,
+        size_bytes: file.size,
+        width: dimensions?.width,
+        height: dimensions?.height,
+        alt: alt || null,
+        credits: credits || null,
+        uploaded_by_user_id: user.id
+      })
+    } catch (dbError: any) {
+      // Rollback: delete from R2 if DB insert fails
+      console.error('DB insert failed, rolling back R2:', dbError)
+      try {
+        await c.env.R2.delete(r2Key)
+      } catch (r2Error) {
+        console.error('R2 rollback failed:', r2Error)
+      }
+      throw new Error(`Failed to save media: ${dbError.message}`)
+    }
     
     // Redirect to media detail
     return c.redirect(`/admin/media/${mediaId}`, 302)
