@@ -10,11 +10,11 @@ export interface MediaItem {
   r2_key: string
   filename: string
   mime_type: string
-  size: number
+  size_bytes: number
   width?: number
   height?: number
   alt?: string
-  caption?: string
+  credits?: string
   created_at: string
 }
 
@@ -34,18 +34,18 @@ export async function searchMedia(
       r2_key,
       filename,
       mime_type,
-      size,
+      size_bytes,
       width,
       height,
       alt,
-      caption,
-      created_at
+      credits,
+      uploaded_at as created_at
     FROM media
     WHERE 
       filename LIKE ? OR
       alt LIKE ? OR
-      caption LIKE ?
-    ORDER BY created_at DESC
+      credits LIKE ?
+    ORDER BY uploaded_at DESC
     LIMIT ?
   `).bind(q, q, q, limit).all<MediaItem>()
   
@@ -62,12 +62,12 @@ export async function getMediaById(env: Env, id: number): Promise<MediaItem | nu
       r2_key,
       filename,
       mime_type,
-      size,
+      size_bytes,
       width,
       height,
       alt,
-      caption,
-      created_at
+      credits,
+      uploaded_at as created_at
     FROM media
     WHERE id = ?
   `).bind(id).first<MediaItem>()
