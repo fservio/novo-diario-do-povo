@@ -318,6 +318,17 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
   
   const postId = result.meta.last_row_id
   
+  if (!postId) {
+    console.error('[createPost] ERROR: No post ID returned!', {
+      success: result.success,
+      meta: result.meta,
+      input_title: input.title
+    })
+    throw new Error('Failed to create post: no ID returned')
+  }
+  
+  console.log('[createPost] Post inserted successfully. ID:', postId)
+  
   // Insert tags
   if (input.tags && input.tags.length > 0) {
     for (const tagId of input.tags) {
