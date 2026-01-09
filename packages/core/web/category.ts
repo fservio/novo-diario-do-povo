@@ -1,6 +1,6 @@
 /**
- * Category Page Renderer (Verge Style)
- * Sub-home layout with pagination
+ * Category Page Renderer
+ * Modern & Minimalist Design System
  */
 
 import type { Context } from 'hono'
@@ -33,34 +33,33 @@ function truncate(text: string, maxLength: number): string {
 
 function renderPostCard(post: CategoryPost, baseUrl: string, showImage: boolean): string {
   const imageHtml = showImage && post.featured_image_r2_key ? `
-    <div style="margin-bottom: 1rem;">
+    <div style="aspect-ratio: 16/9; margin-bottom: 1rem;">
       <img 
         src="/i/${escapeAttr(post.featured_image_r2_key)}" 
         alt="${escapeAttr(post.title)}"
-        style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 0.5rem;"
+        class="card-img"
         loading="lazy"
-        width="400"
-        height="225"
+        style="height: 100%; border-radius: var(--radius-md);"
       >
     </div>
   ` : ''
   
   return `
-    <article class="card" style="margin-bottom: 1.5rem;">
-      ${imageHtml}
-      <h3 style="margin: 0 0 0.5rem 0; font-size: 1.25rem; font-weight: 700;">
-        <a href="/noticia/${escapeAttr(post.slug)}" style="text-decoration: none; color: inherit;">
+    <article class="card hover:shadow-lg transition">
+      <a href="/noticia/${escapeAttr(post.slug)}" class="card-body">
+        ${imageHtml}
+        <h3 class="font-bold text-xl mb-2">
           ${escapeHtml(post.title)}
-        </a>
-      </h3>
-      <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
-        ${formatDate(post.published_at)}
-      </div>
-      ${post.excerpt ? `
-        <p style="margin: 0; color: var(--text-secondary); line-height: 1.6;">
-          ${escapeHtml(truncate(post.excerpt, 150))}
-        </p>
-      ` : ''}
+        </h3>
+        <div class="text-xs text-gray-500 mb-3">
+          ${formatDate(post.published_at)}
+        </div>
+        ${post.excerpt ? `
+          <p class="text-gray-600 text-sm m-0">
+            ${escapeHtml(truncate(post.excerpt, 150))}
+          </p>
+        ` : ''}
+      </a>
     </article>
   `
 }
@@ -72,21 +71,19 @@ function renderPagination(page: number, totalPages: number, baseUrl: string): st
   const nextPage = page < totalPages ? page + 1 : null
   
   return `
-    <nav id="pagination" style="margin: 3rem 0; display: flex; justify-content: center; align-items: center; gap: 1rem;">
+    <nav id="pagination" class="flex justify-center items-center gap-4 my-12">
       ${prevPage ? `
-        <a href="${escapeAttr(baseUrl)}?page=${prevPage}" 
-           style="padding: 0.5rem 1rem; background: white; border: 1px solid var(--border); border-radius: 0.375rem; text-decoration: none; color: inherit;">
+        <a href="${escapeAttr(baseUrl)}?page=${prevPage}" class="btn btn-outline">
           ← Anterior
         </a>
       ` : ''}
       
-      <span style="color: var(--text-secondary);">
+      <span class="text-gray-500 font-medium">
         Página ${page} de ${totalPages}
       </span>
       
       ${nextPage ? `
-        <a href="${escapeAttr(baseUrl)}?page=${nextPage}"
-           style="padding: 0.5rem 1rem; background: white; border: 1px solid var(--border); border-radius: 0.375rem; text-decoration: none; color: inherit;">
+        <a href="${escapeAttr(baseUrl)}?page=${nextPage}" class="btn btn-outline">
           Próxima →
         </a>
       ` : ''}
@@ -133,37 +130,38 @@ export async function renderCategoryPage(
   
   // Build body HTML
   let bodyHtml = `
-    <div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+    <div class="container py-8">
       <!-- Category Header -->
-      <div style="margin-bottom: 2rem;">
-        <h1 id="categoryTitle" style="margin: 0 0 0.5rem 0; font-size: 2.5rem; font-weight: 900;">
+      <div class="mb-8 text-center max-w-3xl mx-auto">
+        <h1 class="text-4xl font-black mb-4">
           ${escapeHtml(category.name)}
         </h1>
         ${category.description ? `
-          <p style="font-size: 1.125rem; color: var(--text-secondary); margin: 0;">
+          <p class="text-xl text-gray-500">
             ${escapeHtml(category.description)}
           </p>
         ` : ''}
       </div>
       
       <!-- Ad: Top -->
-      ${adTopHtml}
+      ${adTopHtml ? `<div class="mb-8">${adTopHtml}</div>` : ''}
       
-      <!-- Posts List -->
-      <div id="categoryList">
+      <!-- Posts Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
   `
   
-  // Render posts with smart image distribution (1 every 3 posts)
+  // Render posts
   posts.forEach((post, index) => {
-    const showImage = index % 3 === 0
+    // Show image for first post and every 3rd post thereafter
+    const showImage = index === 0 || index % 3 === 0
     bodyHtml += renderPostCard(post, baseUrl, showImage)
     
-    // Insert ads
+    // Insert ads (spanning full width)
     if (index === 5 && adInfeed1Html) {
-      bodyHtml += adInfeed1Html
+      bodyHtml += `</div><div class="my-8">${adInfeed1Html}</div><div class="grid grid-cols-1 md:grid-cols-3 gap-6">`
     }
     if (index === 13 && adInfeed2Html) {
-      bodyHtml += adInfeed2Html
+      bodyHtml += `</div><div class="my-8">${adInfeed2Html}</div><div class="grid grid-cols-1 md:grid-cols-3 gap-6">`
     }
   })
   

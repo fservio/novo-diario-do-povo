@@ -26,11 +26,9 @@ import {
 
 const createPostSchema = z.object({
   hat: z.string()
-    .trim()
-    .min(1, 'Chapéu é obrigatório')
     .max(60, 'Chapéu deve ter no máximo 60 caracteres')
-    .regex(/^\S+$/, 'Chapéu deve ser uma única palavra (sem espaços)')
-    .transform(val => val.toUpperCase()),
+    .transform(val => val.trim().toUpperCase())
+    .optional(),
   title: z.string().min(1, 'Título é obrigatório').max(500),
   slug: z.string().optional(),
   excerpt: z.string().max(1000).optional(),
@@ -353,17 +351,16 @@ function renderPostFormPage(params: {
       
       <!-- Chapéu -->
       <div class="field" style="margin-bottom: 1rem;">
-        <label style="font-weight: 600;">Chapéu *</label>
+        <label style="font-weight: 600;">Chapéu</label>
         <input 
           type="text" 
           name="hat" 
           value="${escapeHtml(post?.hat || '')}"
-          required
           maxlength="60"
           style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; text-transform: uppercase; font-size: 0.875rem; letter-spacing: 0.08em;"
         >
         <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">
-          Ex.: ESPORTES, ECONOMIA, URGENTE. Apenas uma palavra, sem espaços.
+          Ex.: ESPORTES, ECONOMIA, URGENTE. Texto curto acima do título.
         </div>
       </div>
       

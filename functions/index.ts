@@ -1166,7 +1166,7 @@ app.get('/admin/posts/:id/preview', async (c) => {
   
   <div class="container">
     <div class="category">${escapeHtml(category?.name || 'Sem categoria')}</div>
-    ${post.hat ? `<div style="font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.12em; color: #2563eb; font-weight: 700; margin-bottom: 0.5rem;">${escapeHtml(post.hat)}</div>` : ''}
+    ${post.hat ? `<div style="font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.12em; color: #6b7280; font-weight: 700; margin-bottom: 0.25rem; line-height: 1;">${escapeHtml(post.hat)}</div>` : ''}
     <h1>${escapeHtml(post.title)}</h1>
     <div class="meta">
       Por ${escapeHtml(author?.name || 'Autor desconhecido')} • 

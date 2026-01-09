@@ -338,7 +338,7 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
       seo_title, seo_description, seo_canonical, seo_noindex,
       is_premium, paywall_tier, metering_exempt,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(...bindValues).run()
   
   const postId = result.meta.last_row_id

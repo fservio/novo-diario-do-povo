@@ -21,23 +21,20 @@ describe('Admin Posts Zod Validation', () => {
       expect(result.success).toBe(true)
     })
 
-    it('rejeita chapéu ausente', () => {
-      const invalid: any = { ...basePost() }
-      delete invalid.hat
+    it('aceita chapéu ausente (opcional)', () => {
+      const valid = { ...basePost() }
+      delete (valid as any).hat
 
-      const result = createPostSchema.safeParse(invalid)
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        expect(result.error.issues[0].path).toContain('hat')
-      }
+      const result = createPostSchema.safeParse(valid)
+      expect(result.success).toBe(true)
     })
 
-    it('rejeita chapéu com espaços', () => {
-      const invalid = { ...basePost(), hat: 'COM ESPAÇO' }
-      const result = createPostSchema.safeParse(invalid)
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        expect(result.error.issues[0].path).toContain('hat')
+    it('aceita chapéu com espaços', () => {
+      const valid = { ...basePost(), hat: 'COM ESPAÇO' }
+      const result = createPostSchema.safeParse(valid)
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.hat).toBe('COM ESPAÇO')
       }
     })
 

@@ -1,6 +1,6 @@
 /**
- * Article Page Renderer (Verge Style)
- * Full article layout with paywall, ads, and SEO
+ * Article Page Renderer
+ * Modern, Clean, Typography-focused
  */
 
 import type { Context } from 'hono'
@@ -31,21 +31,14 @@ function estimateReadingTime(content: string): number {
   return Math.max(1, minutes)
 }
 
-/**
- * Safely truncate HTML content (no tag breaking)
- */
 function truncateContent(html: string, maxLength: number): string {
-  // Simple truncation - in production, use proper HTML parser
   const text = html.replace(/<[^>]+>/g, '')
   if (text.length <= maxLength) return html
-  
-  // Find safe cutoff (end of paragraph or sentence)
   const cutoff = html.substring(0, maxLength)
   const lastPTag = cutoff.lastIndexOf('</p>')
   if (lastPTag > 0) {
     return html.substring(0, lastPTag + 4)
   }
-  
   return cutoff + '...'
 }
 
@@ -59,60 +52,54 @@ function looksLikeMarkdown(value: string | null | undefined): boolean {
 // Component Renderers
 // ============================================================================
 
-function renderBreadcrumb(categoryName: string, categorySlug: string): string {
-  return `
-    <nav id="breadcrumb" style="margin-bottom: 1rem; font-size: 0.875rem;">
-      <a href="/" style="color: var(--text-secondary); text-decoration: none;">Home</a>
-      <span style="color: var(--text-secondary); margin: 0 0.5rem;">›</span>
-      <a href="/categoria/${escapeAttr(categorySlug)}" style="color: var(--text-secondary); text-decoration: none;">
-        ${escapeHtml(categoryName)}
-      </a>
-    </nav>
-  `
-}
-
 function renderArticleHeader(post: ArticlePost, readingTime: number): string {
   return `
-    <header style="margin-bottom: 2rem;">
-      ${renderBreadcrumb(post.category_name, post.category_slug)}
-      
-      <div style="display: inline-block; background: var(--accent); color: white; padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem;">
-        ${escapeHtml(post.category_name)}
-      </div>
-      
+    <header class="article-header">
+      <!-- Hat (Chapéu) -->
       ${post.hat ? `
-        <div style="font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); font-weight: 700; margin-bottom: 0.5rem;">
+        <div class="article-hat">
           ${escapeHtml(post.hat)}
         </div>
       ` : ''}
       
-      <h1 id="articleTitle" style="margin: 0 0 1rem 0; font-size: 2.5rem; font-weight: 900; line-height: 1.2;">
+      <!-- Title -->
+      <h1 class="article-title">
         ${escapeHtml(post.title)}
       </h1>
       
-      <div style="display: flex; align-items: center; gap: 1rem; font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
-        ${post.author_name ? `<span>Por ${escapeHtml(post.author_name)}</span>` : ''}
-        <span>${formatDate(post.published_at)}</span>
-        <span>${readingTime} min de leitura</span>
-      </div>
-      
-      ${post.featured_image_r2_key ? `
-        <div style="margin-bottom: 1.5rem;">
-          <img 
-            src="/i/${escapeAttr(post.featured_image_r2_key)}" 
-            alt="${escapeAttr(post.title)}"
-            style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 1rem;"
-            loading="eager"
-            width="1200"
-            height="675"
-          >
+      <!-- Excerpt -->
+      ${post.excerpt ? `
+        <div class="article-excerpt">
+          ${escapeHtml(post.excerpt)}
         </div>
       ` : ''}
       
-      ${post.excerpt ? `
-        <div style="font-size: 1.25rem; color: var(--text-secondary); line-height: 1.6; font-weight: 500; margin-bottom: 2rem;">
-          ${escapeHtml(post.excerpt)}
-        </div>
+      <!-- Metadata -->
+      <div class="article-meta">
+        ${post.author_name ? `
+          <span class="font-bold text-gray-900">${escapeHtml(post.author_name)}</span>
+          <span class="text-gray-300">•</span>
+        ` : ''}
+        <span>${formatDate(post.published_at)}</span>
+        <span class="text-gray-300">•</span>
+        <span>${readingTime} min de leitura</span>
+        
+        <a href="/categoria/${escapeAttr(post.category_slug)}" class="text-accent font-bold" style="margin-left: auto;">
+          ${escapeHtml(post.category_name)}
+        </a>
+      </div>
+      
+      <!-- Featured Image -->
+      ${post.featured_image_r2_key ? `
+        <figure style="margin-top: 2rem;">
+          <img 
+            src="/i/${escapeAttr(post.featured_image_r2_key)}" 
+            alt="${escapeAttr(post.title)}"
+            class="card-img"
+            style="border-radius: var(--radius-lg); aspect-ratio: 2/1;"
+            loading="eager"
+          >
+        </figure>
       ` : ''}
     </header>
   `
@@ -120,31 +107,26 @@ function renderArticleHeader(post: ArticlePost, readingTime: number): string {
 
 function renderArticleContent(content: string, isBlocked: boolean): string {
   if (isBlocked) {
-    // Show snippet + paywall
     const snippet = truncateContent(content, 500)
     return `
-      <div id="articleBody" style="max-width: 75ch; margin: 0 auto; font-size: 1.125rem; line-height: 1.8; color: var(--text-primary);">
+      <div class="article-content">
         ${snippet}
       </div>
       
-      <div id="paywallCta" style="background: linear-gradient(to bottom, transparent, var(--bg-body)); padding: 3rem 0; text-align: center; margin-top: 2rem;">
-        <div class="card" style="max-width: 600px; margin: 0 auto; padding: 2rem; text-align: center;">
-          <h3 style="margin: 0 0 1rem 0; font-size: 1.5rem; font-weight: 700;">
-            Continue lendo
-          </h3>
-          <p style="margin: 0 0 1.5rem 0; color: var(--text-secondary);">
-            Assine agora e tenha acesso ilimitado a todo conteúdo exclusivo.
-          </p>
-          <a href="/assine" style="display: inline-block; background: var(--accent); color: white; padding: 0.75rem 2rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600;">
-            Assinar agora
-          </a>
-        </div>
+      <div class="paywall-box">
+        <h3 class="font-bold text-xl mb-4">Conteúdo Exclusivo</h3>
+        <p class="mb-6 text-gray-600">
+          Este artigo é exclusivo para assinantes. Continue lendo e tenha acesso a análises profundas.
+        </p>
+        <a href="/assine" class="paywall-cta">
+          Assinar Agora
+        </a>
       </div>
     `
   }
   
   return `
-    <div id="articleBody" style="max-width: 75ch; margin: 0 auto; font-size: 1.125rem; line-height: 1.8; color: var(--text-primary);">
+    <div class="article-content">
       ${content}
     </div>
   `
@@ -154,43 +136,26 @@ function renderRelatedPosts(posts: RelatedPost[], baseUrl: string): string {
   if (posts.length === 0) return ''
   
   return `
-    <section style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--border);">
-      <h2 style="margin: 0 0 1.5rem 0; font-size: 1.5rem; font-weight: 700;">Leia também</h2>
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1.5rem;">
+    <section class="container" style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--gray-200);">
+      <h2 class="font-bold text-2xl mb-6">Leia também</h2>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
         ${posts.map(post => `
-          <article class="card">
-            <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem; font-weight: 600;">
-              <a href="/noticia/${escapeAttr(post.slug)}" style="text-decoration: none; color: inherit;">
+          <a href="/noticia/${escapeAttr(post.slug)}" class="card hover:shadow-lg transition">
+            <div class="card-body">
+              <span class="text-xs font-bold text-accent uppercase mb-2 block">
+                ${escapeHtml(post.category_name || 'Notícia')}
+              </span>
+              <h3 class="font-bold text-lg mb-2 leading-tight">
                 ${escapeHtml(post.title)}
-              </a>
-            </h3>
-            <div style="font-size: 0.875rem; color: var(--text-secondary);">
-              ${formatDate(post.published_at)}
+              </h3>
+              <div class="text-xs text-gray-500 mt-auto pt-4">
+                ${formatDate(post.published_at)}
+              </div>
             </div>
-          </article>
+          </a>
         `).join('')}
       </div>
     </section>
-  `
-}
-
-function renderMostRead(posts: RelatedPost[]): string {
-  if (posts.length === 0) return ''
-  
-  return `
-    <aside id="mostRead" style="margin-top: 3rem; padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem;">
-      <h2 style="margin: 0 0 1rem 0; font-size: 1.25rem; font-weight: 700;">Mais Lidas</h2>
-      <ol style="margin: 0; padding: 0; list-style: none;">
-        ${posts.map((post, index) => `
-          <li style="margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
-            <span style="color: var(--accent); font-weight: 700; font-size: 1.5rem; margin-right: 0.75rem;">${index + 1}</span>
-            <a href="/noticia/${escapeAttr(post.slug)}" style="text-decoration: none; color: inherit; font-weight: 600;">
-              ${escapeHtml(post.title)}
-            </a>
-          </li>
-        `).join('')}
-      </ol>
-    </aside>
   `
 }
 
@@ -250,7 +215,7 @@ export async function renderArticlePage(
   const adInread2 = adSlots.find(s => s.name === 'article_inread_2')
   const adFooter = adSlots.find(s => s.name === 'article_footer')
   
-  // Render ads
+  // Render ads context
   const pageContext = { path: c.req.path, referrer: c.req.header('referer') || '', template: 'article' }
   const userContext = { isSubscriber: !isBlocked, isLoggedIn: false }
   
@@ -262,15 +227,15 @@ export async function renderArticlePage(
   // Ads loader script
   const adsScript = await generateAdsLoaderScript(c.env)
   
-  // Split content for ad insertion (simple approach)
+  // Split content for ad insertion
   let contentWithAds = contentHtml
   if (!isBlocked) {
     const paragraphs = contentHtml.split('</p>')
     if (paragraphs.length > 4 && adInread1Html) {
-      paragraphs.splice(3, 0, '</p>' + adInread1Html)
+      paragraphs.splice(3, 0, '</p><div class="container my-8">' + adInread1Html + '</div>')
     }
     if (paragraphs.length > 8 && adInread2Html) {
-      paragraphs.splice(7, 0, '</p>' + adInread2Html)
+      paragraphs.splice(7, 0, '</p><div class="container my-8">' + adInread2Html + '</div>')
     }
     contentWithAds = paragraphs.join('</p>')
   }
@@ -281,7 +246,7 @@ export async function renderArticlePage(
     excerpt: post.excerpt,
     slug: post.slug,
     published_at: post.published_at,
-    updated_at: post.published_at, // Use same as published if no updated_at
+    updated_at: post.published_at,
     author: { name: post.author_name || 'Redação' },
     coverMedia: post.featured_image_r2_key ? {
       r2_key: post.featured_image_r2_key,
@@ -297,7 +262,6 @@ export async function renderArticlePage(
     { name: post.title, url: canonicalUrl }
   ], baseUrl)
   
-  // Extra head HTML (JSON-LD + OG tags) - WITH CSP NONCE
   const extraHeadHtml = `
     ${post.seo_noindex ? '<meta name="robots" content="noindex, follow">' : ''}
     ${generateOGTags(post, baseUrl)}
@@ -311,31 +275,27 @@ export async function renderArticlePage(
   
   // Build body HTML
   const bodyHtml = `
-    <article class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
-      ${renderArticleHeader(post, readingTime)}
-      
+    <article style="padding-bottom: 4rem;">
       <!-- Ad: Top -->
-      ${adTopHtml}
+      ${adTopHtml ? `<div class="container mb-8">${adTopHtml}</div>` : ''}
+      
+      ${renderArticleHeader(post, readingTime)}
       
       <!-- Content -->
       ${renderArticleContent(contentWithAds, isBlocked)}
       
       ${!isBlocked ? `
         <!-- Ad: Footer -->
-        ${adFooterHtml}
+        ${adFooterHtml ? `<div class="container mt-12">${adFooterHtml}</div>` : ''}
         
         <!-- Related Posts -->
         ${renderRelatedPosts(relatedPosts, baseUrl)}
-        
-        <!-- Most Read -->
-        ${renderMostRead(mostRead)}
       ` : ''}
     </article>
     
     ${adsScript}
   `
   
-  // Use shared layout
   return renderPublicLayout({
     title: `${post.title} | ${siteName}`,
     description: post.excerpt || post.title,

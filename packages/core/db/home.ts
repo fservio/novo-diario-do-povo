@@ -16,6 +16,7 @@ export interface HomePost {
   slug: string
   title: string
   excerpt: string
+  hat?: string | null
   published_at: string
   featured_image_r2_key: string | null
   category_name: string
@@ -121,7 +122,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
   // 1. Hero: latest published post (not in categoria "explicador")
   const heroResult = await env.DB.prepare(`
     SELECT 
-      p.id, p.slug, p.title, p.excerpt, p.published_at, 
+      p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at, 
       m.r2_key as featured_image_r2_key,
       c.name as category_name, c.slug as category_slug
     FROM posts p
@@ -138,7 +139,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
   // 2. Dual Features: next 2 posts (skip hero)
   const dualFeaturesResult = await env.DB.prepare(`
     SELECT 
-      p.id, p.slug, p.title, p.excerpt, p.published_at, 
+      p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at, 
       m.r2_key as featured_image_r2_key,
       c.name as category_name, c.slug as category_slug
     FROM posts p
@@ -156,16 +157,19 @@ export async function getHomeData(env: Env): Promise<HomeData> {
   // 3. Hot Rail: latest 10 posts (text-only, with time)
   const hotRailResult = await env.DB.prepare(`
     SELECT 
-      p.id, p.slug, p.title, p.published_at,
+      p.id, p.slug, p.title, p.hat, p.published_at,
+      m.r2_key as featured_image_r2_key,
       c.name as category_name, c.slug as category_slug
     FROM posts p
     INNER JOIN categories c ON p.category_id = c.id
+    LEFT JOIN media m ON p.cover_media_id = m.id
     WHERE p.status = 'published' 
       AND p.published_at <= ?
       AND p.seo_noindex = 0
+      AND p.id != ?
     ORDER BY p.published_at DESC
     LIMIT 10
-  `).bind(now).all<HomePost>()
+  `).bind(now, heroResult?.id || 0).all<HomePost>()
 
   // 4. Get home sections (CMS-driven)
   const sections = await getHomeSections(env)
@@ -276,10 +280,12 @@ export async function getHomeData(env: Env): Promise<HomeData> {
   // Fallback atual: latest published
   const mostReadResult = await env.DB.prepare(`
     SELECT 
-      p.id, p.slug, p.title, p.published_at,
+      p.id, p.slug, p.title, p.hat, p.published_at,
+      m.r2_key as featured_image_r2_key,
       c.name as category_name, c.slug as category_slug
     FROM posts p
     INNER JOIN categories c ON p.category_id = c.id
+    LEFT JOIN media m ON p.cover_media_id = m.id
     WHERE p.status = 'published' 
       AND p.published_at <= ?
       AND p.seo_noindex = 0
