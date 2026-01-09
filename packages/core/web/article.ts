@@ -9,6 +9,7 @@ import type { ArticlePost, RelatedPost } from '../db/article'
 import { renderPublicLayout, escapeHtml, escapeAttr, type PublicLayoutParams } from './layout'
 import { renderAdSlot, findActiveSlotsByTemplate, generateAdsLoaderScript } from '../ads'
 import { generateArticleJsonLd, generateBreadcrumbJsonLd } from '../seo'
+import { renderMarkdownToHtml, sanitizeHtml } from '../render/sanitize'
 
 // ============================================================================
 // Helpers
@@ -24,7 +25,8 @@ function formatDate(isoDate: string): string {
 }
 
 function estimateReadingTime(content: string): number {
-  const words = content.split(/\s+/).length
+  const text = content.replace(/<[^>]+>/g, ' ')
+  const words = text.trim().split(/\s+/).filter(Boolean).length
   const minutes = Math.ceil(words / 200)
   return Math.max(1, minutes)
 }
@@ -45,6 +47,12 @@ function truncateContent(html: string, maxLength: number): string {
   }
   
   return cutoff + '...'
+}
+
+function looksLikeMarkdown(value: string | null | undefined): boolean {
+  if (!value) return false
+  if (/<[a-z][\s\S]*>/i.test(value)) return false
+  return /(^|\n)\s*(?:#{1,6}\s|[-*+]\s|\d+\.\s|> |!\[|\[.+\]\(.+\)|`{3})/.test(value)
 }
 
 // ============================================================================
@@ -71,6 +79,12 @@ function renderArticleHeader(post: ArticlePost, readingTime: number): string {
       <div style="display: inline-block; background: var(--accent); color: white; padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem;">
         ${escapeHtml(post.category_name)}
       </div>
+      
+      ${post.hat ? `
+        <div style="font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); font-weight: 700; margin-bottom: 0.5rem;">
+          ${escapeHtml(post.hat)}
+        </div>
+      ` : ''}
       
       <h1 id="articleTitle" style="margin: 0 0 1rem 0; font-size: 2.5rem; font-weight: 900; line-height: 1.2;">
         ${escapeHtml(post.title)}
@@ -222,7 +236,12 @@ export async function renderArticlePage(
   
   const nonce = c.get('cspNonce') || ''
   const canonicalUrl = post.seo_canonical || `${baseUrl}/noticia/${post.slug}`
-  const readingTime = estimateReadingTime(post.content)
+  const contentHtml = post.content_markdown && post.content_markdown.length > 0
+    ? renderMarkdownToHtml(post.content_markdown)
+    : looksLikeMarkdown(post.content)
+      ? renderMarkdownToHtml(post.content)
+      : sanitizeHtml(post.content)
+  const readingTime = estimateReadingTime(contentHtml)
   
   // Get ad slots
   const adSlots = await findActiveSlotsByTemplate(c.env, 'article')
@@ -244,9 +263,9 @@ export async function renderArticlePage(
   const adsScript = await generateAdsLoaderScript(c.env)
   
   // Split content for ad insertion (simple approach)
-  let contentWithAds = post.content
+  let contentWithAds = contentHtml
   if (!isBlocked) {
-    const paragraphs = post.content.split('</p>')
+    const paragraphs = contentHtml.split('</p>')
     if (paragraphs.length > 4 && adInread1Html) {
       paragraphs.splice(3, 0, '</p>' + adInread1Html)
     }

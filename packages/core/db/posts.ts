@@ -4,11 +4,13 @@
  */
 
 import type { D1Database } from '@cloudflare/workers-types'
+import { renderMarkdownToHtml, sanitizeHtml } from '../render/sanitize'
 
 export interface Post {
   id: number
   slug: string
   title: string
+  hat: string | null
   excerpt: string | null
   content: string
   content_markdown: string | null // Markdown source (optional, for new editor)
@@ -57,6 +59,7 @@ export interface PostFilters {
 
 export interface CreatePostInput {
   title: string
+  hat?: string
   slug?: string
   excerpt?: string
   content: string
@@ -77,6 +80,7 @@ export interface CreatePostInput {
 
 export interface UpdatePostInput {
   title?: string
+  hat?: string
   slug?: string
   excerpt?: string
   content?: string
@@ -104,13 +108,17 @@ async function generateUniqueSlug(db: D1Database, baseSlug: string, excludeId?: 
   let counter = 2
   
   while (true) {
-    const existing = await db.prepare(
-      excludeId 
-        ? 'SELECT id FROM posts WHERE slug = ? AND id != ? LIMIT 1'
-        : 'SELECT id FROM posts WHERE slug = ? LIMIT 1'
-    )
-    .bind(excludeId ? slug : slug, excludeId || slug)
-    .first()
+    const query = excludeId
+      ? 'SELECT id FROM posts WHERE slug = ? AND id != ? LIMIT 1'
+      : 'SELECT id FROM posts WHERE slug = ? LIMIT 1'
+
+    const stmt = db.prepare(query)
+
+    const boundStmt = excludeId
+      ? stmt.bind(slug, excludeId)
+      : stmt.bind(slug)
+
+    const existing = await boundStmt.first()
     
     if (!existing) return slug
     
@@ -174,9 +182,9 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
   }
   
   if (search) {
-    whereConditions.push('(p.title LIKE ? OR p.excerpt LIKE ? OR p.content LIKE ?)')
+    whereConditions.push('(p.title LIKE ? OR p.hat LIKE ? OR p.excerpt LIKE ? OR p.content LIKE ?)')
     const searchTerm = `%${search}%`
-    params.push(searchTerm, searchTerm, searchTerm)
+    params.push(searchTerm, searchTerm, searchTerm, searchTerm)
   }
   
   const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''
@@ -287,11 +295,20 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
   const baseSlug = input.slug || slugify(input.title)
   const slug = await generateUniqueSlug(db, baseSlug)
   
+  const hasMarkdown = input.content_markdown !== undefined && input.content_markdown !== null
+  const contentHtml = hasMarkdown
+    ? renderMarkdownToHtml(input.content_markdown || '')
+    : sanitizeHtml(input.content)
+  const contentMarkdownValue = hasMarkdown ? input.content_markdown : null
+  const hatValue = input.hat ? input.hat.trim().toUpperCase() : null
+  
   const bindValues = [
     slug,
     input.title,
+    hatValue,
     input.excerpt || null,
-    input.content,
+    contentHtml,
+    contentMarkdownValue,
     input.category_id,
     input.author_id,
     input.cover_media_id || null,
@@ -316,12 +333,12 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
   
   const result = await db.prepare(`
     INSERT INTO posts (
-      slug, title, excerpt, content, category_id, author_id, cover_media_id,
+      slug, title, hat, excerpt, content, content_markdown, category_id, author_id, cover_media_id,
       status, template,
       seo_title, seo_description, seo_canonical, seo_noindex,
       is_premium, paywall_tier, metering_exempt,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(...bindValues).run()
   
   const postId = result.meta.last_row_id
@@ -365,6 +382,12 @@ export async function updatePost(db: D1Database, id: number, input: UpdatePostIn
     values.push(input.title)
   }
   
+  if (input.hat !== undefined) {
+    const hatValue = input.hat ? input.hat.trim().toUpperCase() : null
+    fields.push('hat = ?')
+    values.push(hatValue)
+  }
+  
   if (input.slug !== undefined) {
     const uniqueSlug = await generateUniqueSlug(db, input.slug, id)
     fields.push('slug = ?')
@@ -376,9 +399,15 @@ export async function updatePost(db: D1Database, id: number, input: UpdatePostIn
     values.push(input.excerpt || null)
   }
   
-  if (input.content !== undefined) {
+  if (input.content_markdown !== undefined) {
+    const markdown = input.content_markdown || ''
     fields.push('content = ?')
-    values.push(input.content)
+    values.push(renderMarkdownToHtml(markdown))
+    fields.push('content_markdown = ?')
+    values.push(input.content_markdown)
+  } else if (input.content !== undefined) {
+    fields.push('content = ?')
+    values.push(sanitizeHtml(input.content))
   }
   
   if (input.category_id !== undefined) {

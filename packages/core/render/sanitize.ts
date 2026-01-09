@@ -4,6 +4,8 @@
  * Permite apenas tags e atributos seguros
  */
 
+import { Marked } from 'marked'
+
 const ALLOWED_TAGS = new Set([
   'p', 'a', 'strong', 'em', 'ul', 'ol', 'li', 'blockquote',
   'h2', 'h3', 'h4', 'figure', 'img', 'figcaption', 'br', 'hr',
@@ -20,6 +22,22 @@ const ALLOWED_ATTRIBUTES: Record<string, Set<string>> = {
   'code': new Set(['class']),
   'pre': new Set(['class'])
 }
+
+function escapeAttr(value: string | null | undefined): string {
+  if (!value) return ''
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+const markdownParser = new Marked({
+  gfm: true,
+  breaks: true,
+  headerIds: false
+})
 
 /**
  * Verifica se uma URL é segura
@@ -144,49 +162,22 @@ export function sanitizeHtml(html: string): string {
 }
 
 /**
- * Renderiza Markdown para HTML (simples, sem biblioteca)
- * Suporta apenas formatação básica + HTML blocks (figure)
+ * Renderiza Markdown para HTML utilizando parser com suporte GFM
+ * Resultado já passa por sanitização adicional para garantir segurança
  */
 export function renderMarkdownToHtml(markdown: string): string {
   if (!markdown) return ''
-  
-  let html = markdown
-  
-  // Preservar HTML blocks (figure, etc)
-  const htmlBlocks: string[] = []
-  html = html.replace(/<(figure|div|pre)[^>]*>.*?<\/\1>/gs, (match) => {
-    htmlBlocks.push(match)
-    return `__HTML_BLOCK_${htmlBlocks.length - 1}__`
+  let html = markdownParser.parse(markdown, { async: false }) as string
+
+  // Adicionar loading="lazy" para imagens sem o atributo
+  html = html.replace(/<img\b(?![^>]*\bloading=)[^>]*>/g, (match) => {
+    return match.replace('<img', '<img loading="lazy"')
   })
-  
-  // Headers
-  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>')
-  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>')
-  
-  // Bold e Italic
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>')
-  
-  // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-  
-  // Listas não ordenadas
-  html = html.replace(/^- (.+)$/gm, '<li>$1</li>')
-  html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
-  
-  // Listas ordenadas
-  html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-  
-  // Blockquotes
-  html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
-  
-  // Parágrafos
-  html = html.replace(/^(?!<[hul]|<blockquote)(.+)$/gm, '<p>$1</p>')
-  
-  // Restaurar HTML blocks
-  htmlBlocks.forEach((block, i) => {
-    html = html.replace(`__HTML_BLOCK_${i}__`, block)
+
+  // Flatten blockquotes que possuem apenas um parágrafo interno
+  html = html.replace(/<blockquote>\s*<p>([\s\S]*?)<\/p>\s*<\/blockquote>/g, (_match, inner) => {
+    return `<blockquote>${inner.trim()}</blockquote>`
   })
-  
-  return html
+
+  return sanitizeHtml(html)
 }

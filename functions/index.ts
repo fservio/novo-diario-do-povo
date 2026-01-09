@@ -861,7 +861,11 @@ app.post('/admin/posts', async (c) => {
     }
     
     // Create (cast to CreatePostInput pois Zod já validou required fields)
-    const postId = await createPost(c.env.DB, data as any)
+    const createPayload = {
+      ...data,
+      content_markdown: data.content
+    }
+    const postId = await createPost(c.env.DB, createPayload as any)
     console.log('✅ [PROD] Post created successfully. ID:', postId, 'Title:', data.title)
     
     // Audit log
@@ -977,9 +981,14 @@ app.post('/admin/posts/:id', async (c) => {
       tags,
       cover_media_id: formData.cover_media_id ? parseInt(String(formData.cover_media_id)) : undefined
     })
+
+    const updatePayload = {
+      ...data,
+      ...(data.content !== undefined ? { content_markdown: data.content } : {})
+    }
     
     // Update
-    await updatePost(c.env.DB, id, data)
+    await updatePost(c.env.DB, id, updatePayload as any)
     
     // Audit log
     await logAudit(c.env, {
@@ -988,7 +997,7 @@ app.post('/admin/posts/:id', async (c) => {
       action: 'updated',
       actorType: 'user',
       actorId: user.id,
-      details: { fields: Object.keys(data) },
+      details: { fields: Object.keys(updatePayload) },
       requestId
     })
     
@@ -1092,6 +1101,7 @@ app.post('/admin/posts/:id/archive', async (c) => {
 app.get('/admin/posts/:id/preview', async (c) => {
   const { getPostById } = await import('../packages/core/db/posts')
   const { escapeHtml } = await import('../packages/core/admin/ui')
+  const { renderMarkdownToHtml, sanitizeHtml } = await import('../packages/core/render/sanitize')
   
   const user = c.get('adminUser')
   const id = parseInt(c.req.param('id'))
@@ -1100,6 +1110,18 @@ app.get('/admin/posts/:id/preview', async (c) => {
   if (!post) {
     return c.notFound()
   }
+  
+  const looksLikeMarkdown = (value: string | null | undefined): boolean => {
+    if (!value) return false
+    if (/<[a-z][\s\S]*>/i.test(value)) return false
+    return /(^|\n)\s*(?:#{1,6}\s|[-*+]\s|\d+\.\s|> |!\[|\[.+\]\(.+\)|`{3})/.test(value)
+  }
+  
+  const contentHtml = post.content_markdown && post.content_markdown.length > 0
+    ? renderMarkdownToHtml(post.content_markdown)
+    : looksLikeMarkdown(post.content)
+      ? renderMarkdownToHtml(post.content)
+      : sanitizeHtml(post.content || '')
   
   // Get category and author
   const category = await c.env.DB.prepare(
@@ -1144,6 +1166,7 @@ app.get('/admin/posts/:id/preview', async (c) => {
   
   <div class="container">
     <div class="category">${escapeHtml(category?.name || 'Sem categoria')}</div>
+    ${post.hat ? `<div style="font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.12em; color: #2563eb; font-weight: 700; margin-bottom: 0.5rem;">${escapeHtml(post.hat)}</div>` : ''}
     <h1>${escapeHtml(post.title)}</h1>
     <div class="meta">
       Por ${escapeHtml(author?.name || 'Autor desconhecido')} • 
@@ -1156,7 +1179,7 @@ app.get('/admin/posts/:id/preview', async (c) => {
     ` : ''}
     
     <div class="content">
-      ${post.content}
+      ${contentHtml}
     </div>
   </div>
 </body>

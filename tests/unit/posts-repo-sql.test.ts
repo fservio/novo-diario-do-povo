@@ -78,6 +78,7 @@ describe('Posts Repository SQL', () => {
       const { createPost } = await import('../../packages/core/db/posts')
       
       const input = {
+        hat: 'ESPORTES',
         title: 'Test',
         content: 'Content',
         category_id: 1,

@@ -9,8 +9,10 @@ export interface ArticlePost {
   id: number
   slug: string
   title: string
+  hat: string | null
   excerpt: string | null
   content: string
+  content_markdown: string | null
   published_at: string
   featured_image_r2_key: string | null
   seo_noindex: number
@@ -35,7 +37,7 @@ export interface RelatedPost {
 export async function findArticleBySlug(env: Env, slug: string): Promise<ArticlePost | null> {
   const result = await env.DB.prepare(`
     SELECT 
-      p.id, p.slug, p.title, p.excerpt, p.content, p.published_at,
+      p.id, p.slug, p.title, p.hat, p.excerpt, p.content, p.content_markdown, p.published_at,
       m.r2_key as featured_image_r2_key,
       p.seo_noindex, p.seo_canonical, p.is_premium,
       c.id as category_id,

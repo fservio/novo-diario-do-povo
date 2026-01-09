@@ -44,6 +44,7 @@ describe('Admin Posts Integration Flow', () => {
       
       // 1. Criar draft
       const postId = await createPost(mockDB as any, {
+        hat: 'ESPORTES',
         title: 'Test Post',
         content: 'Initial content',
         category_id: 1,
@@ -111,6 +112,7 @@ describe('Admin Posts Integration Flow', () => {
       
       try {
         await createPost(mockDB as any, {
+          hat: 'ESPORTES',
           title: '',
           content: 'Content',
           category_id: 1,
@@ -139,6 +141,7 @@ describe('Admin Posts Integration Flow', () => {
       
       try {
         await createPost(mockDB as any, {
+          hat: 'ESPORTES',
           title: 'Title',
           content: '',
           category_id: 1,
@@ -190,6 +193,7 @@ describe('Admin Posts Integration Flow', () => {
       
       try {
         await createPost(mockDB as any, {
+          hat: 'ESPORTES',
           title: 'Title',
           content: 'Content',
           category_id: 9999, // Não existe
@@ -218,6 +222,7 @@ describe('Admin Posts Integration Flow', () => {
       
       try {
         await createPost(mockDB as any, {
+          hat: 'ESPORTES',
           title: 'Title',
           content: 'Content',
           category_id: 1,
@@ -234,6 +239,7 @@ describe('Admin Posts Integration Flow', () => {
       const { createPostSchema } = await import('../../packages/core/admin/posts')
       
       const invalid = {
+        hat: 'ESPORTES',
         title: 'Title',
         content: 'Content',
         category_id: 1,
@@ -263,6 +269,7 @@ describe('Admin Posts Integration Flow', () => {
       const { createPost } = await import('../../packages/core/db/posts')
       
       const postId = await createPost(mockDB as any, {
+        hat: 'ESPORTES',
         title: 'Test',
         content: 'Content',
         category_id: 1,
@@ -307,6 +314,7 @@ describe('Admin Posts Integration Flow', () => {
       const { createPost } = await import('../../packages/core/db/posts')
       
       const postId = await createPost(mockDB as any, {
+        hat: 'ESPORTES',
         title: 'Test',
         content: 'Content',
         category_id: 1,
@@ -340,6 +348,7 @@ describe('Admin Posts Integration Flow', () => {
       const { createPost } = await import('../../packages/core/db/posts')
       
       const postId = await createPost(mockDB as any, {
+        hat: 'ESPORTES',
         title: 'Premium Post',
         content: 'Exclusive content',
         category_id: 1,

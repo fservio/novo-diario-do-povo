@@ -205,7 +205,18 @@ export async function handleMediaCreate(c: Context<{ Bindings: Env; Variables: A
   
   try {
     // Get formData from context (set by csrfProtection middleware)
-    const formData = c.get('formData') as FormData | undefined
+    let formData = c.get('formData') as FormData | undefined
+
+    // Fallback: parse multipart data directly if middleware didn't handle it
+    if (!formData) {
+      try {
+        formData = await c.req.formData()
+      } catch (parseError) {
+        console.error('Failed to parse multipart form data:', parseError)
+        return c.html('<h1>400 Bad Request</h1><p>No form data</p>', 400)
+      }
+    }
+
     if (!formData) {
       return c.html('<h1>400 Bad Request</h1><p>No form data</p>', 400)
     }

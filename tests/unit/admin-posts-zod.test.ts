@@ -7,80 +7,75 @@ import { createPostSchema, updatePostSchema, scheduleSchema } from '../../packag
 
 describe('Admin Posts Zod Validation', () => {
   describe('createPostSchema', () => {
+    const basePost = () => ({
+      hat: 'ESPORTES',
+      title: 'Título',
+      content: '<p>Conteúdo</p>',
+      category_id: 1,
+      author_id: 1,
+    })
+
     it('valida post válido', () => {
-      const valid = {
-        title: 'Título do Post',
-        content: '<p>Conteúdo do post</p>',
-        category_id: 1,
-        author_id: 1,
-      }
-      
+      const valid = { ...basePost(), title: 'Título do Post', content: '<p>Conteúdo do post</p>' }
       const result = createPostSchema.safeParse(valid)
       expect(result.success).toBe(true)
     })
-    
-    it('rejeita título vazio', () => {
-      const invalid = {
-        title: '',
-        content: '<p>Conteúdo</p>',
-        category_id: 1,
-        author_id: 1,
+
+    it('rejeita chapéu ausente', () => {
+      const invalid: any = { ...basePost() }
+      delete invalid.hat
+
+      const result = createPostSchema.safeParse(invalid)
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.issues[0].path).toContain('hat')
       }
-      
+    })
+
+    it('rejeita chapéu com espaços', () => {
+      const invalid = { ...basePost(), hat: 'COM ESPAÇO' }
+      const result = createPostSchema.safeParse(invalid)
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.issues[0].path).toContain('hat')
+      }
+    })
+
+    it('rejeita título vazio', () => {
+      const invalid = { ...basePost(), title: '' }
       const result = createPostSchema.safeParse(invalid)
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error.issues[0].path).toContain('title')
       }
     })
-    
+
     it('rejeita conteúdo vazio', () => {
-      const invalid = {
-        title: 'Título',
-        content: '',
-        category_id: 1,
-        author_id: 1,
-      }
-      
+      const invalid = { ...basePost(), content: '' }
       const result = createPostSchema.safeParse(invalid)
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error.issues[0].path).toContain('content')
       }
     })
-    
+
     it('rejeita category_id inválido', () => {
-      const invalid = {
-        title: 'Título',
-        content: '<p>Conteúdo</p>',
-        category_id: -1,
-        author_id: 1,
-      }
-      
+      const invalid = { ...basePost(), category_id: -1 }
       const result = createPostSchema.safeParse(invalid)
       expect(result.success).toBe(false)
     })
-    
+
     it('rejeita author_id inválido', () => {
-      const invalid = {
-        title: 'Título',
-        content: '<p>Conteúdo</p>',
-        category_id: 1,
-        author_id: 0,
-      }
-      
+      const invalid = { ...basePost(), author_id: 0 }
       const result = createPostSchema.safeParse(invalid)
       expect(result.success).toBe(false)
     })
-    
+
     it('aceita campos opcionais', () => {
       const valid = {
-        title: 'Título',
+        ...basePost(),
         slug: 'titulo-customizado',
         excerpt: 'Resumo do post',
-        content: '<p>Conteúdo</p>',
-        category_id: 1,
-        author_id: 1,
         cover_media_id: 5,
         seo_title: 'SEO Title',
         seo_description: 'SEO Description',
@@ -88,63 +83,34 @@ describe('Admin Posts Zod Validation', () => {
         paywall_tier: 'metered',
         tags: [1, 2, 3],
       }
-      
       const result = createPostSchema.safeParse(valid)
       expect(result.success).toBe(true)
     })
-    
+
     it('valida template enum', () => {
-      const valid = {
-        title: 'Título',
-        content: '<p>Conteúdo</p>',
-        category_id: 1,
-        author_id: 1,
-        template: 'liveblog',
-      }
-      
+      const valid = { ...basePost(), template: 'liveblog' }
       const result = createPostSchema.safeParse(valid)
       expect(result.success).toBe(true)
     })
-    
+
     it('rejeita template inválido', () => {
-      const invalid = {
-        title: 'Título',
-        content: '<p>Conteúdo</p>',
-        category_id: 1,
-        author_id: 1,
-        template: 'invalid',
-      }
-      
+      const invalid = { ...basePost(), template: 'invalid' as any }
       const result = createPostSchema.safeParse(invalid)
       expect(result.success).toBe(false)
     })
-    
+
     it('valida paywall_tier enum', () => {
-      const tiers = ['free', 'metered', 'hard']
+      const tiers = ['free', 'metered', 'hard'] as const
       
       tiers.forEach(tier => {
-        const valid = {
-          title: 'Título',
-          content: '<p>Conteúdo</p>',
-          category_id: 1,
-          author_id: 1,
-          paywall_tier: tier,
-        }
-        
+        const valid = { ...basePost(), paywall_tier: tier }
         const result = createPostSchema.safeParse(valid)
         expect(result.success).toBe(true)
       })
     })
-    
+
     it('rejeita URL canônica inválida', () => {
-      const invalid = {
-        title: 'Título',
-        content: '<p>Conteúdo</p>',
-        category_id: 1,
-        author_id: 1,
-        seo_canonical: 'not-a-url',
-      }
-      
+      const invalid = { ...basePost(), seo_canonical: 'not-a-url' }
       const result = createPostSchema.safeParse(invalid)
       expect(result.success).toBe(false)
     })

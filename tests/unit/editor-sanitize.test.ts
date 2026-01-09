@@ -191,7 +191,7 @@ Some text after
     const html = renderMarkdownToHtml(md)
     
     expect(html).toContain('<figure>')
-    expect(html).toContain('<img src="/i/test.jpg" alt="Test">')
+    expect(html).toContain('<img loading="lazy" src="/i/test.jpg" alt="Test">')
     expect(html).toContain('<figcaption>Caption</figcaption>')
     expect(html).toContain('</figure>')
     expect(html).toContain('Some text before')

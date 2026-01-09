@@ -549,8 +549,21 @@ export function renderMarkdownEditor(params: MarkdownEditorParams): string {
           closeMediaPicker();
         }
 
-        // Fechar modal ao clicar fora
+        // Fechar modal ao clicar fora ou acionar botões da modal
         modal.addEventListener('click', (e) => {
+          const target = e.target;
+          if (target instanceof HTMLElement) {
+            const button = target.closest('button[data-action]');
+            if (button) {
+              e.preventDefault();
+              const action = button.getAttribute('data-action');
+              if (action && actions[action]) {
+                actions[action]();
+                return;
+              }
+            }
+          }
+
           if (e.target === modal) {
             closeMediaPicker();
           }

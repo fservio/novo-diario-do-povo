@@ -166,6 +166,7 @@ export interface Post {
   id: number
   slug: string
   title: string
+  hat?: string
   excerpt?: string
   content: string
   category_id: number

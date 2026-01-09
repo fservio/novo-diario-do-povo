@@ -25,6 +25,12 @@ import {
 // ============================================================================
 
 const createPostSchema = z.object({
+  hat: z.string()
+    .trim()
+    .min(1, 'Chapéu é obrigatório')
+    .max(60, 'Chapéu deve ter no máximo 60 caracteres')
+    .regex(/^\S+$/, 'Chapéu deve ser uma única palavra (sem espaços)')
+    .transform(val => val.toUpperCase()),
   title: z.string().min(1, 'Título é obrigatório').max(500),
   slug: z.string().optional(),
   excerpt: z.string().max(1000).optional(),
@@ -166,6 +172,11 @@ function renderPostsListPage(params: {
           ` : posts.map(post => `
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.75rem;">
+                ${post.hat ? `
+                  <div style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; font-weight: 600; margin-bottom: 0.25rem;">
+                    ${escapeHtml(post.hat)}
+                  </div>
+                ` : ''}
                 <a href="/admin/posts/${post.id}" style="color: #2563eb; text-decoration: none; font-weight: 500;">
                   ${escapeHtml(post.title)}
                 </a>
@@ -193,12 +204,24 @@ function renderPostsListPage(params: {
                 ${post.published_at ? new Date(post.published_at).toLocaleDateString('pt-BR') : '-'}
               </td>
               <td style="padding: 0.75rem;">
-                <a href="/admin/posts/${post.id}" style="color: #2563eb; margin-right: 0.5rem; text-decoration: none; font-size: 0.875rem;">
-                  Editar
-                </a>
-                <a href="/admin/posts/${post.id}/preview" target="_blank" style="color: #6b7280; text-decoration: none; font-size: 0.875rem;">
-                  Preview
-                </a>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.25rem 0.5rem; align-items: center;">
+                  <a href="/admin/posts/${post.id}" style="color: #2563eb; text-decoration: none; font-size: 0.875rem; font-weight: 500;">
+                    Editar
+                  </a>
+                  <span style="color: #d1d5db;">|</span>
+                  <a href="/admin/posts/${post.id}/preview" target="_blank" style="color: #6b7280; text-decoration: none; font-size: 0.875rem;">
+                    Preview
+                  </a>
+                  ${post.status !== 'published' ? `
+                    <span style="color: #d1d5db;">|</span>
+                    <form method="post" action="/admin/posts/${post.id}/publish" style="display: inline;">
+                      ${renderCsrfInput(csrfToken)}
+                      <button type="submit" style="background: #10b981; color: white; border: none; border-radius: 0.25rem; padding: 0.25rem 0.5rem; font-size: 0.75rem; cursor: pointer;">
+                        Publicar
+                      </button>
+                    </form>
+                  ` : ''}
+                </div>
               </td>
             </tr>
           `).join('')}
@@ -255,6 +278,59 @@ function renderPostFormPage(params: {
 }): string {
   const { post, categories, authors, tags, user, csrfToken, cspNonce, error, defaultAuthorId } = params
   const isNew = !post
+
+  const statusBadge = (status?: string) => {
+    const palette: Record<string, string> = {
+      draft: 'background: #f3f4f6; color: #374151;',
+      review: 'background: #fef3c7; color: #92400e;',
+      published: 'background: #d1fae5; color: #065f46;',
+      archived: 'background: #fee2e2; color: #991b1b;'
+    }
+    const style = palette[status || 'draft'] || palette.draft
+    return `<span style="display: inline-flex; align-items: center; justify-content: center; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; ${style}">${status || 'draft'}</span>`
+  }
+
+  const formatDateTime = (value?: string | null) => {
+    if (!value) return '—'
+    try {
+      return new Date(value).toLocaleString('pt-BR', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      })
+    } catch {
+      return value
+    }
+  }
+
+  const publicationPanel = !isNew && post ? `
+    <div class="card" style="margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem;">
+      <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+        <strong>Status atual:</strong>
+        ${statusBadge(post.status)}
+        <span style="font-size: 0.875rem; color: #6b7280;">Criado em ${formatDateTime(post.created_at)}</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.875rem; color: #4b5563;">
+        <span><strong>Publicado:</strong> ${formatDateTime(post.published_at)}</span>
+        <span><strong>Agendado:</strong> ${formatDateTime(post.scheduled_at)}</span>
+        <span><strong>Atualizado:</strong> ${formatDateTime(post.updated_at)}</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+        ${post.status !== 'published' ? `
+          <form method="post" action="/admin/posts/${post.id}/publish" style="display: inline-flex;">
+            ${renderCsrfInput(csrfToken)}
+            <button type="submit" class="btn" style="background: #059669; border-color: #059669;">
+              Publicar agora
+            </button>
+          </form>
+        ` : `
+          <span style="color: #059669; font-weight: 600;">Post publicado</span>
+        `}
+        <a href="/admin/posts/${post.id}/preview" target="_blank" class="btn" style="background: #1f2937; border-color: #1f2937;">
+          Abrir preview
+        </a>
+      </div>
+    </div>
+  ` : ''
   
   const bodyHtml = `
     <div style="margin-bottom: 1.5rem;">
@@ -270,8 +346,26 @@ function renderPostFormPage(params: {
       </div>
     ` : ''}
     
+    ${publicationPanel}
+    
     <form method="post" action="${isNew ? '/admin/posts' : `/admin/posts/${post.id}`}" class="card">
       ${renderCsrfInput(csrfToken)}
+      
+      <!-- Chapéu -->
+      <div class="field" style="margin-bottom: 1rem;">
+        <label style="font-weight: 600;">Chapéu *</label>
+        <input 
+          type="text" 
+          name="hat" 
+          value="${escapeHtml(post?.hat || '')}"
+          required
+          maxlength="60"
+          style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; text-transform: uppercase; font-size: 0.875rem; letter-spacing: 0.08em;"
+        >
+        <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">
+          Ex.: ESPORTES, ECONOMIA, URGENTE. Apenas uma palavra, sem espaços.
+        </div>
+      </div>
       
       <!-- Título -->
       <div class="field" style="margin-bottom: 1rem;">

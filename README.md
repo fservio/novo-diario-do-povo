@@ -200,6 +200,13 @@ Wrangler dev detecta mudanças automaticamente. Para mudanças estruturais:
 pm2 restart jornal
 ```
 
+### Edição de Posts (CMS)
+
+- Campo **Chapéu** obrigatório: uma única palavra (sem espaços) que aparece antes do título nas páginas públicas. O valor é normalizado automaticamente para maiúsculas.
+- O conteúdo do post usa **Markdown**; preview e página pública convertem para HTML sanitizado, mantendo imagens e blockquotes.
+- A modal de mídia insere imagens com `loading="lazy"` e reaproveita metadados de ALT/legenda cadastrados via /admin/media.
+- Botão **Publicar agora** disponível na edição e na listagem para promover rascunhos rapidamente (com histórico de auditoria).
+
 ---
 
 ## 🚀 Deploy
@@ -300,6 +307,7 @@ webapp/
 ### Editorial
 
 - [x] Posts (draft/review/published/archived)
+- [x] Chapéu editorial (prefixo curto antes do título, obrigatório)
 - [x] Categorias (hierárquicas)
 - [x] Tags
 - [x] Autores
