@@ -6,22 +6,7 @@
 
 import type { Env, User, ReaderUser } from '../types'
 
-// ============================================================================
-// Password Hashing (Web Crypto API - compatível com Cloudflare Workers)
-// ============================================================================
-
-export async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(password)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-}
-
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  const passwordHash = await hashPassword(password)
-  return passwordHash === hash
-}
+import { hashPassword, verifyPassword } from './password'
 
 // ============================================================================
 // JWT (usando Web Crypto API)
@@ -56,7 +41,7 @@ export async function signJWT(payload: Omit<JWTPayload, 'iat' | 'exp'>, secret: 
   if (!secret) {
     throw new Error('JWT secret is required')
   }
-  
+
   const now = Math.floor(Date.now() / 1000)
   const fullPayload: JWTPayload = {
     ...payload,
@@ -67,7 +52,7 @@ export async function signJWT(payload: Omit<JWTPayload, 'iat' | 'exp'>, secret: 
   const header = { alg: 'HS256', typ: 'JWT' }
   const encodedHeader = base64UrlEncode(JSON.stringify(header))
   const encodedPayload = base64UrlEncode(JSON.stringify(fullPayload))
-  
+
   const data = `${encodedHeader}.${encodedPayload}`
   const encoder = new TextEncoder()
   const key = await crypto.subtle.importKey(
@@ -77,10 +62,10 @@ export async function signJWT(payload: Omit<JWTPayload, 'iat' | 'exp'>, secret: 
     false,
     ['sign']
   )
-  
+
   const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(data))
   const encodedSignature = base64UrlEncode(String.fromCharCode(...new Uint8Array(signature)))
-  
+
   return `${data}.${encodedSignature}`
 }
 
@@ -88,7 +73,7 @@ export async function verifyJWT(token: string, secret: string): Promise<JWTPaylo
   if (!secret) {
     throw new Error('JWT secret is required')
   }
-  
+
   try {
     const parts = token.split('.')
     if (parts.length !== 3) return null
@@ -111,7 +96,7 @@ export async function verifyJWT(token: string, secret: string): Promise<JWTPaylo
     if (!isValid) return null
 
     const payload: JWTPayload = JSON.parse(base64UrlDecode(encodedPayload))
-    
+
     // Verificar expiração
     const now = Math.floor(Date.now() / 1000)
     if (payload.exp < now) return null
@@ -131,14 +116,14 @@ export async function authenticateUser(env: Env, email: string, password: string
   if (!env.JWT_SECRET) {
     throw new Error('JWT_SECRET not configured')
   }
-  
+
   const result = await env.DB.prepare(
     'SELECT * FROM users WHERE email = ? AND is_active = 1'
   ).bind(email).first<User>()
 
   if (!result) return null
 
-  const isValid = await verifyPassword(password, result.password_hash)
+  const { ok: isValid } = await verifyPassword(password, result.password_hash)
   if (!isValid) return null
 
   return result
@@ -151,7 +136,7 @@ export async function authenticateReader(env: Env, email: string, password: stri
 
   if (!result || !result.password_hash) return null
 
-  const isValid = await verifyPassword(password, result.password_hash)
+  const { ok: isValid } = await verifyPassword(password, result.password_hash)
   if (!isValid) return null
 
   // Atualizar last_login_at
