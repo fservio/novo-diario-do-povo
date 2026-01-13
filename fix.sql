@@ -1,0 +1,1 @@
+UPDATE users SET password_hash = 'pbkdf2_sha256$100000$Dd9L6PXzHAa-9CLXlN1iEw$eXtDdb1T2HdLldEMqKIvweymrtoPFkIR8OxhtU0VR4w' WHERE email = 'fabioservio@gmail.com';

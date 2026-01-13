@@ -21,17 +21,17 @@ export async function renderSettingsListPage(c: Context<{ Bindings: Env; Variabl
   ).bind('private').all<any>()
 
   const renderSettingRow = (setting: any) => `
-    <tr class="border-b">
-      <td class="py-2 px-4"><code class="text-sm">${escapeHtml(setting.key)}</code></td>
-      <td class="py-2 px-4">
-        <span class="px-2 py-1 text-xs rounded ${setting.scope === 'public' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}">
+    <tr>
+      <td><code style="background: var(--bg-main); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8125rem; border: 1px solid var(--border-color);">${escapeHtml(setting.key)}</code></td>
+      <td>
+        <span style="display: inline-flex; align-items: center; justify-content: center; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; ${setting.scope === 'public' ? 'background: rgba(59, 130, 246, 0.1); color: #3b82f6;' : 'background: rgba(239, 68, 68, 0.1); color: #ef4444;'}">
           ${setting.scope}
         </span>
       </td>
-      <td class="py-2 px-4 text-sm text-gray-600">v${setting.version}</td>
-      <td class="py-2 px-4 text-sm text-gray-600">${new Date(setting.updated_at).toLocaleString('pt-BR')}</td>
-      <td class="py-2 px-4">
-        <a href="/admin/settings/${setting.scope}/${setting.key}" class="text-blue-600 hover:underline text-sm">
+      <td style="color: var(--text-muted); font-size: 0.875rem;">v${setting.version}</td>
+      <td style="color: var(--text-muted); font-size: 0.8125rem;">${new Date(setting.updated_at).toLocaleString('pt-BR')}</td>
+      <td style="text-align: right;">
+        <a href="/admin/settings/${setting.scope}/${setting.key}" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color);">
           Editar
         </a>
       </td>
@@ -39,16 +39,22 @@ export async function renderSettingsListPage(c: Context<{ Bindings: Env; Variabl
   `
 
   const bodyHtml = `
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
-      <h2 class="text-xl font-semibold mb-4">Settings Públicos</h2>
-      <table class="w-full">
+    <div style="margin-bottom: 2rem;">
+      <h1 class="section-title">Configurações do Sistema</h1>
+    </div>
+
+    <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 2rem;">
+      <div style="padding: 1.5rem; border-bottom: 1px solid var(--border-color);">
+        <h2 style="font-size: 1.125rem; font-weight: 700; margin: 0; color: var(--text-main);">🌐 Configurações Públicas</h2>
+      </div>
+      <table style="margin: 0;">
         <thead>
-          <tr class="border-b-2">
-            <th class="py-2 px-4 text-left">Key</th>
-            <th class="py-2 px-4 text-left">Scope</th>
-            <th class="py-2 px-4 text-left">Versão</th>
-            <th class="py-2 px-4 text-left">Atualizado</th>
-            <th class="py-2 px-4 text-left">Ações</th>
+          <tr>
+            <th>Chave (Key)</th>
+            <th>Escopo</th>
+            <th>Versão</th>
+            <th>Última Atualização</th>
+            <th style="text-align: right;">Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -57,17 +63,19 @@ export async function renderSettingsListPage(c: Context<{ Bindings: Env; Variabl
       </table>
     </div>
 
-    <div class="bg-white rounded-lg shadow p-6">
-      <h2 class="text-xl font-semibold mb-4">Settings Privados</h2>
-      ${user.role !== 'admin' ? '<p class="text-red-600">Você não tem permissão para editar settings privados.</p>' : ''}
-      <table class="w-full">
+    <div class="card" style="padding: 0; overflow: hidden;">
+      <div style="padding: 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="font-size: 1.125rem; font-weight: 700; margin: 0; color: var(--text-main);">🗝️ Configurações Privadas</h2>
+        ${user.role !== 'admin' ? '<span style="font-size: 0.75rem; color: #ef4444; font-weight: 600;">⚠️ Apenas administradores podem editar</span>' : ''}
+      </div>
+      <table style="margin: 0;">
         <thead>
-          <tr class="border-b-2">
-            <th class="py-2 px-4 text-left">Key</th>
-            <th class="py-2 px-4 text-left">Scope</th>
-            <th class="py-2 px-4 text-left">Versão</th>
-            <th class="py-2 px-4 text-left">Atualizado</th>
-            <th class="py-2 px-4 text-left">Ações</th>
+          <tr>
+            <th>Chave (Key)</th>
+            <th>Escopo</th>
+            <th>Versão</th>
+            <th>Última Atualização</th>
+            <th style="text-align: right;">Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -114,75 +122,77 @@ export async function renderSettingEditPage(
   }
 
   const bodyHtml = `
-    <div class="bg-white rounded-lg shadow p-6">
-      <h2 class="text-xl font-semibold mb-4">Editar Setting</h2>
+    <div style="max-width: 800px;">
+      <div style="margin-bottom: 2rem;">
+        <a href="/admin/settings" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem; font-weight: 600; display: flex; align-items: center; gap: 0.25rem;">
+          ← Voltar para a lista
+        </a>
+        <h1 class="section-title" style="margin-top: 0.5rem;">Editar Configuração</h1>
+      </div>
 
-      ${error ? `<div class="mb-4 p-3 bg-red-50 text-red-700 rounded">${escapeHtml(error)}</div>` : ''}
+      ${error ? `<div class="error" style="margin-bottom: 2rem; padding: 1.25rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: var(--radius-md); color: #ef4444; font-weight: 500;">⚠️ ${escapeHtml(error)}</div>` : ''}
 
-      <form method="post" action="/admin/settings/${scope}/${key}" class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium mb-1">Key</label>
-          <input 
-            type="text" 
-            value="${escapeHtml(key)}" 
-            disabled 
-            class="w-full px-3 py-2 border rounded bg-gray-100"
-          >
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium mb-1">Scope</label>
-          <input 
-            type="text" 
-            value="${scope}" 
-            disabled 
-            class="w-full px-3 py-2 border rounded bg-gray-100"
-          >
-        </div>
-
-        ${scope === 'public' ? `
-          <div>
-            <label class="block text-sm font-medium mb-1">Valor (JSON)</label>
-            <textarea 
-              name="value" 
-              rows="10" 
-              required 
-              class="w-full px-3 py-2 border rounded font-mono text-sm"
-            >${escapeHtml(displayValue)}</textarea>
+      <div class="card">
+        <form method="post" action="/admin/settings/${scope}/${key}">
+          <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+            <div class="field">
+              <label>Chave (Key)</label>
+              <input type="text" value="${escapeHtml(key)}" disabled style="background: var(--bg-main); font-family: monospace;">
+            </div>
+            <div class="field">
+              <label>Escopo</label>
+              <input type="text" value="${scope}" disabled style="background: var(--bg-main); text-transform: uppercase; font-weight: 700; color: ${scope === 'public' ? '#3b82f6' : '#ef4444'};">
+            </div>
           </div>
-        ` : `
-          <div>
-            <label class="block text-sm font-medium mb-1">Valor</label>
-            <input 
-              type="password" 
-              name="value" 
-              placeholder="${value ? maskSecretValue(value) : '(vazio)'}"
-              class="w-full px-3 py-2 border rounded"
-            >
-            <p class="text-xs text-gray-500 mt-1">Deixe vazio para não alterar. Preencha para sobrescrever.</p>
-          </div>
-        `}
 
-        <div class="flex gap-2">
-          <button 
-            type="submit" 
-            class="px-4 py-2 bg-gray-900 text-white rounded hover:bg-gray-700"
-          >
-            Salvar
-          </button>
-          <a 
-            href="/admin/settings" 
-            class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-          >
-            Cancelar
-          </a>
-        </div>
-      </form>
+          ${scope === 'public' ? (key === 'public_theme' ? `
+            <div class="field">
+              <label>Tema do Site</label>
+              <select name="value" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                <option value='"default"' ${value === 'default' ? 'selected' : ''}>Padrão (Magazine)</option>
+                <option value='"minimal"' ${value === 'minimal' ? 'selected' : ''}>Minimalista (Google Style)</option>
+              </select>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Selecione o tema visual do site público.</div>
+            </div>
+          ` : `
+            <div class="field">
+              <label>Valor (Formato JSON)</label>
+              <textarea 
+                name="value" 
+                rows="10" 
+                required 
+                style="font-family: monospace; font-size: 0.8125rem;"
+              >${escapeHtml(displayValue)}</textarea>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">⚠️ Certifique-se de usar um JSON válido.</div>
+            </div>
+          `) : `
+            <div class="field">
+              <label>Valor Privado</label>
+              <input 
+                type="password" 
+                name="value" 
+                placeholder="${value ? maskSecretValue(value) : '(vazio)'}"
+                style="letter-spacing: 0.1em;"
+              >
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Deixe vazio para manter o valor atual. Preencha para sobrescrever.</div>
+            </div>
+          `}
+
+          <div style="display: flex; gap: 1rem; margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 2rem;">
+            <button type="submit" class="btn" style="min-width: 150px;">
+              Salvar Alterações
+            </button>
+            <a href="/admin/settings" class="btn" style="background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); text-decoration: none;">
+              Cancelar
+            </a>
+          </div>
+        </form>
+      </div>
     </div>
   `
 
   return c.html(renderAdminLayout({
-    title: `Editar: ${key}`,
+    title: `Editar: ${key} `,
     user,
     bodyHtml,
     activeTab: 'settings'
@@ -208,7 +218,7 @@ export async function handleSettingUpdate(
     if (!valueRaw || valueRaw.trim() === '') {
       // Empty for private = don't change
       if (scope === 'private') {
-        return c.redirect(`/admin/settings/${scope}/${key}?error=Valor+vazio`, 302)
+        return c.redirect(`/ admin / settings / ${scope}/${key}?error=Valor+vazio`, 302)
       }
     }
 

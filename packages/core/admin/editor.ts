@@ -31,42 +31,42 @@ export function renderMarkdownEditor(params: MarkdownEditorParams): string {
 
   return `
     <!-- Markdown Editor -->
-    <div class="markdown-editor-container">
+    <div class="markdown-editor-container" style="border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow: hidden; background: var(--bg-card);">
       <!-- Toolbar -->
-      <div id="mdToolbar" class="editor-toolbar">
-        <button type="button" data-action="bold" title="Bold (Ctrl+B)">
+      <div id="mdToolbar" class="editor-toolbar" style="background: var(--bg-main); border-bottom: 1px solid var(--border-color); padding: 0.625rem; display: flex; gap: 0.375rem; flex-wrap: wrap; align-items: center;">
+        <button type="button" data-action="bold" title="Negrito (Ctrl+B)" class="toolbar-btn">
           <strong>B</strong>
         </button>
-        <button type="button" data-action="italic" title="Italic (Ctrl+I)">
+        <button type="button" data-action="italic" title="Itálico (Ctrl+I)" class="toolbar-btn">
           <em>I</em>
         </button>
-        <button type="button" data-action="link" title="Link (Ctrl+K)">
+        <button type="button" data-action="link" title="Link (Ctrl+K)" class="toolbar-btn">
           🔗
         </button>
-        <span class="toolbar-divider"></span>
-        <button type="button" data-action="h2" title="Heading 2">
+        <span class="toolbar-divider" style="width: 1px; height: 20px; background: var(--border-color); margin: 0 0.25rem;"></span>
+        <button type="button" data-action="h2" title="Título 2" class="toolbar-btn">
           H2
         </button>
-        <button type="button" data-action="h3" title="Heading 3">
+        <button type="button" data-action="h3" title="Título 3" class="toolbar-btn">
           H3
         </button>
-        <span class="toolbar-divider"></span>
-        <button type="button" data-action="ul" title="Unordered List">
+        <span class="toolbar-divider" style="width: 1px; height: 20px; background: var(--border-color); margin: 0 0.25rem;"></span>
+        <button type="button" data-action="ul" title="Lista" class="toolbar-btn">
           • List
         </button>
-        <button type="button" data-action="ol" title="Ordered List">
+        <button type="button" data-action="ol" title="Lista Numérica" class="toolbar-btn">
           1. List
         </button>
-        <span class="toolbar-divider"></span>
-        <button type="button" data-action="quote" title="Blockquote">
+        <span class="toolbar-divider" style="width: 1px; height: 20px; background: var(--border-color); margin: 0 0.25rem;"></span>
+        <button type="button" data-action="quote" title="Citação" class="toolbar-btn">
           " Quote
         </button>
-        <button type="button" data-action="code" title="Code Block">
-          &lt;/&gt; Code
+        <button type="button" data-action="code" title="Código" class="toolbar-btn">
+          &lt;/&gt;
         </button>
-        <span class="toolbar-divider"></span>
-        <button type="button" data-action="image" title="Insert Image">
-          🖼️ Imagem
+        <span class="toolbar-divider" style="width: 1px; height: 20px; background: var(--border-color); margin: 0 0.25rem;"></span>
+        <button type="button" data-action="image" title="Inserir Imagem da Galeria" class="toolbar-btn" style="background: var(--accent-soft); color: var(--accent); border-color: rgba(59, 130, 246, 0.2); font-weight: 700; padding: 0.5rem 0.75rem;">
+          🖼️ Inserir Mídia
         </button>
       </div>
 
@@ -75,47 +75,59 @@ export function renderMarkdownEditor(params: MarkdownEditorParams): string {
         id="${id}"
         name="${name}"
         class="editor-textarea"
-        placeholder="Escreva seu conteúdo em Markdown..."
-        rows="20"
+        placeholder="Escreva o conteúdo usando Markdown..."
+        rows="25"
+        style="width: 100%; padding: 1.25rem; border: none; background: transparent; color: var(--text-main); font-family: 'JetBrains Mono', 'Monaco', 'Menlo', monospace; font-size: 1rem; line-height: 1.7; resize: vertical; outline: none;"
       >${value}</textarea>
     </div>
 
     <!-- Modal de Inserção de Imagem -->
-    <div id="mediaPickerModal" class="modal" style="display: none;">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>Inserir Imagem</h3>
-          <button type="button" class="modal-close" data-action="closeModal">&times;</button>
+    <div id="mediaPickerModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+      <div class="modal-content" style="background: var(--bg-card); border-radius: var(--radius-lg); width: 90%; max-width: 800px; max-height: 85vh; display: flex; flex-direction: column; border: 1px solid var(--border-color); box-shadow: var(--shadow-md);">
+        <div class="modal-header" style="padding: 1.25rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--text-main);">🖼️ Selecionar Mídia</h3>
+          <button type="button" class="modal-close" data-action="closeModal" style="background: none; border: none; font-size: 1.75rem; cursor: pointer; color: var(--text-muted); padding: 0.25rem;">&times;</button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body" style="padding: 1.5rem; overflow-y: auto; flex: 1;">
           <!-- Busca -->
-          <div class="search-box">
+          <div class="field" style="margin-bottom: 1.5rem;">
             <input
               type="text"
               id="mediaSearch"
-              placeholder="Buscar imagens..."
-              class="search-input"
+              placeholder="🔍 Buscar imagens na biblioteca..."
+              style="background: var(--bg-main); border: 1px solid var(--border-color);"
             />
           </div>
 
           <!-- Grid de Resultados -->
-          <div id="mediaGrid" class="media-grid">
-            <p class="text-muted">Digite para buscar imagens...</p>
+          <div id="mediaGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+            <p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 2rem;">Digite para buscar imagens...</p>
           </div>
 
           <!-- Campos de Legenda -->
-          <div class="caption-input" style="display: none;">
-            <label>URL da Imagem:</label>
-            <input type="text" id="imageUrl" readonly class="form-control" />
+          <div class="caption-input card" style="display: none; background: var(--bg-main); border: 1px solid var(--border-color); margin-top: 2rem;">
+            <div style="font-weight: 700; margin-bottom: 1rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">
+              <span>📝</span> Detalhes da Inserção
+            </div>
             
-            <label>Texto Alternativo (ALT):</label>
-            <input type="text" id="imageAlt" class="form-control" placeholder="Descrição da imagem" />
+            <div class="field">
+              <label>URL Original</label>
+              <input type="text" id="imageUrl" readonly style="font-family: monospace; font-size: 0.75rem; background: var(--bg-card); opacity: 0.7;">
+            </div>
             
-            <label>Legenda (opcional):</label>
-            <input type="text" id="imageCaption" class="form-control" placeholder="Legenda da imagem" />
+            <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="field">
+                <label>Texto Alternativo (SEO)</label>
+                <input type="text" id="imageAlt" placeholder="Descreva a imagem...">
+              </div>
+              <div class="field">
+                <label>Legenda / Créditos</label>
+                <input type="text" id="imageCaption" placeholder="Texto que aparecerá abaixo">
+              </div>
+            </div>
             
-            <button type="button" class="btn btn-primary" data-action="insertImage">
-              Inserir Imagem
+            <button type="button" class="btn" data-action="insertImage" style="width: 100%; margin-top: 1rem;">
+               Confirmar Inserção
             </button>
           </div>
         </div>
@@ -124,223 +136,67 @@ export function renderMarkdownEditor(params: MarkdownEditorParams): string {
 
     <!-- CSS Inline -->
     <style nonce="${nonce}">
-      .markdown-editor-container {
-        border: 1px solid #ddd;
+      .toolbar-btn {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
         border-radius: 4px;
-        overflow: hidden;
-        background: white;
-      }
-
-      .editor-toolbar {
-        background: #f5f5f5;
-        border-bottom: 1px solid #ddd;
-        padding: 8px;
-        display: flex;
-        gap: 4px;
-        flex-wrap: wrap;
-      }
-
-      .editor-toolbar button {
-        background: white;
-        border: 1px solid #ddd;
-        border-radius: 3px;
-        padding: 6px 12px;
+        color: var(--text-main);
+        padding: 0.4rem 0.7rem;
+        font-size: 0.8125rem;
         cursor: pointer;
-        font-size: 14px;
         transition: all 0.2s;
-      }
-
-      .editor-toolbar button:hover {
-        background: #e8f4fd;
-        border-color: #0066cc;
-      }
-
-      .editor-toolbar button:active {
-        background: #d0e8f7;
-      }
-
-      .toolbar-divider {
-        width: 1px;
-        background: #ddd;
-        margin: 0 4px;
-      }
-
-      .editor-textarea {
-        width: 100%;
-        padding: 12px;
-        border: none;
-        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-        font-size: 14px;
-        line-height: 1.6;
-        resize: vertical;
-      }
-
-      .editor-textarea:focus {
-        outline: none;
-        background: #fafafa;
-      }
-
-      /* Modal Styles */
-      .modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.6);
-        z-index: 1000;
         display: flex;
         align-items: center;
         justify-content: center;
       }
-
-      .modal-content {
-        background: white;
-        border-radius: 8px;
-        width: 90%;
-        max-width: 800px;
-        max-height: 80vh;
-        display: flex;
-        flex-direction: column;
+      .toolbar-btn:hover {
+        background: var(--accent-soft);
+        border-color: var(--accent);
+        color: var(--accent);
       }
-
-      .modal-header {
-        padding: 16px;
-        border-bottom: 1px solid #ddd;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .modal-header h3 {
-        margin: 0;
-        font-size: 18px;
-      }
-
-      .modal-close {
-        background: none;
-        border: none;
-        font-size: 28px;
-        cursor: pointer;
-        color: #666;
-        padding: 0;
-        width: 32px;
-        height: 32px;
-        line-height: 1;
-      }
-
-      .modal-close:hover {
-        color: #000;
-      }
-
-      .modal-body {
-        padding: 16px;
-        overflow-y: auto;
-      }
-
-      .search-box {
-        margin-bottom: 16px;
-      }
-
-      .search-input {
-        width: 100%;
-        padding: 8px 12px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 14px;
-      }
-
-      .media-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        gap: 12px;
-        margin-bottom: 16px;
-      }
-
       .media-item {
-        border: 2px solid transparent;
-        border-radius: 4px;
+        border-radius: var(--radius-md);
         overflow: hidden;
+        border: 2px solid transparent;
         cursor: pointer;
         transition: all 0.2s;
+        background: var(--bg-main);
       }
-
-      .media-item:hover {
-        border-color: #0066cc;
-        transform: scale(1.02);
-      }
-
-      .media-item.selected {
-        border-color: #0066cc;
-        box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
-      }
-
       .media-item img {
         width: 100%;
-        height: 150px;
+        height: 120px;
         object-fit: cover;
         display: block;
       }
-
       .media-item-name {
-        padding: 4px 8px;
-        font-size: 12px;
-        background: #f5f5f5;
+        padding: 0.5rem;
+        font-size: 0.75rem;
+        color: var(--text-muted);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }
-
-      .caption-input {
-        border-top: 1px solid #ddd;
-        padding-top: 16px;
-        margin-top: 16px;
+      .media-item:hover {
+        transform: translateY(-2px);
+        border-color: var(--accent);
       }
-
-      .caption-input label {
-        display: block;
-        margin-top: 12px;
-        margin-bottom: 4px;
-        font-weight: 600;
-        font-size: 14px;
+      .media-item.selected {
+        border-color: var(--accent);
+        background: var(--accent-soft);
       }
-
-      .form-control {
-        width: 100%;
-        padding: 8px 12px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 14px;
+      .media-item.selected .media-item-name {
+        color: var(--accent);
+        font-weight: 700;
       }
-
-      .btn {
-        padding: 10px 20px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-        margin-top: 16px;
-      }
-
-      .btn-primary {
-        background: #0066cc;
-        color: white;
-      }
-
-      .btn-primary:hover {
-        background: #0052a3;
-      }
-
-      .text-muted {
-        color: #999;
-        text-align: center;
-        padding: 32px;
+      .editor-textarea::placeholder {
+        color: var(--text-muted);
+        opacity: 0.5;
       }
     </style>
 
     ${renderScript({
-      nonce,
-      js: `
+    nonce,
+    js: `
       (function() {
         const editor = document.getElementById('${id}');
         const toolbar = document.getElementById('mdToolbar');
@@ -577,6 +433,6 @@ export function renderMarkdownEditor(params: MarkdownEditorParams): string {
         });
       })();
       `
-    })}
+  })}
   `
 }

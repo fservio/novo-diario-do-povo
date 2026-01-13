@@ -37,6 +37,7 @@ export interface HomeData {
   explainers: HomePost[]
   categoryBlocks: CategoryBlock[]
   mostRead: HomePost[]
+  topColumns: HomePost[]
   sections: HomeSection[]  // Add sections to home data
 }
 
@@ -76,22 +77,22 @@ const homeSectionsSchema = z.array(homeSectionSchema)
  */
 export async function getHomeSections(env: Env): Promise<HomeSection[]> {
   const { getSetting } = await import('./index')
-  
+
   try {
     const raw = await getSetting(env, 'home.fixed_sections', 'public')
-    
+
     if (!raw) {
       return getDefaultSections()
     }
-    
+
     // Validate with Zod
     const parsed = homeSectionsSchema.safeParse(raw)
-    
+
     if (!parsed.success) {
       console.warn('Invalid home.fixed_sections, using fallback:', parsed.error)
       return getDefaultSections()
     }
-    
+
     return parsed.data
   } catch (error) {
     console.error('Error loading home.fixed_sections:', error)
@@ -118,7 +119,7 @@ function getDefaultSections(): HomeSection[] {
 
 export async function getHomeData(env: Env): Promise<HomeData> {
   const now = new Date().toISOString()
-  
+
   // 1. Hero: latest published post (not in categoria "explicador")
   const heroResult = await env.DB.prepare(`
     SELECT 
@@ -174,23 +175,23 @@ export async function getHomeData(env: Env): Promise<HomeData> {
   // 4. Get home sections (CMS-driven)
   const sections = await getHomeSections(env)
   const enabledSections = sections.filter(s => s.enabled)
-  
+
   // Separate category sections and tag sections
   const categorySections = enabledSections.filter(s => !s.type || s.type === 'category')
   const tagSections = enabledSections.filter(s => s.type === 'tag')
-  
+
   // 5. Explainers: check if there's a tag section for explainers
   let explainersResult: { results: HomePost[] } = { results: [] }
-  const explainersSection = tagSections.find(s => 
+  const explainersSection = tagSections.find(s =>
     s.slug === 'explicadores' || s.tagSlug === 'explicador'
   )
-  
+
   if (explainersSection && explainersSection.tagSlug) {
     // Get posts by tag
     const tag = await env.DB.prepare(
       'SELECT id FROM tags WHERE slug = ? LIMIT 1'
     ).bind(explainersSection.tagSlug).first<{ id: number }>()
-    
+
     if (tag) {
       explainersResult = await env.DB.prepare(`
         SELECT 
@@ -227,22 +228,22 @@ export async function getHomeData(env: Env): Promise<HomeData> {
       LIMIT 5
     `).bind(now).all<HomePost>()
   }
-  
+
   // 6. Category Blocks (dynamic based on sections)
   const categoryBlocks: CategoryBlock[] = []
-  
+
   for (const section of categorySections) {
     try {
       // Get category info
       const category = await env.DB.prepare(
         'SELECT id, name, slug FROM categories WHERE slug = ? LIMIT 1'
       ).bind(section.slug).first<{ id: number; name: string; slug: string }>()
-      
+
       if (!category) {
         console.warn(`Category not found for slug: ${section.slug}`)
         continue
       }
-      
+
       // Get posts for this category (1 lead + 5 list)
       const postsResult = await env.DB.prepare(`
         SELECT 
@@ -259,7 +260,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
         ORDER BY p.published_at DESC
         LIMIT 6
       `).bind(now, section.slug).all<HomePost>()
-      
+
       const posts = postsResult.results || []
       if (posts.length > 0) {
         categoryBlocks.push({
@@ -293,6 +294,42 @@ export async function getHomeData(env: Env): Promise<HomeData> {
     LIMIT 10
   `).bind(now).all<HomePost>()
 
+  // 8. Top Columns (Politica, Economia, Esporte)
+  const topColumnsResult = await env.DB.prepare(`
+    SELECT * FROM (
+      SELECT 
+        p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at,
+        NULL as featured_image_r2_key,
+        c.name as category_name, c.slug as category_slug
+      FROM posts p
+      JOIN categories c ON p.category_id = c.id
+      WHERE c.slug = 'politica' AND p.status = 'published' AND p.published_at <= ?1
+      ORDER BY p.published_at DESC LIMIT 1
+    )
+    UNION ALL
+    SELECT * FROM (
+      SELECT 
+        p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at,
+        NULL as featured_image_r2_key,
+        c.name as category_name, c.slug as category_slug
+      FROM posts p
+      JOIN categories c ON p.category_id = c.id
+      WHERE c.slug = 'economia' AND p.status = 'published' AND p.published_at <= ?1
+      ORDER BY p.published_at DESC LIMIT 1
+    )
+    UNION ALL
+    SELECT * FROM (
+      SELECT 
+        p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at,
+        NULL as featured_image_r2_key,
+        c.name as category_name, c.slug as category_slug
+      FROM posts p
+      JOIN categories c ON p.category_id = c.id
+      WHERE c.slug = 'esporte' AND p.status = 'published' AND p.published_at <= ?1
+      ORDER BY p.published_at DESC LIMIT 1
+    )
+  `).bind(now).all<HomePost>()
+
   return {
     hero: heroResult || null,
     dualFeatures: dualFeaturesResult.results || [],
@@ -300,6 +337,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
     explainers: explainersResult.results || [],
     categoryBlocks,
     mostRead: mostReadResult.results || [],
+    topColumns: topColumnsResult.results || [],
     sections: enabledSections  // Include sections for nav rendering
   }
 }

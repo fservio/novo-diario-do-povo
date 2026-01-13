@@ -25,83 +25,75 @@ export async function renderAsaasPage(c: Context<{ Bindings: Env; Variables: App
   const webhookToken = await getSetting(c.env, 'asaas.webhook_token', 'private')
 
   const bodyHtml = `
-    <div class="bg-white rounded-lg shadow p-6">
-      <h2 class="text-xl font-semibold mb-4">Configuração Asaas</h2>
+    <div style="max-width: 800px;">
+      <div style="margin-bottom: 2rem;">
+        <h1 class="section-title" style="margin: 0;">Configuração Asaas</h1>
+      </div>
 
-      ${error ? `<div class="mb-4 p-3 bg-red-50 text-red-700 rounded">${escapeHtml(error)}</div>` : ''}
+      ${error ? `<div class="error" style="margin-bottom: 2rem; padding: 1.25rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: var(--radius-md); color: #ef4444; font-weight: 500;">⚠️ ${escapeHtml(error)}</div>` : ''}
 
-      <form method="post" action="/admin/asaas" class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium mb-1">Ambiente</label>
-          <select 
-            name="environment" 
-            required 
-            class="w-full px-3 py-2 border rounded"
-          >
-            <option value="sandbox" ${environment === 'sandbox' ? 'selected' : ''}>Sandbox (Teste)</option>
-            <option value="production" ${environment === 'production' ? 'selected' : ''}>Production (Produção)</option>
-          </select>
+      <div class="card">
+        <form method="post" action="/admin/asaas">
+          <div class="field">
+            <label>Ambiente</label>
+            <select name="environment" required>
+              <option value="sandbox" ${environment === 'sandbox' ? 'selected' : ''}>Sandbox (Testes)</option>
+              <option value="production" ${environment === 'production' ? 'selected' : ''}>Production (Produção)</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Base URL (opcional)</label>
+            <input 
+              type="text" 
+              name="base_url" 
+              value="${escapeHtml(baseUrl)}"
+              placeholder="Ex: https://sandbox.asaas.com/api/v3"
+            >
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Deixe vazio para usar o padrão do ambiente selecionado.</div>
+          </div>
+
+          <div class="field">
+            <label>API Key</label>
+            <input 
+              type="password" 
+              name="api_key" 
+              placeholder="${apiKey ? maskSecretValue(apiKey) : '(não configurado)'}"
+            >
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Deixe vazio para manter o valor atual. Obtida no painel do Asaas.</div>
+          </div>
+
+          <div class="field">
+            <label>Webhook Token (Validação)</label>
+            <input 
+              type="password" 
+              name="webhook_token" 
+              placeholder="${webhookToken ? maskSecretValue(webhookToken) : '(não configurado)'}"
+            >
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Token para validar as notificações recebidas do Asaas.</div>
+          </div>
+
+          <div style="display: flex; gap: 1rem; margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 2rem;">
+            <button type="submit" class="btn" style="min-width: 150px;">
+               Salvar Alterações
+            </button>
+            <a href="/admin" class="btn" style="background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); text-decoration: none;">
+              Voltar
+            </a>
+          </div>
+        </form>
+
+        <div style="margin-top: 2.5rem; padding: 1.5rem; background: var(--bg-main); border-radius: var(--radius-md); border-left: 4px solid var(--accent);">
+          <h3 style="font-size: 1rem; font-weight: 700; margin-top: 0; margin-bottom: 0.75rem; color: var(--text-main);">ℹ️ Informações Úteis</h3>
+          <ul style="font-size: 0.875rem; space-y: 0.75rem; color: var(--text-muted); padding-left: 1.25rem;">
+            <li><strong>Sandbox:</strong> Recomendado para testar fluxos de pagamento sem gastar dinheiro real.</li>
+            <li><strong>Endpoint de Webhook:</strong> Configure isto no seu painel Asaas: 
+              <code style="background: var(--bg-card); padding: 0.2rem 0.4rem; border-radius: 4px; border: 1px solid var(--border-color); color: var(--accent); font-weight: 700; display: block; margin-top: 0.5rem;">
+                ${c.env.PUBLIC_BASE_URL}/api/webhooks/asaas
+              </code>
+            </li>
+          </ul>
         </div>
-
-        <div>
-          <label class="block text-sm font-medium mb-1">Base URL (opcional)</label>
-          <input 
-            type="text" 
-            name="base_url" 
-            value="${escapeHtml(baseUrl)}"
-            placeholder="https://sandbox.asaas.com/api/v3"
-            class="w-full px-3 py-2 border rounded"
-          >
-          <p class="text-xs text-gray-500 mt-1">Deixe vazio para usar padrão do ambiente selecionado</p>
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium mb-1">API Key</label>
-          <input 
-            type="password" 
-            name="api_key" 
-            placeholder="${apiKey ? maskSecretValue(apiKey) : '(não configurado)'}"
-            class="w-full px-3 py-2 border rounded"
-          >
-          <p class="text-xs text-gray-500 mt-1">Deixe vazio para não alterar. Preencha para sobrescrever.</p>
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium mb-1">Webhook Token</label>
-          <input 
-            type="password" 
-            name="webhook_token" 
-            placeholder="${webhookToken ? maskSecretValue(webhookToken) : '(não configurado)'}"
-            class="w-full px-3 py-2 border rounded"
-          >
-          <p class="text-xs text-gray-500 mt-1">Token para validar webhooks recebidos do Asaas</p>
-        </div>
-
-        <div class="flex gap-2">
-          <button 
-            type="submit" 
-            class="px-4 py-2 bg-gray-900 text-white rounded hover:bg-gray-700"
-          >
-            Salvar Configuração
-          </button>
-          <a 
-            href="/admin" 
-            class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-          >
-            Voltar
-          </a>
-        </div>
-      </form>
-
-      <div class="mt-6 p-4 bg-blue-50 rounded">
-        <h3 class="font-semibold text-sm mb-2">Informações</h3>
-        <ul class="text-sm space-y-1 text-gray-700">
-          <li>• Sandbox: Use para testes sem cobranças reais</li>
-          <li>• Production: Ambiente de produção com cobranças reais</li>
-          <li>• API Key: Obtida no painel do Asaas</li>
-          <li>• Webhook Token: Gere um token seguro para validar webhooks</li>
-          <li>• Endpoint webhook: <code class="bg-white px-2 py-1 rounded">${c.env.PUBLIC_BASE_URL}/api/webhooks/asaas</code></li>
-        </ul>
       </div>
     </div>
   `
@@ -123,7 +115,7 @@ export async function handleAsaasSave(c: Context<{ Bindings: Env; Variables: App
 
     // Always save environment and base_url (public)
     await setSetting(c.env, 'asaas.environment', data.environment, 'public', user.id)
-    
+
     if (data.base_url) {
       await setSetting(c.env, 'asaas.base_url', data.base_url, 'public', user.id)
     }

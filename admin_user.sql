@@ -1,0 +1,1 @@
+INSERT INTO users (email, password_hash, name, role) VALUES ('fabioservio@gmail.com', 'pbkdf2_sha256$100000$nyybd_gwjmblD-J84sgOEw$r3tV0qrqGkIibevk7xydIjPN1846PlJn3p1mOrb1kUU', 'Fabio Servio', 'admin');

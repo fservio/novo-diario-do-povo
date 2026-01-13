@@ -19,27 +19,28 @@ export interface Post {
   cover_media_id: number | null
   status: 'draft' | 'review' | 'published' | 'archived'
   template: string
-  
+
   // SEO
   seo_title: string | null
   seo_description: string | null
   seo_canonical: string | null
   seo_noindex: number
-  
+
   // Paywall
   is_premium: number
   paywall_tier: string | null
   metering_exempt: number
-  
+
   // Breaking
   breaking_until: string | null
-  
+
   // Timestamps
   published_at: string | null
   scheduled_at: string | null
+  is_live: number
   created_at: string
   updated_at: string
-  
+
   // Joined
   category_name?: string
   author_name?: string
@@ -75,6 +76,7 @@ export interface CreatePostInput {
   is_premium?: number
   paywall_tier?: string
   metering_exempt?: number
+  is_live?: number
   tags?: number[]
 }
 
@@ -96,6 +98,7 @@ export interface UpdatePostInput {
   is_premium?: number
   paywall_tier?: string
   metering_exempt?: number
+  is_live?: number
   breaking_until?: string
   tags?: number[]
 }
@@ -106,7 +109,7 @@ export interface UpdatePostInput {
 async function generateUniqueSlug(db: D1Database, baseSlug: string, excludeId?: number): Promise<string> {
   let slug = baseSlug
   let counter = 2
-  
+
   while (true) {
     const query = excludeId
       ? 'SELECT id FROM posts WHERE slug = ? AND id != ? LIMIT 1'
@@ -119,12 +122,12 @@ async function generateUniqueSlug(db: D1Database, baseSlug: string, excludeId?: 
       : stmt.bind(slug)
 
     const existing = await boundStmt.first()
-    
+
     if (!existing) return slug
-    
+
     slug = `${baseSlug}-${counter}`
     counter++
-    
+
     // Safety: max 100 tentativas
     if (counter > 100) throw new Error('Slug conflict: too many attempts')
   }
@@ -157,45 +160,45 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
     limit = 20,
     offset = 0
   } = filters
-  
+
   let whereConditions: string[] = []
   let params: any[] = []
-  
+
   if (status) {
     whereConditions.push('p.status = ?')
     params.push(status)
   }
-  
+
   if (category_id) {
     whereConditions.push('p.category_id = ?')
     params.push(category_id)
   }
-  
+
   if (author_id) {
     whereConditions.push('p.author_id = ?')
     params.push(author_id)
   }
-  
+
   if (is_premium !== undefined) {
     whereConditions.push('p.is_premium = ?')
     params.push(is_premium)
   }
-  
+
   if (search) {
     whereConditions.push('(p.title LIKE ? OR p.hat LIKE ? OR p.excerpt LIKE ? OR p.content LIKE ?)')
     const searchTerm = `%${search}%`
     params.push(searchTerm, searchTerm, searchTerm, searchTerm)
   }
-  
+
   const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''
-  
+
   // Count total
   const countResult = await db.prepare(
     `SELECT COUNT(*) as count FROM posts p ${whereClause}`
   ).bind(...params).first<{ count: number }>()
-  
+
   const total = countResult?.count || 0
-  
+
   // Get posts
   const query = `
     SELECT 
@@ -211,11 +214,11 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
     ORDER BY p.created_at DESC
     LIMIT ? OFFSET ?
   `
-  
+
   const result = await db.prepare(query)
     .bind(...params, limit, offset)
     .all<Post>()
-  
+
   return { posts: result.results || [], total }
 }
 
@@ -236,9 +239,9 @@ export async function getPostById(db: D1Database, id: number): Promise<Post | nu
     WHERE p.id = ?
     LIMIT 1
   `).bind(id).first<Post>()
-  
+
   if (!post) return null
-  
+
   // Get tags
   const tagsResult = await db.prepare(`
     SELECT t.id, t.name
@@ -246,9 +249,9 @@ export async function getPostById(db: D1Database, id: number): Promise<Post | nu
     INNER JOIN posts_tags pt ON pt.tag_id = t.id
     WHERE pt.post_id = ?
   `).bind(id).all<{ id: number, name: string }>()
-  
+
   post.tags = tagsResult.results?.map(t => t.name) || []
-  
+
   return post
 }
 
@@ -269,9 +272,9 @@ export async function getPostBySlug(db: D1Database, slug: string): Promise<Post 
     WHERE p.slug = ?
     LIMIT 1
   `).bind(slug).first<Post>()
-  
+
   if (!post) return null
-  
+
   // Get tags
   const tagsResult = await db.prepare(`
     SELECT t.id, t.name
@@ -279,9 +282,9 @@ export async function getPostBySlug(db: D1Database, slug: string): Promise<Post 
     INNER JOIN posts_tags pt ON pt.tag_id = t.id
     WHERE pt.post_id = ?
   `).bind(post.id).all<{ id: number, name: string }>()
-  
+
   post.tags = tagsResult.results?.map(t => t.name) || []
-  
+
   return post
 }
 
@@ -290,18 +293,18 @@ export async function getPostBySlug(db: D1Database, slug: string): Promise<Post 
  */
 export async function createPost(db: D1Database, input: CreatePostInput): Promise<number> {
   const now = new Date().toISOString()
-  
+
   // Gera slug único
   const baseSlug = input.slug || slugify(input.title)
   const slug = await generateUniqueSlug(db, baseSlug)
-  
+
   const hasMarkdown = input.content_markdown !== undefined && input.content_markdown !== null
   const contentHtml = hasMarkdown
     ? renderMarkdownToHtml(input.content_markdown || '')
     : sanitizeHtml(input.content)
   const contentMarkdownValue = hasMarkdown ? input.content_markdown : null
   const hatValue = input.hat ? input.hat.trim().toUpperCase() : null
-  
+
   const bindValues = [
     slug,
     input.title,
@@ -321,28 +324,29 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
     input.is_premium ?? 0,
     input.paywall_tier || null,
     input.metering_exempt ?? 0,
+    input.is_live ?? 0,
     now,
     now
   ]
-  
+
   console.log('[createPost] Bind values:', {
     count: bindValues.length,
     values: bindValues,
     input: input
   })
-  
+
   const result = await db.prepare(`
     INSERT INTO posts (
       slug, title, hat, excerpt, content, content_markdown, category_id, author_id, cover_media_id,
       status, template,
       seo_title, seo_description, seo_canonical, seo_noindex,
-      is_premium, paywall_tier, metering_exempt,
+      is_premium, paywall_tier, metering_exempt, is_live,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(...bindValues).run()
-  
+
   const postId = result.meta.last_row_id
-  
+
   if (!postId) {
     console.error('[createPost] ERROR: No post ID returned!', {
       success: result.success,
@@ -351,9 +355,9 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
     })
     throw new Error('Failed to create post: no ID returned')
   }
-  
+
   console.log('[createPost] Post inserted successfully. ID:', postId)
-  
+
   // Insert tags
   if (input.tags && input.tags.length > 0) {
     for (const tagId of input.tags) {
@@ -363,7 +367,7 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
       `).bind(postId, tagId, now).run()
     }
   }
-  
+
   return postId
 }
 
@@ -372,33 +376,33 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
  */
 export async function updatePost(db: D1Database, id: number, input: UpdatePostInput): Promise<void> {
   const now = new Date().toISOString()
-  
+
   // Build dynamic UPDATE
   const fields: string[] = []
   const values: any[] = []
-  
+
   if (input.title !== undefined) {
     fields.push('title = ?')
     values.push(input.title)
   }
-  
+
   if (input.hat !== undefined) {
     const hatValue = input.hat ? input.hat.trim().toUpperCase() : null
     fields.push('hat = ?')
     values.push(hatValue)
   }
-  
+
   if (input.slug !== undefined) {
     const uniqueSlug = await generateUniqueSlug(db, input.slug, id)
     fields.push('slug = ?')
     values.push(uniqueSlug)
   }
-  
+
   if (input.excerpt !== undefined) {
     fields.push('excerpt = ?')
     values.push(input.excerpt || null)
   }
-  
+
   if (input.content_markdown !== undefined) {
     const markdown = input.content_markdown || ''
     fields.push('content = ?')
@@ -409,81 +413,86 @@ export async function updatePost(db: D1Database, id: number, input: UpdatePostIn
     fields.push('content = ?')
     values.push(sanitizeHtml(input.content))
   }
-  
+
   if (input.category_id !== undefined) {
     fields.push('category_id = ?')
     values.push(input.category_id)
   }
-  
+
   if (input.author_id !== undefined) {
     fields.push('author_id = ?')
     values.push(input.author_id)
   }
-  
+
   if (input.cover_media_id !== undefined) {
     fields.push('cover_media_id = ?')
     values.push(input.cover_media_id || null)
   }
-  
+
   if (input.template !== undefined) {
     fields.push('template = ?')
     values.push(input.template)
   }
-  
+
   if (input.seo_title !== undefined) {
     fields.push('seo_title = ?')
     values.push(input.seo_title || null)
   }
-  
+
   if (input.seo_description !== undefined) {
     fields.push('seo_description = ?')
     values.push(input.seo_description || null)
   }
-  
+
   if (input.seo_canonical !== undefined) {
     fields.push('seo_canonical = ?')
     values.push(input.seo_canonical || null)
   }
-  
+
   if (input.seo_noindex !== undefined) {
     fields.push('seo_noindex = ?')
     values.push(input.seo_noindex)
   }
-  
+
+  if (input.is_live !== undefined) {
+    fields.push('is_live = ?')
+    values.push(input.is_live)
+  }
+
   if (input.is_premium !== undefined) {
     fields.push('is_premium = ?')
     values.push(input.is_premium)
   }
-  
+
   if (input.paywall_tier !== undefined) {
     fields.push('paywall_tier = ?')
     values.push(input.paywall_tier || null)
   }
-  
+
   if (input.metering_exempt !== undefined) {
     fields.push('metering_exempt = ?')
     values.push(input.metering_exempt)
   }
-  
+
   if (input.breaking_until !== undefined) {
     fields.push('breaking_until = ?')
     values.push(input.breaking_until || null)
   }
-  
+
   fields.push('updated_at = ?')
   values.push(now)
-  
+
   if (fields.length > 0) {
     await db.prepare(
       `UPDATE posts SET ${fields.join(', ')} WHERE id = ?`
     ).bind(...values, id).run()
   }
-  
+
   // Update tags
   if (input.tags !== undefined) {
     // Delete existing
     await db.prepare('DELETE FROM posts_tags WHERE post_id = ?').bind(id).run()
-    
+
     // Insert new
     for (const tagId of input.tags) {
       await db.prepare(`
@@ -499,7 +508,7 @@ export async function updatePost(db: D1Database, id: number, input: UpdatePostIn
  */
 export async function publishPost(db: D1Database, id: number): Promise<void> {
   const now = new Date().toISOString()
-  
+
   await db.prepare(`
     UPDATE posts 
     SET status = 'published', published_at = ?, updated_at = ?
@@ -512,12 +521,12 @@ export async function publishPost(db: D1Database, id: number): Promise<void> {
  */
 export async function schedulePost(db: D1Database, id: number, scheduledAt: string): Promise<void> {
   const now = new Date().toISOString()
-  
+
   // Valida que scheduledAt é futuro
   if (new Date(scheduledAt) <= new Date()) {
     throw new Error('scheduled_at must be in the future')
   }
-  
+
   await db.prepare(`
     UPDATE posts 
     SET status = 'published', scheduled_at = ?, updated_at = ?
@@ -530,7 +539,7 @@ export async function schedulePost(db: D1Database, id: number, scheduledAt: stri
  */
 export async function archivePost(db: D1Database, id: number): Promise<void> {
   const now = new Date().toISOString()
-  
+
   await db.prepare(`
     UPDATE posts 
     SET status = 'archived', updated_at = ?

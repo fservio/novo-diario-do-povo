@@ -20,21 +20,21 @@ export async function securityHeaders(c: Context<{ Bindings: Env; Variables: App
   // Generate nonce BEFORE processing request
   const nonce = generateNonce()
   c.set('cspNonce', nonce)
-  
+
   await next()
 
   const { getSetting } = await import('../db')
-  
+
   // Get ads provider mode and CSP settings
   const providerMode = (await getSetting(c.env, 'ads.provider_mode', 'public')) as string || 'off'
   const allowUnsafeEval = (await getSetting(c.env, 'ads.csp_allow_unsafe_eval', 'public')) as boolean || false
-  
+
   // CSP by directive (fallback to legacy csp_allowlist)
   let scriptHosts = (await getSetting(c.env, 'ads.csp.script_hosts', 'public')) as string[] || []
   let frameHosts = (await getSetting(c.env, 'ads.csp.frame_hosts', 'public')) as string[] || []
   let connectHosts = (await getSetting(c.env, 'ads.csp.connect_hosts', 'public')) as string[] || []
   let imgHosts = (await getSetting(c.env, 'ads.csp.img_hosts', 'public')) as string[] || []
-  
+
   // Fallback to legacy csp_allowlist if new settings don't exist
   const legacyAllowlist = (await getSetting(c.env, 'ads.csp_allowlist', 'public')) as string[] || []
   if (Array.isArray(legacyAllowlist) && legacyAllowlist.length > 0) {
@@ -46,7 +46,7 @@ export async function securityHeaders(c: Context<{ Bindings: Env; Variables: App
 
   // Base sources
   const baseSources = ["'self'", 'https://cdn.jsdelivr.net']
-  
+
   // Ads sources (only if provider_mode != 'off')
   const adsScriptHosts = providerMode !== 'off' ? [
     '*.googletagservices.com',
@@ -58,28 +58,28 @@ export async function securityHeaders(c: Context<{ Bindings: Env; Variables: App
     'tpc.googlesyndication.com',
     ...scriptHosts
   ] : scriptHosts
-  
+
   const adsFrameHosts = providerMode !== 'off' ? [
     '*.googlesyndication.com',
     '*.google.com',
     '*.doubleclick.net',
     ...frameHosts
   ] : frameHosts
-  
+
   const adsConnectHosts = providerMode !== 'off' ? [
     '*.googlesyndication.com',
     '*.google.com',
     '*.doubleclick.net',
     ...connectHosts
   ] : connectHosts
-  
+
   const adsImgHosts = providerMode !== 'off' ? [
     '*.googlesyndication.com',
     '*.google.com',
     '*.doubleclick.net',
     ...imgHosts
   ] : imgHosts
-  
+
   const scriptSourcesWithPrefix = adsScriptHosts.map(h => `https://${h}`)
   const frameSourcesWithPrefix = adsFrameHosts.map(h => `https://${h}`)
   const connectSourcesWithPrefix = adsConnectHosts.map(h => `https://${h}`)
@@ -91,7 +91,7 @@ export async function securityHeaders(c: Context<{ Bindings: Env; Variables: App
     ...scriptSourcesWithPrefix,
     `'nonce-${nonce}'`,  // ✅ NONCE instead of unsafe-inline
   ]
-  
+
   // Add 'unsafe-eval' only if explicitly enabled
   if (allowUnsafeEval) {
     scriptSources.push("'unsafe-eval'")
@@ -100,9 +100,9 @@ export async function securityHeaders(c: Context<{ Bindings: Env; Variables: App
   const csp = [
     `default-src 'self'`,
     `script-src ${scriptSources.join(' ')}`,
-    `style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net`,  // style can keep unsafe-inline
+    `style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com`,  // style can keep unsafe-inline
     `img-src 'self' data: blob: ${imgSourcesWithPrefix.join(' ')}`,
-    `font-src 'self' data: https://cdn.jsdelivr.net`,
+    `font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com`,
     `connect-src 'self' ${connectSourcesWithPrefix.join(' ')}`,
     `frame-src ${frameSourcesWithPrefix.join(' ')}`,
     `media-src 'self' blob:`,
@@ -120,6 +120,14 @@ export async function securityHeaders(c: Context<{ Bindings: Env; Variables: App
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin')
   c.header('Permissions-Policy', 'geolocation=(), microphone=(), camera=()')
   c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload')
+
+  // Cache-Control for specific paths
+  const path = c.req.path
+  if (path.startsWith('/static/') || path.startsWith('/i/')) {
+    c.header('Cache-Control', 'public, max-age=31536000, immutable')
+  } else if (path === '/robots.txt' || path === '/ads.txt' || path.endsWith('.xml')) {
+    c.header('Cache-Control', 'public, max-age=3600') // 1 hour for SEO/Ads files
+  }
 }
 
 // ============================================================================
@@ -159,19 +167,19 @@ export async function csrfProtection(c: Context<{ Bindings: Env; Variables: AppC
   // API routes (/api/admin/*) → check header
   if (path.startsWith('/api/admin/')) {
     token = c.req.header('X-CSRF-Token')
-  } 
+  }
   // SSR routes (/admin/*) → check form field
   else if (path.startsWith('/admin/')) {
     try {
       const contentType = c.req.header('content-type') || ''
-      
+
       // Handle multipart/form-data (file uploads)
       if (contentType.startsWith('multipart/form-data')) {
         const formData = await c.req.formData()
         token = formData.get('csrf') as string
         // Store formData in context for handler reuse
         c.set('formData', formData)
-      } 
+      }
       // Handle regular form data
       else {
         const body = await c.req.parseBody()
@@ -207,7 +215,7 @@ export async function csrfProtection(c: Context<{ Bindings: Env; Variables: AppC
   // Get session ID from JWT (via requireAdmin)
   const cookieHeader = c.req.header('cookie')
   let sessionId: string | null = null
-  
+
   if (cookieHeader) {
     const match = cookieHeader.match(/admin_session=([^;]+)/)
     if (match) {
@@ -231,7 +239,7 @@ export async function csrfProtection(c: Context<{ Bindings: Env; Variables: AppC
 
   try {
     const { uid, sid } = JSON.parse(storedData)
-    
+
     // Validate: userId matches AND sessionId matches
     if (uid !== adminUser.id || sid !== sessionId) {
       if (path.startsWith('/api/')) {
@@ -255,13 +263,13 @@ export async function csrfProtection(c: Context<{ Bindings: Env; Variables: AppC
 export async function generateCSRFToken(env: Env, adminUserId: number, sessionId: string): Promise<string> {
   const { randomHex } = await import('../utils')
   const token = randomHex(32)
-  
+
   // Store with admin user ID and session ID as owner (TTL 1 hora)
   await env.KV.put(
-    `csrf:${token}`, 
-    JSON.stringify({ uid: adminUserId, sid: sessionId }), 
+    `csrf:${token}`,
+    JSON.stringify({ uid: adminUserId, sid: sessionId }),
     { expirationTtl: 3600 }
   )
-  
+
   return token
 }

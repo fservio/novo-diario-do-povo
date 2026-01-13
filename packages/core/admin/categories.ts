@@ -46,68 +46,63 @@ function renderCategoriesListPage(params: {
   const { categories, user, csrfToken } = params
 
   const bodyHtml = `
-    <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+    <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
       <h1 class="section-title" style="margin: 0;">Categorias</h1>
-      <a href="/admin/categories/new" class="btn">+ Nova Categoria</a>
+      <a href="/admin/categories/new" class="btn"><span>+</span> Nova Categoria</a>
     </div>
 
-    <div class="card">
-      <table class="w-full" id="categoriesTable">
+    <div class="card" style="padding: 0; overflow: hidden;">
+      <table>
         <thead>
           <tr>
-            <th style="text-align: left; padding: 0.75rem;">ID</th>
-            <th style="text-align: left; padding: 0.75rem;">Nome</th>
-            <th style="text-align: left; padding: 0.75rem;">Slug</th>
-            <th style="text-align: center; padding: 0.75rem;">Ordem</th>
-            <th style="text-align: center; padding: 0.75rem;">Status</th>
-            <th style="text-align: center; padding: 0.75rem;">Posts</th>
-            <th style="text-align: right; padding: 0.75rem;">Ações</th>
+            <th>ID</th>
+            <th>Nome</th>
+            <th>Slug</th>
+            <th style="text-align: center;">Ordem</th>
+            <th style="text-align: center;">Status</th>
+            <th style="text-align: center;">Posts</th>
+            <th style="text-align: right;">Ações</th>
           </tr>
         </thead>
         <tbody>
           ${categories.length === 0 ? `
             <tr>
-              <td colspan="7" style="text-align: center; padding: 2rem; color: #6b7280;">
+              <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                 Nenhuma categoria cadastrada
               </td>
             </tr>
           ` : categories.map(cat => `
-            <tr style="border-top: 1px solid #e5e7eb;">
-              <td style="padding: 0.75rem;">${cat.id}</td>
-              <td style="padding: 0.75rem;">
-                <strong>${escapeHtml(cat.name)}</strong>
-                ${cat.description ? `<br><small style="color: #6b7280;">${escapeHtml(cat.description.substring(0, 60))}${cat.description.length > 60 ? '...' : ''}</small>` : ''}
+            <tr>
+              <td style="font-family: monospace; font-size: 0.8125rem; color: var(--text-muted);">${cat.id}</td>
+              <td>
+                <div style="font-weight: 700; color: var(--text-main);">${escapeHtml(cat.name)}</div>
+                ${cat.description ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">${escapeHtml(cat.description.substring(0, 60))}${cat.description.length > 60 ? '...' : ''}</div>` : ''}
               </td>
-              <td style="padding: 0.75rem;">
-                <code style="background: #f3f4f6; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.875rem;">
+              <td>
+                <code style="background: var(--bg-main); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8125rem; border: 1px solid var(--border-color);">
                   ${escapeHtml(cat.slug)}
                 </code>
-                <br>
-                <a href="/categoria/${escapeHtml(cat.slug)}" target="_blank" style="font-size: 0.75rem; color: #3b82f6;">
-                  Ver página →
-                </a>
+                <a href="/categoria/${escapeHtml(cat.slug)}" target="_blank" style="margin-left: 0.5rem; font-size: 1rem; text-decoration: none;" title="Ver no site">🔗</a>
               </td>
-              <td style="text-align: center; padding: 0.75rem;">
-                <span style="background: #f3f4f6; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 500;">
-                  ${cat.display_order}
-                </span>
+              <td style="text-align: center;">
+                <span style="font-weight: 700;">${cat.display_order}</span>
               </td>
-              <td style="text-align: center; padding: 0.75rem;">
-                <span style="display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; ${cat.is_active === 1 ? 'background: #d1fae5; color: #065f46;' : 'background: #fee2e2; color: #991b1b;'}">
+              <td style="text-align: center;">
+                <span style="display: inline-flex; align-items: center; justify-content: center; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; ${cat.is_active === 1 ? 'background: rgba(16, 185, 129, 0.1); color: #10b981;' : 'background: rgba(239, 68, 68, 0.1); color: #ef4444;'}">
                   ${cat.is_active === 1 ? 'Ativa' : 'Inativa'}
                 </span>
               </td>
-              <td style="text-align: center; padding: 0.75rem; color: #6b7280;">
-                <span id="posts-count-${cat.id}">-</span>
+              <td style="text-align: center; color: var(--text-muted);">
+                <span id="posts-count-${cat.id}" style="font-weight: 600;">-</span>
               </td>
-              <td style="text-align: right; padding: 0.75rem;">
-                <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-                  <a href="/admin/categories/${cat.id}" class="btn btn-sm">
+              <td style="text-align: right;">
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
+                  <a href="/admin/categories/${cat.id}" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color);">
                     Editar
                   </a>
                   <form method="POST" action="/admin/categories/${cat.id}/toggle" style="display: inline;">
                     <input type="hidden" name="csrf" value="${escapeHtml(csrfToken)}">
-                    <button type="submit" class="btn btn-sm" style="background: ${cat.is_active === 1 ? '#ef4444' : '#10b981'}; color: white;">
+                    <button type="submit" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; background: ${cat.is_active === 1 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)'}; color: ${cat.is_active === 1 ? '#ef4444' : '#10b981'}; border: 1px solid ${cat.is_active === 1 ? '#ef4444' : '#10b981'};">
                       ${cat.is_active === 1 ? 'Desativar' : 'Ativar'}
                     </button>
                   </form>
@@ -118,15 +113,6 @@ function renderCategoriesListPage(params: {
         </tbody>
       </table>
     </div>
-
-    <style>
-      .btn { display: inline-block; padding: 0.5rem 1rem; background: #3b82f6; color: white; text-decoration: none; border-radius: 0.375rem; border: none; cursor: pointer; font-size: 0.875rem; font-weight: 500; }
-      .btn:hover { background: #2563eb; }
-      .btn-sm { padding: 0.375rem 0.75rem; font-size: 0.8125rem; }
-      .card { background: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
-      table { width: 100%; border-collapse: collapse; }
-      th { background: #f9fafb; font-weight: 600; font-size: 0.875rem; color: #374151; }
-    </style>
   `
 
   return renderAdminLayout({
@@ -150,148 +136,128 @@ function renderCategoryForm(params: {
   const formAction = isNew ? '/admin/categories' : `/admin/categories/${category!.id}`
 
   const bodyHtml = `
-    <div style="margin-bottom: 1.5rem;">
-      <a href="/admin/categories" style="color: #3b82f6; text-decoration: none;">← Voltar para Categorias</a>
+    <div style="margin-bottom: 2rem;">
+      <a href="/admin/categories" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem; font-weight: 600; display: flex; align-items: center; gap: 0.25rem;">
+        ← Voltar para a lista
+      </a>
       <h1 class="section-title" style="margin-top: 0.5rem;">
-        ${isNew ? 'Nova Categoria' : `Editar: ${escapeHtml(category.name)}`}
+        ${isNew ? 'Criar Nova Categoria' : `Editar Categoria: ${escapeHtml(category.name)}`}
       </h1>
     </div>
 
     ${error ? `
-      <div class="alert alert-error" style="margin-bottom: 1.5rem; padding: 1rem; background: #fee2e2; border: 1px solid #fecaca; border-radius: 0.375rem; color: #991b1b;">
-        ${escapeHtml(error)}
+      <div class="error" style="margin-bottom: 2rem; padding: 1.25rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: var(--radius-md); color: #ef4444; font-weight: 500;">
+        ⚠️ ${escapeHtml(error)}
       </div>
     ` : ''}
 
-    <div class="card" style="background: white; padding: 2rem; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+    <div class="card">
       <form method="POST" action="${formAction}" id="categoryForm">
         <input type="hidden" name="csrf" value="${escapeHtml(csrfToken)}">
 
-        <div style="margin-bottom: 1.5rem;">
-          <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: #374151;">
-            Nome da Categoria *
-          </label>
+        <div class="field">
+          <label>Nome da Categoria *</label>
           <input 
             type="text" 
             name="name" 
             value="${escapeHtml(category?.name || '')}"
             required
-            style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 1rem;"
-            placeholder="Ex: Tecnologia"
+            placeholder="Ex: Tecnologia, Economia, Esportes"
+            style="font-weight: 600;"
           >
         </div>
 
-        <div style="margin-bottom: 1.5rem;">
-          <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: #374151;">
-            Slug (URL)
-          </label>
+        <div class="field">
+          <label>Slug (URL amigável)</label>
           <input 
             type="text" 
             name="slug" 
             value="${escapeHtml(category?.slug || '')}"
-            style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 1rem; font-family: monospace;"
-            placeholder="Deixe vazio para gerar automaticamente"
+            placeholder="tecnologia"
+            style="font-family: monospace; font-size: 0.8125rem;"
           >
-          <small style="color: #6b7280; font-size: 0.875rem;">
-            Deixe vazio para gerar automaticamente a partir do nome
-          </small>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+            Deixe em branco para gerar automaticamente a partir do nome.
+          </div>
         </div>
 
-        <div style="margin-bottom: 1.5rem;">
-          <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: #374151;">
-            Descrição
-          </label>
+        <div class="field">
+          <label>Descrição</label>
           <textarea 
             name="description" 
             rows="3"
-            style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 1rem; font-family: inherit;"
-            placeholder="Descrição breve da categoria"
+            placeholder="Breve descrição dos assuntos desta categoria..."
           >${escapeHtml(category?.description || '')}</textarea>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
-          <div>
-            <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: #374151;">
-              Ordem de Exibição
-            </label>
+        <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+          <div class="field">
+            <label>Ordem de Exibição</label>
             <input 
               type="number" 
               name="display_order" 
               value="${category?.display_order ?? 0}"
               min="0"
-              style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 1rem;"
+              style="font-weight: 600;"
             >
-            <small style="color: #6b7280; font-size: 0.875rem;">
-              Menor valor aparece primeiro
-            </small>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+              Menor valor aparece primeiro nos menus.
+            </div>
           </div>
 
-          <div>
-            <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: #374151;">
-              Status
-            </label>
-            <label style="display: flex; align-items: center; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; cursor: pointer;">
+          <div class="field">
+            <label>Status</label>
+            <label style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: var(--bg-main); border: 1px solid var(--border-color); border-radius: var(--radius-md); cursor: pointer; border: 1px solid var(--border-color);">
               <input 
                 type="checkbox" 
                 name="is_active" 
                 value="1"
                 ${!category || category.is_active === 1 ? 'checked' : ''}
-                style="width: 1.25rem; height: 1.25rem; margin-right: 0.75rem; cursor: pointer;"
+                style="width: auto; margin: 0;"
               >
-              <span style="font-weight: 500; color: #374151;">Categoria Ativa</span>
+              <span style="font-weight: 600;">Esta categoria está visível</span>
             </label>
           </div>
         </div>
 
-        <div style="border-top: 1px solid #e5e7eb; padding-top: 1.5rem; margin-top: 1.5rem;">
-          <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 1rem; color: #374151;">
-            SEO (Opcional)
+        <div style="border-top: 1px solid var(--border-color); padding-top: 2rem; margin-top: 2rem;">
+          <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 1.25rem; color: var(--text-main); text-transform: uppercase; letter-spacing: 0.05em;">
+            🔍 SEO & Metadados
           </h3>
 
-          <div style="margin-bottom: 1.5rem;">
-            <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: #374151;">
-              Título SEO
-            </label>
+          <div class="field">
+            <label>Título SEO</label>
             <input 
               type="text" 
               name="seo_title" 
               value="${escapeHtml(category?.seo_title || '')}"
               maxlength="200"
-              style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 1rem;"
-              placeholder="Título para mecanismos de busca"
+              placeholder="Título para motores de busca"
             >
           </div>
 
-          <div style="margin-bottom: 1.5rem;">
-            <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: #374151;">
-              Descrição SEO
-            </label>
+          <div class="field">
+            <label>Descrição SEO</label>
             <textarea 
               name="seo_description" 
               rows="2"
               maxlength="500"
-              style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 1rem; font-family: inherit;"
-              placeholder="Meta descrição para mecanismos de busca"
+              placeholder="Meta descrição para motores de busca"
             >${escapeHtml(category?.seo_description || '')}</textarea>
           </div>
         </div>
 
-        <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
-          <a href="/admin/categories" class="btn" style="background: #6b7280;">
+        <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 2rem;">
+          <a href="/admin/categories" class="btn" style="background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color);">
             Cancelar
           </a>
-          <button type="submit" class="btn">
+          <button type="submit" class="btn" style="min-width: 150px;">
             ${isNew ? 'Criar Categoria' : 'Salvar Alterações'}
           </button>
         </div>
       </form>
     </div>
 
-    <style>
-      .btn { display: inline-block; padding: 0.5rem 1.5rem; background: #3b82f6; color: white; text-decoration: none; border-radius: 0.375rem; border: none; cursor: pointer; font-size: 0.875rem; font-weight: 500; }
-      .btn:hover { background: #2563eb; }
-      .card { background: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    </style>
   `
 
   return renderAdminLayout({
@@ -349,7 +315,7 @@ export async function handleCategoriesCreate(c: Context<{ Bindings: Env; Variabl
 
   try {
     const formData = await c.req.parseBody()
-    
+
     const validated = createCategorySchema.parse({
       name: formData.name,
       slug: formData.slug || undefined,
@@ -377,7 +343,7 @@ export async function handleCategoriesCreate(c: Context<{ Bindings: Env; Variabl
     return c.redirect(`/admin/categories/${result.id}`, 302)
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Erro ao criar categoria'
-    
+
     return c.html(renderCategoryForm({
       error: errorMessage,
       user: user!,
@@ -437,7 +403,7 @@ export async function handleCategoriesUpdate(c: Context<{ Bindings: Env; Variabl
 
   try {
     const formData = await c.req.parseBody()
-    
+
     const validated = updateCategorySchema.parse({
       name: formData.name || undefined,
       slug: formData.slug || undefined,
@@ -450,7 +416,7 @@ export async function handleCategoriesUpdate(c: Context<{ Bindings: Env; Variabl
     })
 
     const payload: any = {}
-    
+
     if (validated.name) payload.name = validated.name
     if (validated.slug !== undefined) payload.slug = validated.slug
     if (validated.description !== undefined) payload.description = validated.description
@@ -469,7 +435,7 @@ export async function handleCategoriesUpdate(c: Context<{ Bindings: Env; Variabl
     return c.redirect('/admin/categories', 302)
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Erro ao atualizar categoria'
-    
+
     return c.html(renderCategoryForm({
       category,
       error: errorMessage,

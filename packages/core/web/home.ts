@@ -7,21 +7,8 @@
 import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
 import type { HomeData, HomePost, CategoryBlock } from '../db/home'
-import { renderPublicLayout, escapeHtml, escapeAttr } from './layout'
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-function formatTime(isoDate: string): string {
-  const date = new Date(isoDate)
-  return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-}
-
-function truncate(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text
-  return text.substring(0, maxLength) + '...'
-}
+import { renderPublicLayout, escapeHtml, escapeAttr, truncate, formatTime } from './layout'
+import { getSetting } from '../db'
 
 // ============================================================================
 // Component Renderers
@@ -140,7 +127,7 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
 
 function renderRadarSection(posts: HomePost[], baseUrl: string): string {
   if (posts.length === 0) return ''
-  
+
   return `
     <section class="mb-12">
       <div class="flex items-center justify-between mb-6 border-b border-gray-200 pb-2">
@@ -178,7 +165,7 @@ function renderCategorySection(block: CategoryBlock, baseUrl: string, index: num
   const isInverted = index % 2 !== 0 // Alternate layout
   const lead = block.lead
   const list = block.list
-  
+
   const leadImage = lead.featured_image_r2_key ? `/i/${escapeAttr(lead.featured_image_r2_key)}` : '/placeholder.jpg'
 
   return `
@@ -249,6 +236,167 @@ function renderCategorySection(block: CategoryBlock, baseUrl: string, index: num
   `
 }
 
+
+// ============================================================================
+// Google Blog Replica Renderers (The Keyword)
+// ============================================================================
+
+function renderPostGB(post: HomePost, baseUrl: string): string {
+  // @ts-ignore
+  const authorName = post.author_name || 'Redação'
+  return `
+    <article class="gb-card">
+      <a href="${baseUrl}/noticia/${escapeAttr(post.slug)}" class="gb-card__link">
+        <div class="gb-card__media">
+          <img 
+            src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}` : '/static/placeholder.jpg'}" 
+            alt="${escapeAttr(post.title)}"
+            loading="lazy"
+            onerror="this.onerror=null;this.src='/static/placeholder.jpg';"
+          />
+        </div>
+        <div class="gb-card__content">
+          <!-- Hat on Top -->
+          ${post.hat ? `<span class="gb-hat">${escapeHtml(post.hat)}</span>` : ''}
+          
+          <h3 class="gb-title--card">
+            ${escapeHtml(post.title)}
+          </h3>
+          
+          <div class="gb-meta">
+            <!-- Author -->
+            <span>${escapeHtml(authorName)}</span>
+            
+            <!-- Category (Editoria) on Bottom -->
+            <span>• ${escapeHtml(post.category_name)}</span>
+          </div>
+        </div>
+      </a>
+    </article>
+  `
+}
+
+function renderHomePageMinimal(data: HomeData, baseUrl: string, adTop: string, adMid: string): string {
+  // 1. Hero Data
+  const hero = data.hero
+
+  // 2. Latest Updates (Grid of 6)
+  const latestPosts = [...data.topColumns, ...data.hotRail].slice(0, 6)
+
+  // 3. Sections (Categories)
+  const categories = data.categoryBlocks
+
+  return `
+    <div style="font-family: var(--font-sans); background: var(--gb-bg); color: var(--gb-text);">
+      
+      <!-- Hero Section -->
+      ${hero ? `
+        <section class="gb-container gb-hero">
+          <div class="gb-grid gb-hero__grid">
+            <div class="gb-hero__content">
+              <span class="gb-hat">${escapeHtml(hero.category_name)}</span>
+              <h1 class="gb-title--hero">
+                <a href="${baseUrl}/noticia/${escapeAttr(hero.slug)}">${escapeHtml(hero.title)}</a>
+              </h1>
+              <p class="gb-excerpt--hero">
+                ${escapeHtml(truncate(hero.excerpt, 120))}
+              </p>
+              <div class="gb-meta">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                   ${hero.author_name ? `<span style="font-weight: 500; color: var(--gb-text);">${hero.author_name}</span>` : ''}
+                   <span>${formatTime(hero.published_at)}</span>
+                </div>
+              </div>
+            </div>
+            <div class="gb-hero__media">
+              <a href="${baseUrl}/noticia/${escapeAttr(hero.slug)}">
+                <img 
+                  src="${hero.featured_image_r2_key ? `/i/${escapeAttr(hero.featured_image_r2_key)}` : '/hero-placeholder.jpg'}" 
+                  alt="${escapeAttr(hero.title)}" 
+                  loading="eager"
+                  fetchpriority="high"
+                />
+              </a>
+            </div>
+          </div>
+        </section>
+      ` : ''}
+
+      ${adTop ? `<div class="gb-container my-8 text-center">${adTop}</div>` : ''}
+
+      <!-- Latest Updates Grid -->
+      <section class="gb-container gb-section">
+        <div class="gb-section__header">
+          <h2 class="gb-section__title">Últimas do Blog</h2>
+          <a href="/todas" class="gb-btn gb-btn--primary">Ver tudo</a>
+        </div>
+        
+        <div class="gb-grid" style="grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));">
+          ${latestPosts.map(p => renderPostGB(p, baseUrl)).join('')}
+        </div>
+      </section>
+
+      ${adMid ? `<div class="gb-container my-8 text-center">${adMid}</div>` : ''}
+
+      <!-- Category Sections -->
+      ${categories.map(cat => `
+        <section class="gb-container gb-section">
+           <div class="gb-section__header">
+              <h2 class="gb-section__title">${escapeHtml(cat.name)}</h2>
+              <div class="gb-carousel-controls">
+                 <button class="gb-control-btn" aria-label="Previous">←</button>
+                 <button class="gb-control-btn" aria-label="Next">→</button>
+              </div>
+           </div>
+           <div class="gb-grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
+              ${cat.list.slice(0, 3).map(p => renderPostGB(p, baseUrl)).join('')}
+           </div>
+        </section>
+      `).join('')}
+
+    </div>
+  `
+}
+
+
+// ============================================================================
+
+function renderTopColumnsSection(posts: HomePost[], baseUrl: string): string {
+  if (posts.length === 0) return ''
+
+  // Desired order: Politica, Economia, Esporte
+  const orderedPosts = [
+    posts.find(p => p.category_slug === 'politica'),
+    posts.find(p => p.category_slug === 'economia'),
+    posts.find(p => p.category_slug === 'esporte')
+  ].filter(Boolean) as HomePost[]
+
+  if (orderedPosts.length === 0) return ''
+
+  return `
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 border-b border-gray-100 pb-8">
+      ${orderedPosts.map((post, index) => `
+        <article class="flex flex-col ${index > 0 ? 'md:border-l md:border-gray-100 md:pl-6' : ''}">
+          <a href="${baseUrl}/noticia/${escapeAttr(post.slug)}" class="group">
+             ${post.hat ? `
+                <span class="text-xs font-bold text-accent uppercase tracking-wider mb-2 block">
+                  ${escapeHtml(post.hat)}
+                </span>
+             ` : `
+                <span class="text-xs font-bold text-accent uppercase tracking-wider mb-2 block">
+                  ${escapeHtml(post.category_name)}
+                </span>
+             `}
+            <h3 class="text-lg font-bold leading-snug group-hover:text-accent transition-colors">
+              ${escapeHtml(post.title)}
+            </h3>
+          </a>
+        </article>
+      `).join('')}
+    </section>
+  `
+}
+
 // ============================================================================
 // Main Renderer
 // ============================================================================
@@ -267,61 +415,74 @@ export async function renderHomePage(
   const nonce = c.get('cspNonce') || ''
   const { renderAdSlot, generateAdsLoaderScript, findActiveSlotsByTemplate } = await import('../ads')
   const { baseUrl, siteName, coverR2Key, coverAlt, coverAspectRatio } = params
-  
+
+  // Determine Theme FIRST
+  const themeSetting = await getSetting(c.env, 'public_theme')
+  const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
+
   // Ad Slots
   const adSlots = await findActiveSlotsByTemplate(c.env, 'home')
   const findSlot = (name: string) => adSlots.find(s => s.name === name)
   const pageContext = { template: 'home' as const, slug: '' }
   const userContext = { isSubscriber: false }
-  
+
   const adTop = findSlot('home_top_leaderboard') ? renderAdSlot({ slot: findSlot('home_top_leaderboard')!, page: pageContext, user: userContext }) : ''
   const adMid = findSlot('home_infeed_1') ? renderAdSlot({ slot: findSlot('home_infeed_1')!, page: pageContext, user: userContext }) : ''
-  
+
   const adsScript = await generateAdsLoaderScript(c.env)
-  
+
   // Prepare Nav
   const navItems = data.sections.map(s => ({
     label: s.title,
-    href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
+    href: s.type === 'tag' ? `/ tag / ${s.tagSlug} ` : ` / categoria / ${s.slug} `,
     active: false
   }))
 
-  // --- Content Assembly ---
+  let bodyHtml = ''
 
-  // 1. Hero Section (Manchete + 2 Destaques)
-  // We use data.hotRail to fill the side column of the hero
-  const heroHtml = renderHeroSection(data.hero, data.hotRail, baseUrl)
+  if (theme === 'minimal') {
+    // --- Minimalist Renderer (Google Blog) ---
+    bodyHtml = renderHomePageMinimal(data, baseUrl, adTop, adMid) + adsScript
+  } else {
+    // --- Default Magazine Renderer ---
 
-  // 2. Radar Section (4 Featured Posts)
-  // We use data.dualFeatures + maybe some explainers or extra hotRail items
-  // Let's create a curated list of 4 items for the "Radar" strip
-  const radarPosts = [...data.dualFeatures, ...data.explainers].slice(0, 4)
-  const radarHtml = renderRadarSection(radarPosts, baseUrl)
+    // 1. Top Columns (Politica, Economia, Esporte)
+    const topColumnsHtml = renderTopColumnsSection(data.topColumns || [], baseUrl)
 
-  // 3. Categories (Alternating Layout)
-  const categoriesHtml = data.categoryBlocks.map((block, i) => {
-    let html = renderCategorySection(block, baseUrl, i)
-    if (i === 1 && adMid) { // Insert ad after 2nd category
-      html += `<div class="container my-8">${adMid}</div>`
-    }
-    return html
-  }).join('')
+    // 2. Hero Section (Manchete + 2 Destaques)
+    const heroHtml = renderHeroSection(data.hero, data.hotRail || [], baseUrl)
 
-  const bodyHtml = `
-    <div class="container py-8">
-      ${adTop ? `<div class="mb-12 text-center">${adTop}</div>` : ''}
-      
-      ${heroHtml}
-      
-      ${radarHtml}
-      
-      <div class="space-y-4">
-        ${categoriesHtml}
+    // 3. Radar Section (4 Featured Posts)
+    const radarPosts = [...data.dualFeatures, ...data.explainers].slice(0, 4)
+    const radarHtml = renderRadarSection(radarPosts, baseUrl)
+
+    // 4. Categories
+    const categoriesHtml = data.categoryBlocks.map((block, i) => {
+      let html = renderCategorySection(block, baseUrl, i)
+      if (i === 1 && adMid) { // Insert ad after 2nd category
+        html += `< div class="container my-8" > ${adMid} </div>`
+      }
+      return html
+    }).join('')
+
+    bodyHtml = `
+      <div class="container py-8">
+        ${adTop ? `<div class="mb-12 text-center">${adTop}</div>` : ''}
+
+        ${topColumnsHtml}
+        
+        ${heroHtml}
+        
+        ${radarHtml}
+        
+        <div class="space-y-4">
+          ${categoriesHtml}
+        </div>
       </div>
-    </div>
-    
-    ${adsScript}
-  `
+      
+      ${adsScript}
+    `
+  }
 
   return renderPublicLayout({
     title: `${siteName} - Notícias e Análises`,
@@ -331,6 +492,7 @@ export async function renderHomePage(
     siteName,
     navItems,
     coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null,
-    bodyHtml
+    bodyHtml,
+    theme
   })
 }

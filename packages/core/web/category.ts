@@ -6,26 +6,15 @@
 import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
 import type { CategoryPageData, CategoryPost } from '../db/category'
-import { renderPublicLayout, escapeHtml, escapeAttr, type PublicLayoutParams } from './layout'
+import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, truncate, type PublicLayoutParams } from './layout'
 import { renderAdSlot, findActiveSlotsByTemplate, generateAdsLoaderScript } from '../ads'
+import { getSetting } from '../db'
 
 // ============================================================================
 // Helpers
 // ============================================================================
 
-function formatDate(isoDate: string): string {
-  const date = new Date(isoDate)
-  return date.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  })
-}
-
-function truncate(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text
-  return text.substring(0, maxLength) + '...'
-}
+// Helpers removed and imported from layout.ts
 
 // ============================================================================
 // Component Renderers
@@ -43,7 +32,7 @@ function renderPostCard(post: CategoryPost, baseUrl: string, showImage: boolean)
       >
     </div>
   ` : ''
-  
+
   return `
     <article class="card hover:shadow-lg transition">
       <a href="/noticia/${escapeAttr(post.slug)}" class="card-body">
@@ -66,10 +55,10 @@ function renderPostCard(post: CategoryPost, baseUrl: string, showImage: boolean)
 
 function renderPagination(page: number, totalPages: number, baseUrl: string): string {
   if (totalPages <= 1) return ''
-  
+
   const prevPage = page > 1 ? page - 1 : null
   const nextPage = page < totalPages ? page + 1 : null
-  
+
   return `
     <nav id="pagination" class="flex justify-center items-center gap-4 my-12">
       ${prevPage ? `
@@ -107,33 +96,33 @@ export async function renderCategoryPage(
 ): Promise<string> {
   const { category, posts, page, totalPages } = data
   const { baseUrl, siteName, navItems, coverOfDay } = options
-  
+
   const nonce = c.get('cspNonce') || ''
   const canonicalUrl = `${baseUrl}/categoria/${category.slug}${page > 1 ? `?page=${page}` : ''}`
-  
+
   // Get ad slots
   const adSlots = await findActiveSlotsByTemplate(c.env, 'listing')
   const adTop = adSlots.find(s => s.name === 'listing_top')
   const adInfeed1 = adSlots.find(s => s.name === 'listing_infeed_1')
   const adInfeed2 = adSlots.find(s => s.name === 'listing_infeed_2')
-  
+
   // Render ads
   const pageContext = { path: c.req.path, referrer: c.req.header('referer') || '', template: 'listing' }
   const userContext = { isSubscriber: false, isLoggedIn: false }
-  
+
   const adTopHtml = adTop ? renderAdSlot({ slot: adTop, page: pageContext, user: userContext }) : ''
   const adInfeed1Html = adInfeed1 ? renderAdSlot({ slot: adInfeed1, page: pageContext, user: userContext }) : ''
   const adInfeed2Html = adInfeed2 ? renderAdSlot({ slot: adInfeed2, page: pageContext, user: userContext }) : ''
-  
+
   // Ads loader script
   const adsScript = await generateAdsLoaderScript(c.env)
-  
+
   // Build body HTML
   let bodyHtml = `
     <div class="container py-8">
       <!-- Category Header -->
       <div class="mb-8 text-center max-w-3xl mx-auto">
-        <h1 class="text-4xl font-black mb-4">
+        <h1 id="categoryTitle" class="text-4xl font-black mb-4">
           ${escapeHtml(category.name)}
         </h1>
         ${category.description ? `
@@ -147,15 +136,15 @@ export async function renderCategoryPage(
       ${adTopHtml ? `<div class="mb-8">${adTopHtml}</div>` : ''}
       
       <!-- Posts Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div id="categoryList" class="grid grid-cols-1 md:grid-cols-3 gap-6">
   `
-  
+
   // Render posts
   posts.forEach((post, index) => {
     // Show image for first post and every 3rd post thereafter
     const showImage = index === 0 || index % 3 === 0
     bodyHtml += renderPostCard(post, baseUrl, showImage)
-    
+
     // Insert ads (spanning full width)
     if (index === 5 && adInfeed1Html) {
       bodyHtml += `</div><div class="my-8">${adInfeed1Html}</div><div class="grid grid-cols-1 md:grid-cols-3 gap-6">`
@@ -164,7 +153,7 @@ export async function renderCategoryPage(
       bodyHtml += `</div><div class="my-8">${adInfeed2Html}</div><div class="grid grid-cols-1 md:grid-cols-3 gap-6">`
     }
   })
-  
+
   bodyHtml += `
       </div>
       
@@ -174,7 +163,11 @@ export async function renderCategoryPage(
     
     ${adsScript}
   `
-  
+
+  // Determine Theme
+  const themeSetting = await getSetting(c.env, 'public_theme')
+  const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
+
   // Use shared layout
   return renderPublicLayout({
     title: `${category.name} | ${siteName}`,
@@ -184,6 +177,7 @@ export async function renderCategoryPage(
     siteName,
     navItems,
     coverOfDay,
-    bodyHtml
+    bodyHtml,
+    theme
   })
 }

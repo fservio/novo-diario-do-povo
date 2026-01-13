@@ -16,7 +16,7 @@ export interface Env {
   KV: KVNamespace
   CACHE: KVNamespace // Alias para KV (bootstrap cache)
   R2: R2Bucket
-  
+
   // Environment Variables
   JWT_SECRET: string
   ADMIN_BOOTSTRAP_EMAIL: string
@@ -24,19 +24,20 @@ export interface Env {
   ADMIN_BOOTSTRAP_TOKEN?: string
   ALLOW_ADMIN_BOOTSTRAP?: string
   N8N_WEBHOOK_SECRET: string
+  N8N_API_KEY: string
   R2_BUCKET_NAME: string
   PUBLIC_BASE_URL: string
   CF_ENV: 'dev' | 'staging' | 'prod'
-  
+
   // Push (VAPID)
   PUSH_VAPID_PUBLIC_KEY?: string
   PUSH_VAPID_PRIVATE_KEY?: string
   PUSH_VAPID_SUBJECT?: string
-  
+
   // ASAAS Bootstrap (APENAS dev/staging)
   ASAAS_BOOTSTRAP_API_KEY?: string
   ASAAS_BOOTSTRAP_ENVIRONMENT?: 'sandbox' | 'production'
-  
+
   // Opcionais (controláveis via CMS)
   ADSENSE_CLIENT_ID?: string
   GAM_NETWORK_CODE?: string
@@ -98,6 +99,7 @@ export interface AppContext {
     email: string
     isSubscriber: boolean
   }
+  parsedBody?: any // Cached parsed body for CSRF validation
 }
 
 export interface AdminUser {
@@ -184,6 +186,7 @@ export interface Post {
   breaking_until?: string
   published_at?: string
   scheduled_at?: string
+  is_live: number
   created_at: string
   updated_at: string
 }

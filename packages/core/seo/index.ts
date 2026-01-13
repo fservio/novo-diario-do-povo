@@ -12,7 +12,7 @@ import type { Env, Post, Category } from '../types'
 export async function generateNewsSitemap(env: Env, baseUrl: string): Promise<string> {
   const twoDaysAgo = new Date()
   twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
-  
+
   const { getSetting } = await import('../db')
   const siteName = (await getSetting(env, 'site_name', 'public')) || 'Jornal'
 
@@ -45,6 +45,71 @@ export async function generateNewsSitemap(env: Env, baseUrl: string): Promise<st
         xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
 ${urls}
 </urlset>`
+}
+
+// ============================================================================
+// Full Sitemap (Todos os posts, categorias e tags)
+// ============================================================================
+
+export async function generateFullSitemap(env: Env, baseUrl: string): Promise<string> {
+  // 1. Posts
+  const posts = await env.DB.prepare(`
+    SELECT slug, updated_at 
+    FROM posts 
+    WHERE status = 'published' AND seo_noindex = 0
+    ORDER BY published_at DESC 
+    LIMIT 50000
+  `).all()
+
+  const postUrls = (posts.results || []).map((p: any) => `
+  <url>
+    <loc>${baseUrl}/noticia/${p.slug}</loc>
+    <lastmod>${new Date(p.updated_at || Date.now()).toISOString()}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>`).join('')
+
+  // 2. Categories
+  const categories = await env.DB.prepare(`SELECT slug FROM categories WHERE is_active = 1`).all()
+  const categoryUrls = (categories.results || []).map((c: any) => `
+  <url>
+    <loc>${baseUrl}/categoria/${c.slug}</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>`).join('')
+
+  // 3. Static Pages (Home, etc)
+  const staticUrls = `
+  <url>
+    <loc>${baseUrl}/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>`
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${staticUrls}
+${categoryUrls}
+${postUrls}
+</urlset>`
+}
+
+// ============================================================================
+// Robots.txt
+// ============================================================================
+
+export async function generateRobotsTxt(baseUrl: string): Promise<string> {
+  return [
+    'User-agent: *',
+    'Allow: /',
+    'Disallow: /admin/',
+    'Disallow: /api/',
+    'Disallow: /login',
+    'Disallow: /checkout',
+    '',
+    `Sitemap: ${baseUrl}/sitemap.xml`,
+    `Sitemap: ${baseUrl}/sitemap-news.xml`
+  ].join('\n')
 }
 
 // ============================================================================
@@ -91,8 +156,8 @@ export async function generateRssFeed(
       <pubDate>${new Date(post.published_at).toUTCString()}</pubDate>
     </item>`).join('')
 
-  const title = categorySlug 
-    ? `${siteName} - ${categorySlug}` 
+  const title = categorySlug
+    ? `${siteName} - ${categorySlug}`
     : siteName
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -108,6 +173,7 @@ ${items}
   </channel>
 </rss>`
 }
+
 
 // ============================================================================
 // JSON-LD NewsArticle
@@ -139,6 +205,58 @@ export function generateArticleJsonLd(
       '@type': 'WebPage',
       '@id': `${baseUrl}/noticia/${post.slug}`,
     },
+  }
+
+  if (post.coverMedia) {
+    jsonLd['image'] = {
+      '@type': 'ImageObject',
+      url: `${baseUrl}/i/${post.coverMedia.r2_key}`,
+      width: post.coverMedia.width,
+      height: post.coverMedia.height,
+    }
+  }
+
+  return JSON.stringify(jsonLd, null, 2)
+}
+
+// ============================================================================
+// JSON-LD LiveBlogPosting
+// ============================================================================
+
+export function generateLiveBlogJsonLd(
+  post: any,
+  updates: any[],
+  baseUrl: string,
+  siteName: string
+): string {
+  const jsonLd: any = {
+    '@context': 'https://schema.org',
+    '@type': 'LiveBlogPosting',
+    headline: post.title,
+    description: post.excerpt || '',
+    author: {
+      '@type': 'Person',
+      name: post.author?.name || 'Redação',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: siteName,
+      url: baseUrl,
+    },
+    url: `${baseUrl}/noticia/${post.slug}`,
+    datePublished: post.published_at,
+    dateModified: updates.length > 0 ? updates[0].published_at : post.updated_at,
+    coverageStartTime: post.published_at,
+    liveBlogUpdate: updates.map(update => ({
+      '@type': 'BlogPosting',
+      headline: update.title || '',
+      articleBody: update.content,
+      datePublished: update.published_at,
+      author: {
+        '@type': 'Person',
+        name: update.author_name || 'Redação',
+      }
+    })),
   }
 
   if (post.coverMedia) {
@@ -187,4 +305,14 @@ function escapeXml(text: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;')
+}
+
+export function escapeAttr(text: string): string {
+  if (!text) return ''
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
 }

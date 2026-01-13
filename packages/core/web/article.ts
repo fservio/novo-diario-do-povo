@@ -6,30 +6,16 @@
 import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
 import type { ArticlePost, RelatedPost } from '../db/article'
-import { renderPublicLayout, escapeHtml, escapeAttr, type PublicLayoutParams } from './layout'
+import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, estimateReadingTime, truncate, type PublicLayoutParams } from './layout'
 import { renderAdSlot, findActiveSlotsByTemplate, generateAdsLoaderScript } from '../ads'
-import { generateArticleJsonLd, generateBreadcrumbJsonLd } from '../seo'
+import { generateArticleJsonLd, generateLiveBlogJsonLd, generateBreadcrumbJsonLd } from '../seo'
 import { renderMarkdownToHtml, sanitizeHtml } from '../render/sanitize'
+import { renderLiveBlogTimeline, renderLiveBlogScript } from './liveblog'
+import { findLiveUpdates, getSetting } from '../db'
 
 // ============================================================================
 // Helpers
 // ============================================================================
-
-function formatDate(isoDate: string): string {
-  const date = new Date(isoDate)
-  return date.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric'
-  })
-}
-
-function estimateReadingTime(content: string): number {
-  const text = content.replace(/<[^>]+>/g, ' ')
-  const words = text.trim().split(/\s+/).filter(Boolean).length
-  const minutes = Math.ceil(words / 200)
-  return Math.max(1, minutes)
-}
 
 function truncateContent(html: string, maxLength: number): string {
   const text = html.replace(/<[^>]+>/g, '')
@@ -55,6 +41,9 @@ function looksLikeMarkdown(value: string | null | undefined): boolean {
 function renderArticleHeader(post: ArticlePost, readingTime: number): string {
   return `
     <header class="article-header">
+      <!-- Breadcrumb Marker -->
+      <nav id="breadcrumb" class="hidden"></nav>
+      
       <!-- Hat (Chapéu) -->
       ${post.hat ? `
         <div class="article-hat">
@@ -63,7 +52,7 @@ function renderArticleHeader(post: ArticlePost, readingTime: number): string {
       ` : ''}
       
       <!-- Title -->
-      <h1 class="article-title">
+      <h1 id="articleTitle" class="article-title">
         ${escapeHtml(post.title)}
       </h1>
       
@@ -77,26 +66,20 @@ function renderArticleHeader(post: ArticlePost, readingTime: number): string {
       <!-- Metadata -->
       <div class="article-meta">
         ${post.author_name ? `
-          <span class="font-bold text-gray-900">${escapeHtml(post.author_name)}</span>
+          <span class="font-bold" style="color: #202124; font-weight: 500;">${escapeHtml(post.author_name)}</span>
           <span class="text-gray-300">•</span>
         ` : ''}
         <span>${formatDate(post.published_at)}</span>
         <span class="text-gray-300">•</span>
         <span>${readingTime} min de leitura</span>
-        
-        <a href="/categoria/${escapeAttr(post.category_slug)}" class="text-accent font-bold" style="margin-left: auto;">
-          ${escapeHtml(post.category_name)}
-        </a>
       </div>
       
       <!-- Featured Image -->
       ${post.featured_image_r2_key ? `
-        <figure style="margin-top: 2rem;">
+        <figure class="article-featured-image">
           <img 
             src="/i/${escapeAttr(post.featured_image_r2_key)}" 
             alt="${escapeAttr(post.title)}"
-            class="card-img"
-            style="border-radius: var(--radius-lg); aspect-ratio: 2/1;"
             loading="eager"
           >
         </figure>
@@ -109,24 +92,24 @@ function renderArticleContent(content: string, isBlocked: boolean): string {
   if (isBlocked) {
     const snippet = truncateContent(content, 500)
     return `
-      <div class="article-content">
+      <div id="articleBody" class="article-content">
         ${snippet}
       </div>
       
-      <div class="paywall-box">
+      <div class="paywall-box container">
         <h3 class="font-bold text-xl mb-4">Conteúdo Exclusivo</h3>
         <p class="mb-6 text-gray-600">
           Este artigo é exclusivo para assinantes. Continue lendo e tenha acesso a análises profundas.
         </p>
-        <a href="/assine" class="paywall-cta">
+        <a href="/assine" class="paywall-cta" id="paywallCta">
           Assinar Agora
         </a>
       </div>
     `
   }
-  
+
   return `
-    <div class="article-content">
+    <div id="articleBody" class="article-content">
       ${content}
     </div>
   `
@@ -134,7 +117,7 @@ function renderArticleContent(content: string, isBlocked: boolean): string {
 
 function renderRelatedPosts(posts: RelatedPost[], baseUrl: string): string {
   if (posts.length === 0) return ''
-  
+
   return `
     <section class="container" style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--gray-200);">
       <h2 class="font-bold text-2xl mb-6">Leia também</h2>
@@ -164,10 +147,10 @@ function renderRelatedPosts(posts: RelatedPost[], baseUrl: string): string {
 // ============================================================================
 
 function generateOGTags(post: ArticlePost, baseUrl: string): string {
-  const imageUrl = post.featured_image_r2_key 
-    ? `${baseUrl}/i/${post.featured_image_r2_key}` 
+  const imageUrl = post.featured_image_r2_key
+    ? `${baseUrl}/i/${post.featured_image_r2_key}`
     : `${baseUrl}/static/default-og.jpg`
-  
+
   return `
     <meta property="og:type" content="article">
     <meta property="og:title" content="${escapeAttr(post.title)}">
@@ -198,7 +181,7 @@ export async function renderArticlePage(
   }
 ): Promise<string> {
   const { baseUrl, siteName, navItems, coverOfDay, relatedPosts, mostRead, isBlocked } = options
-  
+
   const nonce = c.get('cspNonce') || ''
   const canonicalUrl = post.seo_canonical || `${baseUrl}/noticia/${post.slug}`
   const contentHtml = post.content_markdown && post.content_markdown.length > 0
@@ -207,26 +190,26 @@ export async function renderArticlePage(
       ? renderMarkdownToHtml(post.content)
       : sanitizeHtml(post.content)
   const readingTime = estimateReadingTime(contentHtml)
-  
+
   // Get ad slots
   const adSlots = await findActiveSlotsByTemplate(c.env, 'article')
   const adTop = adSlots.find(s => s.name === 'article_top')
   const adInread1 = adSlots.find(s => s.name === 'article_inread_1')
   const adInread2 = adSlots.find(s => s.name === 'article_inread_2')
   const adFooter = adSlots.find(s => s.name === 'article_footer')
-  
+
   // Render ads context
   const pageContext = { path: c.req.path, referrer: c.req.header('referer') || '', template: 'article' }
   const userContext = { isSubscriber: !isBlocked, isLoggedIn: false }
-  
+
   const adTopHtml = adTop ? renderAdSlot({ slot: adTop, page: pageContext, user: userContext }) : ''
   const adInread1Html = adInread1 && !isBlocked ? renderAdSlot({ slot: adInread1, page: pageContext, user: userContext }) : ''
   const adInread2Html = adInread2 && !isBlocked ? renderAdSlot({ slot: adInread2, page: pageContext, user: userContext }) : ''
   const adFooterHtml = adFooter ? renderAdSlot({ slot: adFooter, page: pageContext, user: userContext }) : ''
-  
+
   // Ads loader script
   const adsScript = await generateAdsLoaderScript(c.env)
-  
+
   // Split content for ad insertion
   let contentWithAds = contentHtml
   if (!isBlocked) {
@@ -239,7 +222,7 @@ export async function renderArticlePage(
     }
     contentWithAds = paragraphs.join('</p>')
   }
-  
+
   // JSON-LD
   const postForJsonLd = {
     title: post.title,
@@ -254,35 +237,42 @@ export async function renderArticlePage(
       height: 675
     } : null
   }
-  
-  const articleJsonLd = generateArticleJsonLd(postForJsonLd, baseUrl, siteName)
+
+  const isLiveBlog = post.template === 'liveblog'
+  const liveUpdates = isLiveBlog ? await findLiveUpdates(c.env, post.id) : []
+
+  const articleJsonLd = isLiveBlog
+    ? generateLiveBlogJsonLd(postForJsonLd, liveUpdates, baseUrl, siteName)
+    : generateArticleJsonLd(postForJsonLd, baseUrl, siteName)
+
   const breadcrumbJsonLd = generateBreadcrumbJsonLd([
     { name: 'Home', url: baseUrl },
     { name: post.category_name, url: `${baseUrl}/categoria/${post.category_slug}` },
     { name: post.title, url: canonicalUrl }
   ], baseUrl)
-  
+
   const extraHeadHtml = `
     ${post.seo_noindex ? '<meta name="robots" content="noindex, follow">' : ''}
     ${generateOGTags(post, baseUrl)}
     <script type="application/ld+json" nonce="${nonce}">
-      ${JSON.stringify(articleJsonLd)}
+      ${articleJsonLd}
     </script>
     <script type="application/ld+json" nonce="${nonce}">
-      ${JSON.stringify(breadcrumbJsonLd)}
+      ${breadcrumbJsonLd}
     </script>
+    ${isLiveBlog && post.is_live ? renderLiveBlogScript(post.slug) : ''}
   `
-  
+
   // Build body HTML
   const bodyHtml = `
-    <article style="padding-bottom: 4rem;">
+    <article class="article-detail" style="padding-bottom: 4rem;">
       <!-- Ad: Top -->
       ${adTopHtml ? `<div class="container mb-8">${adTopHtml}</div>` : ''}
       
       ${renderArticleHeader(post, readingTime)}
       
       <!-- Content -->
-      ${renderArticleContent(contentWithAds, isBlocked)}
+      ${isLiveBlog ? renderLiveBlogTimeline(liveUpdates, post.is_live === 1) : renderArticleContent(contentWithAds, isBlocked)}
       
       ${!isBlocked ? `
         <!-- Ad: Footer -->
@@ -295,7 +285,11 @@ export async function renderArticlePage(
     
     ${adsScript}
   `
-  
+
+  // Determine Theme
+  const themeSetting = await getSetting(c.env, 'public_theme')
+  const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
+
   return renderPublicLayout({
     title: `${post.title} | ${siteName}`,
     description: post.excerpt || post.title,
@@ -305,6 +299,7 @@ export async function renderArticlePage(
     navItems,
     coverOfDay,
     bodyHtml,
-    extraHeadHtml
+    extraHeadHtml,
+    theme
   })
 }

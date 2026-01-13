@@ -55,21 +55,21 @@ function renderUsersList(users: any[], filters: ListStaffUsersFilters, csrfToken
   }
 
   const rolesHTML = `
-    <div class="mb-4 flex gap-2">
+    <div style="margin-bottom: 2rem; display: flex; flex-wrap: wrap; gap: 0.75rem;">
       <a href="/admin/users" 
-         class="px-3 py-1 rounded ${!filters.role ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}">
+         class="btn" style="${!filters.role ? 'background: var(--accent);' : 'background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color);'}">
         Todos
       </a>
       <a href="/admin/users?role=director" 
-         class="px-3 py-1 rounded ${filters.role === 'director' ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-800 hover:bg-purple-200'}">
+         class="btn" style="${filters.role === 'director' ? 'background: var(--accent);' : 'background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color);'}">
         Diretores
       </a>
       <a href="/admin/users?role=editor" 
-         class="px-3 py-1 rounded ${filters.role === 'editor' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800 hover:bg-blue-200'}">
+         class="btn" style="${filters.role === 'editor' ? 'background: var(--accent);' : 'background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color);'}">
         Editores
       </a>
       <a href="/admin/users?role=writer" 
-         class="px-3 py-1 rounded ${filters.role === 'writer' ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800 hover:bg-green-200'}">
+         class="btn" style="${filters.role === 'writer' ? 'background: var(--accent);' : 'background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color);'}">
         Redatores
       </a>
     </div>
@@ -77,29 +77,27 @@ function renderUsersList(users: any[], filters: ListStaffUsersFilters, csrfToken
 
   const usersRows = users.map(user => {
     const roleDisplay = normalizeRole(user.role)
-    const roleClass = roleColors[user.role] || 'bg-gray-100 text-gray-800'
-    const statusBadge = user.is_active 
-      ? '<span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Ativo</span>'
-      : '<span class="px-2 py-1 bg-red-100 text-red-800 rounded text-xs">Inativo</span>'
+    const statusBadge = user.is_active
+      ? '<span style="display: inline-flex; align-items: center; justify-content: center; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; background: rgba(16, 185, 129, 0.1); color: #10b981;">Ativo</span>'
+      : '<span style="display: inline-flex; align-items: center; justify-content: center; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; background: rgba(239, 68, 68, 0.1); color: #ef4444;">Inativo</span>'
 
     return `
-      <tr class="hover:bg-gray-50">
-        <td class="px-4 py-3 border-b">
-          <div class="font-medium">${escapeHtml(user.name)}</div>
-          <div class="text-sm text-gray-600">${escapeHtml(user.email)}</div>
+      <tr>
+        <td>
+          <div style="font-weight: 700;">${escapeHtml(user.name)}</div>
+          <div style="font-size: 0.8125rem; color: var(--text-muted);">${escapeHtml(user.email)}</div>
         </td>
-        <td class="px-4 py-3 border-b">
-          <span class="px-2 py-1 rounded text-xs font-medium ${roleClass}">
+        <td>
+          <span style="font-size: 0.8125rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">
             ${roleDisplay}
           </span>
         </td>
-        <td class="px-4 py-3 border-b">${statusBadge}</td>
-        <td class="px-4 py-3 border-b text-sm text-gray-600">
+        <td>${statusBadge}</td>
+        <td style="color: var(--text-muted); font-size: 0.875rem;">
           ${user.last_login_at ? new Date(user.last_login_at).toLocaleDateString('pt-BR') : 'Nunca'}
         </td>
-        <td class="px-4 py-3 border-b">
-          <a href="/admin/users/${user.id}" 
-             class="text-blue-600 hover:text-blue-800 text-sm">
+        <td>
+          <a href="/admin/users/${user.id}" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color);">
             Editar
           </a>
         </td>
@@ -108,25 +106,24 @@ function renderUsersList(users: any[], filters: ListStaffUsersFilters, csrfToken
   }).join('')
 
   return `
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold">Usuários</h1>
-      <a href="/admin/users/new" 
-         class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-        + Novo Usuário
+    <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+      <h1 class="section-title" style="margin: 0;">Usuários</h1>
+      <a href="/admin/users/new" class="btn">
+        <span>+</span> Novo Usuário
       </a>
     </div>
 
     ${rolesHTML}
 
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-      <table class="w-full" id="usersTable">
-        <thead class="bg-gray-50">
+    <div class="card" style="padding: 0; overflow: hidden;">
+      <table>
+        <thead>
           <tr>
-            <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">Nome / Email</th>
-            <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">Papel</th>
-            <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
-            <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">Último Login</th>
-            <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">Ações</th>
+            <th>Nome / Email</th>
+            <th>Papel</th>
+            <th>Status</th>
+            <th>Último Login</th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -142,159 +139,149 @@ function renderUserForm(user: any | null, csrfToken: string, error?: string): st
   const title = isEdit ? 'Editar Usuário' : 'Novo Usuário'
 
   const errorHTML = error ? `
-    <div class="mb-4 p-4 bg-red-100 text-red-800 rounded">
-      ${escapeHtml(error)}
+    <div class="error" style="margin-bottom: 2rem; padding: 1.25rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: var(--radius-md); color: #ef4444; font-weight: 500;">
+      ⚠️ ${escapeHtml(error)}
     </div>
   ` : ''
 
   const formAction = isEdit ? `/admin/users/${user!.id}` : '/admin/users'
 
   return `
-    <div class="max-w-2xl">
-      <h1 class="text-2xl font-bold mb-6">${title}</h1>
+    <div style="max-width: 800px;">
+      <div style="margin-bottom: 2rem;">
+        <a href="/admin/users" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem; font-weight: 600; display: flex; align-items: center; gap: 0.25rem;">
+          ← Voltar para a lista
+        </a>
+        <h1 class="section-title" style="margin-top: 0.5rem;">${title}</h1>
+      </div>
 
       ${errorHTML}
 
-      <form method="POST" action="${formAction}" class="bg-white rounded-lg shadow p-6">
-        <input type="hidden" name="csrf_token" value="${csrfToken}" />
+      <div class="card">
+        <form method="POST" action="${formAction}">
+          <input type="hidden" name="csrf_token" value="${csrfToken}" />
 
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            Email *
-          </label>
-          <input 
-            type="email" 
-            name="email" 
-            value="${escapeHtml(user?.email || '')}"
-            required
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            Nome *
-          </label>
-          <input 
-            type="text" 
-            name="name" 
-            value="${escapeHtml(user?.name || '')}"
-            required
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            Papel *
-          </label>
-          <select 
-            name="role" 
-            required
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="writer" ${user?.role === 'writer' ? 'selected' : ''}>Redator</option>
-            <option value="editor" ${user?.role === 'editor' ? 'selected' : ''}>Editor</option>
-            <option value="director" ${user?.role === 'director' || user?.role === 'admin' ? 'selected' : ''}>Diretor</option>
-          </select>
-          <p class="mt-1 text-sm text-gray-600">
-            Redator: criar e editar próprios posts | Editor: publicar e editar todos | Diretor: acesso total
-          </p>
-        </div>
-
-        ${!isEdit ? `
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Senha *
-            </label>
+          <div class="field">
+            <label>Email *</label>
             <input 
-              type="password" 
-              name="password" 
+              type="email" 
+              name="email" 
+              value="${escapeHtml(user?.email || '')}"
               required
-              minlength="8"
-              class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="exemplo@jornal.com"
             />
-            <p class="mt-1 text-sm text-gray-600">Mínimo 8 caracteres</p>
           </div>
 
-          <div class="mb-4">
-            <label class="flex items-center">
-              <input type="checkbox" name="must_change_password" value="1" class="mr-2" />
-              <span class="text-sm text-gray-700">Forçar troca de senha no primeiro login</span>
-            </label>
+          <div class="field">
+            <label>Nome Completo *</label>
+            <input 
+              type="text" 
+              name="name" 
+              value="${escapeHtml(user?.name || '')}"
+              required
+              placeholder="Nome do colaborador"
+            />
           </div>
-        ` : ''}
 
-        <div class="flex gap-3">
-          <button 
-            type="submit" 
-            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            ${isEdit ? 'Salvar' : 'Criar'}
-          </button>
-          <a 
-            href="/admin/users" 
-            class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-          >
-            Cancelar
-          </a>
-        </div>
-      </form>
+          <div class="field">
+            <label>Papel (Cargo) *</label>
+            <select name="role" required>
+              <option value="writer" ${user?.role === 'writer' ? 'selected' : ''}>Redator</option>
+              <option value="editor" ${user?.role === 'editor' ? 'selected' : ''}>Editor</option>
+              <option value="director" ${user?.role === 'director' || user?.role === 'admin' ? 'selected' : ''}>Diretor</option>
+            </select>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+              <strong>Redator:</strong> cria e edita posts | <strong>Editor:</strong> publica tudo | <strong>Diretor:</strong> acesso total
+            </div>
+          </div>
+
+          ${!isEdit ? `
+            <div class="field">
+              <label>Senha Provisória *</label>
+              <input 
+                type="password" 
+                name="password" 
+                required
+                minlength="8"
+                placeholder="Mínimo 8 caracteres"
+              />
+            </div>
+
+            <div class="field">
+              <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 0.75rem; background: var(--bg-main); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                <input type="checkbox" name="must_change_password" value="1" style="width: auto; margin: 0;" />
+                <span style="font-weight: 600;">Forçar troca de senha no primeiro login</span>
+              </label>
+            </div>
+          ` : ''}
+
+          <div style="display: flex; gap: 1rem; margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 2rem;">
+            <button type="submit" class="btn" style="min-width: 150px;">
+               ${isEdit ? 'Salvar Alterações' : 'Criar Usuário'}
+            </button>
+            <a href="/admin/users" class="btn" style="background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); text-decoration: none;">
+              Cancelar
+            </a>
+          </div>
+        </form>
+      </div>
 
       ${isEdit ? `
-        <div class="mt-8 bg-white rounded-lg shadow p-6">
-          <h2 class="text-lg font-bold mb-4">Ações</h2>
+        <div class="card" style="margin-top: 2rem;">
+          <h2 style="font-size: 1.125rem; font-weight: 700; mb-6; color: var(--text-main);">🔒 Segurança & Ações</h2>
 
-          <div class="space-y-3">
+          <div style="display: flex; flex-direction: column; gap: 1.5rem; margin-top: 1.5rem;">
             <!-- Reset Password -->
-            <details class="border rounded p-3">
-              <summary class="cursor-pointer font-medium text-orange-600">
-                Resetar Senha
+            <details style="border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow: hidden;">
+              <summary style="cursor: pointer; font-weight: 700; padding: 1rem; background: var(--bg-main); color: #f59e0b;">
+                🔄 Alterar / Resetar Senha
               </summary>
-              <form method="POST" action="/admin/users/${user.id}/reset-password" class="mt-3">
+              <form method="POST" action="/admin/users/${user.id}/reset-password" style="padding: 1.5rem; background: var(--bg-card);">
                 <input type="hidden" name="csrf_token" value="${csrfToken}" />
-                <div class="mb-3">
+                <div class="field">
                   <input 
                     type="password" 
                     name="password" 
                     placeholder="Nova senha (mín. 8 caracteres)"
                     required
                     minlength="8"
-                    class="w-full px-3 py-2 border border-gray-300 rounded"
                   />
                 </div>
-                <button 
-                  type="submit" 
-                  class="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700"
-                >
-                  Resetar Senha
+                <button type="submit" class="btn" style="background: #f59e0b; width: 100%;">
+                  Resetar Senha do Usuário
                 </button>
               </form>
             </details>
 
             <!-- Enable/Disable -->
-            ${user.is_active ? `
-              <form method="POST" action="/admin/users/${user.id}/disable">
-                <input type="hidden" name="csrf_token" value="${csrfToken}" />
-                <button 
-                  type="submit" 
-                  class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                  onclick="return confirm('Tem certeza que deseja desativar este usuário?')"
-                >
-                  Desativar Usuário
-                </button>
-              </form>
-            ` : `
-              <form method="POST" action="/admin/users/${user.id}/enable">
-                <input type="hidden" name="csrf_token" value="${csrfToken}" />
-                <button 
-                  type="submit" 
-                  class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                >
-                  Reativar Usuário
-                </button>
-              </form>
-            `}
+            <div style="padding: 1.5rem; background: var(--bg-main); border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <div style="font-weight: 700; color: var(--text-main);">${user.is_active ? 'Desativar Acesso' : 'Reativar Acesso'}</div>
+                <div style="font-size: 0.8125rem; color: var(--text-muted);">${user.is_active ? 'O usuário não conseguirá mais fazer login.' : 'O usuário voltará a ter acesso ao painel.'}</div>
+              </div>
+              ${user.is_active ? `
+                <form method="POST" action="/admin/users/${user.id}/disable">
+                  <input type="hidden" name="csrf_token" value="${csrfToken}" />
+                  <button 
+                    type="submit" 
+                    class="btn" style="background: #ef4444;"
+                    onclick="return confirm('Tem certeza que deseja desativar este usuário?')"
+                  >
+                    Desativar
+                  </button>
+                </form>
+              ` : `
+                <form method="POST" action="/admin/users/${user.id}/enable">
+                  <input type="hidden" name="csrf_token" value="${csrfToken}" />
+                  <button 
+                    type="submit" 
+                    class="btn" style="background: #10b981;"
+                  >
+                    Reativar
+                  </button>
+                </form>
+              `}
+            </div>
           </div>
         </div>
       ` : ''}
@@ -344,7 +331,7 @@ export async function handleUsersCreate(c: Context<{ Bindings: Env; Variables: A
 
   try {
     const formData = await c.req.parseBody()
-    
+
     const payload = createUserSchema.parse({
       email: formData.email,
       password: formData.password,
@@ -377,7 +364,7 @@ export async function handleUsersEdit(c: Context<{ Bindings: Env; Variables: App
   }
 
   const user = await getStaffUserById(c.env, userId)
-  
+
   if (!user) {
     return c.html('<h1>User not found</h1>', 404)
   }
@@ -401,7 +388,7 @@ export async function handleUsersUpdate(c: Context<{ Bindings: Env; Variables: A
 
   try {
     const formData = await c.req.parseBody()
-    
+
     const payload = updateUserSchema.parse({
       email: formData.email || undefined,
       name: formData.name || undefined,
@@ -433,7 +420,7 @@ export async function handleUsersResetPassword(c: Context<{ Bindings: Env; Varia
 
   try {
     const formData = await c.req.parseBody()
-    
+
     const payload = resetPasswordSchema.parse({
       password: formData.password,
     })

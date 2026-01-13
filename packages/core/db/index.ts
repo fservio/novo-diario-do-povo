@@ -103,7 +103,7 @@ export async function findPublishedPosts(
   if (filters.limit) {
     query += ' LIMIT ?'
     bindings.push(filters.limit)
-    
+
     if (filters.offset) {
       query += ' OFFSET ?'
       bindings.push(filters.offset)
@@ -153,6 +153,83 @@ export async function findPostWithRelations(env: Env, slug: string) {
 }
 
 // ============================================================================
+// LiveBlog Updates Repository
+// ============================================================================
+
+export interface LiveBlogUpdate {
+  id: number
+  post_id: number
+  author_id: number
+  title: string | null
+  content: string
+  content_markdown: string | null
+  is_pinned: number
+  published_at: string
+  created_at: string
+  updated_at: string
+  // Joined
+  author_name?: string
+}
+
+export async function findLiveUpdates(
+  env: Env,
+  postId: number,
+  params: { limit?: number; offset?: number } = {}
+): Promise<LiveBlogUpdate[]> {
+  const limit = params.limit || 50
+  const offset = params.offset || 0
+
+  const result = await env.DB.prepare(`
+    SELECT u.*, a.name as author_name
+    FROM live_blog_updates u
+    LEFT JOIN authors a ON a.id = u.author_id
+    WHERE u.post_id = ?
+    ORDER BY u.is_pinned DESC, u.published_at DESC
+    LIMIT ? OFFSET ?
+  `).bind(postId, limit, offset).all<LiveBlogUpdate>()
+
+  return result.results || []
+}
+
+export async function createLiveBlogUpdate(
+  env: Env,
+  data: {
+    post_id: number
+    author_id: number
+    title?: string
+    content: string
+    content_markdown?: string
+    is_pinned?: number
+  }
+): Promise<number> {
+  const now = new Date().toISOString()
+  const result = await env.DB.prepare(`
+    INSERT INTO live_blog_updates (
+      post_id, author_id, title, content, content_markdown, is_pinned, published_at, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    data.post_id,
+    data.author_id,
+    data.title || null,
+    data.content,
+    data.content_markdown || null,
+    data.is_pinned ?? 0,
+    now,
+    now,
+    now
+  ).run()
+
+  return result.meta.last_row_id as number
+}
+
+export async function deleteLiveBlogUpdate(
+  env: Env,
+  id: number
+): Promise<void> {
+  await env.DB.prepare('DELETE FROM live_blog_updates WHERE id = ?').bind(id).run()
+}
+
+// ============================================================================
 // Categories Repository
 // ============================================================================
 
@@ -166,7 +243,7 @@ export async function findAllCategories(env: Env): Promise<Category[]> {
   const result = await env.DB.prepare(
     'SELECT * FROM categories WHERE is_active = 1 ORDER BY display_order ASC, name ASC'
   ).all<Category>()
-  
+
   return result.results || []
 }
 
@@ -214,7 +291,7 @@ export async function findActivePlans(env: Env): Promise<Plan[]> {
   const result = await env.DB.prepare(
     'SELECT * FROM plans WHERE is_active = 1 ORDER BY display_order ASC'
   ).all<Plan>()
-  
+
   return result.results || []
 }
 
@@ -268,7 +345,7 @@ export async function getSetting(env: Env, key: string, scope: 'public' | 'priva
   // Try cache first
   const cacheKey = `settings:${scope}:${key}`
   const cached = await env.KV.get(cacheKey)
-  
+
   if (cached) {
     return JSON.parse(cached)
   }
@@ -360,3 +437,9 @@ export * from './posts'
 // ============================================================================
 
 export * from './authors'
+
+// ============================================================================
+// Media Repository (import from dedicated module)
+// ============================================================================
+
+export * from './media'
