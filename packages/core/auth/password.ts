@@ -56,11 +56,11 @@ function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
 export async function hashPassword(password: string): Promise<string> {
   // Generate random salt
   const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH))
-  
+
   // Encode password
   const encoder = new TextEncoder()
   const passwordBuffer = encoder.encode(password)
-  
+
   // Import key
   const key = await crypto.subtle.importKey(
     'raw',
@@ -69,7 +69,7 @@ export async function hashPassword(password: string): Promise<string> {
     false,
     ['deriveBits']
   )
-  
+
   // Derive key bits
   const derivedBits = await crypto.subtle.deriveBits(
     {
@@ -81,13 +81,13 @@ export async function hashPassword(password: string): Promise<string> {
     key,
     KEY_LENGTH * 8 // bits
   )
-  
+
   const derivedKey = new Uint8Array(derivedBits)
-  
+
   // Format: pbkdf2_sha256$<iterations>$<salt_b64url>$<key_b64url>
   const saltEncoded = base64UrlEncode(salt)
   const keyEncoded = base64UrlEncode(derivedKey)
-  
+
   return `${PBKDF2_PREFIX}${PBKDF2_ITERATIONS}$${saltEncoded}$${keyEncoded}`
 }
 
@@ -106,11 +106,11 @@ export async function verifyPassword(
 ): Promise<VerifyResult> {
   // Sanitize stored hash (trim whitespace, remove quotes if jsonified)
   storedHash = (storedHash || '').trim()
-  
+
   if (storedHash.startsWith('"') && storedHash.endsWith('"')) {
     storedHash = storedHash.slice(1, -1).trim()
   }
-  
+
   // Case 1: PBKDF2 hash
   if (storedHash.startsWith(PBKDF2_PREFIX)) {
     try {
@@ -126,19 +126,19 @@ export async function verifyPassword(
       return { ok: false, needsRehash: false }
     }
   }
-  
+
   // Case 2: bcrypt hash (legacy) - auto-rehash on success
   if (storedHash.match(/^\$2[aby]\$/)) {
     try {
       // Dynamic import bcryptjs (only when needed for legacy hashes)
       const bcrypt = await import('bcryptjs')
       const isValid = await bcrypt.compare(password, storedHash)
-      
+
       if (isValid) {
         // Password correct, but hash needs upgrade
         return { ok: true, needsRehash: true }
       }
-      
+
       return { ok: false, needsRehash: false }
     } catch (error) {
       console.error('[Password] bcrypt verification error (legacy hash):', {
@@ -147,9 +147,21 @@ export async function verifyPassword(
       return { ok: false, needsRehash: false }
     }
   }
-  
+
+  // Case 3: Simple SHA256 (for manual fixes/bootstrap)
+  if (storedHash.startsWith('sha256$')) {
+    const hash = storedHash.split('$')[1]
+    const encoder = new TextEncoder()
+    const data = encoder.encode(password)
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const currentHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+
+    return { ok: currentHash === hash, needsRehash: true }
+  }
+
   // Unknown hash format
-  console.error('[Password] Unknown hash format')
+  console.error('[Password] Unknown hash format', { prefix: storedHash.substring(0, 10) })
   return { ok: false, needsRehash: false }
 }
 
@@ -160,26 +172,26 @@ export async function verifyPassword(
 async function verifyPBKDF2(password: string, storedHash: string): Promise<boolean> {
   // Sanitize hash
   storedHash = storedHash.trim()
-  
+
   // Parse hash: pbkdf2_sha256$<iterations>$<salt_b64url>$<key_b64url>
   const parts = storedHash.split('$').map(p => p.trim())
-  
+
   if (parts.length !== 4 || parts[0] !== 'pbkdf2_sha256') {
     throw new Error('Invalid PBKDF2 hash format')
   }
-  
+
   const iterations = parseInt(parts[1], 10)
   const saltEncoded = parts[2]
   const keyEncoded = parts[3]
-  
+
   if (isNaN(iterations) || iterations < 1000) {
     throw new Error('Invalid PBKDF2 iterations')
   }
-  
+
   // Decode salt and stored key
   const salt = base64UrlDecode(saltEncoded)
   const storedKey = base64UrlDecode(keyEncoded)
-  
+
   // DEBUG: Log lengths
   console.log('[PBKDF2 Debug]', {
     parts: parts.length,
@@ -189,20 +201,20 @@ async function verifyPBKDF2(password: string, storedHash: string): Promise<boole
     saltEncoded: saltEncoded.substring(0, 10),
     keyEncoded: keyEncoded.substring(0, 10),
   })
-  
+
   // Validate key length
   if (storedKey.length !== KEY_LENGTH) {
     throw new Error(`Invalid stored key length: ${storedKey.length}, expected ${KEY_LENGTH}`)
   }
-  
+
   if (salt.length !== SALT_LENGTH) {
     throw new Error(`Invalid salt length: ${salt.length}, expected ${SALT_LENGTH}`)
   }
-  
+
   // Encode password
   const encoder = new TextEncoder()
   const passwordBuffer = encoder.encode(password)
-  
+
   try {
     // Import key
     const key = await crypto.subtle.importKey(
@@ -212,7 +224,7 @@ async function verifyPBKDF2(password: string, storedHash: string): Promise<boole
       false,
       ['deriveBits']
     )
-    
+
     // Derive key bits
     const derivedBits = await crypto.subtle.deriveBits(
       {
@@ -224,9 +236,9 @@ async function verifyPBKDF2(password: string, storedHash: string): Promise<boole
       key,
       KEY_LENGTH * 8 // bits
     )
-    
+
     const derivedKey = new Uint8Array(derivedBits)
-    
+
     // DEBUG: Log derived key prefix (safe for debugging)
     const derivedHex = Array.from(derivedKey.slice(0, 8))
       .map(b => b.toString(16).padStart(2, '0'))
@@ -234,13 +246,13 @@ async function verifyPBKDF2(password: string, storedHash: string): Promise<boole
     const storedHex = Array.from(storedKey.slice(0, 8))
       .map(b => b.toString(16).padStart(2, '0'))
       .join('')
-    
+
     console.log('[PBKDF2 Compare]', {
       derivedPrefix: derivedHex,
       storedPrefix: storedHex,
       match: derivedHex === storedHex
     })
-    
+
     // Timing-safe comparison
     return timingSafeEqual(derivedKey, storedKey)
   } catch (error) {
@@ -259,10 +271,10 @@ async function verifyPBKDF2(password: string, storedHash: string): Promise<boole
 export function maskEmail(email: string): string {
   const [local, domain] = email.split('@')
   if (!local || !domain) return '***'
-  
+
   if (local.length <= 1) {
     return `${local[0]}***@${domain}`
   }
-  
+
   return `${local[0]}***@${domain}`
 }
