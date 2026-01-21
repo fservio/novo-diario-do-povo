@@ -311,6 +311,24 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     .img-aesthetic:hover {
       filter: none;
     }
+    
+    /* CRITICAL: Mobile Padding Fix */
+    @media (max-width: 768px) {
+      html, body {
+        overflow-x: hidden !important;
+        max-width: 100vw !important;
+      }
+      
+      .gb-container {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+      }
+      
+      .gb-grid {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+      }
+    }
   </style>
 
   ${extraHeadHtml}
