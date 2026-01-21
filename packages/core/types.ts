@@ -187,6 +187,7 @@ export interface Post {
   published_at?: string
   scheduled_at?: string
   is_live: number
+  original_link?: string
   created_at: string
   updated_at: string
 }

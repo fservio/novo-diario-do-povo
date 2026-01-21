@@ -45,6 +45,7 @@ const createPostSchema = z.object({
   paywall_tier: z.enum(['free', 'metered', 'hard']).optional().or(z.literal('').transform((): string | undefined => undefined)),
   metering_exempt: z.coerce.number().int().min(0).max(1).optional(),
   is_live: z.coerce.number().int().min(0).max(1).optional(),
+  is_headline: z.coerce.number().int().min(0).max(1).optional(),
   tags: z.array(z.coerce.number().int().positive()).optional(),
 })
 
@@ -494,6 +495,23 @@ function renderPostFormPage(params: {
               }
             });
           </script>
+        </div>
+
+        <div class="field" style="margin-bottom: 0;">
+          <label>Destaque</label>
+          <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; margin-top: 0.5rem; background: var(--bg-card); padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+            <input 
+              type="checkbox" 
+              name="is_headline" 
+              value="1"
+              ${post?.is_headline ? 'checked' : ''}
+              style="width: auto; margin: 0;"
+            >
+            <span style="font-weight: 700; color: var(--accent);">⭐ Fixar como Manchete (Hero)</span>
+          </label>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+            Se marcado, este post ocupará o espaço principal da Home.
+          </div>
         </div>
         
         <div class="field" style="margin-bottom: 0;">

@@ -1,0 +1,242 @@
+{
+    "name": "Novo Diario do Povo - Full Post Creation",
+    "nodes": [
+        {
+            "parameters": {},
+            "name": "Start",
+            "type": "n8n-nodes-base.start",
+            "typeVersion": 1,
+            "position": [
+                240,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "values": {
+                    "string": [
+                        {
+                            "name": "BASE_URL",
+                            "value": "https://novo-diario-do-povo.pages.dev"
+                        },
+                        {
+                            "name": "API_KEY",
+                            "value": "CHANGE_ME_IN_ADMIN_INTEGRATIONS"
+                        }
+                    ]
+                }
+            },
+            "name": "Set Config",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 1,
+            "position": [
+                460,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "values": {
+                    "string": [
+                        {
+                            "name": "title",
+                            "value": "Post Automático via n8n"
+                        },
+                        {
+                            "name": "hat",
+                            "value": "AUTOMATIZAÇÃO"
+                        },
+                        {
+                            "name": "excerpt",
+                            "value": "Este resumo foi gerado automaticamente pelo fluxo do n8n."
+                        },
+                        {
+                            "name": "content",
+                            "value": "<p>Este é um post de <strong>exemplo</strong> criado automaticamente.</p><ul><li>Integração total</li><li>Upload de Imagem</li><li>Campos SEO</li></ul>"
+                        }
+                    ],
+                    "number": [
+                        {
+                            "name": "category_id",
+                            "value": 1
+                        },
+                        {
+                            "name": "author_id",
+                            "value": 1
+                        },
+                        {
+                            "name": "is_live",
+                            "value": 0
+                        },
+                        {
+                            "name": "seo_noindex",
+                            "value": 0
+                        }
+                    ]
+                }
+            },
+            "name": "Define Post Data",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 1,
+            "position": [
+                680,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "url": "https://picsum.photos/800/400",
+                "responseFormat": "file",
+                "options": {}
+            },
+            "name": "Get Random Image",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                900,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{$node[\"Set Config\"].json[\"BASE_URL\"]}}/api/n8n/media",
+                "sendBinaryData": true,
+                "binaryPropertyName": "data",
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "X-API-Key",
+                            "value": "={{$node[\"Set Config\"].json[\"API_KEY\"]}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Upload Media",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                1120,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{$node[\"Set Config\"].json[\"BASE_URL\"]}}/api/n8n/posts",
+                "sendBody": true,
+                "contentType": "json",
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "X-API-Key",
+                            "value": "={{$node[\"Set Config\"].json[\"API_KEY\"]}}"
+                        }
+                    ]
+                },
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "title",
+                            "value": "={{$node[\"Define Post Data\"].json[\"title\"]}}"
+                        },
+                        {
+                            "name": "hat",
+                            "value": "={{$node[\"Define Post Data\"].json[\"hat\"]}}"
+                        },
+                        {
+                            "name": "excerpt",
+                            "value": "={{$node[\"Define Post Data\"].json[\"excerpt\"]}}"
+                        },
+                        {
+                            "name": "content",
+                            "value": "={{$node[\"Define Post Data\"].json[\"content\"]}}"
+                        },
+                        {
+                            "name": "category_id",
+                            "value": "={{$node[\"Define Post Data\"].json[\"category_id\"]}}"
+                        },
+                        {
+                            "name": "author_id",
+                            "value": "={{$node[\"Define Post Data\"].json[\"author_id\"]}}"
+                        },
+                        {
+                            "name": "cover_media_id",
+                            "value": "={{$json[\"id\"]}}"
+                        },
+                        {
+                            "name": "is_live",
+                            "value": "={{$node[\"Define Post Data\"].json[\"is_live\"]}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Create Post",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                1340,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Start": {
+            "main": [
+                [
+                    {
+                        "node": "Set Config",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Set Config": {
+            "main": [
+                [
+                    {
+                        "node": "Define Post Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Define Post Data": {
+            "main": [
+                [
+                    {
+                        "node": "Get Random Image",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Random Image": {
+            "main": [
+                [
+                    {
+                        "node": "Upload Media",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Upload Media": {
+            "main": [
+                [
+                    {
+                        "node": "Create Post",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

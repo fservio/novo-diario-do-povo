@@ -14,6 +14,7 @@ import {
 import { bootstrapAdmin } from '../packages/core/auth'
 
 import type { CreatePostInput } from '../packages/core/db/posts'
+import { getPostUrl } from '../packages/core/utils/post'
 
 // ============================================================================
 // Initialize App
@@ -75,13 +76,26 @@ app.use('*', securityHeaders)
 
 // Middleware validation
 app.use('/api/n8n/*', async (c, next) => {
-  const apiKey = c.req.header('X-API-Key')
+  const apiKeyHeader = c.req.header('X-API-Key')
 
-  if (!apiKey || apiKey !== c.env.N8N_API_KEY) {
-    return c.json({ success: false, error: 'Unauthorized' }, 401)
+  if (!apiKeyHeader) {
+    return c.json({ success: false, error: 'Unauthorized: Missing Key' }, 401)
   }
 
-  await next()
+  // Check DB setting first (new method)
+  const { getSetting } = await import('../packages/core/db')
+  const dbKey = await getSetting(c.env, 'n8n_api_key', 'private')
+
+  if (dbKey && apiKeyHeader === dbKey) {
+    return next()
+  }
+
+  // Check Env var (legacy/fallback)
+  if (c.env.N8N_API_KEY && apiKeyHeader === c.env.N8N_API_KEY) {
+    return next()
+  }
+
+  return c.json({ success: false, error: 'Unauthorized: Invalid Key' }, 401)
 })
 
 // POST /api/n8n/media - Upload media
@@ -178,7 +192,9 @@ app.post('/api/n8n/posts', async (c) => {
       seo_description: body.seo_description,
       is_premium: body.is_premium || 0,
       seo_noindex: body.seo_noindex || 0,
-      tags: body.tags
+      is_headline: body.is_headline || 0,
+      tags: body.tags,
+      original_link: body.original_link
     }
 
     const postId = await createPost(c.env.DB, input)
@@ -198,11 +214,75 @@ app.post('/api/n8n/posts', async (c) => {
         id: postId,
         slug: post?.slug,
         status: post?.status,
-        url: `${c.env.PUBLIC_BASE_URL}/${post?.category_name || 'noticia'}/${post?.slug}`
+        url: post ? getPostUrl(post, c.env.PUBLIC_BASE_URL) : ''
       }
     })
   } catch (error: any) {
     console.error('[n8n] Create post error:', error)
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
+// GET /api/n8n/posts - List posts (with filters like missing_cover)
+app.get('/api/n8n/posts', async (c) => {
+  try {
+    const { listPosts } = await import('../packages/core/db/posts')
+    const limit = Number(c.req.query('limit')) || 20
+    const offset = Number(c.req.query('offset')) || 0
+    const missing_cover = c.req.query('missing_cover') === 'true'
+    const status = c.req.query('status') || undefined
+    const slug = c.req.query('slug') || undefined
+    const original_link = c.req.query('original_link') || undefined
+    let search = c.req.query('search') || undefined
+
+    // Truncate search if too long to avoid D1 "LIKE pattern too complex" error
+    if (search && search.length > 30) {
+      search = search.substring(0, 30)
+    }
+
+    const result = await listPosts(c.env.DB, {
+      limit,
+      offset,
+      missing_cover,
+      status,
+      slug,
+      original_link,
+      search
+    })
+
+    return c.json({ success: true, count: result.total, data: result.posts })
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
+// PATCH /api/n8n/posts/:id - Update post
+app.patch('/api/n8n/posts/:id', async (c) => {
+  try {
+    const { updatePost } = await import('../packages/core/db/posts')
+    const id = Number(c.req.param('id'))
+    const body = await c.req.json() as any
+
+    await updatePost(c.env.DB, id, body)
+
+    return c.json({ success: true, id })
+  } catch (e: any) {
+    return c.json({ success: false, error: e.message }, 500)
+  }
+})
+
+// GET /api/n8n/media - List media (search by query/filename)
+app.get('/api/n8n/media', async (c) => {
+  try {
+    const { listMedia } = await import('../packages/core/db/media')
+    const query = c.req.query('query') || ''
+    const filename = c.req.query('filename') || ''
+    const limit = Number(c.req.query('limit')) || 20
+
+    const result = await listMedia(c.env, { query, filename, limit })
+
+    return c.json({ success: true, count: result.total, data: result.items })
+  } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500)
   }
 })
@@ -487,10 +567,12 @@ app.get('/rss/:section.xml', async (c) => {
 })
 
 // ============================================================================
-// Admin Routes (Protected)
-// ============================================================================
+app.get('/login', async (c) => {
+  const { renderLoginPage } = await import('../packages/core/admin/ui')
+  const error = c.req.query('error')
+  return c.html(renderLoginPage(error))
+})
 
-// Apply admin middleware to all /admin routes
 // Apply admin authentication middleware (except /admin/login and /admin/logout)
 app.use('/admin/*', async (c, next) => {
   // Skip middleware for login/logout routes
@@ -831,6 +913,20 @@ app.get('/admin/authors/:id{[0-9]+}', async (c) => {
 app.post('/admin/authors/:id{[0-9]+}', async (c) => {
   const { handleAuthorsUpdate } = await import('../packages/core/admin/authors')
   return handleAuthorsUpdate(c)
+})
+
+// ============================================================================
+// Admin Integrations Routes
+// ============================================================================
+
+app.get('/admin/integrations', async (c) => {
+  const { renderIntegrationsPage } = await import('../packages/core/admin/integrations')
+  return c.html(await renderIntegrationsPage(c))
+})
+
+app.post('/admin/integrations/n8n/generate', async (c) => {
+  const { handleGenerateKey } = await import('../packages/core/admin/integrations')
+  return handleGenerateKey(c)
 })
 
 // ============================================================================
@@ -1647,7 +1743,7 @@ app.get('/admin/daily-cover', async (c) => {
   const { getSetting, getMediaById } = await import('../packages/core/db')
   const { renderDailyCoverPage } = await import('../packages/core/admin/daily-cover')
   const user = c.get('adminUser')
-  const csrfToken = c.get('csrf') as string
+  const csrfToken = c.get('csrfToken') as string
   const cspNonce = c.get('cspNonce')
 
   const success = c.req.query('success') === 'true'
@@ -1827,15 +1923,19 @@ app.post('/api/admin/posts/:id/live-updates', async (c) => {
 // Public Web Routes (SSR)
 // ============================================================================
 
-app.get('/', async (c) => {
+// ============================================================================
+// Public Web Routes (SSR)
+// ============================================================================
+
+// V2 Gold Route (Isolated)
+app.get('/v2', async (c) => {
   const { getHomeData } = await import('../packages/core/db/home')
-  const { renderHomePage } = await import('../packages/core/web/home')
+  const { renderHomePageGold } = await import('../packages/core/web/home-gold')
   const { getSetting } = await import('../packages/core/db')
 
-  // Get home data (optimized queries)
+  // Get home data (reused from V1)
   const data = await getHomeData(c.env)
 
-  // Get CMS settings
   // Get CMS settings
   const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
 
@@ -1859,8 +1959,8 @@ app.get('/', async (c) => {
 
   const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
 
-  // Render home page (Verge style)
-  const html = await renderHomePage(c, data, {
+  // Render V2 Gold
+  const html = await renderHomePageGold(c, data, {
     baseUrl,
     siteName,
     coverR2Key,
@@ -1871,336 +1971,204 @@ app.get('/', async (c) => {
   return c.html(html)
 })
 
-app.get('/ultimas', async (c) => {
-  const { getSetting } = await import('../packages/core/db')
+// V2 Article Route (Isolated for testing)
+app.get('/v2/noticia/:slug', async (c) => {
+  const { findPostWithRelations, findPublishedPosts, getSetting } = await import('../packages/core/db')
+  const { renderArticlePageGold } = await import('../packages/core/web/article-gold')
+
+  const slug = c.req.param('slug')
+  const post = await findPostWithRelations(c.env, slug)
+
+  if (!post) {
+    return c.text('Not Found', 404)
+  }
+
+  // Related Posts (Simulate Recirculation)
+  const related = await findPublishedPosts(c.env, {
+    categoryId: post.category_id,
+    limit: 3
+  })
+  // Filter out current post
+  const relatedFiltered = related.filter(p => p.id !== post.id).slice(0, 3)
+
   const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
-
-  // Simple paginated list of latest posts
-  const page = parseInt(c.req.query('page') || '1')
-  const limit = 30
-  const offset = (page - 1) * limit
-
-  const posts = await c.env.DB.prepare(`
-    SELECT 
-      p.id, p.slug, p.title, p.published_at,
-      c.name as category_name, c.slug as category_slug
-    FROM posts p
-    INNER JOIN categories c ON p.category_id = c.id
-    WHERE p.status = 'published' 
-      AND p.published_at <= datetime('now')
-      AND p.seo_noindex = 0
-    ORDER BY p.published_at DESC
-    LIMIT ? OFFSET ?
-  `).bind(limit, offset).all()
-
   const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
 
-  return c.html(`
-    <!DOCTYPE html>
-    <html lang="pt-BR">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Últimas Notícias | ${siteName}</title>
-        <link href="/static/styles.css" rel="stylesheet">
-        <style>
-          body { background-color: #f6f7f8; margin: 0; font-family: system-ui, -apple-system, sans-serif; }
-          .container { max-width: 1536px; margin: 0 auto; padding: 0 1rem; }
-          header { background: white; border-bottom: 1px solid #e5e7eb; }
-        </style>
-    </head>
-    <body>
-        <header>
-            <div class="container py-4">
-                <a href="/" class="text-2xl font-bold">${siteName}</a>
-            </div>
-        </header>
-        
-        <main class="container py-8">
-            <h1 class="text-4xl font-bold mb-8">Últimas Notícias</h1>
-            
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                <ul class="space-y-4">
-                    ${(posts.results || []).map((post: any) => `
-                        <li class="border-b last:border-0 pb-4 last:pb-0">
-                            <a href="${baseUrl}/noticia/${post.slug}" class="block hover:text-[#FF4D00] transition-colors">
-                                <div class="flex items-baseline gap-2">
-                                    <span class="text-xs text-gray-500 font-mono">
-                                        ${new Date(post.published_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                    <span class="flex-1 font-medium">${post.title}</span>
-                                </div>
-                                <span class="text-xs text-[#FF4D00] font-bold uppercase mt-1 inline-block">
-                                    ${post.category_name}
-                                </span>
-                            </a>
-                        </li>
-                    `).join('')}
-                </ul>
-                
-                <div class="flex gap-4 mt-6 pt-6 border-t">
-                    ${page > 1 ? `<a href="/ultimas?page=${page - 1}" class="px-4 py-2 bg-[#FF4D00] text-white rounded hover:bg-[#E04400]">← Anterior</a>` : ''}
-                    ${(posts.results || []).length === limit ? `<a href="/ultimas?page=${page + 1}" class="px-4 py-2 bg-[#FF4D00] text-white rounded hover:bg-[#E04400]">Próximo →</a>` : ''}
-                </div>
-            </div>
-        </main>
-        
-        <footer class="bg-gray-900 text-white mt-12 py-8">
-            <div class="container text-center">
-                <p>&copy; ${new Date().getFullYear()} ${siteName}. Todos os direitos reservados.</p>
-            </div>
-        </footer>
-    </body>
-    </html>
-  `)
+  const html = await renderArticlePageGold(c, post, relatedFiltered, {
+    baseUrl,
+    siteName
+  })
+
+
+  return c.html(html)
 })
 
-app.get('/categoria/:slug', async (c) => {
+// V2 Category Route
+app.get('/v2/categoria/:slug', async (c) => {
+  const { findCategoryBySlug, findPublishedPosts, countPublishedPosts, getSetting } = await import('../packages/core/db')
+  const { renderCategoryPageGold } = await import('../packages/core/web/category-gold')
+
   const slug = c.req.param('slug')
-  const page = parseInt(c.req.query('page') || '1', 10)
+  const page = Number(c.req.query('page') || 1)
+  const limit = 20
 
-  const { getCategoryPageData } = await import('../packages/core/db/category')
-  const { getHomeSections } = await import('../packages/core/db/home')
-  const { renderCategoryPage } = await import('../packages/core/web/category')
-  const { getSetting } = await import('../packages/core/db')
-
-  // Get category data with pagination
-  const data = await getCategoryPageData(c.env, slug, page, 20)
-  if (!data) {
-    return c.notFound()
+  const category = await findCategoryBySlug(c.env, slug)
+  if (!category) {
+    return c.text('Category Not Found', 404)
   }
 
-  // Get CMS settings
+  // Fetch Posts
+  const posts = await findPublishedPosts(c.env, {
+    categoryId: category.id,
+    limit,
+    offset: (page - 1) * limit
+  })
+
+  const total = await countPublishedPosts(c.env, { categoryId: category.id })
+  const totalPages = Math.ceil(total / limit)
+
   const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
-  // Daily Cover
-  const { getMediaById } = await import('../packages/core/db')
-  const dailyCover = await getSetting(c.env, 'daily_cover') as { media_id: number } | null
-  let coverR2Key = ''
-  let coverAlt = 'Capa do Dia'
-  let coverAspectRatio = '3/4'
-
-  if (dailyCover?.media_id) {
-    const media = await getMediaById(c.env, dailyCover.media_id)
-    if (media) {
-      coverR2Key = media.r2_key
-      coverAlt = media.alt || media.filename
-      if (media.width && media.height) {
-        coverAspectRatio = `${media.width}/${media.height}`
-      }
-    }
-  }
-
   const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
 
-  // Get nav sections
-  const sections = await getHomeSections(c.env)
-  const navItems = sections
-    .filter(s => s.enabled)
-    .map(s => ({
-      label: s.title,
-      href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
-      active: s.slug === slug
-    }))
-
-  // Render category page
-  const html = await renderCategoryPage(c, data, {
+  const html = await renderCategoryPageGold(c, {
+    category: {
+      name: category.name,
+      slug: category.slug,
+      description: category.description
+    },
+    posts: posts.map(p => ({
+      ...p,
+      published_at: p.published_at || new Date().toISOString(),
+      category_name: category.name // Ensure category name is passed
+    })),
+    page,
+    totalPages
+  }, {
     baseUrl,
-    siteName,
-    navItems,
-    coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null
+    siteName
   })
 
-  return c.html(html)
-})
+  // ============================================================================
+  // Public Columns Routes
+  // ============================================================================
 
-app.get('/tag/:slug', async (c) => {
-  const slug = c.req.param('slug')
-  const { findTagBySlug, getSetting } = await import('../packages/core/db')
+  app.get('/colunas', async (c) => {
+    const { renderColumnsList } = await import('../packages/core/web/columns')
+    const { getSetting } = await import('../packages/core/db')
+    const { getHomeSections } = await import('../packages/core/db/home')
 
-  const tag = await findTagBySlug(c.env, slug)
-  if (!tag) {
-    return c.notFound()
-  }
+    const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+    const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
 
-  // Get posts by tag
-  const posts = await c.env.DB.prepare(`
-    SELECT p.* FROM posts p
-    INNER JOIN post_tags pt ON pt.post_id = p.id
-    WHERE pt.tag_id = ? AND p.status = 'published'
-    ORDER BY p.published_at DESC
-    LIMIT 30
-  `).bind(tag.id).all()
+    // Daily Cover
+    const { getMediaById } = await import('../packages/core/db')
+    const dailyCover = await getSetting(c.env, 'daily_cover') as { media_id: number } | null
+    let coverR2Key = ''
+    let coverAlt = 'Capa do Dia'
+    let coverAspectRatio = '3/4'
 
-  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
-
-  return c.html(`
-    <!DOCTYPE html>
-    <html lang="pt-BR">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${tag.name} | ${siteName}</title>
-        <meta name="description" content="${tag.description || `Notícias sobre ${tag.name}`}">
-        ${tag.seo_noindex ? '<meta name="robots" content="noindex, follow">' : ''}
-        <link href="/static/styles.css" rel="stylesheet">
-    </head>
-    <body class="bg-gray-50">
-        <header class="bg-white border-b">
-            <div class="container mx-auto px-4 py-4">
-                <a href="/" class="text-2xl font-bold text-gray-900">${siteName}</a>
-            </div>
-        </header>
-        
-        <main class="container mx-auto px-4 py-8">
-            <h1 class="text-4xl font-bold mb-8">${tag.name}</h1>
-            
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                ${(posts.results || []).map((post: any) => `
-                    <article class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition">
-                        <a href="/noticia/${post.slug}">
-                            <div class="p-4">
-                                <h2 class="text-xl font-bold mb-2 text-gray-900">${post.title}</h2>
-                                <p class="text-gray-600 text-sm">${post.excerpt || ''}</p>
-                                <span class="text-xs text-gray-400 mt-2 block">
-                                    ${new Date(post.published_at || '').toLocaleDateString('pt-BR')}
-                                </span>
-                            </div>
-                        </a>
-                    </article>
-                `).join('')}
-            </div>
-        </main>
-        
-        <footer class="bg-gray-900 text-white mt-12 py-8">
-            <div class="container mx-auto px-4 text-center">
-                <p>&copy; 2024 ${siteName}. Todos os direitos reservados.</p>
-            </div>
-        </footer>
-    </body>
-    </html>
-  `)
-})
-// ============================================================================
-// Public Columns Routes
-// ============================================================================
-
-app.get('/colunas', async (c) => {
-  const { renderColumnsList } = await import('../packages/core/web/columns')
-  const { getSetting } = await import('../packages/core/db')
-  const { getHomeSections } = await import('../packages/core/db/home')
-
-  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
-  const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
-
-  // Daily Cover
-  const { getMediaById } = await import('../packages/core/db')
-  const dailyCover = await getSetting(c.env, 'daily_cover') as { media_id: number } | null
-  let coverR2Key = ''
-  let coverAlt = 'Capa do Dia'
-  let coverAspectRatio = '3/4'
-
-  if (dailyCover?.media_id) {
-    const media = await getMediaById(c.env, dailyCover.media_id)
-    if (media) {
-      coverR2Key = media.r2_key
-      coverAlt = media.alt || media.filename
-      if (media.width && media.height) {
-        coverAspectRatio = `${media.width}/${media.height}`
+    if (dailyCover?.media_id) {
+      const media = await getMediaById(c.env, dailyCover.media_id)
+      if (media) {
+        coverR2Key = media.r2_key
+        coverAlt = media.alt || media.filename
+        if (media.width && media.height) {
+          coverAspectRatio = `${media.width}/${media.height}`
+        }
       }
     }
-  }
 
-  // Get nav sections
-  const sections = await getHomeSections(c.env)
-  const navItems = sections
-    .filter(s => s.enabled)
-    .map(s => ({
-      label: s.title,
-      href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
-      active: false // We could check, but 'colunas' isn't in dynamic sections usually
-    }))
+    // Get nav sections
+    const sections = await getHomeSections(c.env)
+    const navItems = sections
+      .filter(s => s.enabled)
+      .map(s => ({
+        label: s.title,
+        href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
+        active: false // We could check, but 'colunas' isn't in dynamic sections usually
+      }))
 
-  // Add Colunas to nav if not present (optional hardcoded fallback)
-  navItems.push({ label: 'Colunas', href: '/colunas', active: true })
+    // Add Colunas to nav if not present (optional hardcoded fallback)
+    navItems.push({ label: 'Colunas', href: '/colunas', active: true })
 
-  const html = await renderColumnsList(c, {
-    baseUrl,
-    siteName,
-    navItems,
-    coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null
+    const html = await renderColumnsList(c, {
+      baseUrl,
+      siteName,
+      navItems,
+      coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null
+    })
+
+    return c.html(html)
   })
 
-  return c.html(html)
-})
+  app.get('/coluna/:slug', async (c) => {
+    const { renderColumnPage } = await import('../packages/core/web/columns')
+    const { getSetting } = await import('../packages/core/db')
+    const { getHomeSections } = await import('../packages/core/db/home')
+    const slug = c.req.param('slug')
 
-app.get('/coluna/:slug', async (c) => {
-  const { renderColumnPage } = await import('../packages/core/web/columns')
-  const { getSetting } = await import('../packages/core/db')
-  const { getHomeSections } = await import('../packages/core/db/home')
-  const slug = c.req.param('slug')
+    const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+    const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
 
-  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
-  const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
+    // Daily Cover
+    const { getMediaById } = await import('../packages/core/db')
+    const dailyCover = await getSetting(c.env, 'daily_cover') as { media_id: number } | null
+    let coverR2Key = ''
+    let coverAlt = 'Capa do Dia'
+    let coverAspectRatio = '3/4'
 
-  // Daily Cover
-  const { getMediaById } = await import('../packages/core/db')
-  const dailyCover = await getSetting(c.env, 'daily_cover') as { media_id: number } | null
-  let coverR2Key = ''
-  let coverAlt = 'Capa do Dia'
-  let coverAspectRatio = '3/4'
-
-  if (dailyCover?.media_id) {
-    const media = await getMediaById(c.env, dailyCover.media_id)
-    if (media) {
-      coverR2Key = media.r2_key
-      coverAlt = media.alt || media.filename
-      if (media.width && media.height) {
-        coverAspectRatio = `${media.width}/${media.height}`
+    if (dailyCover?.media_id) {
+      const media = await getMediaById(c.env, dailyCover.media_id)
+      if (media) {
+        coverR2Key = media.r2_key
+        coverAlt = media.alt || media.filename
+        if (media.width && media.height) {
+          coverAspectRatio = `${media.width}/${media.height}`
+        }
       }
     }
-  }
 
-  // Get nav sections
-  const sections = await getHomeSections(c.env)
-  const navItems = sections
-    .filter(s => s.enabled)
-    .map(s => ({
-      label: s.title,
-      href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
-      active: false
-    }))
+    // Get nav sections
+    const sections = await getHomeSections(c.env)
+    const navItems = sections
+      .filter(s => s.enabled)
+      .map(s => ({
+        label: s.title,
+        href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
+        active: false
+      }))
 
-  navItems.push({ label: 'Colunas', href: '/colunas', active: false })
+    navItems.push({ label: 'Colunas', href: '/colunas', active: false })
 
-  const html = await renderColumnPage(c, slug, {
-    baseUrl,
-    siteName,
-    navItems,
-    coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null
+    const html = await renderColumnPage(c, slug, {
+      baseUrl,
+      siteName,
+      navItems,
+      coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null
+    })
+
+    if (!html) return c.notFound()
+
+    return c.html(html)
   })
 
-  if (!html) return c.notFound()
+  // ============================================================================
+  // Public Author Route
+  // ============================================================================
 
-  return c.html(html)
-})
+  app.get('/autor/:slug', async (c) => {
+    const slug = c.req.param('slug')
+    const { findAuthorBySlug, findPublishedPosts, getSetting } = await import('../packages/core/db')
 
-// ============================================================================
-// Public Author Route
-// ============================================================================
+    const author = await findAuthorBySlug(c.env, slug)
+    if (!author) {
+      return c.notFound()
+    }
 
-app.get('/autor/:slug', async (c) => {
-  const slug = c.req.param('slug')
-  const { findAuthorBySlug, findPublishedPosts, getSetting } = await import('../packages/core/db')
+    const posts = await findPublishedPosts(c.env, { authorId: author.id, limit: 30 })
+    const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
 
-  const author = await findAuthorBySlug(c.env, slug)
-  if (!author) {
-    return c.notFound()
-  }
-
-  const posts = await findPublishedPosts(c.env, { authorId: author.id, limit: 30 })
-  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
-
-  return c.html(`
+    return c.html(`
     <!DOCTYPE html>
     <html lang="pt-BR">
     <head>
@@ -2226,7 +2194,7 @@ app.get('/autor/:slug', async (c) => {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 ${posts.map(post => `
                     <article class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition">
-                        <a href="/noticia/${post.slug}">
+                        <a href="${getPostUrl(post)}">
                             <div class="p-4">
                                 <h2 class="text-xl font-bold mb-2 text-gray-900">${post.title}</h2>
                                 <p class="text-gray-600 text-sm">${post.excerpt || ''}</p>
@@ -2248,161 +2216,46 @@ app.get('/autor/:slug', async (c) => {
     </body>
     </html>
   `)
-})
-
-app.get('/noticia/:slug', async (c) => {
-  const slug = c.req.param('slug')
-
-  // Dynamic imports
-  const { findArticleBySlug, findRelatedPosts, findMostRead, incrementPostViews } = await import('../packages/core/db/article')
-  const { getHomeSections } = await import('../packages/core/db/home')
-  const { renderArticlePage } = await import('../packages/core/web/article')
-  const { checkPostAccess } = await import('../packages/core/paywall')
-  const { getReaderContext } = await import('../packages/core/paywall/helpers')
-  const { getSetting } = await import('../packages/core/db')
-
-  // Find post
-  const post = await findArticleBySlug(c.env, slug)
-  if (!post || post.seo_noindex) {
-    return c.notFound()
-  }
-
-  // Increment views (fire and forget) (Task: Analytics)
-  c.executionCtx.waitUntil(incrementPostViews(c.env, post.id))
-
-  // Get reader context (with cookie)
-  const readerContext = await getReaderContext(c as any)
-
-  // Check access (convert ArticlePost to format expected by checkPostAccess)
-  const postForPaywall = {
-    id: post.id,
-    slug: post.slug,
-    is_premium: post.is_premium,
-    category: { id: post.category_id, name: post.category_name, slug: post.category_slug }
-  }
-
-  const accessCheck = await checkPostAccess(c.env, postForPaywall as any, {
-    isSubscriber: readerContext.isSubscriber,
-    readerUserId: readerContext.readerId,
-    anonIdentifier: readerContext.anonIdentifier,
   })
 
-  // Get CMS settings
-  const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
-  const coverR2Key = (await getSetting(c.env, 'cover_of_day.r2_key', 'public') as string) || ''
-  const coverAlt = (await getSetting(c.env, 'cover_of_day.alt', 'public') as string) || 'Capa do Dia'
-  const coverAspectRatio = (await getSetting(c.env, 'cover_of_day.aspect_ratio', 'public') as string) || '3/4'
 
-  const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
+  // ============================================================================
+  // V1 Public Web Routes (Google Blog Style)
+  // ============================================================================
+  // Mount V1 Router
+  app.route('/', await import('../packages/core/web/routes-v1').then(m => m.default))
 
-  // Get nav sections
-  const sections = await getHomeSections(c.env)
-  const navItems = sections
-    .filter(s => s.enabled)
-    .map(s => ({
+
+  app.get('/assinar', async (c) => {
+    const { renderSubscribePage } = await import('../packages/core/web/subscribe')
+    const { getHomeSections } = await import('../packages/core/db/home')
+    const { getSetting } = await import('../packages/core/db')
+
+    const baseUrl = new URL(c.req.url).origin
+    const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+    const sections = await getHomeSections(c.env)
+
+    const navItems = sections.map(s => ({
       label: s.title,
       href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
       active: false
     }))
 
-  // Get related posts and most read
-  const relatedPosts = await findRelatedPosts(c.env, post.id, post.category_id, { limit: 4 })
-  const mostRead = await findMostRead(c.env, { limit: 6 })
+    const html = await renderSubscribePage(c, {
+      baseUrl,
+      siteName,
+      navItems
+    })
 
-  // Render article page
-  const html = await renderArticlePage(c, post, {
-    baseUrl,
-    siteName,
-    navItems,
-    coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null,
-    relatedPosts,
-    mostRead,
-    isBlocked: !accessCheck.allowed
+    return c.html(html)
   })
 
-  return c.html(html)
-})
+  app.get('/conta', async (c) => {
+    const { getSetting } = await import('../packages/core/db')
+    const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
 
-app.get('/assinar', async (c) => {
-  const { findActivePlans, getSetting } = await import('../packages/core/db')
-
-  const plans = await findActivePlans(c.env)
-  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
-
-  return c.html(`
-    <!DOCTYPE html>
-    <html lang="pt-BR">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Assine | ${siteName}</title>
-        <meta name="description" content="Assine e tenha acesso ilimitado a todo o conteúdo">
-        <link href="/static/styles.css" rel="stylesheet">
-    </head>
-    <body class="bg-gray-50">
-        <header class="bg-white border-b">
-            <div class="container mx-auto px-4 py-4">
-                <a href="/" class="text-2xl font-bold text-gray-900">${siteName}</a>
-            </div>
-        </header>
-        
-        <main class="container mx-auto px-4 py-8 max-w-4xl">
-            <div class="text-center mb-12">
-                <h1 class="text-4xl font-bold mb-4">Assine ${siteName}</h1>
-                <p class="text-xl text-gray-700">Acesso ilimitado a todas as notícias</p>
-            </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                ${plans.map(plan => {
-    const benefits = plan.benefits_json ? JSON.parse(plan.benefits_json) : []
-    const price = (plan.price_cents / 100).toFixed(2).replace('.', ',')
-
-    return `
-                    <div class="bg-white rounded-lg shadow-sm p-8 hover:shadow-md transition">
-                        <h2 class="text-2xl font-bold mb-4">${plan.name}</h2>
-                        <div class="mb-6">
-                            <span class="text-4xl font-bold">R$ ${price}</span>
-                            <span class="text-gray-600">/${plan.billing_cycle === 'monthly' ? 'mês' : 'ano'}</span>
-                        </div>
-                        ${plan.trial_days > 0 ? `<p class="text-sm text-blue-600 mb-4">${plan.trial_days} dias grátis</p>` : ''}
-                        <ul class="mb-6">
-                            ${benefits.map((benefit: string) => `
-                                <li class="mb-2 text-gray-700">✓ ${benefit}</li>
-                            `).join('')}
-                        </ul>
-                        <a href="#" class="block bg-blue-600 text-white text-center px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
-                            Assinar ${plan.name}
-                        </a>
-                    </div>
-                  `
-  }).join('')}
-            </div>
-            
-            <div class="mt-12 text-center text-gray-600">
-                <p class="mb-4">Pagamento seguro via ASAAS</p>
-                <p class="text-sm">
-                    <a href="/p/termos" class="hover:text-blue-600">Termos de Uso</a> •
-                    <a href="/p/privacidade" class="hover:text-blue-600">Privacidade</a>
-                </p>
-            </div>
-        </main>
-        
-        <footer class="bg-gray-900 text-white mt-12 py-8">
-            <div class="container mx-auto px-4 text-center">
-                <p>&copy; 2024 ${siteName}. Todos os direitos reservados.</p>
-            </div>
-        </footer>
-    </body>
-    </html>
-  `)
-})
-
-app.get('/conta', async (c) => {
-  const { getSetting } = await import('../packages/core/db')
-  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
-
-  // TODO: Implementar página de conta com status de assinatura
-  return c.html(`
+    // TODO: Implementar página de conta com status de assinatura
+    return c.html(`
     <!DOCTYPE html>
     <html lang="pt-BR">
     <head>
@@ -2417,7 +2270,7 @@ app.get('/conta', async (c) => {
                 <a href="/" class="text-2xl font-bold text-gray-900">${siteName}</a>
             </div>
         </header>
-        
+
         <main class="container mx-auto px-4 py-8 max-w-4xl">
             <h1 class="text-4xl font-bold mb-8">Minha Conta</h1>
             
@@ -2429,7 +2282,7 @@ app.get('/conta', async (c) => {
                 </a>
             </div>
         </main>
-        
+
         <footer class="bg-gray-900 text-white mt-12 py-8">
             <div class="container mx-auto px-4 text-center">
                 <p>&copy; 2024 ${siteName}. Todos os direitos reservados.</p>
@@ -2438,299 +2291,359 @@ app.get('/conta', async (c) => {
     </body>
     </html>
   `)
-})
+  })
 
-// ============================================================================
-// Webhooks
-// ============================================================================
+  // ============================================================================
+  // Webhooks
+  // ============================================================================
 
-app.post('/api/webhooks/asaas', async (c) => {
-  const { rateLimiter } = await import('../packages/core/middleware')
-  const { getSetting } = await import('../packages/core/db')
-  const { asaasWebhookSchema, handleAsaasWebhook } = await import('../packages/core/integrations/asaas')
+  app.post('/api/webhooks/asaas', async (c) => {
+    const { rateLimiter } = await import('../packages/core/middleware')
+    const { getSetting } = await import('../packages/core/db')
+    const { asaasWebhookSchema, handleAsaasWebhook } = await import('../packages/core/integrations/asaas')
 
-  // Rate limiting
-  const limiter = rateLimiter('webhook')
-  await limiter(c as any, async () => { })
+    // Rate limiting
+    const limiter = rateLimiter('webhook')
+    await limiter(c as any, async () => { })
 
-  try {
-    // Authenticate webhook via settings
-    const webhookToken = await getSetting(c.env, 'asaas.webhook_token', 'private')
-    const providedToken = c.req.header('x-asaas-token')
+    try {
+      // Authenticate webhook via settings
+      const webhookToken = await getSetting(c.env, 'asaas.webhook_token', 'private')
+      const providedToken = c.req.header('x-asaas-token')
 
-    if (!webhookToken || providedToken !== webhookToken) {
-      return c.json({ success: false, error: 'Unauthorized' }, 401)
-    }
+      if (!webhookToken || providedToken !== webhookToken) {
+        return c.json({ success: false, error: 'Unauthorized' }, 401)
+      }
 
-    // CRITICAL: Get RAW body as ArrayBuffer (bytes) for true idempotency
-    const rawBodyBuffer = await c.req.arrayBuffer()
+      // CRITICAL: Get RAW body as ArrayBuffer (bytes) for true idempotency
+      const rawBodyBuffer = await c.req.arrayBuffer()
 
-    // Compute SHA-256 hash of RAW bytes (not re-serialized JSON)
-    const hashBuffer = await crypto.subtle.digest('SHA-256', rawBodyBuffer)
-    const hashArray = Array.from(new Uint8Array(hashBuffer))
-    const payloadHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+      // Compute SHA-256 hash of RAW bytes (not re-serialized JSON)
+      const hashBuffer = await crypto.subtle.digest('SHA-256', rawBodyBuffer)
+      const hashArray = Array.from(new Uint8Array(hashBuffer))
+      const payloadHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
 
-    // Decode to text and parse JSON
-    const bodyText = new TextDecoder().decode(rawBodyBuffer)
-    const body = JSON.parse(bodyText)
+      // Decode to text and parse JSON
+      const bodyText = new TextDecoder().decode(rawBodyBuffer)
+      const body = JSON.parse(bodyText)
 
-    // Validate with Zod
-    const validation = asaasWebhookSchema.safeParse(body)
-    if (!validation.success) {
-      console.error('Webhook validation error:', validation.error)
-      return c.json({ success: false, error: 'Invalid webhook payload' }, 400)
-    }
+      // Validate with Zod
+      const validation = asaasWebhookSchema.safeParse(body)
+      if (!validation.success) {
+        console.error('Webhook validation error:', validation.error)
+        return c.json({ success: false, error: 'Invalid webhook payload' }, 400)
+      }
 
-    const event = validation.data
-    const requestId = c.get('requestId') || 'unknown'
+      const event = validation.data
+      const requestId = c.get('requestId') || 'unknown'
 
-    // Primary idempotency: payload_hash (64 hex chars)
-    const eventId = payloadHash
+      // Primary idempotency: payload_hash (64 hex chars)
+      const eventId = payloadHash
 
-    // Secondary idempotency: stable_key (derived from semantic content)
-    let stableKey: string | null = null
+      // Secondary idempotency: stable_key (derived from semantic content)
+      let stableKey: string | null = null
 
-    // Derive stable_key: asaas:<eventType>:<entityId>
-    const eventType = event.event
-    if (event.payment?.id) {
-      stableKey = `asaas:${eventType}:payment:${event.payment.id}`
-    } else if ((event as any).subscription?.id) {
-      stableKey = `asaas:${eventType}:subscription:${(event as any).subscription.id}`
-    } else if ((event as any).customer?.id || (event as any).customer) {
-      const custId = (event as any).customer?.id || (event as any).customer
-      stableKey = `asaas:${eventType}:customer:${custId}`
-    } else if ((event as any).invoice?.id) {
-      stableKey = `asaas:${eventType}:invoice:${(event as any).invoice.id}`
-    }
+      // Derive stable_key: asaas:<eventType>:<entityId>
+      const eventType = event.event
+      if (event.payment?.id) {
+        stableKey = `asaas:${eventType}: payment:${event.payment.id} `
+      } else if ((event as any).subscription?.id) {
+        stableKey = `asaas:${eventType}: subscription:${(event as any).subscription.id} `
+      } else if ((event as any).customer?.id || (event as any).customer) {
+        const custId = (event as any).customer?.id || (event as any).customer
+        stableKey = `asaas:${eventType}: customer:${custId} `
+      } else if ((event as any).invoice?.id) {
+        stableKey = `asaas:${eventType}: invoice:${(event as any).invoice.id} `
+      }
 
-    // RACE-FREE IDEMPOTENCY: Try INSERT into webhook_idempotency first
-    // If stable_key exists, PRIMARY KEY will reject (no race condition)
-    if (stableKey) {
-      try {
-        await c.env.DB.prepare(`
-          INSERT INTO webhook_idempotency (provider, stable_key, event_id)
-          VALUES (?, ?, ?)
-        `).bind('asaas', stableKey, eventId).run()
+      // RACE-FREE IDEMPOTENCY: Try INSERT into webhook_idempotency first
+      // If stable_key exists, PRIMARY KEY will reject (no race condition)
+      if (stableKey) {
+        try {
+          await c.env.DB.prepare(`
+          INSERT INTO webhook_idempotency(provider, stable_key, event_id)
+    VALUES(?, ?, ?)
+      `).bind('asaas', stableKey, eventId).run()
 
-        // Success: this is the FIRST request with this stable_key → continue
-      } catch (error: any) {
-        // PRIMARY KEY collision → duplicate stable_key
-        if (error.message && error.message.includes('UNIQUE constraint failed')) {
-          return c.json({ success: true, message: 'Event already processed (stable_key race-free)' })
+          // Success: this is the FIRST request with this stable_key → continue
+        } catch (error: any) {
+          // PRIMARY KEY collision → duplicate stable_key
+          if (error.message && error.message.includes('UNIQUE constraint failed')) {
+            return c.json({ success: true, message: 'Event already processed (stable_key race-free)' })
+          }
+          // Other error → log and continue (fallback to hash check)
+          console.error('Idempotency table error:', error)
         }
-        // Other error → log and continue (fallback to hash check)
-        console.error('Idempotency table error:', error)
+      }
+
+      // Fallback idempotency check: by payload_hash
+      const existingByHash = await c.env.DB.prepare(
+        'SELECT id FROM webhook_events WHERE provider = ? AND event_id = ?'
+      ).bind('asaas', eventId).first()
+
+      if (existingByHash) {
+        return c.json({ success: true, message: 'Event already processed (by hash)' })
+      }
+
+      // Store event with hybrid idempotency
+      await c.env.DB.prepare(`
+      INSERT INTO webhook_events(provider, event_id, event_type, payload_hash, payload_json, stable_key, status, created_at)
+    VALUES(?, ?, ?, ?, ?, ?, 'pending', datetime('now'))
+      `).bind(
+        'asaas',
+        eventId,
+        event.event,
+        payloadHash,
+        bodyText,
+        stableKey
+      ).run()
+
+      // Process
+      await handleAsaasWebhook(c.env, event, requestId)
+
+      // Mark as processed
+      await c.env.DB.prepare(
+        'UPDATE webhook_events SET status = ?, processed_at = datetime(\'now\') WHERE provider = ? AND event_id = ?'
+      ).bind('processed', 'asaas', eventId).run()
+
+      return c.json({ success: true })
+    } catch (error) {
+      console.error('Webhook error:', error)
+      return c.json({ success: false, error: (error as Error).message }, 400)
+    }
+  })
+
+  // ============================================================================
+  // Error Handler
+  // ============================================================================
+
+  app.onError(errorHandler)
+
+  // ============================================================================
+  // 404 Handler (JSON para /api/*, HTML para resto)
+  // ============================================================================
+
+  app.notFound((c) => {
+    const path = new URL(c.req.url).pathname
+
+    if (path.startsWith('/api/')) {
+      return c.json({ success: false, error: 'Endpoint não encontrado' }, 404)
+    }
+
+    // HTML 404
+    return c.html(`
+      < !DOCTYPE html >
+        <html lang="pt-BR" >
+          <head>
+          <meta charset="UTF-8" >
+            <meta name="viewport" content = "width=device-width, initial-scale=1.0" >
+              <title>Página não encontrada </title>
+                < link href = "/static/styles.css" rel = "stylesheet" >
+                  </head>
+                  < body class="bg-gray-50" >
+                    <div class="container mx-auto px-4 py-8 text-center" >
+                      <h1 class="text-6xl font-bold text-gray-900 mb-4" > 404 </h1>
+                        < p class="text-xl text-gray-700 mb-8" > Página não encontrada </p>
+                          < a href = "/" class="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700" >
+                            Voltar para Home
+                              </a>
+                              </div>
+                              </body>
+                              </html>
+                                `, 404)
+  })
+
+  // ============================================================================
+  // Admin Users Routes (RBAC: Director only)
+  // ============================================================================
+
+  // GET /admin/users - List users
+  app.get('/admin/users', async (c) => {
+    const { requireDirector } = await import('../packages/core/middleware/rbac')
+    await requireDirector(c, async () => { })
+
+    const { handleUsersList } = await import('../packages/core/admin/users')
+    return handleUsersList(c)
+  })
+
+  // GET /admin/users/new - New user form
+  app.get('/admin/users/new', async (c) => {
+    const { requireDirector } = await import('../packages/core/middleware/rbac')
+    await requireDirector(c, async () => { })
+
+    const { handleUsersNew } = await import('../packages/core/admin/users')
+    return handleUsersNew(c)
+  })
+
+  // POST /admin/users - Create user
+  app.post('/admin/users', async (c) => {
+    const { requireDirector } = await import('../packages/core/middleware/rbac')
+    await requireDirector(c, async () => { })
+
+    const { handleUsersCreate } = await import('../packages/core/admin/users')
+    return handleUsersCreate(c)
+  })
+
+  // GET /admin/users/:id - Edit user form
+  app.get('/admin/users/:id{[0-9]+}', async (c) => {
+    const { requireDirector } = await import('../packages/core/middleware/rbac')
+    await requireDirector(c, async () => { })
+
+    const { handleUsersEdit } = await import('../packages/core/admin/users')
+    return handleUsersEdit(c)
+  })
+
+  // POST /admin/users/:id - Update user
+  app.post('/admin/users/:id{[0-9]+}', async (c) => {
+    const { requireDirector } = await import('../packages/core/middleware/rbac')
+    await requireDirector(c, async () => { })
+
+    const { handleUsersUpdate } = await import('../packages/core/admin/users')
+    return handleUsersUpdate(c)
+  })
+
+  // POST /admin/users/:id/reset-password - Reset password
+  app.post('/admin/users/:id{[0-9]+}/reset-password', async (c) => {
+    const { requireDirector } = await import('../packages/core/middleware/rbac')
+    await requireDirector(c, async () => { })
+
+    const { handleUsersResetPassword } = await import('../packages/core/admin/users')
+    return handleUsersResetPassword(c)
+  })
+
+  // POST /admin/users/:id/disable - Disable user
+  app.post('/admin/users/:id{[0-9]+}/disable', async (c) => {
+    const { requireDirector } = await import('../packages/core/middleware/rbac')
+    await requireDirector(c, async () => { })
+
+    const { handleUsersDisable } = await import('../packages/core/admin/users')
+    return handleUsersDisable(c)
+  })
+
+  // POST /admin/users/:id/enable - Enable user
+  app.post('/admin/users/:id{[0-9]+}/enable', async (c) => {
+    const { requireDirector } = await import('../packages/core/middleware/rbac')
+    await requireDirector(c, async () => { })
+
+    const { handleUsersEnable } = await import('../packages/core/admin/users')
+    return handleUsersEnable(c)
+  })
+
+  // ============================================================================
+  // 13. R2 Image Serving
+  // ============================================================================
+
+  app.get('/i/:key{.+}', async (c) => {
+    const key = c.req.param('key')
+    const w = c.req.query('w')
+    const h = c.req.query('h')
+    const fit = c.req.query('fit')
+    const noredir = c.req.query('noredir')
+
+    // 1. If it's a request for a static asset from the repo
+    if (key.startsWith('static/')) {
+      const origin = new URL(c.req.url).origin
+      const assetUrl = `${origin}/${key}`
+
+      if (w || h) {
+        try {
+          // @ts-ignore - Cloudflare Image Resizing
+          const response = await fetch(assetUrl, {
+            cf: {
+              image: {
+                width: w ? parseInt(w) : undefined,
+                height: h ? parseInt(h) : undefined,
+                fit: (fit as any) || 'scale-down',
+                quality: 85
+              }
+            }
+          })
+          if (response.ok) return response
+        } catch (e) {
+          console.error('Static resizing failed:', e)
+        }
+      }
+      return fetch(assetUrl)
+    }
+
+    // 2. If it's an R2 request with resizing requested
+    if ((w || h) && noredir !== '1') {
+      const url = new URL(c.req.url)
+      url.searchParams.set('noredir', '1')
+
+      try {
+        // @ts-ignore - Cloudflare Image Resizing
+        const response = await fetch(url.toString(), {
+          cf: {
+            image: {
+              width: w ? parseInt(w) : undefined,
+              height: h ? parseInt(h) : undefined,
+              fit: (fit as any) || 'scale-down',
+              quality: 85
+            }
+          }
+        })
+        if (response.ok) return response
+      } catch (e) {
+        console.error('R2 resizing failed:', e)
       }
     }
 
-    // Fallback idempotency check: by payload_hash
-    const existingByHash = await c.env.DB.prepare(
-      'SELECT id FROM webhook_events WHERE provider = ? AND event_id = ?'
-    ).bind('asaas', eventId).first()
+    // 3. Raw serving from R2
+    try {
+      const { getMediaFromR2 } = await import('../packages/core/storage')
+      const object = await getMediaFromR2(c.env, key)
 
-    if (existingByHash) {
-      return c.json({ success: true, message: 'Event already processed (by hash)' })
+      if (!object) {
+        return c.notFound()
+      }
+
+      const headers = new Headers()
+      headers.set('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream')
+      headers.set('Cache-Control', 'public, max-age=31536000, immutable')
+      headers.set('ETag', object.httpEtag || '')
+
+      // Check If-None-Match for 304
+      const ifNoneMatch = c.req.header('If-None-Match')
+      if (ifNoneMatch && ifNoneMatch === object.httpEtag) {
+        return c.body(null, 304, Object.fromEntries(headers))
+      }
+
+      return new Response(object.body, {
+        headers,
+        status: 200
+      })
+    } catch (error) {
+      console.error('Image serving error:', error)
+      return c.notFound()
     }
+  })
 
-    // Store event with hybrid idempotency
-    await c.env.DB.prepare(`
-      INSERT INTO webhook_events (provider, event_id, event_type, payload_hash, payload_json, stable_key, status, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'pending', datetime('now'))
-    `).bind(
-      'asaas',
-      eventId,
-      event.event,
-      payloadHash,
-      bodyText,
-      stableKey
-    ).run()
+  // ============================================================================
+  // Public Static Pages Routes
+  // ============================================================================
 
-    // Process
-    await handleAsaasWebhook(c.env, event, requestId)
+  app.get('/p/:slug', async (c) => {
+    const slug = c.req.param('slug')
+    const { renderStaticPage } = await import('../packages/core/web/pages')
 
-    // Mark as processed
-    await c.env.DB.prepare(
-      'UPDATE webhook_events SET status = ?, processed_at = datetime(\'now\') WHERE provider = ? AND event_id = ?'
-    ).bind('processed', 'asaas', eventId).run()
+    const html = await renderStaticPage(c, slug)
 
-    return c.json({ success: true })
-  } catch (error) {
-    console.error('Webhook error:', error)
-    return c.json({ success: false, error: (error as Error).message }, 400)
-  }
-})
-
-// ============================================================================
-// Error Handler
-// ============================================================================
-
-app.onError(errorHandler)
-
-// ============================================================================
-// 404 Handler (JSON para /api/*, HTML para resto)
-// ============================================================================
-
-app.notFound((c) => {
-  const path = new URL(c.req.url).pathname
-
-  if (path.startsWith('/api/')) {
-    return c.json({ success: false, error: 'Endpoint não encontrado' }, 404)
-  }
-
-  // HTML 404
-  return c.html(`
-    <!DOCTYPE html>
-    <html lang="pt-BR">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Página não encontrada</title>
-        <link href="/static/styles.css" rel="stylesheet">
-    </head>
-    <body class="bg-gray-50">
-        <div class="container mx-auto px-4 py-8 text-center">
-            <h1 class="text-6xl font-bold text-gray-900 mb-4">404</h1>
-            <p class="text-xl text-gray-700 mb-8">Página não encontrada</p>
-            <a href="/" class="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700">
-                Voltar para Home
-            </a>
-        </div>
-    </body>
-    </html>
-  `, 404)
-})
-
-// ============================================================================
-// Admin Users Routes (RBAC: Director only)
-// ============================================================================
-
-// GET /admin/users - List users
-app.get('/admin/users', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
-  const { handleUsersList } = await import('../packages/core/admin/users')
-  return handleUsersList(c)
-})
-
-// GET /admin/users/new - New user form
-app.get('/admin/users/new', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
-  const { handleUsersNew } = await import('../packages/core/admin/users')
-  return handleUsersNew(c)
-})
-
-// POST /admin/users - Create user
-app.post('/admin/users', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
-  const { handleUsersCreate } = await import('../packages/core/admin/users')
-  return handleUsersCreate(c)
-})
-
-// GET /admin/users/:id - Edit user form
-app.get('/admin/users/:id{[0-9]+}', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
-  const { handleUsersEdit } = await import('../packages/core/admin/users')
-  return handleUsersEdit(c)
-})
-
-// POST /admin/users/:id - Update user
-app.post('/admin/users/:id{[0-9]+}', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
-  const { handleUsersUpdate } = await import('../packages/core/admin/users')
-  return handleUsersUpdate(c)
-})
-
-// POST /admin/users/:id/reset-password - Reset password
-app.post('/admin/users/:id{[0-9]+}/reset-password', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
-  const { handleUsersResetPassword } = await import('../packages/core/admin/users')
-  return handleUsersResetPassword(c)
-})
-
-// POST /admin/users/:id/disable - Disable user
-app.post('/admin/users/:id{[0-9]+}/disable', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
-  const { handleUsersDisable } = await import('../packages/core/admin/users')
-  return handleUsersDisable(c)
-})
-
-// POST /admin/users/:id/enable - Enable user
-app.post('/admin/users/:id{[0-9]+}/enable', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
-  const { handleUsersEnable } = await import('../packages/core/admin/users')
-  return handleUsersEnable(c)
-})
-
-// ============================================================================
-// 13. R2 Image Serving
-// ============================================================================
-
-app.get('/i/:key{.+}', async (c) => {
-  try {
-    const key = c.req.param('key')
-    const { getMediaFromR2 } = await import('../packages/core/storage')
-
-    const object = await getMediaFromR2(c.env, key)
-
-    if (!object) {
+    if (!html) {
       return c.notFound()
     }
 
-    const headers = new Headers()
-    headers.set('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream')
-    headers.set('Cache-Control', 'public, max-age=31536000, immutable')
-    headers.set('ETag', object.httpEtag || '')
+    return c.html(html)
+  })
 
-    // Check If-None-Match for 304
-    const ifNoneMatch = c.req.header('If-None-Match')
-    if (ifNoneMatch && ifNoneMatch === object.httpEtag) {
-      return c.body(null, 304, Object.fromEntries(headers))
-    }
+  // ============================================================================
+  // 14. 404 Handler
+  // ============================================================================
 
-    return new Response(object.body, {
-      headers,
-      status: 200
-    })
-  } catch (error) {
-    console.error('Image serving error:', error)
+  // Fallback debug
+  app.get('*', (c) => {
+    console.log(`[DEBUG] Fallback route matched for: ${c.req.url}`)
     return c.notFound()
-  }
-})
+  })
 
-// ============================================================================
-// Public Static Pages Routes
-// ============================================================================
-
-app.get('/p/:slug', async (c) => {
-  const slug = c.req.param('slug')
-  const { renderStaticPage } = await import('../packages/core/web/pages')
-
-  const html = await renderStaticPage(c, slug)
-
-  if (!html) {
-    return c.notFound()
-  }
-
-  return c.html(html)
-})
-
-// ============================================================================
-// 14. 404 Handler
-// ============================================================================
-
-export default app
+  export default app

@@ -7,6 +7,7 @@ import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
 import type { ArticlePost, RelatedPost } from '../db/article'
 import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, estimateReadingTime, truncate, type PublicLayoutParams } from './layout'
+import { getPostUrl } from '../utils/post'
 import { renderAdSlot, findActiveSlotsByTemplate, generateAdsLoaderScript } from '../ads'
 import { generateArticleJsonLd, generateLiveBlogJsonLd, generateBreadcrumbJsonLd } from '../seo'
 import { renderMarkdownToHtml, sanitizeHtml } from '../render/sanitize'
@@ -75,13 +76,21 @@ function renderArticleHeader(post: ArticlePost, readingTime: number): string {
       </div>
       
       <!-- Featured Image -->
+      <!-- Featured Image -->
       ${post.featured_image_r2_key ? `
         <figure class="article-featured-image">
           <img 
-            src="/i/${escapeAttr(post.featured_image_r2_key)}" 
-            alt="${escapeAttr(post.title)}"
+            src="/i/${escapeAttr(post.featured_image_r2_key)}?w=1200" 
+            alt="${escapeAttr(post.featured_image_alt || post.title)}"
+            class="img-aesthetic"
             loading="eager"
+            fetchpriority="high"
           >
+          ${post.featured_image_credits ? `
+            <figcaption class="article-featured-caption">
+              ${escapeHtml(post.featured_image_credits)}
+            </figcaption>
+          ` : ''}
         </figure>
       ` : ''}
     </header>
@@ -123,7 +132,7 @@ function renderRelatedPosts(posts: RelatedPost[], baseUrl: string): string {
       <h2 class="font-bold text-2xl mb-6">Leia também</h2>
       <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
         ${posts.map(post => `
-          <a href="/noticia/${escapeAttr(post.slug)}" class="card hover:shadow-lg transition">
+          <a href="${getPostUrl(post, baseUrl)}" class="card hover:shadow-lg transition">
             <div class="card-body">
               <span class="text-xs font-bold text-accent uppercase mb-2 block">
                 ${escapeHtml(post.category_name || 'Notícia')}
@@ -155,7 +164,7 @@ function generateOGTags(post: ArticlePost, baseUrl: string): string {
     <meta property="og:type" content="article">
     <meta property="og:title" content="${escapeAttr(post.title)}">
     <meta property="og:description" content="${escapeAttr(post.excerpt || post.title)}">
-    <meta property="og:url" content="${escapeAttr(baseUrl)}/noticia/${escapeAttr(post.slug)}">
+    <meta property="og:url" content="${getPostUrl(post, baseUrl)}">
     <meta property="og:image" content="${escapeAttr(imageUrl)}">
     <meta property="article:published_time" content="${post.published_at}">
     <meta property="article:section" content="${escapeAttr(post.category_name)}">
@@ -183,7 +192,7 @@ export async function renderArticlePage(
   const { baseUrl, siteName, navItems, coverOfDay, relatedPosts, mostRead, isBlocked } = options
 
   const nonce = c.get('cspNonce') || ''
-  const canonicalUrl = post.seo_canonical || `${baseUrl}/noticia/${post.slug}`
+  const canonicalUrl = post.seo_canonical || getPostUrl(post, baseUrl)
   const contentHtml = post.content_markdown && post.content_markdown.length > 0
     ? renderMarkdownToHtml(post.content_markdown)
     : looksLikeMarkdown(post.content)
@@ -291,8 +300,8 @@ export async function renderArticlePage(
   const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
 
   return renderPublicLayout({
-    title: `${post.title} | ${siteName}`,
-    description: post.excerpt || post.title,
+    title: post.seo_title ? `${post.seo_title} | ${siteName}` : `${post.title} | ${siteName}`,
+    description: post.seo_description || post.excerpt || post.title,
     canonicalUrl,
     nonce,
     siteName,

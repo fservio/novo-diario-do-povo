@@ -9,21 +9,21 @@
     "build": "vite build",
     "preview": "wrangler pages dev dist",
     "deploy": "npm run build && wrangler pages deploy dist",
-    "deploy:prod": "npm run build && wrangler pages deploy dist --project-name webapp",
+    "deploy:prod": "npm run build && wrangler pages deploy dist --project-name novo-diario-do-povo",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "validate": "node validate.js",
-    "db:create:local": "wrangler d1 create webapp-production-local",
-    "db:create:prod": "wrangler d1 create webapp-production",
-    "db:migrate:local": "wrangler d1 migrations apply webapp-production --local",
-    "db:migrate:prod": "wrangler d1 migrations apply webapp-production",
-    "db:seed": "wrangler d1 execute webapp-production --local --file=./scripts/seed.sql",
+    "db:create:local": "wrangler d1 create webapp-prod-v2 --local",
+    "db:create:prod": "wrangler d1 create webapp-prod-v2",
+    "db:migrate:local": "wrangler d1 migrations apply webapp-prod-v2 --local",
+    "db:migrate:prod": "wrangler d1 migrations apply webapp-prod-v2",
+    "db:seed": "wrangler d1 execute webapp-prod-v2 --local --file=./scripts/seed.sql",
     "db:reset": "rm -rf .wrangler/state/v3/d1 && npm run db:migrate:local && npm run db:seed",
-    "db:console:local": "wrangler d1 execute webapp-production --local",
-    "db:console:prod": "wrangler d1 execute webapp-production",
+    "db:console:local": "wrangler d1 execute webapp-prod-v2 --local",
+    "db:console:prod": "wrangler d1 execute webapp-prod-v2",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "clean-port": "fuser -k 3000/tcp 2>/dev/null || true",
     "git:init": "git init && git add . && git commit -m 'Initial commit'",
@@ -37,6 +37,7 @@
     "bcryptjs": "^3.0.3",
     "hono": "^4.6.14",
     "marked": "^17.0.1",
+    "xml2js": "^0.6.2",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -51,7 +52,7 @@
     "typescript": "^5.7.2",
     "vite": "^6.0.5",
     "vitest": "^2.1.8",
-    "wrangler": "^3.96.0"
+    "wrangler": "^4.59.2"
   },
   "engines": {
     "node": ">=20.0.0"

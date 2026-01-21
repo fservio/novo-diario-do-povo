@@ -6,6 +6,7 @@
 import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
 import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, type PublicLayoutParams } from './layout'
+import { getPostUrl } from '../utils/post'
 import { listActiveAuthors, findAuthorBySlug, type Author } from '../db/authors'
 import { getSetting } from '../db'
 import { listPosts, type Post } from '../db/posts'
@@ -75,7 +76,7 @@ function renderColumnistCard(author: Author): string {
 function renderPostCard(post: Post): string {
   return `
     <article class="card hover:shadow-lg transition">
-      <a href="/noticia/${escapeAttr(post.slug)}" class="card-body">
+      <a href="${getPostUrl(post)}" class="card-body">
          <h3 class="font-bold text-xl mb-2">
           ${escapeHtml(post.title)}
         </h3>
@@ -168,7 +169,7 @@ export async function renderColumnsList(
                 <!-- Latest Post (Headline) -->
                 ${author.latestPost ? `
                     <div class="mt-1">
-                        <a href="/noticia/${escapeAttr(author.latestPost.slug)}" class="group">
+                        <a href="${getPostUrl(author.latestPost)}" class="group">
                              <h3 class="font-serif text-lg leading-snug text-gray-900 group-hover:text-blue-700 transition">
                                 ${escapeHtml(author.latestPost.title)}
                             </h3>

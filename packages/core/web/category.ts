@@ -7,6 +7,7 @@ import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
 import type { CategoryPageData, CategoryPost } from '../db/category'
 import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, truncate, type PublicLayoutParams } from './layout'
+import { getPostUrl } from '../utils/post'
 import { renderAdSlot, findActiveSlotsByTemplate, generateAdsLoaderScript } from '../ads'
 import { getSetting } from '../db'
 
@@ -35,7 +36,7 @@ function renderPostCard(post: CategoryPost, baseUrl: string, showImage: boolean)
 
   return `
     <article class="card hover:shadow-lg transition">
-      <a href="/noticia/${escapeAttr(post.slug)}" class="card-body">
+      <a href="${getPostUrl(post, baseUrl)}" class="card-body">
         ${imageHtml}
         <h3 class="font-bold text-xl mb-2">
           ${escapeHtml(post.title)}

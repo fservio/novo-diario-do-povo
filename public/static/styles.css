@@ -40,6 +40,9 @@
   --danger: #ff4444;
   --success: #00e676;
 
+  /* Mobile Gutter */
+  --gutter-mobile: clamp(16px, 4vw, 20px);
+
   /* Legacy Variable Mapping (for compatibility with existing HTML classes) */
   --gray-50: var(--black);
   --gray-100: var(--surface);
@@ -268,8 +271,7 @@ p {
 
 @media (max-width: 768px) {
   .container {
-    padding: 0 1.5rem;
-    /* Revert to sane padding */
+    padding-inline: var(--gutter-mobile);
   }
 }
 
@@ -1120,8 +1122,7 @@ li.border-b {
 /* Adjust margins for mobile readability */
 @media (max-width: 768px) {
   .article-header {
-    padding: 0 0;
-    /* Remove extra padding, container handles it */
+    padding-inline: var(--gutter-mobile);
     margin-top: 1rem;
   }
 
@@ -1132,8 +1133,20 @@ li.border-b {
 
   .article-content {
     font-size: 1.125rem;
-    padding: 0 0.5rem;
-    /* Ensure text doesn't hit edge */
+    padding-inline: var(--gutter-mobile);
+  }
+
+  /* Ensure images respect gutter */
+  .article-content img,
+  .article-content figure {
+    max-width: 100%;
+    margin-inline: 0;
+    height: auto;
+  }
+
+  /* Card images on mobile */
+  .card-img {
+    margin-inline: 0;
   }
 
   /* Live Blog Mobile Fixes */
@@ -1172,4 +1185,16 @@ li.border-b {
   .desktop-only {
     display: block !important;
   }
+}
+
+/* Featured Image Caption */
+.article-featured-caption {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+  font-style: italic;
+  text-align: right;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 1rem;
 }

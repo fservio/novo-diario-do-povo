@@ -21,6 +21,7 @@ export interface HomePost {
   featured_image_r2_key: string | null
   category_name: string
   category_slug: string
+  author_name: string
 }
 
 export interface CategoryBlock {
@@ -125,15 +126,17 @@ export async function getHomeData(env: Env): Promise<HomeData> {
     SELECT 
       p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at, 
       m.r2_key as featured_image_r2_key,
-      c.name as category_name, c.slug as category_slug
+      c.name as category_name, c.slug as category_slug,
+      a.name as author_name
     FROM posts p
     INNER JOIN categories c ON p.category_id = c.id
+    INNER JOIN authors a ON p.author_id = a.id
     LEFT JOIN media m ON p.cover_media_id = m.id
     WHERE p.status = 'published' 
       AND p.published_at <= ?
       AND p.seo_noindex = 0
       AND c.slug != 'explicador'
-    ORDER BY p.published_at DESC
+    ORDER BY p.is_headline DESC, p.published_at DESC
     LIMIT 1
   `).bind(now).first<HomePost>()
 
@@ -142,9 +145,11 @@ export async function getHomeData(env: Env): Promise<HomeData> {
     SELECT 
       p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at, 
       m.r2_key as featured_image_r2_key,
-      c.name as category_name, c.slug as category_slug
+      c.name as category_name, c.slug as category_slug,
+      a.name as author_name
     FROM posts p
     INNER JOIN categories c ON p.category_id = c.id
+    INNER JOIN authors a ON p.author_id = a.id
     LEFT JOIN media m ON p.cover_media_id = m.id
     WHERE p.status = 'published' 
       AND p.published_at <= ?
@@ -160,9 +165,11 @@ export async function getHomeData(env: Env): Promise<HomeData> {
     SELECT 
       p.id, p.slug, p.title, p.hat, p.published_at,
       m.r2_key as featured_image_r2_key,
-      c.name as category_name, c.slug as category_slug
+      c.name as category_name, c.slug as category_slug,
+      a.name as author_name
     FROM posts p
     INNER JOIN categories c ON p.category_id = c.id
+    INNER JOIN authors a ON p.author_id = a.id
     LEFT JOIN media m ON p.cover_media_id = m.id
     WHERE p.status = 'published' 
       AND p.published_at <= ?
@@ -197,9 +204,11 @@ export async function getHomeData(env: Env): Promise<HomeData> {
         SELECT 
           p.id, p.slug, p.title, p.excerpt, p.published_at, 
           m.r2_key as featured_image_r2_key,
-          c.name as category_name, c.slug as category_slug
+          c.name as category_name, c.slug as category_slug,
+          a.name as author_name
         FROM posts p
         INNER JOIN categories c ON p.category_id = c.id
+        INNER JOIN authors a ON p.author_id = a.id
         LEFT JOIN media m ON p.cover_media_id = m.id
         INNER JOIN post_tags pt ON pt.post_id = p.id
         WHERE p.status = 'published' 
@@ -216,9 +225,11 @@ export async function getHomeData(env: Env): Promise<HomeData> {
       SELECT 
         p.id, p.slug, p.title, p.excerpt, p.published_at, 
         m.r2_key as featured_image_r2_key,
-        c.name as category_name, c.slug as category_slug
+        c.name as category_name, c.slug as category_slug,
+        a.name as author_name
       FROM posts p
       INNER JOIN categories c ON p.category_id = c.id
+      INNER JOIN authors a ON p.author_id = a.id
       LEFT JOIN media m ON m.id = p.cover_media_id
       WHERE p.status = 'published' 
         AND p.published_at <= ?
@@ -249,9 +260,11 @@ export async function getHomeData(env: Env): Promise<HomeData> {
         SELECT 
           p.id, p.slug, p.title, p.excerpt, p.published_at, 
           m.r2_key as featured_image_r2_key,
-          c.name as category_name, c.slug as category_slug
+          c.name as category_name, c.slug as category_slug,
+          a.name as author_name
         FROM posts p
         INNER JOIN categories c ON p.category_id = c.id
+        INNER JOIN authors a ON p.author_id = a.id
         LEFT JOIN media m ON p.cover_media_id = m.id
         WHERE p.status = 'published' 
           AND p.published_at <= ?
@@ -283,9 +296,11 @@ export async function getHomeData(env: Env): Promise<HomeData> {
     SELECT 
       p.id, p.slug, p.title, p.hat, p.published_at,
       m.r2_key as featured_image_r2_key,
-      c.name as category_name, c.slug as category_slug
+      c.name as category_name, c.slug as category_slug,
+      a.name as author_name
     FROM posts p
     INNER JOIN categories c ON p.category_id = c.id
+    INNER JOIN authors a ON p.author_id = a.id
     LEFT JOIN media m ON p.cover_media_id = m.id
     WHERE p.status = 'published' 
       AND p.published_at <= ?
@@ -300,9 +315,11 @@ export async function getHomeData(env: Env): Promise<HomeData> {
       SELECT 
         p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at,
         NULL as featured_image_r2_key,
-        c.name as category_name, c.slug as category_slug
+        c.name as category_name, c.slug as category_slug,
+        a.name as author_name
       FROM posts p
       JOIN categories c ON p.category_id = c.id
+      JOIN authors a ON p.author_id = a.id
       WHERE c.slug = 'politica' AND p.status = 'published' AND p.published_at <= ?1
       ORDER BY p.published_at DESC LIMIT 1
     )
@@ -311,9 +328,11 @@ export async function getHomeData(env: Env): Promise<HomeData> {
       SELECT 
         p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at,
         NULL as featured_image_r2_key,
-        c.name as category_name, c.slug as category_slug
+        c.name as category_name, c.slug as category_slug,
+        a.name as author_name
       FROM posts p
       JOIN categories c ON p.category_id = c.id
+      JOIN authors a ON p.author_id = a.id
       WHERE c.slug = 'economia' AND p.status = 'published' AND p.published_at <= ?1
       ORDER BY p.published_at DESC LIMIT 1
     )
@@ -322,9 +341,11 @@ export async function getHomeData(env: Env): Promise<HomeData> {
       SELECT 
         p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at,
         NULL as featured_image_r2_key,
-        c.name as category_name, c.slug as category_slug
+        c.name as category_name, c.slug as category_slug,
+        a.name as author_name
       FROM posts p
       JOIN categories c ON p.category_id = c.id
+      JOIN authors a ON p.author_id = a.id
       WHERE c.slug = 'esporte' AND p.status = 'published' AND p.published_at <= ?1
       ORDER BY p.published_at DESC LIMIT 1
     )

@@ -86,6 +86,8 @@ export function estimateReadingTime(content: string | null | undefined): number 
   return Math.max(1, minutes)
 }
 
+export { getPostUrl } from '../utils/post'
+
 // ============================================================================
 // Public Layout
 // ============================================================================
@@ -137,6 +139,11 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
         coverOverlay.addEventListener('click', (e) => {
           if (e.target === coverOverlay) closeDrawer();
         });
+        
+        /* Aesthetic Filter Support */
+        const applyAesthetic = (img) => {
+           if (img) img.classList.add('img-aesthetic');
+        };
         
         document.addEventListener('keydown', (e) => {
           if (e.key === 'Escape' && !coverOverlay.classList.contains('hidden')) {
@@ -226,7 +233,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
         <!-- 3. Actions (Modern Google Style) -->
         <div class="gb-actions" style="display: flex; gap: 8px; align-items: center;">
           <a href="/login" class="gb-btn gb-btn--text">Entrar</a>
-          <a href="/assine" class="gb-btn gb-btn--primary">Assine</a>
+          <a href="/assinar" class="gb-btn gb-btn--primary">Assine</a>
         </div>
       </div>
     </header>
@@ -261,7 +268,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
             Capa do Dia
           </button>
         ` : ''}
-        <a href="/assine" class="btn btn-primary">Assine</a>
+        <a href="/assinar" class="btn btn-primary">Assine</a>
         <a href="/login" class="btn btn-outline desktop-only">Entrar</a>
       </div>
     </div>
@@ -277,18 +284,35 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
   ${description ? `<meta name="description" content="${escapeAttr(description)}">` : ''}
   <link rel="canonical" href="${escapeAttr(canonicalUrl)}">
   
-  <link rel="dns-prefetch" href="https://fonts.googleapis.com">
-  <link rel="dns-prefetch" href="https://fonts.gstatic.com">
   <link rel="dns-prefetch" href="https://securepubads.g.doubleclick.net">
   <link rel="dns-prefetch" href="https://pagead2.googlesyndication.com">
   <link rel="dns-prefetch" href="https://www.googletagservices.com">
 
-  <!-- Fonts -->
+  <!-- Fonts - Faster Loading -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=swap" rel="stylesheet">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=swap" media="print" onload="this.media='all'">
+  <noscript>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=swap">
+  </noscript>
   
+  <!-- CSS -->
+  <link rel="preload" href="${cssFile}" as="style">
   <link href="${cssFile}" rel="stylesheet" fetchpriority="high">
+  
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .img-aesthetic {
+      filter: url(#aesthetic-newspaper) contrast(1.05) brightness(1.02) saturate(0.85);
+      transition: filter 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      object-fit: cover;
+    }
+    .img-aesthetic:hover {
+      filter: none;
+    }
+  </style>
+
   ${extraHeadHtml}
 </head>
 <body>
@@ -319,7 +343,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
         
         <hr style="border: 0; border-top: 1px solid #dadce0; margin: 16px 0;">
         
-        <a href="/assine" class="gb-btn gb-btn--primary" style="width: 100%; justify-content: center; margin-bottom: 12px;">Assine</a>
+        <a href="/assinar" class="gb-btn gb-btn--primary" style="width: 100%; justify-content: center; margin-bottom: 12px;">Assine</a>
         <a href="/login" class="gb-btn gb-btn--text" style="width: 100%; justify-content: flex-start; padding-left: 0;">Entrar</a>
       </nav>
     </div>
@@ -390,7 +414,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
         </div>
         <div class="cover-content">
           <img 
-            src="/i/${escapeAttr(coverOfDay.r2Key)}" 
+            src="/i/${escapeAttr(coverOfDay.r2Key)}?w=600" 
             alt="${escapeAttr(coverOfDay.alt)}"
             class="cover-image"
             style="aspect-ratio: ${coverOfDay.aspectRatio || '3/4'};"
@@ -403,6 +427,21 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
   ` : ''}
   
   ${headerScript}
+  
+  <!-- Aesthetic Identity Filter -->
+  <svg style="position: absolute; width: 0; height: 0;" aria-hidden="true" focusable="false">
+    <filter id="aesthetic-newspaper">
+      <feColorMatrix type="matrix" values="0.3333 0.3333 0.3333 0 0
+                                           0.3333 0.3333 0.3333 0 0
+                                           0.3333 0.3333 0.3333 0 0
+                                           0      0      0      1 0" />
+      <feComponentTransfer color-interpolation-filters="sRGB">
+        <feFuncR type="table" tableValues="0.05 0.94" />
+        <feFuncG type="table" tableValues="0.09 0.96" />
+        <feFuncB type="table" tableValues="0.16 0.97" />
+      </feComponentTransfer>
+    </filter>
+  </svg>
 </body>
 </html>`
 }

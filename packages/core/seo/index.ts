@@ -4,6 +4,7 @@
  */
 
 import type { Env, Post, Category } from '../types'
+import { getPostUrl } from '../utils/post'
 
 // ============================================================================
 // Sitemap News (Google News - últimos 2 dias)
@@ -29,7 +30,7 @@ export async function generateNewsSitemap(env: Env, baseUrl: string): Promise<st
 
   const urls = (recentPosts.results || []).map((post: any) => `
   <url>
-    <loc>${baseUrl}/noticia/${post.slug}</loc>
+    <loc>${getPostUrl(post, baseUrl)}</loc>
     <news:news>
       <news:publication>
         <news:name>${escapeXml(siteName)}</news:name>
@@ -63,7 +64,7 @@ export async function generateFullSitemap(env: Env, baseUrl: string): Promise<st
 
   const postUrls = (posts.results || []).map((p: any) => `
   <url>
-    <loc>${baseUrl}/noticia/${p.slug}</loc>
+    <loc>${getPostUrl(p, baseUrl)}</loc>
     <lastmod>${new Date(p.updated_at || Date.now()).toISOString()}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -148,8 +149,8 @@ export async function generateRssFeed(
   const items = posts.map((post: any) => `
     <item>
       <title>${escapeXml(post.title)}</title>
-      <link>${baseUrl}/noticia/${post.slug}</link>
-      <guid isPermaLink="true">${baseUrl}/noticia/${post.slug}</guid>
+      <link>${getPostUrl(post, baseUrl)}</link>
+      <guid isPermaLink="true">${getPostUrl(post, baseUrl)}</guid>
       <description>${escapeXml(post.excerpt || '')}</description>
       <category>${escapeXml(post.category_name)}</category>
       <author>${escapeXml(post.author_name)}</author>
@@ -189,7 +190,7 @@ export function generateArticleJsonLd(
     '@type': 'NewsArticle',
     headline: post.title,
     description: post.excerpt || '',
-    url: `${baseUrl}/noticia/${post.slug}`,
+    url: getPostUrl(post, baseUrl),
     datePublished: post.published_at,
     dateModified: post.updated_at,
     author: {
@@ -203,7 +204,7 @@ export function generateArticleJsonLd(
     },
     mainEntityOfPage: {
       '@type': 'WebPage',
-      '@id': `${baseUrl}/noticia/${post.slug}`,
+      '@id': getPostUrl(post, baseUrl),
     },
   }
 
@@ -243,7 +244,7 @@ export function generateLiveBlogJsonLd(
       name: siteName,
       url: baseUrl,
     },
-    url: `${baseUrl}/noticia/${post.slug}`,
+    url: getPostUrl(post, baseUrl),
     datePublished: post.published_at,
     dateModified: updates.length > 0 ? updates[0].published_at : post.updated_at,
     coverageStartTime: post.published_at,

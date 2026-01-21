@@ -1,0 +1,556 @@
+/* ==========================================================================
+   V2 GOLD STANDARD - DESIGN TOKENS
+   ========================================================================== */
+
+:root {
+    /* ------------------------------------------------------------------------
+     1. Spacing Scale (8pt System)
+     ------------------------------------------------------------------------ */
+    --space-1: 8px;
+    --space-2: 16px;
+    --space-3: 24px;
+    --space-4: 32px;
+    --space-5: 40px;
+    --space-6: 48px;
+    --space-8: 64px;
+    --space-10: 80px;
+    --space-12: 96px;
+
+    /* ------------------------------------------------------------------------
+     2. Container & Grid
+     ------------------------------------------------------------------------ */
+    --container-max: 1320px;
+    --container-lg: 1200px;
+    --container-md: 1000px;
+
+    --padding-mobile: 16px;
+    --padding-desktop: 24px;
+
+    --grid-gap: 24px;
+    --grid-gap-md: 20px;
+    --grid-gap-sm: 16px;
+
+    /* ------------------------------------------------------------------------
+     3. Colors (Neutral + Brand)
+     ------------------------------------------------------------------------ */
+    --bg-page: #FFFFFF;
+    --bg-surface: #F7F7F8;
+    --bg-surface-2: #F0F0F2;
+
+    --border-color: #E6E6EA;
+    --border-subtle: #F2F2F5;
+
+    --text-primary: #111113;
+    --text-secondary: #4B4B57;
+    --text-tertiary: #6E6E78;
+    --text-inverse: #FFFFFF;
+
+    /* Brand Red - Adjusted for consistency */
+    --brand-color: #C1121F;
+    --brand-hover: #9D0F19;
+    --brand-light: #FFF0F1;
+
+    /* Utilities */
+    --link-color: var(--brand-color);
+    --success: #15803D;
+    --warning: #B45309;
+    --error: #DC2626;
+
+    /* ------------------------------------------------------------------------
+     4. Typography (Inter / System UI)
+     ------------------------------------------------------------------------ */
+    --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-serif: 'Merriweather', Georgia, serif;
+    /* Optional for opinion/features */
+
+    /* Font Sizes */
+    --text-xs: 12px;
+    --text-sm: 14px;
+    --text-base: 16px;
+    --text-lg: 18px;
+    --text-xl: 20px;
+
+    /* Headings */
+    --h1-size: 40px;
+    --h1-line: 1.1;
+
+    --h2-size: 28px;
+    --h2-line: 1.2;
+
+    --h3-size: 20px;
+    --h3-line: 1.3;
+
+    /* Content Reading */
+    --reading-line-height: 1.65;
+
+    /* Mobile Adjustments handled in media queries */
+
+    /* ------------------------------------------------------------------------
+     5. Radius & Shadows
+     ------------------------------------------------------------------------ */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-pill: 9999px;
+
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* ------------------------------------------------------------------------
+   6. Global Resets & Utilities
+   ------------------------------------------------------------------------ */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-sans);
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    line-height: 1.5;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+a:hover {
+    color: var(--brand-color);
+}
+
+/* ------------------------------------------------------------------------
+   7. Layout Classes
+   ------------------------------------------------------------------------ */
+
+/* Main Container */
+.gb-container {
+    width: 100%;
+    max-width: var(--container-max);
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--padding-desktop);
+    padding-right: var(--padding-desktop);
+}
+
+/* Media Queries for Container */
+@media (max-width: 1320px) {
+    .gb-container {
+        max-width: var(--container-lg);
+    }
+}
+
+@media (max-width: 1024px) {
+    .gb-container {
+        max-width: var(--container-md);
+    }
+}
+
+@media (max-width: 768px) {
+    .gb-container {
+        padding-left: var(--padding-mobile);
+        padding-right: var(--padding-mobile);
+    }
+}
+
+/* Grid System (CSS Grid) */
+.gb-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    column-gap: var(--grid-gap);
+    row-gap: var(--space-4);
+}
+
+/* Responsive Grid columns */
+@media (max-width: 1024px) {
+    .gb-grid {
+        grid-template-columns: repeat(8, 1fr);
+        column-gap: var(--grid-gap-md);
+    }
+}
+
+@media (max-width: 640px) {
+    .gb-grid {
+        grid-template-columns: repeat(4, 1fr);
+        column-gap: var(--grid-gap-sm);
+    }
+}
+
+/* Utility Helpers */
+.gb-hidden-mobile {
+    display: block;
+}
+
+@media (max-width: 768px) {
+    .gb-hidden-mobile {
+        display: none !important;
+    }
+}
+
+.gb-hidden-desktop {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .gb-hidden-desktop {
+        display: block !important;
+    }
+}
+
+/* ------------------------------------------------------------------------
+   8. Component: Header Gold
+   ------------------------------------------------------------------------ */
+.gb-header {
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-page);
+}
+
+.gb-header__top {
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.gb-header__logo {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text-primary);
+}
+
+.gb-header__nav {
+    height: 44px;
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: none;
+    /* Hide scrollbar Firefox */
+}
+
+.gb-header__nav::-webkit-scrollbar {
+    display: none;
+}
+
+.gb-nav-link {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-right: var(--space-3);
+    padding: 4px 0;
+    border-bottom: 2px solid transparent;
+}
+
+.gb-nav-link:hover,
+.gb-nav-link--active {
+    color: var(--brand-color);
+    border-bottom-color: var(--brand-color);
+}
+
+/* ------------------------------------------------------------------------
+   9. Component: Buttons & Actions
+   ------------------------------------------------------------------------ */
+.gb-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 16px;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.gb-btn--primary {
+    background-color: var(--brand-color);
+    color: white;
+}
+
+.gb-btn--primary:hover {
+    background-color: var(--brand-hover);
+    color: white;
+}
+
+.gb-btn--ghost {
+    background-color: transparent;
+    color: var(--text-secondary);
+}
+
+.gb-btn--ghost:hover {
+    color: var(--text-primary);
+    background-color: var(--bg-surface);
+}
+
+/* ------------------------------------------------------------------------
+   10. Component: Cards (Base)
+   ------------------------------------------------------------------------ */
+.gb-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.gb-card__media {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+    background-color: var(--bg-surface-2);
+    margin-bottom: var(--space-2);
+}
+
+.gb-card__media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.gb-card:hover .gb-card__media img {
+    transform: scale(1.02);
+}
+
+.gb-hat {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--brand-color);
+    margin-bottom: var(--space-1);
+}
+
+.gb-title {
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.25;
+    margin-bottom: var(--space-1);
+}
+
+.gb-title--hero {
+    font-size: 32px;
+    letter-spacing: -0.02em;
+}
+
+.gb-title--card {
+    font-size: 18px;
+}
+
+.gb-meta {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: auto;
+}
+
+/* ------------------------------------------------------------------------
+   11. Component: AdSlot (CLS Protected)
+   ------------------------------------------------------------------------ */
+.gb-ad-slot {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--bg-surface);
+    margin: var(--space-4) 0;
+    border-radius: var(--radius-sm);
+}
+
+.gb-ad-slot--billboard {
+    min-height: 250px;
+}
+
+.gb-ad-slot--leaderboard {
+    min-height: 90px;
+}
+
+/* ------------------------------------------------------------------------
+   12. Component: Article Premium
+   ------------------------------------------------------------------------ */
+
+/* Article Layout */
+.gb-article-container {
+    max-width: var(--container-max);
+    margin: 0 auto;
+    padding: 0 var(--padding-desktop);
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: var(--grid-gap);
+}
+
+@media (max-width: 768px) {
+    .gb-article-container {
+        padding: 0 var(--padding-mobile);
+    }
+}
+
+.gb-article-main {
+    grid-column: 3 / span 8;
+    /* Center column approx 800px max on large screens */
+    max-width: 760px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+@media (max-width: 1024px) {
+    .gb-article-main {
+        grid-column: 2 / span 10;
+    }
+}
+
+@media (max-width: 768px) {
+    .gb-article-main {
+        grid-column: span 12;
+    }
+}
+
+/* Article Header */
+.gb-article-header {
+    margin-bottom: var(--space-6);
+    text-align: left;
+}
+
+.gb-article-header .gb-hat {
+    margin-bottom: var(--space-3);
+    font-size: 13px;
+}
+
+.gb-article-h1 {
+    font-family: var(--font-sans);
+    /* Sticking to Inter */
+    font-weight: 800;
+    font-size: 44px;
+    line-height: 1.1;
+    letter-spacing: -0.04em;
+    color: var(--text-primary);
+    margin-bottom: var(--space-3);
+}
+
+@media (max-width: 768px) {
+    .gb-article-h1 {
+        font-size: 32px;
+    }
+}
+
+.gb-article-lead {
+    font-size: 20px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-4);
+    font-weight: 400;
+}
+
+.gb-article-meta-block {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) 0;
+    border-top: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: var(--space-5);
+}
+
+.gb-author-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--bg-surface-2);
+}
+
+.gb-article-meta-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.gb-author-name {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.gb-publish-date {
+    font-size: 12px;
+    color: var(--text-tertiary);
+}
+
+/* Article Body Reading Experience */
+.gb-article-body {
+    font-size: 18px;
+    line-height: 1.65;
+    color: var(--text-primary);
+    font-weight: 400;
+}
+
+.gb-article-body p {
+    margin-bottom: var(--space-4);
+}
+
+.gb-article-body h2 {
+    font-size: 28px;
+    font-weight: 800;
+    margin-top: var(--space-6);
+    margin-bottom: var(--space-3);
+    letter-spacing: -0.02em;
+}
+
+.gb-article-body h3 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-top: var(--space-5);
+    margin-bottom: var(--space-2);
+}
+
+.gb-article-body blockquote {
+    border-left: 4px solid var(--brand-color);
+    padding-left: var(--space-4);
+    margin: var(--space-5) 0;
+    font-style: italic;
+    font-size: 22px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+.gb-article-body ul,
+.gb-article-body ol {
+    margin-bottom: var(--space-4);
+    padding-left: var(--space-4);
+}
+
+.gb-article-body li {
+    margin-bottom: 8px;
+    padding-left: 8px;
+}
+
+.gb-article-body figure {
+    margin: var(--space-6) 0;
+}
+
+.gb-article-body figcaption {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    margin-top: 8px;
+    text-align: center;
+}
+
+/* Recirculation Module */
+.gb-recirc {
+    margin-top: var(--space-8);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--border-color);
+}

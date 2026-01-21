@@ -363,6 +363,9 @@ export function renderAdminLayout(
         <a class="${isActive('daily-cover')}" href="/admin/daily-cover">
           <span>📰</span> Capa do Dia
         </a>
+        <a class="${isActive('integrations')}" href="/admin/integrations">
+          <span>🔌</span> Integrações
+        </a>
         <a class="${isActive('live')}" href="/admin/live">
           <span>🔴</span> Central Live
         </a>

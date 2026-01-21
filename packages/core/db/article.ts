@@ -15,6 +15,10 @@ export interface ArticlePost {
   content_markdown: string | null
   published_at: string
   featured_image_r2_key: string | null
+  featured_image_credits: string | null
+  featured_image_alt: string | null
+  seo_title: string | null
+  seo_description: string | null
   seo_noindex: number
   seo_canonical: string | null
   category_id: number
@@ -41,7 +45,11 @@ export async function findArticleBySlug(env: Env, slug: string): Promise<Article
   const result = await env.DB.prepare(`
     SELECT 
       p.id, p.slug, p.title, p.hat, p.excerpt, p.content, p.content_markdown, p.published_at,
-      p.template, m.r2_key as featured_image_r2_key,
+      p.template,
+      m.r2_key as featured_image_r2_key,
+      m.credits as featured_image_credits,
+      m.alt as featured_image_alt,
+      p.seo_title, p.seo_description, 
       p.seo_noindex, p.seo_canonical, p.is_premium, p.is_live,
       c.id as category_id,
       c.name as category_name,

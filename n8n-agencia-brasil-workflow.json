@@ -1,0 +1,623 @@
+{
+    "nodes": [
+        {
+            "parameters": {
+                "values": {
+                    "string": [
+                        {
+                            "name": "BASE_URL",
+                            "value": "https://novo-diario-do-povo.pages.dev"
+                        },
+                        {
+                            "name": "API_KEY",
+                            "value": "e5538c76f6030d83439822f961c5f45a14446058e59f84205a2951bc06719d0d"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Config",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 1,
+            "position": [
+                96,
+                -64
+            ],
+            "id": "52f615f0-97cb-4741-ba7c-6a770c956f51"
+        },
+        {
+            "parameters": {
+                "url": "={{$node[\"Config\"].json[\"BASE_URL\"]}}/api/n8n/posts?missing_cover=true&limit=1",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "X-API-Key",
+                            "value": "={{$node[\"Config\"].json[\"API_KEY\"]}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Get Draft Posts",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                320,
+                -64
+            ],
+            "id": "e5703d52-feff-43cb-a3f8-0fe0eeb77b23"
+        },
+        {
+            "parameters": {
+                "fieldToSplitOut": "data",
+                "options": {}
+            },
+            "name": "Split Batches",
+            "type": "n8n-nodes-base.itemLists",
+            "typeVersion": 1,
+            "position": [
+                544,
+                -64
+            ],
+            "id": "f54ceab3-e402-48c6-b29f-52b0838adea9"
+        },
+        {
+            "parameters": {
+                "text": "=Você é um assistente de extração de palavra-chave para pesquisa de imagens. Entrada: Título: {{ $json.title }}, Chapéu: {{ $json.hat }}. Identifique UMA expressão de até 1 palavra que represente o tema visual (ex: \"Lula\", \"Congresso\", \"Neymar\"). Retorne APENAS a palavra.",
+                "options": {}
+            },
+            "name": "AI Keyword",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1,
+            "position": [
+                752,
+                -64
+            ],
+            "id": "ce6f1db0-d5be-4af2-9292-e16ba76e9ec2"
+        },
+        {
+            "parameters": {
+                "jsCode": "const original = $('AI Keyword').first().json.output || '';\nconst query = original.trim().replace(/\\s+/g, '+');\nreturn { json: { query, original, post_id: $('Split Batches').item.json.id } };"
+            },
+            "name": "Prepare Search",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1040,
+                -64
+            ],
+            "id": "68ac6c5b-b739-47eb-9d66-e56e683f2645"
+        },
+        {
+            "parameters": {
+                "url": "=https://agenciabrasil.ebc.com.br/search?term={{ $json.query }}",
+                "options": {}
+            },
+            "name": "Search Agencia",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                1200,
+                -64
+            ],
+            "id": "2e3c4c36-1f4c-415e-bb32-a6e0bd50a2a8"
+        },
+        {
+            "parameters": {
+                "operation": "extractHtmlContent",
+                "extractionValues": {
+                    "values": [
+                        {
+                            "cssSelector": "div.galeria-item",
+                            "returnValue": "html"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Extract Item HTML",
+            "type": "n8n-nodes-base.html",
+            "typeVersion": 1,
+            "position": [
+                1424,
+                -64
+            ],
+            "id": "98e4aea6-d9e5-4c80-a8f3-3e05f936704d"
+        },
+        {
+            "parameters": {
+                "url": "={{ $json.href }}",
+                "options": {}
+            },
+            "name": "Get Detail Page",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                1856,
+                -64
+            ],
+            "id": "bbb6aeb0-a6a0-4921-ac31-87da63932632"
+        },
+        {
+            "parameters": {
+                "jsCode": "const title = $('Code1').item.json.title || 'imagem';\nconst safeTitle = title.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^\\w\\s-]/g, '').trim().replace(/\\s+/g, '_').toLowerCase().substring(0, 50);\nconst filename = `agenciabrasil_${safeTitle}.jpg`;\nreturn { json: { filename, downloadUrl: $json.downloadUrl, title, credits: $('Code1').item.json.foto } };"
+            },
+            "name": "Gen Filename",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2304,
+                -64
+            ],
+            "id": "5e7c1a10-0eec-42bc-ae44-90d8f3262ed4"
+        },
+        {
+            "parameters": {
+                "url": "={{$node[\"Config\"].json[\"BASE_URL\"]}}/api/n8n/media?filename={{ $json.filename }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "X-API-Key",
+                            "value": "={{$node[\"Config\"].json[\"API_KEY\"]}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Check Duplicate",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                2512,
+                -64
+            ],
+            "id": "f9c0c1b3-929a-41ad-8cec-1ac6692d9eae"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "number": [
+                        {
+                            "value1": "={{ $json.count }}",
+                            "operation": "larger"
+                        }
+                    ]
+                }
+            },
+            "name": "Exists?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                2736,
+                -64
+            ],
+            "id": "6680aeea-d9ee-4ad3-ae6f-8a0df4af9afe"
+        },
+        {
+            "parameters": {
+                "url": "={{ $('Gen Filename').item.json.downloadUrl }}",
+                "responseFormat": "file",
+                "options": {}
+            },
+            "name": "Download Image",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                2960,
+                48
+            ],
+            "id": "5a6f9027-1dc7-4ab3-a3dd-bc48e216687b"
+        },
+        {
+            "parameters": {
+                "jsCode": "items[0].binary.data.fileName = $('Gen Filename').item.json.filename;\nreturn items;"
+            },
+            "name": "Set File Name",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3184,
+                48
+            ],
+            "id": "46658ee3-4198-4c46-a398-f3b3ecfc81f9"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{$node[\"Config\"].json[\"BASE_URL\"]}}/api/n8n/media",
+                "sendBody": true,
+                "contentType": "multipart-form-data",
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "file",
+                            "parameterType": "formBinaryData",
+                            "inputDataFieldName": "data"
+                        },
+                        {
+                            "name": "credits",
+                            "value": "={{ $('Gen Filename').item.json.credits }}"
+                        },
+                        {
+                            "name": "alt",
+                            "value": "={{ $('Gen Filename').item.json.title }}"
+                        }
+                    ]
+                },
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "X-API-Key",
+                            "value": "={{$node[\"Config\"].json[\"API_KEY\"]}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Upload to CMS",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                3392,
+                48
+            ],
+            "id": "a8370ae9-53e2-4fcb-9bed-e678583c823d"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Merge branches: either use existing ID or new ID\nconst exists = $('Exists?').item.json.count > 0;\nlet mediaId;\n\nif (exists) {\n  mediaId = $('Exists?').item.json.data[0].id;\n} else {\n  mediaId = $input.item.json.data.id;\n}\n\nreturn { json: { mediaId, post_id: $('Prepare Search').item.json.post_id } };"
+            },
+            "name": "Get Media ID",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3664,
+                -64
+            ],
+            "id": "084d0bde-eeb4-47a3-a233-760b96e9dadd"
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "={{$node[\"Config\"].json[\"BASE_URL\"]}}/api/n8n/posts/{{ $json.post_id }}",
+                "sendBody": true,
+                "contentType": "json",
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "cover_media_id",
+                            "value": "={{ $json.mediaId }}"
+                        }
+                    ]
+                },
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "X-API-Key",
+                            "value": "={{$node[\"Config\"].json[\"API_KEY\"]}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Update Post",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                3872,
+                -64
+            ],
+            "id": "4423a187-2465-40e5-8915-5c146cd171d6"
+        },
+        {
+            "parameters": {
+                "model": {
+                    "__rl": true,
+                    "value": "gpt-4o-mini",
+                    "mode": "list",
+                    "cachedResultName": "gpt-4o-mini"
+                },
+                "builtInTools": {},
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+            "typeVersion": 1.3,
+            "position": [
+                752,
+                224
+            ],
+            "id": "08a225ee-8dfd-40f8-9bcf-a007edcaa5c1",
+            "name": "OpenAI Chat Model",
+            "credentials": {
+                "openAiApi": {
+                    "id": "nLuuEwm3AOMjFhwE",
+                    "name": "OpenAi account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 15
+                        }
+                    ]
+                }
+            },
+            "name": "Schedule1",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                -128,
+                -64
+            ],
+            "id": "4a769605-b76b-4035-9656-71f7344beb3d"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Function node (Execute Once = false)\n\nreturn items.map(item => {\n  // 1. Pega o HTML bruto\n  const key = Object.keys(item.json)[0];\n  const html = item.json[key] || \"\";\n  \n  // 2. Extrai o href do <a>\n  const hrefMatch = html.match(/<a[^>]*href=\"([^\"]+)\"/);\n  const relativePath = hrefMatch ? hrefMatch[1] : \"\";\n  const href = relativePath\n    ? `https://agenciabrasil.ebc.com.br${relativePath}`\n    : \"\";\n\n  // 3. Extrai o texto dentro de <div class=\"titulo-foto\">…</div>\n  const tituloMatch = html.match(/<div\\s+class=\"titulo-foto\">([\\s\\S]*?)<\\/div>/);\n  const rawText = tituloMatch\n    ? tituloMatch[1]\n        .replace(/<br\\s*\\/?>/g, '\\n')  \n        .replace(/&nbsp;/g, ' ')\n        .trim()\n    : \"\";\n\n  // 4. Separa o texto em title e foto (legenda após \"Foto:\")\n  let title = rawText;\n  let foto  = \"\";\n  const fotoIndex = rawText.indexOf(\"Foto:\");\n  if (fotoIndex !== -1) {\n    title = rawText.slice(0, fotoIndex).trim();\n    const fotoMatch2 = rawText.match(/Foto:\\s*([^<\\r\\n]+)/);\n    foto = fotoMatch2 ? fotoMatch2[1].trim() : \"\";\n  }\n\n  // 5. Retorna objeto com href completo, title e foto\n  return {\n    json: {\n      href,\n      title,\n      foto\n    }\n  };\n});\n"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1648,
+                -64
+            ],
+            "id": "7b3eacd9-bb72-4d24-958a-89b69ccb944b",
+            "name": "Code1"
+        },
+        {
+            "parameters": {
+                "operation": "extractHtmlContent",
+                "extractionValues": {
+                    "values": [
+                        {
+                            "key": "downloadUrl",
+                            "cssSelector": "a.download-btn",
+                            "returnValue": "attribute",
+                            "attribute": "href"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.html",
+            "typeVersion": 1.2,
+            "position": [
+                2080,
+                -64
+            ],
+            "id": "4b9e5a63-a629-4d5a-aa8c-40cbe861e487",
+            "name": "HTML1"
+        }
+    ],
+    "connections": {
+        "Config": {
+            "main": [
+                [
+                    {
+                        "node": "Get Draft Posts",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Draft Posts": {
+            "main": [
+                [
+                    {
+                        "node": "Split Batches",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Split Batches": {
+            "main": [
+                [
+                    {
+                        "node": "AI Keyword",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Keyword": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Search",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Search": {
+            "main": [
+                [
+                    {
+                        "node": "Search Agencia",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Search Agencia": {
+            "main": [
+                [
+                    {
+                        "node": "Extract Item HTML",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract Item HTML": {
+            "main": [
+                [
+                    {
+                        "node": "Code1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Detail Page": {
+            "main": [
+                [
+                    {
+                        "node": "HTML1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Gen Filename": {
+            "main": [
+                [
+                    {
+                        "node": "Check Duplicate",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Duplicate": {
+            "main": [
+                [
+                    {
+                        "node": "Exists?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Exists?": {
+            "main": [
+                [
+                    {
+                        "node": "Get Media ID",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Download Image",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Download Image": {
+            "main": [
+                [
+                    {
+                        "node": "Set File Name",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Set File Name": {
+            "main": [
+                [
+                    {
+                        "node": "Upload to CMS",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Upload to CMS": {
+            "main": [
+                [
+                    {
+                        "node": "Get Media ID",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Media ID": {
+            "main": [
+                [
+                    {
+                        "node": "Update Post",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "OpenAI Chat Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "AI Keyword",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Schedule1": {
+            "main": [
+                [
+                    {
+                        "node": "Config",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Code1": {
+            "main": [
+                [
+                    {
+                        "node": "Get Detail Page",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "HTML1": {
+            "main": [
+                [
+                    {
+                        "node": "Gen Filename",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "9ad7d2620889f0a899118105df07f7332720fd8aaa707ac235dd72e1a9956cc9"
+    }
+}

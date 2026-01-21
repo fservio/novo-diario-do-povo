@@ -114,6 +114,41 @@ export async function findPublishedPosts(
   return result.results || []
 }
 
+export async function countPublishedPosts(
+  env: Env,
+  filters: {
+    categoryId?: number
+    tagId?: number
+    authorId?: number
+  } = {}
+): Promise<number> {
+  let query = `
+    SELECT COUNT(*) as total
+    FROM posts p
+    WHERE p.status = 'published' 
+    AND p.published_at <= datetime('now')
+  `
+  const bindings: any[] = []
+
+  if (filters.categoryId) {
+    query += ' AND p.category_id = ?'
+    bindings.push(filters.categoryId)
+  }
+
+  if (filters.tagId) {
+    query += ` AND p.id IN (SELECT post_id FROM post_tags WHERE tag_id = ?)`
+    bindings.push(filters.tagId)
+  }
+
+  if (filters.authorId) {
+    query += ' AND p.author_id = ?'
+    bindings.push(filters.authorId)
+  }
+
+  const result = await env.DB.prepare(query).bind(...bindings).first<{ total: number }>()
+  return result?.total || 0
+}
+
 export async function findPostWithRelations(env: Env, slug: string) {
   const post = await findPostBySlug(env, slug)
   if (!post) return null

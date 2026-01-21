@@ -8,6 +8,7 @@ import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
 import type { HomeData, HomePost, CategoryBlock } from '../db/home'
 import { renderPublicLayout, escapeHtml, escapeAttr, truncate, formatTime } from './layout'
+import { getPostUrl } from '../utils/post'
 import { getSetting } from '../db'
 
 // ============================================================================
@@ -20,15 +21,15 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
   // Left Column: Main Hero (Big)
   const heroHtml = `
     <article class="card card-hero h-full">
-      <a href="${baseUrl}/noticia/${escapeAttr(hero.slug)}" class="flex-col h-full relative group" style="display: flex;">
+      <a href="${getPostUrl(hero, baseUrl)}" class="flex-col h-full relative group" style="display: flex;">
         <div style="position: relative; width: 100%; height: 400px; overflow: hidden;">
-          <img 
-            src="${hero.featured_image_r2_key ? `/i/${escapeAttr(hero.featured_image_r2_key)}` : '/placeholder-hero.jpg'}" 
-            alt="${escapeAttr(hero.title)}"
-            class="card-img w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-            loading="eager"
-            fetchpriority="high"
-          />
+            <img 
+              src="${hero.featured_image_r2_key ? `/i/${escapeAttr(hero.featured_image_r2_key)}?w=1200` : '/placeholder-hero.jpg'}" 
+              alt="${escapeAttr(hero.title)}"
+              class="card-img w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 img-aesthetic"
+              loading="eager"
+              fetchpriority="high"
+            />
           <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
           <span class="btn btn-accent absolute top-4 left-4 text-xs font-bold px-3 py-1 uppercase tracking-wider">
             ${escapeHtml(hero.category_name)}
@@ -59,12 +60,12 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
   // Right Column: 2 Stacked Cards (Visual Hot Rail)
   const sideHtml = sidePosts.slice(0, 2).map(post => `
     <article class="card h-full">
-      <a href="${baseUrl}/noticia/${escapeAttr(post.slug)}" class="flex flex-col h-full group">
+      <a href="${getPostUrl(post, baseUrl)}" class="flex flex-col h-full group">
         <div style="position: relative; aspect-ratio: 3/2; overflow: hidden;">
           <img 
-            src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}` : '/placeholder.jpg'}" 
+            src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=600` : '/placeholder.jpg'}" 
             alt="${escapeAttr(post.title)}"
-            class="card-img w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            class="card-img w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 img-aesthetic"
             loading="lazy"
           />
         </div>
@@ -95,7 +96,7 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
       <ul class="space-y-4">
         ${listPosts.map(post => `
           <li class="border-b border-gray-200 last:border-0 pb-3 last:pb-0">
-            <a href="${baseUrl}/noticia/${escapeAttr(post.slug)}" class="group">
+            <a href="${getPostUrl(post, baseUrl)}" class="group">
               ${post.hat ? `
                 <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
                   ${escapeHtml(post.hat)}
@@ -135,12 +136,12 @@ function renderRadarSection(posts: HomePost[], baseUrl: string): string {
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         ${posts.map(post => `
-          <a href="${baseUrl}/noticia/${escapeAttr(post.slug)}" class="group block">
+          <a href="${getPostUrl(post, baseUrl)}" class="group block">
             <div class="aspect-video rounded-lg overflow-hidden mb-3 bg-gray-100">
               <img 
-                src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}` : '/placeholder.jpg'}" 
+                src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=400` : '/placeholder.jpg'}" 
                 alt="${escapeAttr(post.title)}"
-                class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 img-aesthetic"
                 loading="lazy"
               />
             </div>
@@ -178,7 +179,7 @@ function renderCategorySection(block: CategoryBlock, baseUrl: string, index: num
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <!-- Lead Story -->
         <div class="lg:col-span-7 ${isInverted ? 'lg:order-2' : ''}">
-          <a href="${baseUrl}/noticia/${escapeAttr(lead.slug)}" class="group block relative aspect-video rounded-xl overflow-hidden">
+          <a href="${getPostUrl(lead, baseUrl)}" class="group block relative aspect-video rounded-xl overflow-hidden">
             <img 
               src="${leadImage}"
               alt="${escapeAttr(lead.title)}"
@@ -207,7 +208,7 @@ function renderCategorySection(block: CategoryBlock, baseUrl: string, index: num
           <ul class="space-y-6">
             ${list.map(post => `
               <li class="group">
-                <a href="${baseUrl}/noticia/${escapeAttr(post.slug)}" class="flex gap-4">
+                <a href="${getPostUrl(post, baseUrl)}" class="flex gap-4">
                   <div class="w-24 h-16 rounded bg-gray-100 overflow-hidden flex-shrink-0">
                     <img 
                       src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}` : '/placeholder.jpg'}"
@@ -241,17 +242,18 @@ function renderCategorySection(block: CategoryBlock, baseUrl: string, index: num
 // Google Blog Replica Renderers (The Keyword)
 // ============================================================================
 
-function renderPostGB(post: HomePost, baseUrl: string): string {
-  // @ts-ignore
+function renderPostGB(post: HomePost, baseUrl: string, params?: { isLcp?: boolean }): string {
   const authorName = post.author_name || 'Redação'
   return `
     <article class="gb-card">
-      <a href="${baseUrl}/noticia/${escapeAttr(post.slug)}" class="gb-card__link">
+      <a href="${getPostUrl(post, baseUrl)}" class="gb-card__link">
         <div class="gb-card__media">
           <img 
-            src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}` : '/static/placeholder.jpg'}" 
+            src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=600` : '/static/placeholder.jpg'}" 
             alt="${escapeAttr(post.title)}"
-            loading="lazy"
+            class="img-aesthetic"
+            loading="${params?.isLcp ? 'eager' : 'lazy'}"
+            ${params?.isLcp ? 'fetchpriority="high"' : ''}
             onerror="this.onerror=null;this.src='/static/placeholder.jpg';"
           />
         </div>
@@ -296,7 +298,7 @@ function renderHomePageMinimal(data: HomeData, baseUrl: string, adTop: string, a
             <div class="gb-hero__content">
               <span class="gb-hat">${escapeHtml(hero.category_name)}</span>
               <h1 class="gb-title--hero">
-                <a href="${baseUrl}/noticia/${escapeAttr(hero.slug)}">${escapeHtml(hero.title)}</a>
+                <a href="${getPostUrl(hero, baseUrl)}">${escapeHtml(hero.title)}</a>
               </h1>
               <p class="gb-excerpt--hero">
                 ${escapeHtml(truncate(hero.excerpt, 120))}
@@ -309,10 +311,11 @@ function renderHomePageMinimal(data: HomeData, baseUrl: string, adTop: string, a
               </div>
             </div>
             <div class="gb-hero__media">
-              <a href="${baseUrl}/noticia/${escapeAttr(hero.slug)}">
+              <a href="${getPostUrl(hero, baseUrl)}">
                 <img 
                   src="${hero.featured_image_r2_key ? `/i/${escapeAttr(hero.featured_image_r2_key)}` : '/hero-placeholder.jpg'}" 
                   alt="${escapeAttr(hero.title)}" 
+                  class="img-aesthetic"
                   loading="eager"
                   fetchpriority="high"
                 />
@@ -328,11 +331,11 @@ function renderHomePageMinimal(data: HomeData, baseUrl: string, adTop: string, a
       <section class="gb-container gb-section">
         <div class="gb-section__header">
           <h2 class="gb-section__title">Últimas do Blog</h2>
-          <a href="/todas" class="gb-btn gb-btn--primary">Ver tudo</a>
+          <a href="/ultimas" class="gb-btn gb-btn--primary">Ver tudo</a>
         </div>
         
         <div class="gb-grid" style="grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));">
-          ${latestPosts.map(p => renderPostGB(p, baseUrl)).join('')}
+          ${latestPosts.map((p, i) => renderPostGB(p, baseUrl, { isLcp: i === 0 && !hero })).join('')}
         </div>
       </section>
 
@@ -377,7 +380,7 @@ function renderTopColumnsSection(posts: HomePost[], baseUrl: string): string {
     <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 border-b border-gray-100 pb-8">
       ${orderedPosts.map((post, index) => `
         <article class="flex flex-col ${index > 0 ? 'md:border-l md:border-gray-100 md:pl-6' : ''}">
-          <a href="${baseUrl}/noticia/${escapeAttr(post.slug)}" class="group">
+          <a href="${getPostUrl(post, baseUrl)}" class="group">
              ${post.hat ? `
                 <span class="text-xs font-bold text-accent uppercase tracking-wider mb-2 block">
                   ${escapeHtml(post.hat)}
@@ -434,7 +437,7 @@ export async function renderHomePage(
   // Prepare Nav
   const navItems = data.sections.map(s => ({
     label: s.title,
-    href: s.type === 'tag' ? `/ tag / ${s.tagSlug} ` : ` / categoria / ${s.slug} `,
+    href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
     active: false
   }))
 

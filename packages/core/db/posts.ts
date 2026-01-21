@@ -38,6 +38,7 @@ export interface Post {
   published_at: string | null
   scheduled_at: string | null
   is_live: number
+  is_headline: number
   created_at: string
   updated_at: string
 
@@ -56,6 +57,10 @@ export interface PostFilters {
   search?: string
   limit?: number
   offset?: number
+  missing_cover?: boolean
+  is_headline?: number
+  slug?: string
+  original_link?: string
 }
 
 export interface CreatePostInput {
@@ -77,7 +82,9 @@ export interface CreatePostInput {
   paywall_tier?: string
   metering_exempt?: number
   is_live?: number
+  is_headline?: number
   tags?: number[]
+  original_link?: string
 }
 
 export interface UpdatePostInput {
@@ -99,6 +106,7 @@ export interface UpdatePostInput {
   paywall_tier?: string
   metering_exempt?: number
   is_live?: number
+  is_headline?: number
   breaking_until?: string
   tags?: number[]
 }
@@ -156,7 +164,11 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
     category_id,
     author_id,
     is_premium,
+    is_headline,
     search,
+    missing_cover,
+    slug,
+    original_link,
     limit = 20,
     offset = 0
   } = filters
@@ -184,10 +196,35 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
     params.push(is_premium)
   }
 
+  if (is_headline !== undefined) {
+    whereConditions.push('p.is_headline = ?')
+    params.push(is_headline)
+  }
+
+  if (missing_cover) {
+    whereConditions.push('p.cover_media_id IS NULL')
+  }
+
+  if (slug) {
+    whereConditions.push('p.slug = ?')
+    params.push(slug)
+  }
+
+  if (original_link) {
+    whereConditions.push('p.original_link = ?')
+    params.push(original_link)
+  }
+
   if (search) {
-    whereConditions.push('(p.title LIKE ? OR p.hat LIKE ? OR p.excerpt LIKE ? OR p.content LIKE ?)')
-    const searchTerm = `%${search}%`
-    params.push(searchTerm, searchTerm, searchTerm, searchTerm)
+    // Optimization: If search is long (likely duplicate check), search ONLY title to avoid "LIKE pattern too complex"
+    if (search.length > 30) {
+      whereConditions.push('p.title LIKE ?')
+      params.push(`%${search}%`)
+    } else {
+      whereConditions.push('(p.title LIKE ? OR p.hat LIKE ? OR p.excerpt LIKE ? OR p.content LIKE ?)')
+      const searchTerm = `%${search}%`
+      params.push(searchTerm, searchTerm, searchTerm, searchTerm)
+    }
   }
 
   const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''
@@ -304,29 +341,33 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
     : sanitizeHtml(input.content)
   const contentMarkdownValue = hasMarkdown ? input.content_markdown : null
   const hatValue = input.hat ? input.hat.trim().toUpperCase() : null
+  const originalLink = input.original_link || null
 
   const bindValues = [
-    slug,
     input.title,
     hatValue,
+    slug,
     input.excerpt || null,
     contentHtml,
     contentMarkdownValue,
     input.category_id,
     input.author_id,
     input.cover_media_id || null,
-    'draft',  // status sempre 'draft' ao criar
-    input.template || 'article',
+    input.template || 'article', // template defaults to article
+    'draft', // status defaults to draft
+    0, // views
     input.seo_title || null,
     input.seo_description || null,
     input.seo_canonical || null,
-    input.seo_noindex ?? 0,
-    input.is_premium ?? 0,
+    input.seo_noindex || 0,
+    input.is_premium || 0,
     input.paywall_tier || null,
-    input.metering_exempt ?? 0,
-    input.is_live ?? 0,
-    now,
-    now
+    input.metering_exempt || 0,
+    input.is_live || 0,
+    input.is_headline || 0,
+    originalLink, // original_link
+    now, // created_at
+    now // updated_at
   ]
 
   console.log('[createPost] Bind values:', {
@@ -335,14 +376,16 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
     input: input
   })
 
+  // Ensure the SQL statement has the correct number of placeholders (?)
+  // We added original_link, so we need one more ? and the column name
   const result = await db.prepare(`
     INSERT INTO posts (
-      slug, title, hat, excerpt, content, content_markdown, category_id, author_id, cover_media_id,
-      status, template,
+      title, hat, slug, excerpt, content, content_markdown,
+      category_id, author_id, cover_media_id, template, status, views,
       seo_title, seo_description, seo_canonical, seo_noindex,
-      is_premium, paywall_tier, metering_exempt, is_live,
+      is_premium, paywall_tier, metering_exempt, is_live, is_headline, original_link,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(...bindValues).run()
 
   const postId = result.meta.last_row_id
@@ -457,6 +500,11 @@ export async function updatePost(db: D1Database, id: number, input: UpdatePostIn
   if (input.is_live !== undefined) {
     fields.push('is_live = ?')
     values.push(input.is_live)
+  }
+
+  if (input.is_headline !== undefined) {
+    fields.push('is_headline = ?')
+    values.push(input.is_headline)
   }
 
   if (input.is_premium !== undefined) {
