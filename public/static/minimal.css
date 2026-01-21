@@ -781,6 +781,24 @@ ul {
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
+
+    /* Force mobile gutter */
+    .gb-container {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+    }
+
+    /* Prevent horizontal overflow */
+    html,
+    body {
+        overflow-x: hidden !important;
+        max-width: 100vw !important;
+    }
+
+    body {
+        padding-inline: 0 !important;
+    }
+
     .gblog-footer {
         padding: 40px 0;
     }
