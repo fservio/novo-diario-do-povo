@@ -40,7 +40,6 @@ body {
     background-color: var(--gb-bg);
     color: var(--gb-text);
     margin: 0;
-    padding: 0;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
 }
