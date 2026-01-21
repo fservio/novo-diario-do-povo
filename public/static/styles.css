@@ -285,6 +285,25 @@ p {
   .px-3 {
     padding-inline: 16px !important;
   }
+
+  /* Reduce grid gaps on mobile to prevent overflow */
+  .gap-6 {
+    gap: 1rem !important;
+  }
+
+  .gap-8 {
+    gap: 1rem !important;
+  }
+
+  /* Ensure grid containers have proper padding */
+  .grid {
+    padding-inline: 0 !important;
+  }
+
+  /* Hero card adjustments */
+  .card-hero .card-body {
+    margin-inline: 1rem !important;
+  }
 }
 
 .card {
