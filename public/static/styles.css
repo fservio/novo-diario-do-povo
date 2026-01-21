@@ -270,8 +270,20 @@ p {
 }
 
 @media (max-width: 768px) {
+
+  /* Force consistent mobile gutter */
+  body {
+    padding-inline: 16px !important;
+  }
+
   .container {
-    padding-inline: var(--gutter-mobile);
+    padding-inline: 16px !important;
+  }
+
+  /* Override any px-* utility classes */
+  .px-4,
+  .px-3 {
+    padding-inline: 16px !important;
   }
 }
 
@@ -1122,7 +1134,7 @@ li.border-b {
 /* Adjust margins for mobile readability */
 @media (max-width: 768px) {
   .article-header {
-    padding-inline: var(--gutter-mobile);
+    padding-inline: 16px !important;
     margin-top: 1rem;
   }
 
@@ -1133,20 +1145,25 @@ li.border-b {
 
   .article-content {
     font-size: 1.125rem;
-    padding-inline: var(--gutter-mobile);
+    padding-inline: 16px !important;
   }
 
   /* Ensure images respect gutter */
   .article-content img,
   .article-content figure {
-    max-width: 100%;
-    margin-inline: 0;
+    max-width: 100% !important;
+    margin-inline: 0 !important;
     height: auto;
   }
 
   /* Card images on mobile */
   .card-img {
-    margin-inline: 0;
+    margin-inline: 0 !important;
+  }
+
+  /* Card body padding */
+  .card-body {
+    padding-inline: 16px !important;
   }
 
   /* Live Blog Mobile Fixes */
