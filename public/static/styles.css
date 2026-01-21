@@ -271,19 +271,41 @@ p {
 
 @media (max-width: 768px) {
 
-  /* Force consistent mobile gutter */
+  /* Prevent horizontal overflow globally */
+  html,
   body {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+  }
+
+  /* Force consistent mobile gutter on all major containers */
+  body {
+    padding-inline: 16px !important;
+  }
+
+  body>* {
+    max-width: 100% !important;
+  }
+
+  main {
     padding-inline: 16px !important;
   }
 
   .container {
     padding-inline: 16px !important;
+    max-width: 100% !important;
   }
 
   /* Override any px-* utility classes */
   .px-4,
   .px-3 {
     padding-inline: 16px !important;
+  }
+
+  /* Prevent negative margins */
+  .mx-6,
+  .-mt-16 {
+    margin-inline: 0 !important;
   }
 
   /* Reduce grid gaps on mobile to prevent overflow */
@@ -298,11 +320,18 @@ p {
   /* Ensure grid containers have proper padding */
   .grid {
     padding-inline: 0 !important;
+    max-width: 100% !important;
   }
 
   /* Hero card adjustments */
   .card-hero .card-body {
     margin-inline: 1rem !important;
+  }
+
+  /* Ensure all images stay within bounds */
+  img {
+    max-width: 100% !important;
+    height: auto !important;
   }
 }
 
