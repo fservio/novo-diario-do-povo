@@ -333,7 +333,8 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
 
   ${extraHeadHtml}
 </head>
-<body>
+<body style="padding: 0 !important;">
+  <div style="padding-inline: 16px; max-width: 100vw; overflow-x: hidden;">
   <!-- Header -->
   ${headerHtml}
 
