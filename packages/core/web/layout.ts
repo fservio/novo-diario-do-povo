@@ -461,6 +461,8 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
       </feComponentTransfer>
     </filter>
   </svg>
+  
+  </div>
 </body>
 </html>`
 }
