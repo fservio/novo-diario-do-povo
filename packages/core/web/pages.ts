@@ -2,6 +2,7 @@
 import type { Context } from 'hono'
 import { renderPublicLayout } from './layout'
 import { getSetting } from '../db'
+import { getActiveCategories } from '../db/categories-cache'
 import type { Env } from '../types'
 
 // Content maps for static pages
@@ -142,3 +143,4 @@ export async function renderStaticPage(c: Context<{ Bindings: Env }>, slug: stri
         theme: 'minimal' // Use minimal layout for static pages
     })
 }
+

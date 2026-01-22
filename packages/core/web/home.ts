@@ -10,6 +10,7 @@ import type { HomeData, HomePost, CategoryBlock } from '../db/home'
 import { renderPublicLayout, escapeHtml, escapeAttr, truncate, formatTime } from './layout'
 import { getPostUrl } from '../utils/post'
 import { getSetting } from '../db'
+import { getActiveCategories } from '../db/categories-cache'
 
 // ============================================================================
 // Component Renderers
@@ -22,8 +23,7 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
   const heroHtml = `
     <article class="card card-hero h-full">
       <a href="${getPostUrl(hero, baseUrl)}" class="flex-col h-full relative group" style="display: flex;">
-        <div style="position: relative; width: 100%; height: 400px; overflow: hidden;">
-            <img 
+        <div style="position: relative; width: 100%; height: 400px; overflow: hidden;"><img 
               src="${hero.featured_image_r2_key ? `/i/${escapeAttr(hero.featured_image_r2_key)}?w=1200` : '/placeholder-hero.jpg'}" 
               alt="${escapeAttr(hero.title)}"
               class="card-img w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 img-aesthetic"
@@ -61,8 +61,7 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
   const sideHtml = sidePosts.slice(0, 2).map(post => `
     <article class="card h-full">
       <a href="${getPostUrl(post, baseUrl)}" class="flex flex-col h-full group">
-        <div style="position: relative; aspect-ratio: 3/2; overflow: hidden;">
-          <img 
+        <div style="position: relative; aspect-ratio: 3/2; overflow: hidden;"><img 
             src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=600` : '/placeholder.jpg'}" 
             alt="${escapeAttr(post.title)}"
             class="card-img w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 img-aesthetic"
@@ -278,7 +277,7 @@ function renderPostGB(post: HomePost, baseUrl: string, params?: { isLcp?: boolea
   `
 }
 
-function renderHomePageMinimal(data: HomeData, baseUrl: string, adTop: string, adMid: string): string {
+function renderHomePageMinimal(data: HomeData, baseUrl: string, adTop: string, adMid: string, nonce: string): string {
   // 1. Hero Data
   const hero = data.hero
 
@@ -330,7 +329,7 @@ function renderHomePageMinimal(data: HomeData, baseUrl: string, adTop: string, a
       <!-- Latest Updates Grid -->
       <section class="gb-container gb-section">
         <div class="gb-section__header">
-          <h2 class="gb-section__title">Últimas do Blog</h2>
+          <h2 class="gb-section__title">Últimas Noticias</h2>
           <a href="/ultimas" class="gb-btn gb-btn--primary">Ver tudo</a>
         </div>
         
@@ -342,22 +341,43 @@ function renderHomePageMinimal(data: HomeData, baseUrl: string, adTop: string, a
       ${adMid ? `<div class="gb-container my-8 text-center">${adMid}</div>` : ''}
 
       <!-- Category Sections -->
-      ${categories.map(cat => `
+      ${categories.map((cat, i) => `
         <section class="gb-container gb-section">
            <div class="gb-section__header">
               <h2 class="gb-section__title">${escapeHtml(cat.name)}</h2>
               <div class="gb-carousel-controls">
-                 <button class="gb-control-btn" aria-label="Previous">←</button>
-                 <button class="gb-control-btn" aria-label="Next">→</button>
+                 <button class="gb-control-btn" data-carousel-target="carousel-${i}" data-direction="prev" aria-label="Previous">←</button>
+                 <button class="gb-control-btn" data-carousel-target="carousel-${i}" data-direction="next" aria-label="Next">→</button>
               </div>
            </div>
-           <div class="gb-grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
-              ${cat.list.slice(0, 3).map(p => renderPostGB(p, baseUrl)).join('')}
+           <div id="carousel-${i}" class="gb-carousel">
+              ${cat.list.slice(0, 24).map(p => renderPostGB(p, baseUrl)).join('')}
            </div>
         </section>
       `).join('')}
 
     </div>
+    
+    <script nonce="${nonce}">
+      document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.gb-control-btn');
+        if (!btn) return;
+        
+        const targetId = btn.getAttribute('data-carousel-target');
+        const direction = btn.getAttribute('data-direction');
+        const carousel = document.getElementById(targetId);
+        
+        if (carousel) {
+          // Scroll amount: Card width (300px) + Gap (24px) = 324px
+          // On mobile, maybe scroll less? kept simple for now
+          const scrollAmount = 324;
+          carousel.scrollBy({
+            left: direction === 'next' ? scrollAmount : -scrollAmount,
+            behavior: 'smooth'
+          });
+        }
+      });
+    </script>
   `
 }
 
@@ -441,11 +461,14 @@ export async function renderHomePage(
     active: false
   }))
 
+  // Fetch categories for mobile menu
+  const categories = await getActiveCategories(c.env)
+
   let bodyHtml = ''
 
   if (theme === 'minimal') {
     // --- Minimalist Renderer (Google Blog) ---
-    bodyHtml = renderHomePageMinimal(data, baseUrl, adTop, adMid) + adsScript
+    bodyHtml = renderHomePageMinimal(data, baseUrl, adTop, adMid, nonce) + adsScript
   } else {
     // --- Default Magazine Renderer ---
 
@@ -494,8 +517,11 @@ export async function renderHomePage(
     nonce,
     siteName,
     navItems,
+    categories,
     coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null,
     bodyHtml,
     theme
   })
 }
+
+

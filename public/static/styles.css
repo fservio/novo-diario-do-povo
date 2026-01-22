@@ -220,9 +220,9 @@ p {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.6rem 1.25rem;
+  padding: 0px 11px;
   font-weight: 700;
-  font-size: 0.875rem;
+  font-size: 13px;
   border-radius: var(--radius-sm);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -319,7 +319,7 @@ p {
 
   /* Ensure grid containers have proper padding */
   .grid {
-    padding-inline: 0 !important;
+    padding-inline: 1rem !important;
     max-width: 100% !important;
   }
 
@@ -393,6 +393,7 @@ p {
 
 .hero-title {
   font-size: 3rem;
+  font-weight: 700;
   line-height: 1;
   margin-bottom: 1rem;
   color: var(--white);
@@ -878,14 +879,14 @@ li.border-b {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 1rem;
-  font-size: 0.875rem;
+  gap: 6px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   border-top: 1px solid var(--border-color);
   border-bottom: 1px solid var(--border-color);
   padding: 1rem 0;
-  margin-top: 2rem;
+  margin-top: 6px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -1026,7 +1027,7 @@ li.border-b {
   max-width: 800px;
   /* Constrain width for readability */
   margin: 0 auto;
-  font-family: var(--font-sans);
+  font-family: 'Google Sans', sans-serif;
   font-size: 1.25rem;
   /* Larger font size for premium feel */
   line-height: 1.8;

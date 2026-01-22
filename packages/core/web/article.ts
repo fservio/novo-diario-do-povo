@@ -13,6 +13,7 @@ import { generateArticleJsonLd, generateLiveBlogJsonLd, generateBreadcrumbJsonLd
 import { renderMarkdownToHtml, sanitizeHtml } from '../render/sanitize'
 import { renderLiveBlogTimeline, renderLiveBlogScript } from './liveblog'
 import { findLiveUpdates, getSetting } from '../db'
+import { getActiveCategories } from '../db/categories-cache'
 
 // ============================================================================
 // Helpers
@@ -82,7 +83,6 @@ function renderArticleHeader(post: ArticlePost, readingTime: number): string {
           <img 
             src="/i/${escapeAttr(post.featured_image_r2_key)}?w=1200" 
             alt="${escapeAttr(post.featured_image_alt || post.title)}"
-            class="img-aesthetic"
             loading="eager"
             fetchpriority="high"
           >
@@ -299,6 +299,9 @@ export async function renderArticlePage(
   const themeSetting = await getSetting(c.env, 'public_theme')
   const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
 
+  // Fetch categories for mobile menu
+  const categories = await getActiveCategories(c.env)
+
   return renderPublicLayout({
     title: post.seo_title ? `${post.seo_title} | ${siteName}` : `${post.title} | ${siteName}`,
     description: post.seo_description || post.excerpt || post.title,
@@ -306,6 +309,7 @@ export async function renderArticlePage(
     nonce,
     siteName,
     navItems,
+    categories,
     coverOfDay,
     bodyHtml,
     extraHeadHtml,

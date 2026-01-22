@@ -2048,127 +2048,130 @@ app.get('/v2/categoria/:slug', async (c) => {
     siteName
   })
 
-  // ============================================================================
-  // Public Columns Routes
-  // ============================================================================
+  return c.html(html)
+})
 
-  app.get('/colunas', async (c) => {
-    const { renderColumnsList } = await import('../packages/core/web/columns')
-    const { getSetting } = await import('../packages/core/db')
-    const { getHomeSections } = await import('../packages/core/db/home')
+// ============================================================================
+// Public Columns Routes
+// ============================================================================
 
-    const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
-    const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
+app.get('/colunas', async (c) => {
+  const { renderColumnsList } = await import('../packages/core/web/columns')
+  const { getSetting } = await import('../packages/core/db')
+  const { getHomeSections } = await import('../packages/core/db/home')
 
-    // Daily Cover
-    const { getMediaById } = await import('../packages/core/db')
-    const dailyCover = await getSetting(c.env, 'daily_cover') as { media_id: number } | null
-    let coverR2Key = ''
-    let coverAlt = 'Capa do Dia'
-    let coverAspectRatio = '3/4'
+  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+  const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
 
-    if (dailyCover?.media_id) {
-      const media = await getMediaById(c.env, dailyCover.media_id)
-      if (media) {
-        coverR2Key = media.r2_key
-        coverAlt = media.alt || media.filename
-        if (media.width && media.height) {
-          coverAspectRatio = `${media.width}/${media.height}`
-        }
+  // Daily Cover
+  const { getMediaById } = await import('../packages/core/db')
+  const dailyCover = await getSetting(c.env, 'daily_cover') as { media_id: number } | null
+  let coverR2Key = ''
+  let coverAlt = 'Capa do Dia'
+  let coverAspectRatio = '3/4'
+
+  if (dailyCover?.media_id) {
+    const media = await getMediaById(c.env, dailyCover.media_id)
+    if (media) {
+      coverR2Key = media.r2_key
+      coverAlt = media.alt || media.filename
+      if (media.width && media.height) {
+        coverAspectRatio = `${media.width}/${media.height}`
       }
     }
+  }
 
-    // Get nav sections
-    const sections = await getHomeSections(c.env)
-    const navItems = sections
-      .filter(s => s.enabled)
-      .map(s => ({
-        label: s.title,
-        href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
-        active: false // We could check, but 'colunas' isn't in dynamic sections usually
-      }))
+  // Get nav sections
+  const sections = await getHomeSections(c.env)
+  const navItems = sections
+    .filter(s => s.enabled)
+    .map(s => ({
+      label: s.title,
+      href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
+      active: false // We could check, but 'colunas' isn't in dynamic sections usually
+    }))
 
-    // Add Colunas to nav if not present (optional hardcoded fallback)
-    navItems.push({ label: 'Colunas', href: '/colunas', active: true })
+  // Add Colunas to nav if not present (optional hardcoded fallback)
+  navItems.push({ label: 'Colunas', href: '/colunas', active: true })
 
-    const html = await renderColumnsList(c, {
-      baseUrl,
-      siteName,
-      navItems,
-      coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null
-    })
-
-    return c.html(html)
+  const html = await renderColumnsList(c, {
+    baseUrl,
+    siteName,
+    navItems,
+    coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null
   })
 
-  app.get('/coluna/:slug', async (c) => {
-    const { renderColumnPage } = await import('../packages/core/web/columns')
-    const { getSetting } = await import('../packages/core/db')
-    const { getHomeSections } = await import('../packages/core/db/home')
-    const slug = c.req.param('slug')
+  return c.html(html)
+})
 
-    const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
-    const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
+app.get('/coluna/:slug', async (c) => {
+  const { renderColumnPage } = await import('../packages/core/web/columns')
+  const { getSetting } = await import('../packages/core/db')
+  const { getHomeSections } = await import('../packages/core/db/home')
+  const slug = c.req.param('slug')
 
-    // Daily Cover
-    const { getMediaById } = await import('../packages/core/db')
-    const dailyCover = await getSetting(c.env, 'daily_cover') as { media_id: number } | null
-    let coverR2Key = ''
-    let coverAlt = 'Capa do Dia'
-    let coverAspectRatio = '3/4'
+  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+  const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
 
-    if (dailyCover?.media_id) {
-      const media = await getMediaById(c.env, dailyCover.media_id)
-      if (media) {
-        coverR2Key = media.r2_key
-        coverAlt = media.alt || media.filename
-        if (media.width && media.height) {
-          coverAspectRatio = `${media.width}/${media.height}`
-        }
+  // Daily Cover
+  const { getMediaById } = await import('../packages/core/db')
+  const dailyCover = await getSetting(c.env, 'daily_cover') as { media_id: number } | null
+  let coverR2Key = ''
+  let coverAlt = 'Capa do Dia'
+  let coverAspectRatio = '3/4'
+
+  if (dailyCover?.media_id) {
+    const media = await getMediaById(c.env, dailyCover.media_id)
+    if (media) {
+      coverR2Key = media.r2_key
+      coverAlt = media.alt || media.filename
+      if (media.width && media.height) {
+        coverAspectRatio = `${media.width}/${media.height}`
       }
     }
+  }
 
-    // Get nav sections
-    const sections = await getHomeSections(c.env)
-    const navItems = sections
-      .filter(s => s.enabled)
-      .map(s => ({
-        label: s.title,
-        href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
-        active: false
-      }))
+  // Get nav sections
+  const sections = await getHomeSections(c.env)
+  const navItems = sections
+    .filter(s => s.enabled)
+    .map(s => ({
+      label: s.title,
+      href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
+      active: false
+    }))
 
-    navItems.push({ label: 'Colunas', href: '/colunas', active: false })
+  navItems.push({ label: 'Colunas', href: '/colunas', active: false })
 
-    const html = await renderColumnPage(c, slug, {
-      baseUrl,
-      siteName,
-      navItems,
-      coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null
-    })
-
-    if (!html) return c.notFound()
-
-    return c.html(html)
+  const html = await renderColumnPage(c, slug, {
+    baseUrl,
+    siteName,
+    navItems,
+    coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null
   })
 
-  // ============================================================================
-  // Public Author Route
-  // ============================================================================
+  if (!html) return c.notFound()
 
-  app.get('/autor/:slug', async (c) => {
-    const slug = c.req.param('slug')
-    const { findAuthorBySlug, findPublishedPosts, getSetting } = await import('../packages/core/db')
+  return c.html(html)
+})
 
-    const author = await findAuthorBySlug(c.env, slug)
-    if (!author) {
-      return c.notFound()
-    }
+// ============================================================================
+// Public Author Route
+// ============================================================================
 
-    const posts = await findPublishedPosts(c.env, { authorId: author.id, limit: 30 })
-    const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+app.get('/autor/:slug', async (c) => {
+  const slug = c.req.param('slug')
+  const { findAuthorBySlug, findPublishedPosts, getSetting } = await import('../packages/core/db')
 
-    return c.html(`
+  const author = await findAuthorBySlug(c.env, slug)
+  if (!author) {
+    return c.notFound()
+  }
+
+  const posts = await findPublishedPosts(c.env, { authorId: author.id, limit: 30 })
+  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+
+  return c.html(`
     <!DOCTYPE html>
     <html lang="pt-BR">
     <head>
@@ -2216,46 +2219,46 @@ app.get('/v2/categoria/:slug', async (c) => {
     </body>
     </html>
   `)
+})
+
+
+// ============================================================================
+// V1 Public Web Routes (Google Blog Style)
+// ============================================================================
+// Mount V1 Router
+app.route('/', await import('../packages/core/web/routes-v1').then(m => m.default))
+
+
+app.get('/assinar', async (c) => {
+  const { renderSubscribePage } = await import('../packages/core/web/subscribe')
+  const { getHomeSections } = await import('../packages/core/db/home')
+  const { getSetting } = await import('../packages/core/db')
+
+  const baseUrl = new URL(c.req.url).origin
+  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+  const sections = await getHomeSections(c.env)
+
+  const navItems = sections.map(s => ({
+    label: s.title,
+    href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
+    active: false
+  }))
+
+  const html = await renderSubscribePage(c, {
+    baseUrl,
+    siteName,
+    navItems
   })
 
+  return c.html(html)
+})
 
-  // ============================================================================
-  // V1 Public Web Routes (Google Blog Style)
-  // ============================================================================
-  // Mount V1 Router
-  app.route('/', await import('../packages/core/web/routes-v1').then(m => m.default))
+app.get('/conta', async (c) => {
+  const { getSetting } = await import('../packages/core/db')
+  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
 
-
-  app.get('/assinar', async (c) => {
-    const { renderSubscribePage } = await import('../packages/core/web/subscribe')
-    const { getHomeSections } = await import('../packages/core/db/home')
-    const { getSetting } = await import('../packages/core/db')
-
-    const baseUrl = new URL(c.req.url).origin
-    const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
-    const sections = await getHomeSections(c.env)
-
-    const navItems = sections.map(s => ({
-      label: s.title,
-      href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
-      active: false
-    }))
-
-    const html = await renderSubscribePage(c, {
-      baseUrl,
-      siteName,
-      navItems
-    })
-
-    return c.html(html)
-  })
-
-  app.get('/conta', async (c) => {
-    const { getSetting } = await import('../packages/core/db')
-    const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
-
-    // TODO: Implementar página de conta com status de assinatura
-    return c.html(`
+  // TODO: Implementar página de conta com status de assinatura
+  return c.html(`
     <!DOCTYPE html>
     <html lang="pt-BR">
     <head>
@@ -2291,147 +2294,147 @@ app.get('/v2/categoria/:slug', async (c) => {
     </body>
     </html>
   `)
-  })
+})
 
-  // ============================================================================
-  // Webhooks
-  // ============================================================================
+// ============================================================================
+// Webhooks
+// ============================================================================
 
-  app.post('/api/webhooks/asaas', async (c) => {
-    const { rateLimiter } = await import('../packages/core/middleware')
-    const { getSetting } = await import('../packages/core/db')
-    const { asaasWebhookSchema, handleAsaasWebhook } = await import('../packages/core/integrations/asaas')
+app.post('/api/webhooks/asaas', async (c) => {
+  const { rateLimiter } = await import('../packages/core/middleware')
+  const { getSetting } = await import('../packages/core/db')
+  const { asaasWebhookSchema, handleAsaasWebhook } = await import('../packages/core/integrations/asaas')
 
-    // Rate limiting
-    const limiter = rateLimiter('webhook')
-    await limiter(c as any, async () => { })
+  // Rate limiting
+  const limiter = rateLimiter('webhook')
+  await limiter(c as any, async () => { })
 
-    try {
-      // Authenticate webhook via settings
-      const webhookToken = await getSetting(c.env, 'asaas.webhook_token', 'private')
-      const providedToken = c.req.header('x-asaas-token')
+  try {
+    // Authenticate webhook via settings
+    const webhookToken = await getSetting(c.env, 'asaas.webhook_token', 'private')
+    const providedToken = c.req.header('x-asaas-token')
 
-      if (!webhookToken || providedToken !== webhookToken) {
-        return c.json({ success: false, error: 'Unauthorized' }, 401)
-      }
+    if (!webhookToken || providedToken !== webhookToken) {
+      return c.json({ success: false, error: 'Unauthorized' }, 401)
+    }
 
-      // CRITICAL: Get RAW body as ArrayBuffer (bytes) for true idempotency
-      const rawBodyBuffer = await c.req.arrayBuffer()
+    // CRITICAL: Get RAW body as ArrayBuffer (bytes) for true idempotency
+    const rawBodyBuffer = await c.req.arrayBuffer()
 
-      // Compute SHA-256 hash of RAW bytes (not re-serialized JSON)
-      const hashBuffer = await crypto.subtle.digest('SHA-256', rawBodyBuffer)
-      const hashArray = Array.from(new Uint8Array(hashBuffer))
-      const payloadHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+    // Compute SHA-256 hash of RAW bytes (not re-serialized JSON)
+    const hashBuffer = await crypto.subtle.digest('SHA-256', rawBodyBuffer)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const payloadHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
 
-      // Decode to text and parse JSON
-      const bodyText = new TextDecoder().decode(rawBodyBuffer)
-      const body = JSON.parse(bodyText)
+    // Decode to text and parse JSON
+    const bodyText = new TextDecoder().decode(rawBodyBuffer)
+    const body = JSON.parse(bodyText)
 
-      // Validate with Zod
-      const validation = asaasWebhookSchema.safeParse(body)
-      if (!validation.success) {
-        console.error('Webhook validation error:', validation.error)
-        return c.json({ success: false, error: 'Invalid webhook payload' }, 400)
-      }
+    // Validate with Zod
+    const validation = asaasWebhookSchema.safeParse(body)
+    if (!validation.success) {
+      console.error('Webhook validation error:', validation.error)
+      return c.json({ success: false, error: 'Invalid webhook payload' }, 400)
+    }
 
-      const event = validation.data
-      const requestId = c.get('requestId') || 'unknown'
+    const event = validation.data
+    const requestId = c.get('requestId') || 'unknown'
 
-      // Primary idempotency: payload_hash (64 hex chars)
-      const eventId = payloadHash
+    // Primary idempotency: payload_hash (64 hex chars)
+    const eventId = payloadHash
 
-      // Secondary idempotency: stable_key (derived from semantic content)
-      let stableKey: string | null = null
+    // Secondary idempotency: stable_key (derived from semantic content)
+    let stableKey: string | null = null
 
-      // Derive stable_key: asaas:<eventType>:<entityId>
-      const eventType = event.event
-      if (event.payment?.id) {
-        stableKey = `asaas:${eventType}: payment:${event.payment.id} `
-      } else if ((event as any).subscription?.id) {
-        stableKey = `asaas:${eventType}: subscription:${(event as any).subscription.id} `
-      } else if ((event as any).customer?.id || (event as any).customer) {
-        const custId = (event as any).customer?.id || (event as any).customer
-        stableKey = `asaas:${eventType}: customer:${custId} `
-      } else if ((event as any).invoice?.id) {
-        stableKey = `asaas:${eventType}: invoice:${(event as any).invoice.id} `
-      }
+    // Derive stable_key: asaas:<eventType>:<entityId>
+    const eventType = event.event
+    if (event.payment?.id) {
+      stableKey = `asaas:${eventType}: payment:${event.payment.id} `
+    } else if ((event as any).subscription?.id) {
+      stableKey = `asaas:${eventType}: subscription:${(event as any).subscription.id} `
+    } else if ((event as any).customer?.id || (event as any).customer) {
+      const custId = (event as any).customer?.id || (event as any).customer
+      stableKey = `asaas:${eventType}: customer:${custId} `
+    } else if ((event as any).invoice?.id) {
+      stableKey = `asaas:${eventType}: invoice:${(event as any).invoice.id} `
+    }
 
-      // RACE-FREE IDEMPOTENCY: Try INSERT into webhook_idempotency first
-      // If stable_key exists, PRIMARY KEY will reject (no race condition)
-      if (stableKey) {
-        try {
-          await c.env.DB.prepare(`
+    // RACE-FREE IDEMPOTENCY: Try INSERT into webhook_idempotency first
+    // If stable_key exists, PRIMARY KEY will reject (no race condition)
+    if (stableKey) {
+      try {
+        await c.env.DB.prepare(`
           INSERT INTO webhook_idempotency(provider, stable_key, event_id)
     VALUES(?, ?, ?)
       `).bind('asaas', stableKey, eventId).run()
 
-          // Success: this is the FIRST request with this stable_key → continue
-        } catch (error: any) {
-          // PRIMARY KEY collision → duplicate stable_key
-          if (error.message && error.message.includes('UNIQUE constraint failed')) {
-            return c.json({ success: true, message: 'Event already processed (stable_key race-free)' })
-          }
-          // Other error → log and continue (fallback to hash check)
-          console.error('Idempotency table error:', error)
+        // Success: this is the FIRST request with this stable_key → continue
+      } catch (error: any) {
+        // PRIMARY KEY collision → duplicate stable_key
+        if (error.message && error.message.includes('UNIQUE constraint failed')) {
+          return c.json({ success: true, message: 'Event already processed (stable_key race-free)' })
         }
+        // Other error → log and continue (fallback to hash check)
+        console.error('Idempotency table error:', error)
       }
+    }
 
-      // Fallback idempotency check: by payload_hash
-      const existingByHash = await c.env.DB.prepare(
-        'SELECT id FROM webhook_events WHERE provider = ? AND event_id = ?'
-      ).bind('asaas', eventId).first()
+    // Fallback idempotency check: by payload_hash
+    const existingByHash = await c.env.DB.prepare(
+      'SELECT id FROM webhook_events WHERE provider = ? AND event_id = ?'
+    ).bind('asaas', eventId).first()
 
-      if (existingByHash) {
-        return c.json({ success: true, message: 'Event already processed (by hash)' })
-      }
+    if (existingByHash) {
+      return c.json({ success: true, message: 'Event already processed (by hash)' })
+    }
 
-      // Store event with hybrid idempotency
-      await c.env.DB.prepare(`
+    // Store event with hybrid idempotency
+    await c.env.DB.prepare(`
       INSERT INTO webhook_events(provider, event_id, event_type, payload_hash, payload_json, stable_key, status, created_at)
     VALUES(?, ?, ?, ?, ?, ?, 'pending', datetime('now'))
       `).bind(
-        'asaas',
-        eventId,
-        event.event,
-        payloadHash,
-        bodyText,
-        stableKey
-      ).run()
+      'asaas',
+      eventId,
+      event.event,
+      payloadHash,
+      bodyText,
+      stableKey
+    ).run()
 
-      // Process
-      await handleAsaasWebhook(c.env, event, requestId)
+    // Process
+    await handleAsaasWebhook(c.env, event, requestId)
 
-      // Mark as processed
-      await c.env.DB.prepare(
-        'UPDATE webhook_events SET status = ?, processed_at = datetime(\'now\') WHERE provider = ? AND event_id = ?'
-      ).bind('processed', 'asaas', eventId).run()
+    // Mark as processed
+    await c.env.DB.prepare(
+      'UPDATE webhook_events SET status = ?, processed_at = datetime(\'now\') WHERE provider = ? AND event_id = ?'
+    ).bind('processed', 'asaas', eventId).run()
 
-      return c.json({ success: true })
-    } catch (error) {
-      console.error('Webhook error:', error)
-      return c.json({ success: false, error: (error as Error).message }, 400)
-    }
-  })
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Webhook error:', error)
+    return c.json({ success: false, error: (error as Error).message }, 400)
+  }
+})
 
-  // ============================================================================
-  // Error Handler
-  // ============================================================================
+// ============================================================================
+// Error Handler
+// ============================================================================
 
-  app.onError(errorHandler)
+app.onError(errorHandler)
 
-  // ============================================================================
-  // 404 Handler (JSON para /api/*, HTML para resto)
-  // ============================================================================
+// ============================================================================
+// 404 Handler (JSON para /api/*, HTML para resto)
+// ============================================================================
 
-  app.notFound((c) => {
-    const path = new URL(c.req.url).pathname
+app.notFound((c) => {
+  const path = new URL(c.req.url).pathname
 
-    if (path.startsWith('/api/')) {
-      return c.json({ success: false, error: 'Endpoint não encontrado' }, 404)
-    }
+  if (path.startsWith('/api/')) {
+    return c.json({ success: false, error: 'Endpoint não encontrado' }, 404)
+  }
 
-    // HTML 404
-    return c.html(`
+  // HTML 404
+  return c.html(`
       < !DOCTYPE html >
         <html lang="pt-BR" >
           <head>
@@ -2451,129 +2454,104 @@ app.get('/v2/categoria/:slug', async (c) => {
                               </body>
                               </html>
                                 `, 404)
-  })
+})
 
-  // ============================================================================
-  // Admin Users Routes (RBAC: Director only)
-  // ============================================================================
+// ============================================================================
+// Admin Users Routes (RBAC: Director only)
+// ============================================================================
 
-  // GET /admin/users - List users
-  app.get('/admin/users', async (c) => {
-    const { requireDirector } = await import('../packages/core/middleware/rbac')
-    await requireDirector(c, async () => { })
+// GET /admin/users - List users
+app.get('/admin/users', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => { })
 
-    const { handleUsersList } = await import('../packages/core/admin/users')
-    return handleUsersList(c)
-  })
+  const { handleUsersList } = await import('../packages/core/admin/users')
+  return handleUsersList(c)
+})
 
-  // GET /admin/users/new - New user form
-  app.get('/admin/users/new', async (c) => {
-    const { requireDirector } = await import('../packages/core/middleware/rbac')
-    await requireDirector(c, async () => { })
+// GET /admin/users/new - New user form
+app.get('/admin/users/new', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => { })
 
-    const { handleUsersNew } = await import('../packages/core/admin/users')
-    return handleUsersNew(c)
-  })
+  const { handleUsersNew } = await import('../packages/core/admin/users')
+  return handleUsersNew(c)
+})
 
-  // POST /admin/users - Create user
-  app.post('/admin/users', async (c) => {
-    const { requireDirector } = await import('../packages/core/middleware/rbac')
-    await requireDirector(c, async () => { })
+// POST /admin/users - Create user
+app.post('/admin/users', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => { })
 
-    const { handleUsersCreate } = await import('../packages/core/admin/users')
-    return handleUsersCreate(c)
-  })
+  const { handleUsersCreate } = await import('../packages/core/admin/users')
+  return handleUsersCreate(c)
+})
 
-  // GET /admin/users/:id - Edit user form
-  app.get('/admin/users/:id{[0-9]+}', async (c) => {
-    const { requireDirector } = await import('../packages/core/middleware/rbac')
-    await requireDirector(c, async () => { })
+// GET /admin/users/:id - Edit user form
+app.get('/admin/users/:id{[0-9]+}', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => { })
 
-    const { handleUsersEdit } = await import('../packages/core/admin/users')
-    return handleUsersEdit(c)
-  })
+  const { handleUsersEdit } = await import('../packages/core/admin/users')
+  return handleUsersEdit(c)
+})
 
-  // POST /admin/users/:id - Update user
-  app.post('/admin/users/:id{[0-9]+}', async (c) => {
-    const { requireDirector } = await import('../packages/core/middleware/rbac')
-    await requireDirector(c, async () => { })
+// POST /admin/users/:id - Update user
+app.post('/admin/users/:id{[0-9]+}', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => { })
 
-    const { handleUsersUpdate } = await import('../packages/core/admin/users')
-    return handleUsersUpdate(c)
-  })
+  const { handleUsersUpdate } = await import('../packages/core/admin/users')
+  return handleUsersUpdate(c)
+})
 
-  // POST /admin/users/:id/reset-password - Reset password
-  app.post('/admin/users/:id{[0-9]+}/reset-password', async (c) => {
-    const { requireDirector } = await import('../packages/core/middleware/rbac')
-    await requireDirector(c, async () => { })
+// POST /admin/users/:id/reset-password - Reset password
+app.post('/admin/users/:id{[0-9]+}/reset-password', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => { })
 
-    const { handleUsersResetPassword } = await import('../packages/core/admin/users')
-    return handleUsersResetPassword(c)
-  })
+  const { handleUsersResetPassword } = await import('../packages/core/admin/users')
+  return handleUsersResetPassword(c)
+})
 
-  // POST /admin/users/:id/disable - Disable user
-  app.post('/admin/users/:id{[0-9]+}/disable', async (c) => {
-    const { requireDirector } = await import('../packages/core/middleware/rbac')
-    await requireDirector(c, async () => { })
+// POST /admin/users/:id/disable - Disable user
+app.post('/admin/users/:id{[0-9]+}/disable', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => { })
 
-    const { handleUsersDisable } = await import('../packages/core/admin/users')
-    return handleUsersDisable(c)
-  })
+  const { handleUsersDisable } = await import('../packages/core/admin/users')
+  return handleUsersDisable(c)
+})
 
-  // POST /admin/users/:id/enable - Enable user
-  app.post('/admin/users/:id{[0-9]+}/enable', async (c) => {
-    const { requireDirector } = await import('../packages/core/middleware/rbac')
-    await requireDirector(c, async () => { })
+// POST /admin/users/:id/enable - Enable user
+app.post('/admin/users/:id{[0-9]+}/enable', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => { })
 
-    const { handleUsersEnable } = await import('../packages/core/admin/users')
-    return handleUsersEnable(c)
-  })
+  const { handleUsersEnable } = await import('../packages/core/admin/users')
+  return handleUsersEnable(c)
+})
 
-  // ============================================================================
-  // 13. R2 Image Serving
-  // ============================================================================
+// ============================================================================
+// 13. R2 Image Serving
+// ============================================================================
 
-  app.get('/i/:key{.+}', async (c) => {
-    const key = c.req.param('key')
-    const w = c.req.query('w')
-    const h = c.req.query('h')
-    const fit = c.req.query('fit')
-    const noredir = c.req.query('noredir')
+app.get('/i/:key{.+}', async (c) => {
+  const key = c.req.param('key')
+  const w = c.req.query('w')
+  const h = c.req.query('h')
+  const fit = c.req.query('fit')
+  const noredir = c.req.query('noredir')
 
-    // 1. If it's a request for a static asset from the repo
-    if (key.startsWith('static/')) {
-      const origin = new URL(c.req.url).origin
-      const assetUrl = `${origin}/${key}`
+  // 1. If it's a request for a static asset from the repo
+  if (key.startsWith('static/')) {
+    const origin = new URL(c.req.url).origin
+    const assetUrl = `${origin}/${key}`
 
-      if (w || h) {
-        try {
-          // @ts-ignore - Cloudflare Image Resizing
-          const response = await fetch(assetUrl, {
-            cf: {
-              image: {
-                width: w ? parseInt(w) : undefined,
-                height: h ? parseInt(h) : undefined,
-                fit: (fit as any) || 'scale-down',
-                quality: 85
-              }
-            }
-          })
-          if (response.ok) return response
-        } catch (e) {
-          console.error('Static resizing failed:', e)
-        }
-      }
-      return fetch(assetUrl)
-    }
-
-    // 2. If it's an R2 request with resizing requested
-    if ((w || h) && noredir !== '1') {
-      const url = new URL(c.req.url)
-      url.searchParams.set('noredir', '1')
-
+    if (w || h) {
       try {
         // @ts-ignore - Cloudflare Image Resizing
-        const response = await fetch(url.toString(), {
+        const response = await fetch(assetUrl, {
           cf: {
             image: {
               width: w ? parseInt(w) : undefined,
@@ -2585,65 +2563,90 @@ app.get('/v2/categoria/:slug', async (c) => {
         })
         if (response.ok) return response
       } catch (e) {
-        console.error('R2 resizing failed:', e)
+        console.error('Static resizing failed:', e)
       }
     }
+    return fetch(assetUrl)
+  }
 
-    // 3. Raw serving from R2
+  // 2. If it's an R2 request with resizing requested
+  if ((w || h) && noredir !== '1') {
+    const url = new URL(c.req.url)
+    url.searchParams.set('noredir', '1')
+
     try {
-      const { getMediaFromR2 } = await import('../packages/core/storage')
-      const object = await getMediaFromR2(c.env, key)
-
-      if (!object) {
-        return c.notFound()
-      }
-
-      const headers = new Headers()
-      headers.set('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream')
-      headers.set('Cache-Control', 'public, max-age=31536000, immutable')
-      headers.set('ETag', object.httpEtag || '')
-
-      // Check If-None-Match for 304
-      const ifNoneMatch = c.req.header('If-None-Match')
-      if (ifNoneMatch && ifNoneMatch === object.httpEtag) {
-        return c.body(null, 304, Object.fromEntries(headers))
-      }
-
-      return new Response(object.body, {
-        headers,
-        status: 200
+      // @ts-ignore - Cloudflare Image Resizing
+      const response = await fetch(url.toString(), {
+        cf: {
+          image: {
+            width: w ? parseInt(w) : undefined,
+            height: h ? parseInt(h) : undefined,
+            fit: (fit as any) || 'scale-down',
+            quality: 85
+          }
+        }
       })
-    } catch (error) {
-      console.error('Image serving error:', error)
-      return c.notFound()
+      if (response.ok) return response
+    } catch (e) {
+      console.error('R2 resizing failed:', e)
     }
-  })
+  }
 
-  // ============================================================================
-  // Public Static Pages Routes
-  // ============================================================================
+  // 3. Raw serving from R2
+  try {
+    const { getMediaFromR2 } = await import('../packages/core/storage')
+    const object = await getMediaFromR2(c.env, key)
 
-  app.get('/p/:slug', async (c) => {
-    const slug = c.req.param('slug')
-    const { renderStaticPage } = await import('../packages/core/web/pages')
-
-    const html = await renderStaticPage(c, slug)
-
-    if (!html) {
+    if (!object) {
       return c.notFound()
     }
 
-    return c.html(html)
-  })
+    const headers = new Headers()
+    headers.set('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream')
+    headers.set('Cache-Control', 'public, max-age=31536000, immutable')
+    headers.set('ETag', object.httpEtag || '')
 
-  // ============================================================================
-  // 14. 404 Handler
-  // ============================================================================
+    // Check If-None-Match for 304
+    const ifNoneMatch = c.req.header('If-None-Match')
+    if (ifNoneMatch && ifNoneMatch === object.httpEtag) {
+      return c.body(null, 304, Object.fromEntries(headers))
+    }
 
-  // Fallback debug
-  app.get('*', (c) => {
-    console.log(`[DEBUG] Fallback route matched for: ${c.req.url}`)
+    return new Response(object.body, {
+      headers,
+      status: 200
+    })
+  } catch (error) {
+    console.error('Image serving error:', error)
     return c.notFound()
-  })
+  }
+})
 
-  export default app
+// ============================================================================
+// Public Static Pages Routes
+// ============================================================================
+
+app.get('/p/:slug', async (c) => {
+  const slug = c.req.param('slug')
+  const { renderStaticPage } = await import('../packages/core/web/pages')
+
+  const html = await renderStaticPage(c, slug)
+
+  if (!html) {
+    return c.notFound()
+  }
+
+  return c.html(html)
+})
+
+// ============================================================================
+// 14. 404 Handler
+// ============================================================================
+
+// Fallback debug
+app.get('*', (c) => {
+  console.log(`[DEBUG] Fallback route matched for: ${c.req.url}`)
+  return c.notFound()
+})
+
+export default app

@@ -580,7 +580,7 @@ ul {
     font-size: 20px;
     line-height: 1.6;
     color: var(--gb-text);
-    font-family: var(--font-sans);
+    font-family: 'Google Sans', sans-serif;
     font-style: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
@@ -616,8 +616,8 @@ ul {
 .article-meta {
     display: flex;
     align-items: center;
-    gap: 12px;
-    font-size: 14px;
+    gap: 6px;
+    font-size: 11px;
     color: #5f6368;
     margin-bottom: 40px;
     border-top: 1px solid #e8eaed;
@@ -1038,3 +1038,160 @@ ul {
         box-shadow: 0 0 0 0 rgba(217, 48, 37, 0);
     }
 }
+
+/* ============================================================================
+   Newsprint Printing Press Effect
+   Simula máquina de impressão revelando a foto
+   ============================================================================ */
+
+/* Container */
+.newsprint {
+    position: relative;
+    overflow: hidden;
+    background: #f3f1ea;
+    /* papel amarelado */
+}
+
+/* Imagem com filtro de jornal */
+.newsprint-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    filter: grayscale(1) contrast(1.6) brightness(1.08);
+}
+
+/* ====== 1) Revelação (folha saindo) ====== */
+.print .newsprint-img {
+    clip-path: inset(0 0 100% 0);
+    animation: print-reveal 1.4s ease-out forwards, ink-settle 0.9s ease-out forwards;
+}
+
+/* ====== 2) Scanlines (cabeçote da impressora) ====== */
+.print::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -20%;
+    height: 28%;
+
+    /* faixa + linhas finas */
+    background:
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0) 60%),
+        repeating-linear-gradient(to bottom,
+            rgba(0, 0, 0, 0.25) 0px,
+            rgba(0, 0, 0, 0.25) 1px,
+            rgba(0, 0, 0, 0) 2px,
+            rgba(0, 0, 0, 0) 6px);
+
+    mix-blend-mode: multiply;
+    opacity: 0.55;
+    animation: print-head 1.4s ease-out forwards;
+    pointer-events: none;
+}
+
+/* ====== 3) Leve "tremor" mecânico ====== */
+.print {
+    animation: print-jitter 0.22s linear 6;
+}
+
+/* Halftone pattern (pontilhado de impressão) */
+.newsprint::before {
+    content: "";
+    position: absolute;
+    inset: -20%;
+    transform: rotate(-12deg);
+    background: radial-gradient(circle, rgba(0, 0, 0, .6) 1px, transparent 1.8px) 0 0 / 7px 7px;
+    mix-blend-mode: multiply;
+    opacity: .5;
+    pointer-events: none;
+}
+
+/* Keyframes */
+@keyframes print-reveal {
+    0% {
+        clip-path: inset(0 0 100% 0);
+    }
+
+    100% {
+        clip-path: inset(0 0 0% 0);
+    }
+}
+
+@keyframes print-head {
+    0% {
+        transform: translateY(0%);
+        opacity: 0.65;
+    }
+
+    100% {
+        transform: translateY(460%);
+        opacity: 0;
+    }
+}
+
+@keyframes print-jitter {
+    0% {
+        transform: translateX(0);
+    }
+
+    25% {
+        transform: translateX(-0.6px);
+    }
+
+    50% {
+        transform: translateX(0.6px);
+    }
+
+    75% {
+        transform: translateX(-0.4px);
+    }
+
+    100% {
+        transform: translateX(0);
+    }
+}
+
+@keyframes ink-settle {
+    0% {
+        filter: grayscale(1) contrast(0.95) brightness(1.06) blur(0.35px);
+    }
+
+    100% {
+        filter: grayscale(1) contrast(1.6) brightness(1.08) blur(0);
+    }
+}
+
+/* Acessibilidade: respeitar quem reduz animações */
+@media (prefers-reduced-motion: reduce) {
+
+    .print .newsprint-img,
+    .print::after,
+    .print {
+        animation: none !important;
+        clip-path: none !important;
+    }
+}
+/* Carousel Styles */
+.gb-carousel {
+    display: flex;
+    gap: 24px;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    padding-bottom: 30px;
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+.gb-carousel::-webkit-scrollbar {
+    display: none;
+}
+.gb-carousel > * {
+    flex: 0 0 300px;
+    min-width: 300px;
+}
+/* Ensure card images in carousel are visible */
+.gb-carousel .card-img {
+  height: 200px;
+  object-fit: cover;
+}
+

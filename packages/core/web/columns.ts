@@ -10,6 +10,7 @@ import { getPostUrl } from '../utils/post'
 import { listActiveAuthors, findAuthorBySlug, type Author } from '../db/authors'
 import { getSetting } from '../db'
 import { listPosts, type Post } from '../db/posts'
+import { getActiveCategories } from '../db/categories-cache'
 
 // ============================================================================
 // Types
@@ -192,12 +193,16 @@ export async function renderColumnsList(
   const themeSetting = await getSetting(c.env, 'public_theme')
   const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
 
+  // Fetch categories for mobile menu
+  const categories = await getActiveCategories(c.env)
+
   return renderPublicLayout({
     title: `Colunistas | ${siteName}`,
     description: 'Opinião, análise e blogs dos nossos especialistas.',
     canonicalUrl: `${baseUrl}/colunas`,
     siteName,
     navItems,
+    categories,
     coverOfDay,
     bodyHtml,
     theme
@@ -297,12 +302,16 @@ export async function renderColumnPage(
   const themeSetting = await getSetting(c.env, 'public_theme')
   const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
 
+  // Fetch categories for mobile menu
+  const categories = await getActiveCategories(c.env)
+
   return renderPublicLayout({
     title: `${author.column_name || author.name} | ${siteName}`,
     description: author.column_description || author.bio || `Coluna de ${author.name}`,
     canonicalUrl: `${baseUrl}/coluna/${author.slug}`,
     siteName,
     navItems,
+    categories,
     coverOfDay,
     bodyHtml,
     theme

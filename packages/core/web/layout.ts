@@ -16,6 +16,7 @@ export type PublicLayoutParams = {
   nonce?: string
   siteName: string
   navItems: Array<{ label: string; href: string; active?: boolean }>
+  categories: Array<{ id: number; name: string; slug: string }>
   coverOfDay?: { r2Key: string; alt: string; aspectRatio?: string } | null
   bodyHtml: string
   extraHeadHtml?: string  // JSON-LD scripts and OG tags
@@ -100,6 +101,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     nonce = '',
     siteName,
     navItems,
+    categories,
     coverOfDay,
     bodyHtml,
     extraHeadHtml = '',
@@ -354,9 +356,9 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
       </div>
       
       <nav style="display: flex; flex-direction: column; gap: 8px;">
-        ${navItems.map(item => `
-          <a href="${escapeAttr(item.href)}" class="mobile-nav-link">
-            ${escapeHtml(item.label)}
+        ${categories.map(cat => `
+          <a href="/categoria/${encodeURIComponent(cat.slug)}" class="mobile-nav-link">
+            ${escapeHtml(cat.name)}
           </a>
         `).join('')}
         

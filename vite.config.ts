@@ -10,8 +10,12 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    target: 'es2022',
     rollupOptions: {
       external: ['__STATIC_CONTENT_MANIFEST'],
+      output: {
+        format: 'es'
+      }
     },
   },
   resolve: {

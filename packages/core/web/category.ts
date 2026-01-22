@@ -10,6 +10,7 @@ import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, truncate, type 
 import { getPostUrl } from '../utils/post'
 import { renderAdSlot, findActiveSlotsByTemplate, generateAdsLoaderScript } from '../ads'
 import { getSetting } from '../db'
+import { getActiveCategories } from '../db/categories-cache'
 
 // ============================================================================
 // Helpers
@@ -169,6 +170,9 @@ export async function renderCategoryPage(
   const themeSetting = await getSetting(c.env, 'public_theme')
   const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
 
+  // Fetch categories for mobile menu
+  const categories = await getActiveCategories(c.env)
+
   // Use shared layout
   return renderPublicLayout({
     title: `${category.name} | ${siteName}`,
@@ -177,6 +181,7 @@ export async function renderCategoryPage(
     nonce,
     siteName,
     navItems,
+    categories,
     coverOfDay,
     bodyHtml,
     theme
