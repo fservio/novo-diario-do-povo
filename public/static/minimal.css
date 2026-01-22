@@ -278,8 +278,7 @@ ul {
 
 .gb-section__title {
     font-size: 40px;
-    font-weight: 700;
-    margin: 0;
+    font-weight: 900 margin: 0;
     color: var(--gb-text);
 }
 
@@ -1172,6 +1171,7 @@ ul {
         clip-path: none !important;
     }
 }
+
 /* Carousel Styles */
 .gb-carousel {
     display: flex;
@@ -1179,19 +1179,23 @@ ul {
     overflow-x: auto;
     scroll-behavior: smooth;
     padding-bottom: 30px;
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
 }
+
 .gb-carousel::-webkit-scrollbar {
     display: none;
 }
-.gb-carousel > * {
+
+.gb-carousel>* {
     flex: 0 0 300px;
     min-width: 300px;
 }
+
 /* Ensure card images in carousel are visible */
 .gb-carousel .card-img {
-  height: 200px;
-  object-fit: cover;
+    height: 200px;
+    object-fit: cover;
 }
-

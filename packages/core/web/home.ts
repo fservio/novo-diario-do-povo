@@ -368,12 +368,16 @@ function renderHomePageMinimal(data: HomeData, baseUrl: string, adTop: string, a
         const carousel = document.getElementById(targetId);
         
         if (carousel) {
-          // Scroll amount: Card width (300px) + Gap (24px) = 324px
-          // On mobile, maybe scroll less? kept simple for now
-          const scrollAmount = 324;
-          carousel.scrollBy({
-            left: direction === 'next' ? scrollAmount : -scrollAmount,
-            behavior: 'smooth'
+          // Scroll by the visible width of the carousel (90%)
+          // Relies on CSS scroll-behavior: smooth for animation
+          const scrollAmount = carousel.clientWidth * 0.90; 
+          const targetPos = direction === 'next' 
+            ? carousel.scrollLeft + scrollAmount 
+            : carousel.scrollLeft - scrollAmount;
+            
+          carousel.scrollTo({
+            left: targetPos,
+            behavior: 'smooth' 
           });
         }
       });

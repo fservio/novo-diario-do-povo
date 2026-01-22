@@ -99,6 +99,13 @@ export interface AppContext {
     email: string
     isSubscriber: boolean
   }
+  subscriber?: {
+    id: number
+    email: string
+    name: string | null
+    status: 'active' | 'blocked'
+    created_at: string
+  } | null
   parsedBody?: any // Cached parsed body for CSRF validation
 }
 

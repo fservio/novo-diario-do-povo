@@ -269,6 +269,9 @@ app.get('/tag/:slug', async (c) => {
 // ============================================================================
 // Shared Article Handler
 // ============================================================================
+// ============================================================================
+// Shared Article Handler
+// ============================================================================
 const handleArticleRequest = async (c: any) => {
     const { slug } = c.req.param()
 
@@ -279,6 +282,7 @@ const handleArticleRequest = async (c: any) => {
     const { checkPostAccess } = await import('../paywall')
     const { getReaderContext } = await import('../paywall/helpers')
     const { getSetting } = await import('../db')
+    const { logAudit } = await import('../db') // Using audit for event logging MVP
 
     // Find post
     const post = await findArticleBySlug(c.env, slug)
@@ -298,6 +302,8 @@ const handleArticleRequest = async (c: any) => {
         id: post.id,
         slug: post.slug,
         is_premium: post.is_premium,
+        template: post.template,
+        paywall_tier: (post as any).paywall_tier,
         category: { id: post.category_id, name: post.category_name, slug: post.category_slug }
     }
 
@@ -305,7 +311,26 @@ const handleArticleRequest = async (c: any) => {
         isSubscriber: readerContext.isSubscriber,
         readerUserId: readerContext.readerId,
         anonIdentifier: readerContext.anonIdentifier,
+        subscriber: readerContext.subscriber
     })
+
+    // Server-side Tracking (MVP)
+    const eventLog = {
+        entityType: 'article',
+        entityId: post.id,
+        action: accessCheck.allowed ? 'view_allowed' : 'view_blocked',
+        actorType: 'user' as 'user', // Explicit cast to satisfy union type
+        actorId: readerContext.readerId || 0,
+        metadata: {
+            reason: accessCheck.reason,
+            paywallMode: accessCheck.paywallMode,
+            slug: post.slug
+        },
+        requestId: c.get('requestId')
+    }
+    // Fire and forget logging
+    c.executionCtx.waitUntil(logAudit(c.env, eventLog))
+
 
     // Get CMS settings
     const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
@@ -329,6 +354,17 @@ const handleArticleRequest = async (c: any) => {
     const relatedPosts = await findRelatedPosts(c.env, post.id, post.category_id, { limit: 4 })
     const mostRead = await findMostRead(c.env, { limit: 6 })
 
+    // Generate Content Source (Teaser vs Full)
+    let contentSource = post.content_markdown || post.content || ''
+
+    // If blocked, slice content
+    if (!accessCheck.allowed) {
+        // Simple teaser logic: first 2 paragraphs or N chars
+        const teaserLimit = 800
+        contentSource = contentSource.slice(0, teaserLimit) + '...'
+        // TODO: Enhance slicing to respect markdown block boundaries if needed
+    }
+
     // Render article page
     const html = await renderArticlePage(c, post, {
         baseUrl,
@@ -337,17 +373,33 @@ const handleArticleRequest = async (c: any) => {
         coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null,
         relatedPosts,
         mostRead,
-        isBlocked: !accessCheck.allowed
-    })
+        isBlocked: !accessCheck.allowed,
+        accessCheck // Pass rich object for UI rendering
+    }, contentSource) // Pass modified content source to renderer
 
     if (!html) {
         console.error(`[CRITICAL] renderArticlePage returned empty string for slug: ${slug}`)
         return c.text('Erro Interno: Falha ao renderizar a página.', 500)
     }
 
-    return c.body(html, 200, {
+    // Cache Control
+    const headers: Record<string, string> = {
         'Content-Type': 'text/html; charset=UTF-8'
-    })
+    }
+
+    if (!accessCheck.allowed) {
+        // Blocked content (teaser) can be cached carefully OR no-stored if dynamic
+        // Since it depends on login state, safer to use private or no-store
+        headers['Cache-Control'] = 'private, no-store'
+    } else if (post.is_premium) {
+        // Premium allowed content MUST NOT be cached publicly
+        headers['Cache-Control'] = 'private, no-store'
+    } else {
+        // Free content can be cached
+        headers['Cache-Control'] = 'public, max-age=60, s-maxage=60'
+    }
+
+    return c.body(html, 200, headers)
 }
 
 // GET /noticia/:slug - Legacy/Short URL

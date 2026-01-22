@@ -1,5 +1,10 @@
+// Helper to validate email
+export function validateEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
 /**
- * Middleware: Request Validation (Zod)
+ * Validation Middleware: Request Validation (Zod)
  */
 
 import type { Context, Next } from 'hono'
@@ -37,7 +42,7 @@ export function validateRequest(schema: z.ZodSchema, type: ValidationType = 'bod
     }
 
     const result = schema.safeParse(data)
-    
+
     if (!result.success) {
       return c.json(
         {

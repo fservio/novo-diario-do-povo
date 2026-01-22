@@ -13,7 +13,7 @@ import { getSetting } from '../db'
 
 export async function getPaywallRules(env: Env): Promise<PaywallRule> {
   const rules = await getSetting(env, 'paywall_rules', 'public')
-  
+
   // Defaults
   return {
     mode: rules?.mode || 'metered',
@@ -85,11 +85,17 @@ export async function incrementMeteringCounter(
 
 export interface AccessCheckResult {
   allowed: boolean
-  reason?: string
+  reason?: 'not_logged_in' | 'not_subscribed' | 'past_due' | 'metering_limit_reached' | 'hard_paywall'
   paywallMode?: 'free' | 'metered' | 'hard'
+  cta?: {
+    primary: 'login' | 'subscribe_monthly' | 'subscribe_annual' | 'pay_invoice' | 'reactivate'
+    href?: string
+  }
   meteringState?: MeteringState
   lockRatio?: number
   showSoftCta?: boolean
+  graceUntil?: string
+  subscriber?: any
 }
 
 export async function checkPostAccess(
@@ -99,62 +105,107 @@ export async function checkPostAccess(
     isSubscriber: boolean
     readerUserId?: number
     anonIdentifier?: string
+    subscriber?: any
   }
 ): Promise<AccessCheckResult> {
-  // 1. Subscriber tem acesso total
-  if (context.isSubscriber) {
-    return { allowed: true }
+  // 0. Defaults
+  const defaults: AccessCheckResult = { allowed: true, paywallMode: 'free' }
+
+  // 1. Check Subscriber Access (if logged in)
+  if (context.readerUserId) {
+    const { isPremium, getSubscriptionStatus } = await import('../db')
+    const status = await getSubscriptionStatus(env, context.readerUserId)
+
+    // Status Logic
+    if (status.isPremium) {
+      return { allowed: true, subscriber: context.subscriber }
+    }
+
+    // Logged in but NOT premium
+    // Check specific states
+    if (status.status === 'past_due') {
+      return {
+        allowed: false,
+        reason: 'past_due',
+        paywallMode: 'hard',
+        cta: { primary: 'pay_invoice', href: '/portal' }, // Direct them to portal to pay
+        subscriber: context.subscriber
+      }
+    }
+
+    if (status.status === 'canceled') {
+      return {
+        allowed: false,
+        reason: 'not_subscribed', // or canceled specific
+        paywallMode: 'hard',
+        cta: { primary: 'reactivate' },
+        subscriber: context.subscriber
+      }
+    }
+
+    // Just not subscribed (none)
+    // We treat them as "metered" user potentially if we want meter for free users?
+    // Usually logged in non-subscribers are treated as "hard" for premium content.
   }
 
-  // 2. Post não-premium é livre
+  // 2. Post IS Free?
   if (!post.is_premium) {
-    return { allowed: true, paywallMode: 'free' }
+    // Even if free, we might want to check metering if site is 100% metered? 
+    // For now, free posts are free.
+    return defaults
   }
 
-  // 3. Breaking news temporariamente livre
+  // 3. Breaking news overrides
   if (post.breaking_until) {
     const breakingDate = new Date(post.breaking_until)
     if (breakingDate > new Date()) {
-      return { allowed: true, paywallMode: 'free' }
+      return defaults
     }
   }
 
   // 4. Metering exempt
   if (post.metering_exempt) {
-    return { allowed: true, paywallMode: 'free' }
+    return defaults
   }
 
-  // 5. Buscar regras do post
+  // 5. Paywall Logic for Premium Content
+
+  // If user is Logged In but NOT Premium (failed step 1 check)
+  if (context.readerUserId) {
+    return {
+      allowed: false,
+      reason: 'not_subscribed',
+      paywallMode: 'hard',
+      cta: { primary: 'subscribe_monthly' },
+      subscriber: context.subscriber
+    }
+  }
+
+  // If user is Anonymous (Not Logged In)
+  // We can offer Metering here OR Hard Paywall if it's premium.
+  // Requirement: "se is_premium && !isPremium -> teaser + CTA"
+  // Assuming 'is_premium' means HARD paywall for non-subs.
+  // If we support metered access to premium content, logic goes here.
+  // For this project, 'is_premium' usually means Subscribers Only.
+
+  // Check global rules to see if we allow metering for premium
   const globalRules = await getPaywallRules(env)
-  
-  // Exempted templates
+
+  // If exemptions apply
   if (globalRules.exempt_templates?.includes(post.template)) {
-    return { allowed: true, paywallMode: 'free' }
+    return defaults
   }
 
-  // 6. Determinar modo (tier do post ou categoria)
+  // Check specific post tier
   let mode: 'free' | 'metered' | 'hard' = globalRules.mode as any
-  
   if (post.paywall_tier) {
     mode = post.paywall_tier as any
   }
 
-  // 7. Hard paywall
-  if (mode === 'hard') {
-    return {
-      allowed: false,
-      reason: 'hard_paywall',
-      paywallMode: 'hard',
-      lockRatio: 0, // Bloquear imediatamente ou após excerpt
-    }
-  }
-
-  // 8. Metered paywall
+  // If mode is METERED, we check limits for Anon
   if (mode === 'metered') {
-    const identifier = context.readerUserId?.toString() || context.anonIdentifier || 'unknown'
-    const identifierType = context.readerUserId ? 'user' : 'anon'
-
-    const meteringState = await getMeteringState(env, identifier, identifierType)
+    const identifier = context.anonIdentifier || 'unknown'
+    const meteringState = await getMeteringState(env, identifier, 'anon')
 
     if (meteringState.isLocked) {
       return {
@@ -163,22 +214,26 @@ export async function checkPostAccess(
         paywallMode: 'metered',
         meteringState,
         lockRatio: globalRules.lock_after_ratio_mobile || 0.22,
+        cta: { primary: 'subscribe_monthly' } // Anon limit reached -> subscribe
       }
     }
-
-    // Permitir mas mostrar soft CTA se próximo do limite
-    const showSoftCta = meteringState.count >= (globalRules.meter_soft_cta_at || 2)
 
     return {
       allowed: true,
       paywallMode: 'metered',
       meteringState,
-      showSoftCta,
+      showSoftCta: meteringState.count >= (globalRules.meter_soft_cta_at || 2)
     }
   }
 
-  // 9. Free (fallback)
-  return { allowed: true, paywallMode: 'free' }
+  // Default for premium content: HARD paywall (Not Logged In)
+  return {
+    allowed: false,
+    reason: 'not_logged_in',
+    paywallMode: 'hard',
+    lockRatio: 0.2, // Show a bit of teaser
+    cta: { primary: 'login' }
+  }
 }
 
 // ============================================================================
@@ -189,12 +244,12 @@ export function generateMeteringIdentifier(ipAddress: string, userAgent: string)
   if (!ipAddress || !userAgent) {
     return 'unknown'
   }
-  
+
   // Hash simples (pode ser melhorado com fingerprinting mais robusto)
   const data = `${ipAddress}:${userAgent}`
   const encoder = new TextEncoder()
   const buffer = encoder.encode(data)
-  
+
   // Usar apenas primeiros 16 bytes do hash para não armazenar PII completo
   return Array.from(buffer.slice(0, 16), b => b.toString(16).padStart(2, '0')).join('')
 }
@@ -209,7 +264,7 @@ export async function signMeteringCookie(
 ): Promise<string> {
   const monthYear = new Date().toISOString().substring(0, 7)
   const data = `${identifier}:${monthYear}`
-  
+
   const encoder = new TextEncoder()
   const key = await crypto.subtle.importKey(
     'raw',
@@ -218,10 +273,10 @@ export async function signMeteringCookie(
     false,
     ['sign']
   )
-  
+
   const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(data))
   const sig = Array.from(new Uint8Array(signature), b => b.toString(16).padStart(2, '0')).join('')
-  
+
   return `${identifier}.${monthYear}.${sig}`
 }
 
@@ -235,7 +290,7 @@ export async function verifyMeteringCookie(
 
     const [identifier, monthYear, providedSig] = parts
     const data = `${identifier}:${monthYear}`
-    
+
     const encoder = new TextEncoder()
     const key = await crypto.subtle.importKey(
       'raw',
@@ -244,10 +299,10 @@ export async function verifyMeteringCookie(
       false,
       ['sign']
     )
-    
+
     const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(data))
     const expectedSig = Array.from(new Uint8Array(signature), b => b.toString(16).padStart(2, '0')).join('')
-    
+
     if (expectedSig !== providedSig) return null
 
     return { identifier, monthYear }

@@ -36,6 +36,9 @@ export interface RelatedPost {
   title: string
   published_at: string
   category_name?: string
+  hat?: string
+  featured_image_r2_key?: string
+  author_name?: string
 }
 
 /**
@@ -79,14 +82,21 @@ export async function findRelatedPosts(
   const now = new Date().toISOString()
 
   const result = await env.DB.prepare(`
-    SELECT id, slug, title, published_at
-    FROM posts
-    WHERE category_id = ?
-      AND id != ?
-      AND status = 'published'
-      AND published_at <= ?
-      AND seo_noindex = 0
-    ORDER BY published_at DESC
+    SELECT 
+      p.id, p.slug, p.title, p.published_at, p.hat,
+      c.name as category_name,
+      m.r2_key as featured_image_r2_key,
+      u.name as author_name
+    FROM posts p
+    JOIN categories c ON p.category_id = c.id
+    LEFT JOIN users u ON p.author_id = u.id
+    LEFT JOIN media m ON p.cover_media_id = m.id
+    WHERE p.category_id = ?
+      AND p.id != ?
+      AND p.status = 'published'
+      AND p.published_at <= ?
+      AND p.seo_noindex = 0
+    ORDER BY p.published_at DESC
     LIMIT ?
   `).bind(categoryId, postId, now, limit).all<RelatedPost>()
 
@@ -115,9 +125,15 @@ export async function findMostRead(env: Env, options: { limit: number; days?: nu
   // Query: Posts with most views in the last X days
   const result = await env.DB.prepare(`
     SELECT 
-      p.id, p.slug, p.title, p.published_at,
-      COUNT(v.id) as views_count
+      p.id, p.slug, p.title, p.published_at, p.hat,
+      COUNT(v.id) as views_count,
+      c.name as category_name,
+      m.r2_key as featured_image_r2_key,
+      u.name as author_name
     FROM posts p
+    JOIN categories c ON p.category_id = c.id
+    LEFT JOIN users u ON p.author_id = u.id
+    LEFT JOIN media m ON p.cover_media_id = m.id
     LEFT JOIN post_views v ON p.id = v.post_id
     WHERE p.status = 'published'
       AND p.seo_noindex = 0
@@ -134,12 +150,19 @@ export async function findMostRead(env: Env, options: { limit: number; days?: nu
 
     if (needed > 0) {
       const fallback = await env.DB.prepare(`
-        SELECT id, slug, title, published_at
-        FROM posts
-        WHERE status = 'published'
-          AND seo_noindex = 0
-          AND id NOT IN (${existingIds.length ? existingIds.join(',') : '0'})
-        ORDER BY published_at DESC
+        SELECT 
+          p.id, p.slug, p.title, p.published_at, p.hat,
+          c.name as category_name,
+          m.r2_key as featured_image_r2_key,
+          u.name as author_name
+        FROM posts p
+        JOIN categories c ON p.category_id = c.id
+        LEFT JOIN users u ON p.author_id = u.id
+        LEFT JOIN media m ON p.cover_media_id = m.id
+        WHERE p.status = 'published'
+          AND p.seo_noindex = 0
+          AND p.id NOT IN (${existingIds.length ? existingIds.join(',') : '0'})
+        ORDER BY p.published_at DESC
         LIMIT ?
       `).bind(needed).all<RelatedPost>()
 

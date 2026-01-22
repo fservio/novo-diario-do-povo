@@ -1,2 +1,2 @@
--- Migration: Add is_headline column to posts table
-ALTER TABLE posts ADD COLUMN is_headline INTEGER DEFAULT 0;
+-- Migration: Add is_headline to posts
+-- ALTER TABLE posts ADD COLUMN is_headline BOOLEAN DEFAULT 0;

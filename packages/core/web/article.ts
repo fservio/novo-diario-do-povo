@@ -40,6 +40,44 @@ function looksLikeMarkdown(value: string | null | undefined): boolean {
 // Component Renderers
 // ============================================================================
 
+function renderArticleCard(post: RelatedPost, baseUrl: string, options?: { isLarge?: boolean }): string {
+  const authorName = post.author_name || 'Redação'
+  const isLarge = options?.isLarge
+
+  // For "Next Post" (Large), we might want a different layout, 
+  // but for consistency with Home "gb-card", we'll stick to the aesthetic but maybe wider.
+  // Actually, let's make the Large one a horizontal card if possible, or just a big vertical one.
+  // Let's us the standard gb-card but ensure image quality.
+
+  return `
+    <article class="gb-card ${isLarge ? 'gb-card--large' : ''}">
+      <a href="${getPostUrl(post, baseUrl)}" class="gb-card__link">
+        <div class="gb-card__media">
+          <img 
+            src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=${isLarge ? '1200' : '600'}` : '/static/placeholder.jpg'}" 
+            alt="${escapeAttr(post.title)}"
+            class="img-aesthetic"
+            loading="lazy"
+            onerror="this.onerror=null;this.src='/static/placeholder.jpg';"
+          />
+        </div>
+        <div class="gb-card__content">
+          ${post.hat ? `<span class="gb-hat">${escapeHtml(post.hat)}</span>` : ''}
+          
+          <h3 class="gb-title--card" ${isLarge ? 'style="font-size: 32px;"' : ''}>
+            ${escapeHtml(post.title)}
+          </h3>
+          
+          <div class="gb-meta">
+            <span>${escapeHtml(authorName)}</span>
+            <span>• ${escapeHtml(post.category_name)}</span>
+          </div>
+        </div>
+      </a>
+    </article>
+  `
+}
+
 function renderArticleHeader(post: ArticlePost, readingTime: number): string {
   return `
     <header class="article-header">
@@ -97,23 +135,104 @@ function renderArticleHeader(post: ArticlePost, readingTime: number): string {
   `
 }
 
-function renderArticleContent(content: string, isBlocked: boolean): string {
-  if (isBlocked) {
-    const snippet = truncateContent(content, 500)
+import type { AccessCheckResult } from '../paywall'
+
+function renderPaywallGate(access: AccessCheckResult, baseUrl: string): string {
+  const reason = access.reason
+  const cta = access.cta || { primary: 'subscribe_monthly' }
+
+  // Login URL with redirect back
+  // We can't easily get current URL inside this pure function unless passed, 
+  // but we can rely on client side or pass generic return url.
+  // Ideally client-side handling or refined href.
+
+  let title = 'Conteúdo Exclusivo'
+  let description = 'Este artigo é exclusivo para assinantes. Continue lendo e tenha acesso a análises profundas.'
+  let buttons = ''
+
+  if (reason === 'not_logged_in') {
+    title = 'Faça login para continuar'
+    description = 'Já é assinante? Entre na sua conta. Ou assine agora por apenas R$ 9,90/mês.'
+    buttons = `
+      <a href="/portal/login?next=${encodeURIComponent(access.subscriber?.returnUrl || 'back')}" class="gb-btn gb-btn--primary mb-4 w-full">Entrar</a>
+      <form method="POST" action="/api/portal/assinatura/start" class="w-full">
+        <input type="hidden" name="plan" value="mensal">
+        <button type="submit" class="gb-btn gb-btn--secondary w-full">Assinar (R$ 9,90)</button>
+      </form>
+    `
+  } else if (reason === 'not_subscribed' || reason === 'metering_limit_reached') {
+    title = 'Assine para ler tudo'
+    description = 'Tenha acesso ilimitado a todas as notícias e colunas exclusivos.'
+    buttons = `
+      <form method="POST" action="/api/portal/assinatura/start" class="w-full mb-3">
+        <input type="hidden" name="plan" value="mensal">
+        <button type="submit" class="gb-btn gb-btn--primary w-full">Assinar Mensal (R$ 9,90)</button>
+      </form>
+       <form method="POST" action="/api/portal/assinatura/start" class="w-full">
+        <input type="hidden" name="plan" value="anual">
+        <button type="submit" class="gb-btn gb-btn--secondary w-full">Assinar Anual (R$ 89,90)</button>
+      </form>
+    `
+  } else if (reason === 'past_due') {
+    title = 'Assinatura Pendente'
+    description = 'Sua assinatura está com pagamento em aberto. Regularize para continuar lendo.'
+    buttons = `
+      <a href="/portal" class="gb-btn gb-btn--primary w-full">Regularizar Agora</a>
+    `
+  }
+
+  return `
+    <div class="paywall-gate">
+      <div class="paywall-content">
+        <div class="paywall-icon">🔒</div>
+        <h3>${escapeHtml(title)}</h3>
+        <p>${escapeHtml(description)}</p>
+        <div class="paywall-actions">
+           ${buttons}
+        </div>
+      </div>
+    </div>
+    <style>
+      .paywall-gate {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 2rem;
+        text-align: center;
+        margin: 2rem auto;
+        max-width: 600px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      }
+      .paywall-icon { font-size: 3rem; margin-bottom: 1rem; }
+      .paywall-content h3 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; color: #111827; }
+      .paywall-content p { color: #4b5563; margin-bottom: 1.5rem; }
+      .paywall-actions { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; max-width: 300px; margin: 0 auto; }
+      .gb-btn { 
+        display: inline-flex; justify-content: center; align-items: center;
+        padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.2s;
+        border: none; font-size: 1rem;
+      }
+      .gb-btn--primary { background: #2563eb; color: white; }
+      .gb-btn--primary:hover { background: #1d4ed8; }
+      .gb-btn--secondary { background: white; border: 1px solid #d1d5db; color: #374151; }
+      .gb-btn--secondary:hover { background: #f3f4f6; }
+      .article-content.teaser-mode {
+         mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+         -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+         padding-bottom: 0;
+         margin-bottom: 0;
+      }
+    </style>
+  `
+}
+
+function renderArticleContent(content: string, isBlocked: boolean, accessCheck?: AccessCheckResult): string {
+  if (isBlocked && accessCheck) {
     return `
-      <div id="articleBody" class="article-content">
-        ${snippet}
+      <div id="articleBody" class="article-content teaser-mode">
+        ${content}
       </div>
-      
-      <div class="paywall-box container">
-        <h3 class="font-bold text-xl mb-4">Conteúdo Exclusivo</h3>
-        <p class="mb-6 text-gray-600">
-          Este artigo é exclusivo para assinantes. Continue lendo e tenha acesso a análises profundas.
-        </p>
-        <a href="/assine" class="paywall-cta" id="paywallCta">
-          Assinar Agora
-        </a>
-      </div>
+      ${renderPaywallGate(accessCheck, '/')}
     `
   }
 
@@ -123,6 +242,10 @@ function renderArticleContent(content: string, isBlocked: boolean): string {
     </div>
   `
 }
+
+// ============================================================================
+// Related Posts Renderer
+// ============================================================================
 
 function renderRelatedPosts(posts: RelatedPost[], baseUrl: string): string {
   if (posts.length === 0) return ''
@@ -187,17 +310,22 @@ export async function renderArticlePage(
     relatedPosts: RelatedPost[]
     mostRead: RelatedPost[]
     isBlocked: boolean
-  }
+    accessCheck?: AccessCheckResult
+  },
+  contentSource?: string
 ): Promise<string> {
-  const { baseUrl, siteName, navItems, coverOfDay, relatedPosts, mostRead, isBlocked } = options
+  const { baseUrl, siteName, navItems, coverOfDay, relatedPosts, mostRead, isBlocked, accessCheck } = options
 
   const nonce = c.get('cspNonce') || ''
   const canonicalUrl = post.seo_canonical || getPostUrl(post, baseUrl)
-  const contentHtml = post.content_markdown && post.content_markdown.length > 0
-    ? renderMarkdownToHtml(post.content_markdown)
-    : looksLikeMarkdown(post.content)
-      ? renderMarkdownToHtml(post.content)
-      : sanitizeHtml(post.content)
+
+  // Use passed contentSource (teaser) OR full content
+  const contentRaw = contentSource || post.content_markdown || post.content || ''
+
+  const contentHtml = (post.content_markdown && post.content_markdown.length > 0) || looksLikeMarkdown(contentRaw)
+    ? renderMarkdownToHtml(contentRaw)
+    : sanitizeHtml(contentRaw)
+
   const readingTime = estimateReadingTime(contentHtml)
 
   // Get ad slots
@@ -284,11 +412,41 @@ export async function renderArticlePage(
       ${isLiveBlog ? renderLiveBlogTimeline(liveUpdates, post.is_live === 1) : renderArticleContent(contentWithAds, isBlocked)}
       
       ${!isBlocked ? `
-        <!-- Ad: Footer -->
-        ${adFooterHtml ? `<div class="container mt-12">${adFooterHtml}</div>` : ''}
-        
-        <!-- Related Posts -->
-        ${renderRelatedPosts(relatedPosts, baseUrl)}
+        <!-- Footer Navigation: Next + Related + Most Read -->
+        <div class="container mt-12 pt-12 border-t border-gray-200">
+          
+          <!-- 1. Next Post (Prominent) -->
+          ${relatedPosts.length > 0 ? `
+            <div class="mb-16">
+              <h3 class="gb-section__title mb-6">A seguir</h3>
+              ${renderArticleCard(relatedPosts[0], baseUrl, { isLarge: true })}
+            </div>
+          ` : ''}
+
+          <!-- 2. Related Posts (Grid) -->
+          ${relatedPosts.length > 1 ? `
+            <div class="mb-16">
+              <h3 class="gb-section__title mb-6">Relacionadas</h3>
+              <div class="gb-grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
+                ${relatedPosts.slice(1, 4).map(p => renderArticleCard(p, baseUrl)).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- 3. Most Read (Grid) -->
+          ${mostRead && mostRead.length > 0 ? `
+             <div class="mb-12">
+              <h3 class="gb-section__title mb-6">Mais Lidas</h3>
+              <div class="gb-grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
+                ${mostRead.slice(0, 4).map(p => renderArticleCard(p, baseUrl)).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Ad: Footer -->
+          ${adFooterHtml ? `<div class="mb-12">${adFooterHtml}</div>` : ''}
+          
+        </div>
       ` : ''}
     </article>
     

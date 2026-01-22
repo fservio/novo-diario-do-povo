@@ -4,8 +4,8 @@ compatibility_date = "2024-09-23"
 # D1 Databases
 [[d1_databases]]
 binding = "DB"
-database_name = "webapp-production"
-database_id = "78184365-08ff-4bbc-a28a-4dfe33c1b2d1"
+database_name = "webapp-prod-v2"
+database_id = "16c980b7-4c6f-45df-b315-b4b2d5b7ceaa"
 
 # KV Namespaces
 [[kv_namespaces]]

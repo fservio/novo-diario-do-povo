@@ -1,7 +1,8 @@
 /**
  * ASAAS Integration Module
- * 
+ *
  * Cliente HTTP para ASAAS + webhook handler
+ * Updated for Sprint 1 Subscriber Portal
  */
 
 import type { Env } from '../../types'
@@ -20,12 +21,15 @@ export const asaasWebhookSchema = z.object({
     subscription: z.string().optional(),
     value: z.number(),
     netValue: z.number().optional(),
-    status: z.enum(['PENDING', 'CONFIRMED', 'RECEIVED', 'OVERDUE', 'REFUNDED', 'CANCELED']),
+    status: z.enum(['PENDING', 'CONFIRMED', 'RECEIVED', 'OVERDUE', 'REFUNDED', 'CANCELED', 'REFUND_REQUESTED', 'CHARGEBACK_REQUESTED', 'CHARGEBACK_DISPUTE']),
     billingType: z.string(),
     dueDate: z.string(),
     confirmedDate: z.string().nullable().optional(),
+    externalReference: z.string().nullable().optional(),
   }).passthrough(),
 }).passthrough()
+
+export type AsaasWebhookEvent = z.infer<typeof asaasWebhookSchema>
 
 // ============================================================================
 // ASAAS Configuration (from CMS settings)
@@ -40,7 +44,7 @@ export interface AsaasConfig {
 export async function getAsaasConfig(env: Env): Promise<AsaasConfig> {
   // Try CMS settings first (production)
   const settings = await getSetting(env, 'asaas_config', 'private')
-  
+
   if (settings?.apiKey && settings?.environment) {
     return {
       apiKey: settings.apiKey,
@@ -82,7 +86,7 @@ export class AsaasClient {
     body?: any
   ): Promise<T> {
     const url = `${this.config.baseUrl}${path}`
-    
+
     const options: RequestInit = {
       method,
       headers: {
@@ -97,7 +101,7 @@ export class AsaasClient {
     }
 
     const response = await fetch(url, options)
-    
+
     if (!response.ok) {
       const error = await response.text()
       throw new Error(`ASAAS API error (${response.status}): ${error}`)
@@ -115,21 +119,13 @@ export class AsaasClient {
     email: string
     cpfCnpj?: string
     phone?: string
+    externalReference?: string
   }): Promise<any> {
     return this.request('POST', '/customers', data)
   }
 
   async getCustomer(customerId: string): Promise<any> {
     return this.request('GET', `/customers/${customerId}`)
-  }
-
-  async updateCustomer(customerId: string, data: Partial<{
-    name: string
-    email: string
-    cpfCnpj: string
-    phone: string
-  }>): Promise<any> {
-    return this.request('PUT', `/customers/${customerId}`, data)
   }
 
   // ============================================================================
@@ -143,16 +139,13 @@ export class AsaasClient {
     nextDueDate: string // YYYY-MM-DD
     cycle: 'MONTHLY' | 'YEARLY'
     description?: string
+    externalReference?: string
   }): Promise<any> {
     return this.request('POST', '/subscriptions', data)
   }
 
   async getSubscription(subscriptionId: string): Promise<any> {
     return this.request('GET', `/subscriptions/${subscriptionId}`)
-  }
-
-  async cancelSubscription(subscriptionId: string): Promise<any> {
-    return this.request('DELETE', `/subscriptions/${subscriptionId}`)
   }
 
   // ============================================================================
@@ -165,137 +158,98 @@ export class AsaasClient {
 }
 
 // ============================================================================
-// ASAAS Service Layer
+// Service Layer
 // ============================================================================
 
-export async function createOrUpdateAsaasCustomer(
+/**
+ * Ensure an Asaas customer exists for the subscriber
+ */
+export async function ensureAsaasCustomer(
   env: Env,
-  readerUserId: number,
-  data: {
-    name: string
-    email: string
-  }
+  subscriberId: number
 ): Promise<string> {
   const config = await getAsaasConfig(env)
   const client = new AsaasClient(config)
 
-  // Check if customer already exists
-  const existing = await env.DB.prepare(
-    'SELECT asaas_customer_id FROM asaas_customers WHERE reader_user_id = ? AND asaas_environment = ?'
-  ).bind(readerUserId, config.environment).first<{ asaas_customer_id: string }>()
+  // 1. Check local DB
+  const subscriber = await env.DB.prepare('SELECT * FROM subscribers WHERE id = ?')
+    .bind(subscriberId)
+    .first<any>()
 
-  if (existing) {
-    // Update
-    await client.updateCustomer(existing.asaas_customer_id, data)
-    return existing.asaas_customer_id
+  if (!subscriber) throw new Error('Subscriber not found')
+
+  if (subscriber.asaas_customer_id) {
+    return subscriber.asaas_customer_id
   }
 
-  // Create new
-  const result = await client.createCustomer(data) as { id: string }
-  const asaasCustomerId = result.id
+  // 2. Create in Asaas
+  const result = await client.createCustomer({
+    name: subscriber.name || subscriber.email,
+    email: subscriber.email,
+    phone: subscriber.phone || undefined,
+    externalReference: subscriberId.toString()
+  }) as { id: string }
 
-  // Save to DB
-  await env.DB.prepare(`
-    INSERT INTO asaas_customers (reader_user_id, asaas_customer_id, asaas_environment, created_at, updated_at)
-    VALUES (?, ?, ?, datetime('now'), datetime('now'))
-  `).bind(readerUserId, asaasCustomerId, config.environment).run()
+  // 3. Update local DB
+  await env.DB.prepare('UPDATE subscribers SET asaas_customer_id = ? WHERE id = ?')
+    .bind(result.id, subscriberId)
+    .run()
 
-  return asaasCustomerId
+  return result.id
 }
 
-export async function createAsaasSubscription(
+/**
+ * Create a new subscription (Checkout start)
+ */
+export async function createSubscriptionFlow(
   env: Env,
-  readerUserId: number,
-  planId: number
-): Promise<{ subscriptionId: string; nextDueDate: string }> {
+  subscriberId: number,
+  planSlug: 'mensal' | 'anual'
+): Promise<{ subscriptionId: string; paymentUrl?: string }> {
+  // Configs (Hardcoded for MVP, ideally from plans table)
+  const plans = {
+    mensal: { value: 9.90, cycle: 'MONTHLY' as const, name: 'Assinatura Mensal' },
+    anual: { value: 94.90, cycle: 'YEARLY' as const, name: 'Assinatura Anual' }
+  }
+
+  const plan = plans[planSlug]
+  if (!plan) throw new Error('Invalid plan')
+
+  const asaasCustomerId = await ensureAsaasCustomer(env, subscriberId)
   const config = await getAsaasConfig(env)
   const client = new AsaasClient(config)
 
-  // Get plan
-  const plan = await env.DB.prepare('SELECT * FROM plans WHERE id = ?')
-    .bind(planId)
-    .first<any>()
+  // Calculate next due date (today)
+  const nextDueDate = new Date().toISOString().split('T')[0]
 
-  if (!plan) {
-    throw new Error('Plano não encontrado')
-  }
-
-  // Get or create customer
-  const reader = await env.DB.prepare('SELECT * FROM reader_users WHERE id = ?')
-    .bind(readerUserId)
-    .first<any>()
-
-  if (!reader) {
-    throw new Error('Leitor não encontrado')
-  }
-
-  const asaasCustomerId = await createOrUpdateAsaasCustomer(env, readerUserId, {
-    name: reader.name || reader.email,
-    email: reader.email,
-  })
-
-  // Create subscription
-  const value = plan.price_cents / 100
-  const nextDueDate = new Date()
-  nextDueDate.setDate(nextDueDate.getDate() + (plan.trial_days || 0))
-
-  const subscription = await client.createSubscription({
+  // Call Asaas
+  const sub = await client.createSubscription({
     customer: asaasCustomerId,
-    billingType: 'PIX', // Default; pode ser configurável
-    value,
-    nextDueDate: nextDueDate.toISOString().split('T')[0] as string,
-    cycle: plan.billing_cycle === 'monthly' ? 'MONTHLY' : 'YEARLY',
-    description: `Assinatura ${plan.name}`,
-  }) as { id: string }
+    billingType: 'PIX', // Default MVP
+    value: plan.value,
+    nextDueDate,
+    cycle: plan.cycle,
+    description: plan.name,
+    externalReference: `sub_${subscriberId}_${planSlug}`
+  }) // Returns subscription object
 
   // Save to DB
   await env.DB.prepare(`
-    INSERT INTO asaas_subscriptions (
-      reader_user_id, plan_id, asaas_subscription_id, asaas_customer_id,
-      status, current_period_end, asaas_environment, price_cents, billing_cycle,
-      created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-  `).bind(
-    readerUserId,
-    planId,
-    subscription.id,
-    asaasCustomerId,
-    'pending',
-    nextDueDate.toISOString(),
-    config.environment || 'sandbox',
-    plan.price_cents,
-    plan.billing_cycle
-  ).run()
+    INSERT INTO subscriptions (
+      subscriber_id, plan_type, status, asaas_subscription_id, 
+      created_at
+    ) VALUES (?, ?, 'pending', ?, datetime('now'))
+  `).bind(subscriberId, planSlug, sub.id).run()
 
-  return {
-    subscriptionId: subscription.id,
-    nextDueDate: nextDueDate.toISOString().split('T')[0],
-  }
+  // Note: Asaas subscription creation doesn't immediately give payment URL for PIX often, 
+  // needs fetching the first payment. But usually `sub` response has details.
+  // For MVP let's assume valid creation.
+
+  return { subscriptionId: sub.id }
 }
 
 // ============================================================================
-// ASAAS Webhook Schemas
-// ============================================================================
-
-export const asaasWebhookEventSchema = z.object({
-  event: z.string(),
-  payment: z.object({
-    id: z.string(),
-    customer: z.string(),
-    subscription: z.string().optional(),
-    billingType: z.string(),
-    value: z.number().optional(),
-    netValue: z.number().optional(),
-    status: z.string(),
-    confirmedDate: z.string().optional(),
-    dueDate: z.string().optional(),
-  }).passthrough(),
-})
-
-export type AsaasWebhookEvent = z.infer<typeof asaasWebhookEventSchema>
-
-// ============================================================================
-// ASAAS Webhook Handler
+// Webhook Handler
 // ============================================================================
 
 export async function handleAsaasWebhook(
@@ -306,145 +260,95 @@ export async function handleAsaasWebhook(
   const eventType = event.event
   const payment = event.payment
 
-  // Verificar se subscription exists
-  if (!payment.subscription) {
-    console.log('Webhook sem subscription, ignorando')
-    return
-  }
+  console.log(`[Asaas Webhook] Processing ${eventType} for payment ${payment.id}`)
 
-  // Buscar subscription no DB
-  const subscription = await env.DB.prepare(
-    'SELECT * FROM asaas_subscriptions WHERE asaas_subscription_id = ?'
-  ).bind(payment.subscription).first() as Record<string, any> | null
+  // 1. Upsert Invoice (Mirroring)
+  // We try to find buyer by customer_id if possible
+  const subscriber = await env.DB.prepare('SELECT id FROM subscribers WHERE asaas_customer_id = ?')
+    .bind(payment.customer)
+    .first<{ id: number }>()
 
-  if (!subscription) {
-    console.warn('Subscription não encontrada:', payment.subscription)
-    return
-  }
+  if (subscriber) {
+    const statusMap: Record<string, string> = {
+      'PENDING': 'pending',
+      'RECEIVED': 'paid',
+      'CONFIRMED': 'paid',
+      'OVERDUE': 'overdue',
+      'REFUNDED': 'refunded',
+      'CANCELED': 'canceled'
+    }
 
-  // Aplicar mudanças baseado no evento
-  switch (eventType) {
-    case 'PAYMENT_RECEIVED':
-    case 'PAYMENT_CONFIRMED':
-      await activateSubscription(env, subscription, requestId)
-      break
+    const internalStatus = statusMap[payment.status] || payment.status.toLowerCase()
 
-    case 'PAYMENT_OVERDUE':
-      await suspendSubscription(env, subscription, requestId)
-      break
-
-    case 'PAYMENT_REFUNDED':
-      await cancelSubscription(env, subscription, requestId)
-      break
-
-    default:
-      console.log('Evento ASAAS não tratado:', eventType)
-  }
-}
-
-async function activateSubscription(env: Env, subscription: Record<string, any>, requestId: string): Promise<void> {
-  // Update subscription status
-  await env.DB.prepare(`
-    UPDATE asaas_subscriptions 
-    SET status = 'active', updated_at = datetime('now')
-    WHERE id = ?
-  `).bind(subscription.id).run()
-
-  // Create or update entitlement
-  const periodEnd = new Date()
-  if (subscription.billing_cycle === 'monthly') {
-    periodEnd.setMonth(periodEnd.getMonth() + 1)
+    // Upsert Invoice
+    await env.DB.prepare(`
+      INSERT INTO invoices (
+        subscriber_id, asaas_payment_id, status, amount, due_date, payment_url, paid_at, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(asaas_payment_id) DO UPDATE SET
+        status = excluded.status,
+        payment_url = excluded.payment_url,
+        paid_at = excluded.paid_at,
+        amount = excluded.amount
+    `).bind(
+      subscriber.id,
+      payment.id,
+      internalStatus,
+      payment.value,
+      payment.dueDate,
+      (payment as any).invoiceUrl || (payment as any).bankSlipUrl || null, // Fallback for URL
+      payment.confirmedDate || null
+    ).run()
   } else {
+    console.warn(`[Asaas Webhook] Subscriber not found for customer ${payment.customer}`)
+  }
+
+  // 2. Handle Subscription Status Changes
+  if (payment.subscription) {
+    if (eventType === 'PAYMENT_RECEIVED' || eventType === 'PAYMENT_CONFIRMED') {
+      await activateLocalSubscription(env, payment.subscription, requestId)
+    } else if (eventType === 'PAYMENT_OVERDUE') {
+      // Implement Grace Period logic here if needed
+      await setSubscriptionStatus(env, payment.subscription, 'past_due')
+    } else if (eventType === 'PAYMENT_REFUNDED' || eventType === 'PAYMENT_CANCELED') {
+      await setSubscriptionStatus(env, payment.subscription, 'canceled')
+    }
+  }
+}
+
+async function activateLocalSubscription(env: Env, asaasSubscriptionId: string, requestId: string) {
+  // Calculate new period end based on successful payment
+  // Simple view: valid for 30 days from now (or 1 year)
+  // Ideally we query the subscription from Asaas to get nextDueDate, but let's approximate or just mark active
+
+  // We need to know if it's monthly or annual to set `current_period_end`
+  const sub = await env.DB.prepare('SELECT plan_type FROM subscriptions WHERE asaas_subscription_id = ?')
+    .bind(asaasSubscriptionId)
+    .first<{ plan_type: string }>()
+
+  if (!sub) return
+
+  const now = new Date()
+  const periodEnd = new Date(now)
+  if (sub.plan_type === 'anual') {
     periodEnd.setFullYear(periodEnd.getFullYear() + 1)
+  } else {
+    periodEnd.setMonth(periodEnd.getMonth() + 1)
   }
 
   await env.DB.prepare(`
-    INSERT INTO entitlements (
-      reader_user_id, plan_id, status, 
-      current_period_start, current_period_end,
-      created_at, updated_at
-    ) VALUES (?, ?, 'active', datetime('now'), ?, datetime('now'), datetime('now'))
-    ON CONFLICT(reader_user_id) DO UPDATE SET
-      status = 'active',
-      plan_id = excluded.plan_id,
-      current_period_start = datetime('now'),
-      current_period_end = excluded.current_period_end,
-      updated_at = datetime('now')
-  `).bind(subscription.reader_user_id, subscription.plan_id, periodEnd.toISOString()).run()
+    UPDATE subscriptions 
+    SET status = 'active', current_period_end = ?, updated_at = datetime('now')
+    WHERE asaas_subscription_id = ?
+  `).bind(periodEnd.toISOString(), asaasSubscriptionId).run()
 
-  // Audit log
-  await env.DB.prepare(`
-    INSERT INTO audit_log (
-      entity_type, entity_id, action, actor_type, actor_id,
-      details_json, request_id, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-  `).bind(
-    'subscription',
-    subscription.id.toString(),
-    'activate',
-    'webhook',
-    'asaas',
-    JSON.stringify({ event: 'PAYMENT_CONFIRMED' }),
-    requestId
-  ).run()
+  console.log(`[Asaas] Activated subscription ${asaasSubscriptionId}`)
 }
 
-async function suspendSubscription(env: Env, subscription: Record<string, any>, requestId: string): Promise<void> {
+async function setSubscriptionStatus(env: Env, asaasSubscriptionId: string, status: string) {
   await env.DB.prepare(`
-    UPDATE asaas_subscriptions 
-    SET status = 'suspended', updated_at = datetime('now')
-    WHERE id = ?
-  `).bind(subscription.id).run()
-
-  await env.DB.prepare(`
-    UPDATE entitlements 
-    SET status = 'suspended', updated_at = datetime('now')
-    WHERE reader_user_id = ?
-  `).bind(subscription.reader_user_id).run()
-
-  // Audit log
-  await env.DB.prepare(`
-    INSERT INTO audit_log (
-      entity_type, entity_id, action, actor_type, actor_id,
-      details_json, request_id, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-  `).bind(
-    'subscription',
-    subscription.id.toString(),
-    'suspend',
-    'webhook',
-    'asaas',
-    JSON.stringify({ event: 'PAYMENT_OVERDUE' }),
-    requestId
-  ).run()
-}
-
-async function cancelSubscription(env: Env, subscription: Record<string, any>, requestId: string): Promise<void> {
-  await env.DB.prepare(`
-    UPDATE asaas_subscriptions 
-    SET status = 'canceled', updated_at = datetime('now')
-    WHERE id = ?
-  `).bind(subscription.id).run()
-
-  await env.DB.prepare(`
-    UPDATE entitlements 
-    SET status = 'canceled', canceled_at = datetime('now'), updated_at = datetime('now')
-    WHERE reader_user_id = ?
-  `).bind(subscription.reader_user_id).run()
-
-  // Audit log
-  await env.DB.prepare(`
-    INSERT INTO audit_log (
-      entity_type, entity_id, action, actor_type, actor_id,
-      details_json, request_id, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-  `).bind(
-    'subscription',
-    subscription.id.toString(),
-    'cancel',
-    'webhook',
-    'asaas',
-    JSON.stringify({ event: 'PAYMENT_REFUNDED' }),
-    requestId
-  ).run()
+    UPDATE subscriptions 
+    SET status = ?, updated_at = datetime('now')
+    WHERE asaas_subscription_id = ?
+  `).bind(status, asaasSubscriptionId).run()
 }

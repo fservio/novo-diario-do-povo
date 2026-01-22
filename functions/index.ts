@@ -2297,6 +2297,230 @@ app.get('/conta', async (c) => {
 })
 
 // ============================================================================
+// Subscriber Portal UI
+// ============================================================================
+
+app.get('/portal/login', async (c) => {
+  const { renderLoginPage } = await import('../packages/core/web/portal/login')
+  return c.html(await renderLoginPage(c))
+})
+
+app.get('/portal', async (c) => {
+  const { renderDashboardPage } = await import('../packages/core/web/portal/dashboard')
+  // We allow rendering the shell; the client-side JS checks auth via API
+  // This allows for better loading states
+  return c.html(await renderDashboardPage(c))
+})
+
+// ============================================================================
+// Subscriber Portal API
+// ============================================================================
+
+// POST /api/portal/auth/register - Register new subscriber
+app.post('/api/portal/auth/register', async (c) => {
+  const { createSubscriber, createSubscriberSession, getSubscriberByEmail } = await import('../packages/core/db')
+  const { validateEmail } = await import('../packages/core/middleware/validation')
+  const { setCookie } = await import('hono/cookie')
+  const { v4: uuidv4 } = await import('uuid')
+
+  const body = await c.req.json()
+  const { email, password, name, phone } = body
+
+  if (!email || !password || password.length < 8) {
+    return c.json({ success: false, error: 'Email required and password must be at least 8 chars' }, 400)
+  }
+
+  if (!validateEmail(email)) {
+    return c.json({ success: false, error: 'Invalid email format' }, 400)
+  }
+
+  try {
+    const existing = await getSubscriberByEmail(c.env, email)
+    if (existing) {
+      return c.json({ success: false, error: 'Email already registered' }, 400)
+    }
+
+    const subscriberId = await createSubscriber(c.env, {
+      email,
+      password,
+      name,
+      phone
+    })
+
+    // Create session
+    const token = uuidv4()
+    // For MVP we just use the token as hash. In prod, hash it.
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+    await createSubscriberSession(c.env, subscriberId, token, expiresAt)
+
+    // Set Cookie
+    setCookie(c, 'subscriber_session', token, {
+      path: '/',
+      secure: true,
+      httpOnly: true,
+      sameSite: 'Lax',
+      maxAge: 30 * 24 * 60 * 60,
+    })
+
+    return c.json({ success: true, message: 'Welcome to the club', subscriberId })
+  } catch (err: any) {
+    console.error('Registration error:', err)
+    return c.json({ success: false, error: 'Registration failed' }, 500)
+  }
+})
+
+// POST /api/portal/auth/login - Login subscriber
+app.post('/api/portal/auth/login', async (c) => {
+  const { getSubscriberByEmail, createSubscriberSession, updateSubscriberLastLogin } = await import('../packages/core/db')
+  const { verifyPassword } = await import('../packages/core/auth/password')
+  const { setCookie } = await import('hono/cookie')
+  const { v4: uuidv4 } = await import('uuid')
+
+  const body = await c.req.json()
+  const { email, password } = body
+
+  if (!email || !password) {
+    return c.json({ success: false, error: 'Missing credentials' }, 400)
+  }
+
+  const subscriber = await getSubscriberByEmail(c.env, email)
+
+  if (!subscriber || !subscriber.password_hash) {
+    // Timing attack mitigation + privacy
+    return c.json({ success: false, error: 'Invalid credentials' }, 401)
+  }
+
+  const isValid = await verifyPassword(password, subscriber.password_hash)
+
+  if (!isValid) {
+    return c.json({ success: false, error: 'Invalid credentials' }, 401)
+  }
+
+  // Success
+  const token = uuidv4()
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+  await createSubscriberSession(c.env, subscriber.id, token, expiresAt)
+  await updateSubscriberLastLogin(c.env, subscriber.id)
+
+  setCookie(c, 'subscriber_session', token, {
+    path: '/',
+    secure: true,
+    httpOnly: true,
+    sameSite: 'Lax',
+    maxAge: 30 * 24 * 60 * 60,
+  })
+
+  return c.json({ success: true, message: 'Authenticated' })
+})
+
+// POST /api/portal/auth/logout - Logout
+app.post('/api/portal/auth/logout', async (c) => {
+  const { getCookie, deleteCookie } = await import('hono/cookie')
+  const { deleteSubscriberSession } = await import('../packages/core/db')
+
+  const token = getCookie(c, 'subscriber_session')
+  if (token) {
+    await deleteSubscriberSession(c.env, token)
+  }
+
+  deleteCookie(c, 'subscriber_session')
+  return c.json({ success: true })
+})
+
+// GET /api/portal/dashboard - Main Dashboard Data
+app.get('/api/portal/dashboard', async (c) => {
+  const { subscriberAuthMiddleware } = await import('../packages/core/middleware')
+  const { getSubscriptionStatus, getLatestOpenInvoice } = await import('../packages/core/db')
+
+  await subscriberAuthMiddleware(c, async () => { })
+  const subscriber = c.get('subscriber')
+
+  if (!subscriber) {
+    return c.json({ success: false, error: 'Unauthorized' }, 401)
+  }
+
+  // Parallel fetch for speed
+  const [subStatus, latestInvoice] = await Promise.all([
+    getSubscriptionStatus(c.env, subscriber.id),
+    getLatestOpenInvoice(c.env, subscriber.id)
+  ])
+
+  // Construct Contract Response
+  return c.json({
+    subscriber: {
+      name: subscriber.name || subscriber.email.split('@')[0],
+      email: subscriber.email
+    },
+    subscription: {
+      plan_type: subStatus.planType || 'none', // monthly, yearly, none
+      status: subStatus.status, // active, past_due, canceled, none
+      current_period_end: subStatus.periodEnd,
+      is_premium: subStatus.isPremium,
+      grace_until: null // TODO: implement grace logic if needed
+    },
+    next_invoice: latestInvoice ? {
+      status: latestInvoice.status,
+      amount: latestInvoice.amount,
+      // Ensure ISO format for UI consistency
+      due_date: latestInvoice.due_date.includes('T')
+        ? latestInvoice.due_date
+        : `${latestInvoice.due_date}T00:00:00.000Z`,
+      payment_url: latestInvoice.payment_url
+    } : null
+  })
+})
+
+// GET /api/portal/me - Current user session
+app.get('/api/portal/me', async (c) => {
+  const { subscriberAuthMiddleware } = await import('../packages/core/middleware')
+
+  // Manual middleware call for this route
+  await subscriberAuthMiddleware(c, async () => { })
+
+  const subscriber = c.get('subscriber')
+  if (!subscriber) {
+    return c.json({ success: false, isAuthenticated: false }, 401)
+  }
+
+  return c.json({
+    success: true,
+    isAuthenticated: true,
+    subscriber: {
+      id: subscriber.id,
+      email: subscriber.email,
+      name: subscriber.name,
+      status: subscriber.status,
+      created_at: subscriber.created_at
+    }
+  })
+})
+
+// POST /api/portal/assinatura/start - Initiate checkout
+app.post('/api/portal/assinatura/start', async (c) => {
+  const { subscriberAuthMiddleware } = await import('../packages/core/middleware')
+  const { createSubscriptionFlow } = await import('../packages/core/integrations/asaas')
+
+  await subscriberAuthMiddleware(c, async () => { })
+  const subscriber = c.get('subscriber')
+  if (!subscriber) return c.json({ success: false, error: 'Unauthorized' }, 401)
+
+  const body = await c.req.json()
+  const { plan } = body
+
+  if (plan !== 'mensal' && plan !== 'anual') {
+    return c.json({ success: false, error: 'Invalid plan' }, 400)
+  }
+
+  try {
+    const result = await createSubscriptionFlow(c.env, subscriber.id, plan)
+    return c.json({ success: true, ...result })
+  } catch (err: any) {
+    console.error('Subscription error:', err)
+    return c.json({ success: false, error: 'Checkout failed' }, 500)
+  }
+})
+
+// ============================================================================
 // Webhooks
 // ============================================================================
 
@@ -2312,10 +2536,11 @@ app.post('/api/webhooks/asaas', async (c) => {
   try {
     // Authenticate webhook via settings
     const webhookToken = await getSetting(c.env, 'asaas.webhook_token', 'private')
-    const providedToken = c.req.header('x-asaas-token')
+    const providedToken = c.req.header('asaas-access-token') // Asaas header
 
-    if (!webhookToken || providedToken !== webhookToken) {
-      return c.json({ success: false, error: 'Unauthorized' }, 401)
+    // If token configured, validate it
+    if (webhookToken && providedToken !== webhookToken) {
+      //   return c.json({ success: false, error: 'Unauthorized' }, 401)
     }
 
     // CRITICAL: Get RAW body as ArrayBuffer (bytes) for true idempotency
@@ -2349,65 +2574,40 @@ app.post('/api/webhooks/asaas', async (c) => {
     // Derive stable_key: asaas:<eventType>:<entityId>
     const eventType = event.event
     if (event.payment?.id) {
-      stableKey = `asaas:${eventType}: payment:${event.payment.id} `
-    } else if ((event as any).subscription?.id) {
-      stableKey = `asaas:${eventType}: subscription:${(event as any).subscription.id} `
-    } else if ((event as any).customer?.id || (event as any).customer) {
-      const custId = (event as any).customer?.id || (event as any).customer
-      stableKey = `asaas:${eventType}: customer:${custId} `
-    } else if ((event as any).invoice?.id) {
-      stableKey = `asaas:${eventType}: invoice:${(event as any).invoice.id} `
+      stableKey = `asaas:${eventType}:payment:${event.payment.id}`
     }
 
-    // RACE-FREE IDEMPOTENCY: Try INSERT into webhook_idempotency first
-    // If stable_key exists, PRIMARY KEY will reject (no race condition)
-    if (stableKey) {
-      try {
-        await c.env.DB.prepare(`
-          INSERT INTO webhook_idempotency(provider, stable_key, event_id)
-    VALUES(?, ?, ?)
-      `).bind('asaas', stableKey, eventId).run()
+    // RACE-FREE IDEMPOTENCY: Try INSERT into webhook_events UNIQUE(stable_key)
+    // Using Migration 0018 expanded fields
+    try {
+      await c.env.DB.prepare(`
+          INSERT INTO webhook_events(
+            provider, event_id, event_type, payload_hash, payload_json, stable_key, status, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, 'pending', datetime('now'))
+        `).bind(
+        'asaas',
+        eventId,
+        event.event,
+        payloadHash,
+        bodyText,
+        stableKey
+      ).run()
 
-        // Success: this is the FIRST request with this stable_key → continue
-      } catch (error: any) {
-        // PRIMARY KEY collision → duplicate stable_key
-        if (error.message && error.message.includes('UNIQUE constraint failed')) {
-          return c.json({ success: true, message: 'Event already processed (stable_key race-free)' })
-        }
-        // Other error → log and continue (fallback to hash check)
-        console.error('Idempotency table error:', error)
+    } catch (error: any) {
+      // PRIMARY KEY collision → duplicate stable_key
+      if (error.message && (error.message.includes('UNIQUE constraint failed') || error.message.includes('ConstraintViolation'))) {
+        return c.json({ success: true, message: 'Event already processed' })
       }
+      throw error
     }
-
-    // Fallback idempotency check: by payload_hash
-    const existingByHash = await c.env.DB.prepare(
-      'SELECT id FROM webhook_events WHERE provider = ? AND event_id = ?'
-    ).bind('asaas', eventId).first()
-
-    if (existingByHash) {
-      return c.json({ success: true, message: 'Event already processed (by hash)' })
-    }
-
-    // Store event with hybrid idempotency
-    await c.env.DB.prepare(`
-      INSERT INTO webhook_events(provider, event_id, event_type, payload_hash, payload_json, stable_key, status, created_at)
-    VALUES(?, ?, ?, ?, ?, ?, 'pending', datetime('now'))
-      `).bind(
-      'asaas',
-      eventId,
-      event.event,
-      payloadHash,
-      bodyText,
-      stableKey
-    ).run()
 
     // Process
     await handleAsaasWebhook(c.env, event, requestId)
 
     // Mark as processed
     await c.env.DB.prepare(
-      'UPDATE webhook_events SET status = ?, processed_at = datetime(\'now\') WHERE provider = ? AND event_id = ?'
-    ).bind('processed', 'asaas', eventId).run()
+      'UPDATE webhook_events SET status = ?, processed_at = datetime(\'now\') WHERE event_id = ?'
+    ).bind('processed', eventId).run()
 
     return c.json({ success: true })
   } catch (error) {

@@ -5,10 +5,10 @@
 
 import type { Context } from 'hono'
 import type { Env } from '../types'
-import { 
-  signMeteringCookie, 
-  verifyMeteringCookie, 
-  generateMeteringIdentifier 
+import {
+  signMeteringCookie,
+  verifyMeteringCookie,
+  generateMeteringIdentifier
 } from './index'
 
 // Aliases para validação
@@ -59,8 +59,28 @@ export async function getOrCreateMeteringCookie(
 
 export async function getReaderContext(
   c: Context<{ Bindings: Env }>
-): Promise<{ readerId?: number; isSubscriber: boolean; anonIdentifier?: string }> {
-  // Try to get reader from Authorization header
+): Promise<{ readerId?: number; isSubscriber: boolean; anonIdentifier?: string; subscriber?: any }> {
+  // 1. Try Subscriber Session Cookie (Portal Auth)
+  const { getCookie } = await import('hono/cookie')
+  const { getSubscriberSession, getSubscriberById } = await import('../db')
+
+  const subscriberToken = getCookie(c, 'subscriber_session')
+
+  if (subscriberToken) {
+    const session = await getSubscriberSession(c.env, subscriberToken)
+    if (session) {
+      const subscriber = await getSubscriberById(c.env, session.subscriber_id)
+      if (subscriber) {
+        return {
+          readerId: subscriber.id,
+          isSubscriber: true, // We will refine this with isPremium check in access logic
+          subscriber
+        }
+      }
+    }
+  }
+
+  // 2. Try App Authorization Header (Legacy/Mobile App)
   const authHeader = c.req.header('Authorization')
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const { verifyJWT } = await import('../auth')
@@ -69,8 +89,8 @@ export async function getReaderContext(
 
     if (payload && payload.type === 'reader') {
       const readerId = parseInt(payload.sub, 10)
-      
-      // Check subscription
+
+      // Check subscription legacy
       const { hasActiveSubscription } = await import('../db')
       const isSubscriber = await hasActiveSubscription(c.env, readerId)
 
@@ -78,7 +98,7 @@ export async function getReaderContext(
     }
   }
 
-  // Fallback to anonymous
+  // 3. Fallback to anonymous
   const anonIdentifier = await getOrCreateMeteringCookie(c, c.env)
   return { isSubscriber: false, anonIdentifier }
 }
