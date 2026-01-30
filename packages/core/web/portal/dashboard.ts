@@ -118,11 +118,37 @@ export async function renderDashboardPage(c: Context) {
                 try {
                     const res = await fetch('/api/portal/dashboard');
                     if (res.status === 401) {
-                        window.location.href = '/portal/login';
+                        // Redirect to login but preserve the current intent parameters
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const intent = urlParams.get('intent');
+                        const plan = urlParams.get('plan');
+                        
+                        let nextUrl = '/portal';
+                        if (intent && plan) {
+                             nextUrl = `/ portal ? intent = ${ intent }& plan=${ plan } `;
+                        }
+                        
+                        // Pass 'next' to login page so it redirects back here after login
+                        window.location.href = `/ portal / login ? next = ${ encodeURIComponent(nextUrl) } `;
                         return;
                     }
                     const data = await res.json();
                     render(data);
+
+                    // Auto-trigger subscription flow if intent is present
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const intent = urlParams.get('intent');
+                    const plan = urlParams.get('plan');
+                    
+                    if (intent === 'subscribe' && plan) {
+                        // Small delay to ensure UI is ready and user sees the dashboard first
+                        setTimeout(() => {
+                            if (confirm(`Deseja iniciar a assinatura do plano ${ plan === 'mensal' ? 'Mensal' : 'Anual' }?`)) {
+                                startSubscription(plan);
+                            }
+                        }, 500);
+                    }
+
                 } catch (e) {
                     console.error(e);
                     alert('Erro ao carregar dashboard. Recarregue a página.');

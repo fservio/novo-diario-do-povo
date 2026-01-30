@@ -7,6 +7,7 @@ import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
 import { renderPublicLayout, escapeHtml, escapeAttr, type PublicLayoutParams } from './layout'
 import { getSetting } from '../db'
+import { getActiveCategories } from '../db/categories-cache'
 
 export async function renderSubscribePage(
   c: Context<{ Bindings: Env; Variables: AppContext }>,
@@ -252,7 +253,7 @@ export async function renderSubscribePage(
               Newsletter diária exclusiva
             </li>
           </ul>
-          <a href="/checkout?plan=mensal" class="plan-cta btn-outline">Começar agora</a>
+          <a href="/portal?intent=subscribe&plan=mensal" class="plan-cta btn-outline">Começar agora</a>
         </article>
 
         <!-- Plan 2: Anual -->
@@ -285,7 +286,7 @@ export async function renderSubscribePage(
               Descontos em parceiros
             </li>
           </ul>
-          <a href="/checkout?plan=anual" class="plan-cta btn-primary">Assinar Agora</a>
+          <a href="/portal?intent=subscribe&plan=anual" class="plan-cta btn-primary">Assinar Agora</a>
         </article>
 
       </section>
@@ -312,6 +313,9 @@ export async function renderSubscribePage(
   const themeSetting = await getSetting(c.env, 'public_theme')
   const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
 
+  // Fetch categories for mobile menu navigation
+  const categories = await getActiveCategories(c.env)
+
   return renderPublicLayout({
     title: `Assine | ${siteName}`,
     description: 'Escolha o plano ideal para você e tenha acesso ilimitado a todo o conteúdo.',
@@ -319,6 +323,7 @@ export async function renderSubscribePage(
     nonce,
     siteName,
     navItems,
+    categories,
     bodyHtml,
     extraHeadHtml,
     theme
