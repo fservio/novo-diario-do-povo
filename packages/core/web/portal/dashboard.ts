@@ -125,11 +125,11 @@ export async function renderDashboardPage(c: Context) {
                         
                         let nextUrl = '/portal';
                         if (intent && plan) {
-                             nextUrl = `/ portal ? intent = ${ intent }& plan=${ plan } `;
+                             nextUrl = \`/portal?intent=\${intent}&plan=\${plan}\`;
                         }
                         
                         // Pass 'next' to login page so it redirects back here after login
-                        window.location.href = `/ portal / login ? next = ${ encodeURIComponent(nextUrl) } `;
+                        window.location.href = \`/portal/login?next=\${encodeURIComponent(nextUrl)}\`;
                         return;
                     }
                     const data = await res.json();
@@ -143,7 +143,7 @@ export async function renderDashboardPage(c: Context) {
                     if (intent === 'subscribe' && plan) {
                         // Small delay to ensure UI is ready and user sees the dashboard first
                         setTimeout(() => {
-                            if (confirm(`Deseja iniciar a assinatura do plano ${ plan === 'mensal' ? 'Mensal' : 'Anual' }?`)) {
+                            if (confirm(\`Deseja iniciar a assinatura do plano \${plan === 'mensal' ? 'Mensal' : 'Anual'}?\`)) {
                                 startSubscription(plan);
                             }
                         }, 500);
@@ -174,7 +174,7 @@ export async function renderDashboardPage(c: Context) {
                 };
                 const statusConfig = statusMap[subscription.status] || statusMap['none'];
                 pill.textContent = statusConfig.label;
-                // ESCAPED BACKTICKS HERE:
+                
                 pill.className = \`status-pill \${statusConfig.class}\`;
 
                 // Plan Name
@@ -263,5 +263,5 @@ export async function renderDashboardPage(c: Context) {
         </script>
     </body>
     </html>
-  `
+    `
 }
