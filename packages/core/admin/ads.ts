@@ -96,12 +96,13 @@ export async function renderAdsListPage(c: Context<{ Bindings: Env; Variables: A
         </p>
 
         <form method="POST" action="/admin/ads/txt">
-          <div class="field">
+          <div class="form-group">
             <textarea 
               name="content" 
+              class="form-control"
               rows="12" 
               placeholder="google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0"
-              style="font-family: monospace; font-size: 0.8125rem; line-height: 1.5; background: var(--bg-main);"
+              style="font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem; line-height: 1.5; background: #fafbfc;"
             >${escapeHtml(adsTxt)}</textarea>
           </div>
           
@@ -148,14 +149,14 @@ export async function renderAdSlotForm(c: Context<{ Bindings: Env; Variables: Ap
       <div class="card">
         <form method="post" action="/admin/ads/slots${slot ? `/${slot.id}` : ''}">
           <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-            <div class="field">
+            <div class="form-group">
               <label>Nome Identificador (ID no HTML)</label>
-              <input type="text" name="name" value="${slot ? escapeHtml(slot.name) : ''}" required placeholder="Ex: home_top_banner">
+              <input type="text" name="name" class="form-control" value="${slot ? escapeHtml(slot.name) : ''}" required placeholder="Ex: home_top_banner">
             </div>
             
-            <div class="field">
+            <div class="form-group">
               <label>Página de Exibição (Template)</label>
-              <select name="template" required>
+              <select name="template" class="form-control" required>
                 <option value="home" ${slot?.template === 'home' ? 'selected' : ''}>Página Inicial (Home)</option>
                 <option value="article" ${slot?.template === 'article' ? 'selected' : ''}>Artigo (Post)</option>
                 <option value="listing" ${slot?.template === 'listing' ? 'selected' : ''}>Listagens (Categorias)</option>
@@ -166,25 +167,25 @@ export async function renderAdSlotForm(c: Context<{ Bindings: Env; Variables: Ap
           </div>
 
           <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-            <div class="field">
+            <div class="form-group">
               <label>Provedor de Publicidade</label>
-              <select name="provider" required id="provider-select" onchange="toggleProviderFields(this.value)">
+              <select name="provider" class="form-control" required id="provider-select" onchange="toggleProviderFields(this.value)">
                 <option value="gam" ${slot?.provider === 'gam' ? 'selected' : ''}>Google Ad Manager (GAM)</option>
                 <option value="adsense" ${slot?.provider === 'adsense' ? 'selected' : ''}>Google AdSense</option>
               </select>
             </div>
             
-            <div class="field">
-              <label>Altura Mínima (px) - Reserva de espaço</label>
-              <input type="number" name="min_height" id="min_height" value="${slot?.min_height || 250}" required>
+            <div class="form-group">
+              <label>Altura Mínima (px)</label>
+              <input type="number" name="min_height" id="min_height" class="form-control" value="${slot?.min_height || 250}" required>
             </div>
           </div>
 
           <!-- Quick Formats -->
-          <div class="field">
+          <div class="form-group">
             <label>Selecione um Formato Predefinido</label>
-            <select id="quick-format" onchange="applyFormat(this.value)">
-              <option value="">-- Escolha um formato para preencher automaticamente --</option>
+            <select id="quick-format" class="form-control" onchange="applyFormat(this.value)" style="background: #f1f5f9; border-color: var(--primary); font-weight: 700; color: var(--primary);">
+              <option value="">-- Preenchimento Automático --</option>
               <optgroup label="Formatos Comuns (Banner/Display)">
                 <option value="300x250">Retângulo Médio (300x250)</option>
                 <option value="728x90">Líder / Horizontal (728x90)</option>
@@ -202,53 +203,53 @@ export async function renderAdSlotForm(c: Context<{ Bindings: Env; Variables: Ap
                 <option value="auto">Automático (Responsivo)</option>
               </optgroup>
             </select>
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
-               Isso preencherá os campos de proporção e configuração abaixo automaticamente.
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500;">
+               💡 Isso preencherá os campos de proporção abaixo automaticamente.
             </div>
           </div>
 
-          <div class="field">
+          <div class="form-group">
             <label>Configuração de Tamanho (JSON)</label>
-            <textarea name="sizes_json" id="sizes_json" rows="2" required style="font-family: monospace; font-size: 0.8125rem;">${slot?.sizes_json || '[[300,250]]'}</textarea>
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Ex: [[300,250], [336,280]]</div>
+            <input type="text" name="sizes_json" id="sizes_json" class="form-control" value="${slot?.sizes_json || '[[300,250]]'}" required style="font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem;">
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500;">Ex: [[300,250], [336,280]]</div>
           </div>
 
           <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-            <div class="field">
-              <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 0.75rem; background: var(--bg-main); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-                <input type="checkbox" name="lazy" value="1" ${slot?.lazy || !slot ? 'checked' : ''} style="width: auto; margin: 0;">
-                <span style="font-weight: 600;">Habilitar Lazy Load (Performance)</span>
+            <div class="form-group">
+              <label style="display: flex; align-items: center; gap: 1rem; cursor: pointer; padding: 1rem; background: #fafbfc; border-radius: 0.75rem; border: 1.5px solid #e2e8f0; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='#e2e8f0'">
+                <input type="checkbox" name="lazy" value="1" ${slot?.lazy || !slot ? 'checked' : ''} style="width: 1.25rem; height: 1.25rem; margin: 0; accent-color: var(--primary);">
+                <span style="font-weight: 700; color: var(--primary);">Lazy Load (Performance)</span>
               </label>
             </div>
-            <div class="field">
-              <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 0.75rem; background: var(--bg-main); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-                <input type="checkbox" name="is_active" value="1" ${slot?.is_active !== 0 ? 'checked' : ''} style="width: auto; margin: 0;">
-                <span style="font-weight: 600;">Slot Ativo para Exibição</span>
+            <div class="form-group">
+              <label style="display: flex; align-items: center; gap: 1rem; cursor: pointer; padding: 1rem; background: #fafbfc; border-radius: 0.75rem; border: 1.5px solid #e2e8f0; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='#e2e8f0'">
+                <input type="checkbox" name="is_active" value="1" ${slot?.is_active !== 0 ? 'checked' : ''} style="width: 1.25rem; height: 1.25rem; margin: 0; accent-color: var(--primary);">
+                <span style="font-weight: 700; color: var(--primary);">Slot Ativo</span>
               </label>
             </div>
           </div>
 
-          <div id="gam-fields" style="display:${slot?.provider === 'gam' || !slot ? 'block' : 'none'}; border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1rem;">
-            <h3 style="font-size: 1rem; margin-bottom: 1.5rem; color: var(--accent);">Google Ad Manager Config</h3>
-            <div class="field">
+          <div id="gam-fields" style="display:${slot?.provider === 'gam' || !slot ? 'block' : 'none'}; border-top: 1.5px solid #e2e8f0; padding-top: 2rem; margin-top: 1rem;">
+            <h3 style="font-size: 0.8125rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2rem; color: #6366f1; background: #eef2ff; display: inline-block; padding: 0.25rem 0.75rem; border-radius: 4px;">Google Ad Manager Config</h3>
+            <div class="form-group">
               <label>Ad Unit Path</label>
-              <input type="text" name="gam_unit_path" value="${slot?.gam_unit_path || ''}" placeholder="/12345/nome_do_site/posicao">
+              <input type="text" name="gam_unit_path" class="form-control" value="${slot?.gam_unit_path || ''}" placeholder="/12345/nome_do_site/posicao" style="font-family: 'JetBrains Mono', monospace;">
             </div>
-            <div class="field">
+            <div class="form-group">
               <label>Targeting (JSON)</label>
-              <textarea name="gam_targeting_json" rows="2" style="font-family: monospace; font-size: 0.8125rem;">${slot?.gam_targeting_json || '{}'}</textarea>
+              <textarea name="gam_targeting_json" class="form-control" rows="2" style="font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem;">${slot?.gam_targeting_json || '{}'}</textarea>
             </div>
           </div>
 
-          <div id="adsense-fields" style="display:${slot?.provider === 'adsense' ? 'block' : 'none'}; border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1rem;">
-            <h3 style="font-size: 1rem; margin-bottom: 1.5rem; color: #f9ab00;">Google AdSense Config</h3>
-            <div class="field">
+          <div id="adsense-fields" style="display:${slot?.provider === 'adsense' ? 'block' : 'none'}; border-top: 1.5px solid #e2e8f0; padding-top: 2rem; margin-top: 1rem;">
+            <h3 style="font-size: 0.8125rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2rem; color: #f59e0b; background: #fffbeb; display: inline-block; padding: 0.25rem 0.75rem; border-radius: 4px;">Google AdSense Config</h3>
+            <div class="form-group">
               <label>Ad Slot ID</label>
-              <input type="text" name="adsense_slot_id" value="${slot?.adsense_slot_id || ''}" placeholder="1234567890">
+              <input type="text" name="adsense_slot_id" class="form-control" value="${slot?.adsense_slot_id || ''}" placeholder="1234567890">
             </div>
-            <div class="field">
+            <div class="form-group">
               <label>Ad Format</label>
-              <input type="text" name="adsense_format" id="adsense_format" value="${slot?.adsense_format || 'auto'}" placeholder="auto, fluid, horizontal, vertical">
+              <input type="text" name="adsense_format" id="adsense_format" class="form-control" value="${slot?.adsense_format || 'auto'}" placeholder="auto, fluid, horizontal, vertical">
             </div>
           </div>
 

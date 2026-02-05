@@ -5,19 +5,22 @@ import { listSubscribers, getSubscriberById, updateSubscriberStatus, getSubscrip
 import type { Env } from '../types'
 
 export async function handleSubscribersList(c: Context) {
-  const env = c.env as Env
-  const user = c.get('adminUser')
-  const q = c.req.query('q') || ''
+    const env = c.env as Env
+    const user = c.get('adminUser')
+    const q = c.req.query('q') || ''
 
-  const subscribers = await listSubscribers(env, { q })
+    const subscribers = await listSubscribers(env, { q })
 
-  const bodyHtml = `
+    const bodyHtml = `
         <div class="header-actions" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
             <h1 class="section-title" style="margin-bottom: 0;">👥 Assinantes</h1>
             <div class="search-box">
-                <form method="get" action="/admin/subscribers" style="display: flex; gap: 0.5rem;">
-                    <input type="text" name="q" value="${escapeHtml(q)}" placeholder="Buscar por nome ou email..." style="width: 300px;">
-                    <button type="submit" class="btn">Buscar</button>
+                <form method="get" action="/admin/subscribers" style="display: flex; gap: 0.75rem; align-items: center;">
+                    <div class="form-group" style="margin: 0;">
+                        <input type="text" name="q" class="form-control" value="${escapeHtml(q)}" placeholder="Nome ou email..." style="width: 320px;">
+                    </div>
+                    <button type="submit" class="btn" style="height: 48px; min-width: 100px; font-weight: 700;">Buscar</button>
+                    ${q ? `<a href="/admin/subscribers" class="btn btn-outline" style="height: 48px; display: flex; align-items: center; border-color: transparent;">Limpar</a>` : ''}
                 </form>
             </div>
         </div>
@@ -85,29 +88,29 @@ export async function handleSubscribersList(c: Context) {
         </style>
     `
 
-  return c.html(renderAdminLayout({
-    title: 'Assinantes',
-    user,
-    bodyHtml,
-    activeTab: 'subscribers'
-  }))
+    return c.html(renderAdminLayout({
+        title: 'Assinantes',
+        user,
+        bodyHtml,
+        activeTab: 'subscribers'
+    }))
 }
 
 export async function handleSubscriberDetail(c: Context) {
-  const env = c.env as Env
-  const user = c.get('adminUser')
-  const id = parseInt(c.req.param('id'))
+    const env = c.env as Env
+    const user = c.get('adminUser')
+    const id = parseInt(c.req.param('id'))
 
-  const subscriber = await getSubscriberById(env, id)
-  if (!subscriber) return c.notFound()
+    const subscriber = await getSubscriberById(env, id)
+    if (!subscriber) return c.notFound()
 
-  // Get detailed sub status
-  const status = await getSubscriptionStatus(env, id)
+    // Get detailed sub status
+    const status = await getSubscriptionStatus(env, id)
 
-  // Get invoices
-  const invoices = (await env.DB.prepare('SELECT * FROM invoices WHERE subscriber_id = ? ORDER BY created_at DESC').bind(id).all()).results
+    // Get invoices
+    const invoices = (await env.DB.prepare('SELECT * FROM invoices WHERE subscriber_id = ? ORDER BY created_at DESC').bind(id).all()).results
 
-  const bodyHtml = `
+    const bodyHtml = `
         <div class="mb-6">
              <a href="/admin/subscribers" style="color: var(--accent); text-decoration: none; font-weight: 600;">← Voltar para lista</a>
         </div>
@@ -115,31 +118,33 @@ export async function handleSubscriberDetail(c: Context) {
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
             <div>
                 <h2 class="section-title">Dados do Perfil</h2>
-                <div class="card">
-                    <div class="field">
-                        <label>Nome</label>
-                        <div>${escapeHtml(subscriber.name || '-')}</div>
+                <div class="card" style="padding: 2rem;">
+                    <div class="form-group">
+                        <label>Nome Completo</label>
+                        <div style="font-size: 1.125rem; font-weight: 700; color: var(--text-main);">${escapeHtml(subscriber.name || '-')}</div>
                     </div>
-                    <div class="field">
-                        <label>Email</label>
-                        <div>${escapeHtml(subscriber.email)}</div>
+                    <div class="form-group" style="border-top: 1px solid #f1f5f9; padding-top: 1.5rem;">
+                        <label>Email de Cadastro</label>
+                        <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.9375rem;">${escapeHtml(subscriber.email)}</div>
                     </div>
-                    <div class="field">
-                        <label>CPF</label>
-                        <div>${escapeHtml(subscriber.cpf || '-')}</div>
+                    <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; border-top: 1px solid #f1f5f9; padding-top: 1.5rem; margin-top: 1.5rem;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>CPF</label>
+                            <div style="font-weight: 600;">${escapeHtml(subscriber.cpf || '-')}</div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Telefone</label>
+                            <div style="font-weight: 600;">${escapeHtml(subscriber.phone || '-')}</div>
+                        </div>
                     </div>
-                    <div class="field">
-                        <label>Telefone</label>
-                        <div>${escapeHtml(subscriber.phone || '-')}</div>
-                    </div>
-                    <div class="field">
+                    <div class="form-group" style="border-top: 1px solid #f1f5f9; padding-top: 1.5rem; margin-top: 1.5rem;">
                         <label>Status da Conta</label>
-                        <form method="post" action="/admin/subscribers/${id}/status" style="display: flex; gap: 1rem; align-items: center;">
-                            <select name="status" style="width: auto;">
+                        <form method="post" action="/admin/subscribers/${id}/status" style="display: flex; gap: 0.75rem; align-items: center;">
+                            <select name="status" class="form-control" style="width: 160px; font-weight: 700;">
                                 <option value="active" ${subscriber.status === 'active' ? 'selected' : ''}>Ativo</option>
                                 <option value="blocked" ${subscriber.status === 'blocked' ? 'selected' : ''}>Bloqueado</option>
                             </select>
-                            <button type="submit" class="btn btn-secondary" style="padding: 0.5rem 1rem;">Alterar</button>
+                            <button type="submit" class="btn btn-outline" style="height: 48px; padding: 0 1.25rem; font-weight: 700;">Atualizar</button>
                         </form>
                     </div>
                 </div>
@@ -147,38 +152,38 @@ export async function handleSubscriberDetail(c: Context) {
 
             <div>
                 <h2 class="section-title">Assinatura</h2>
-                <div class="card">
-                    <div class="field">
+                <div class="card" style="padding: 2rem;">
+                    <div class="form-group">
                         <label>Status Atual</label>
-                         <span class="badge ${status.isPremium ? 'badge-success' : 'badge-danger'}">
+                         <span class="badge ${status.isPremium ? 'badge-success' : 'badge-danger'}" style="padding: 0.5rem 1rem; font-size: 0.8125rem;">
                             ${status.isPremium ? 'PREMIUM ATIVO' : 'SEM ACESSO'}
                         </span>
-                        <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-muted);">
-                            Status técnico: ${escapeHtml(status.status)}
-                            ${status.periodEnd ? `<br>Expira em: ${new Date(status.periodEnd).toLocaleDateString('pt-BR')}` : ''}
+                        <div style="margin-top: 1rem; font-size: 0.8125rem; color: var(--text-muted); line-height: 1.6; font-weight: 500;">
+                            <strong>Status no Gateway:</strong> ${escapeHtml(status.status)}<br>
+                            ${status.periodEnd ? `<strong>Válido até:</strong> ${new Date(status.periodEnd).toLocaleDateString('pt-BR')}` : ''}
                         </div>
                     </div>
 
-                    <div class="field" style="border-top: 1px solid var(--border-color); pt: 1rem; mt: 1rem;">
-                        <label>Conceder Assinatura de Cortesia</label>
-                        <p style="font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 1rem;">
-                            Isto dará acesso imediato ao assinante sem cobrança via Asaas.
+                    <div class="form-group" style="border-top: 1px solid #f1f5f9; padding-top: 1.5rem; margin-top: 1.5rem;">
+                        <label>Assinatura de Cortesia</label>
+                        <p style="font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 1.25rem; font-weight: 500; line-height: 1.5;">
+                            Dê acesso imediato manualmente para testes ou promoções.
                         </p>
-                        <form method="post" action="/admin/subscribers/${id}/grant-complimentary" style="display: flex; flex-direction: column; gap: 1rem;">
-                            <div style="display: flex; gap: 1rem;">
-                                <div style="flex: 1;">
-                                    <label style="font-size: 0.75rem;">Plano</label>
-                                    <select name="plan_type">
+                        <form method="post" action="/admin/subscribers/${id}/grant-complimentary" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                            <div style="display: flex; gap: 0.75rem;">
+                                <div style="flex: 2;">
+                                    <label style="font-size: 0.75rem; color: #94a3b8; font-weight: 800; margin-bottom: 0.375rem; display: block;">PLANO</label>
+                                    <select name="plan_type" class="form-control">
                                         <option value="mensal">Mensal</option>
                                         <option value="anual">Anual</option>
                                     </select>
                                 </div>
-                                <div style="width: 100px;">
-                                    <label style="font-size: 0.75rem;">Dias</label>
-                                    <input type="number" name="days" value="30" min="1">
+                                <div style="flex: 1;">
+                                    <label style="font-size: 0.75rem; color: #94a3b8; font-weight: 800; margin-bottom: 0.375rem; display: block;">DIAS</label>
+                                    <input type="number" name="days" class="form-control" value="30" min="1" style="font-weight: 700;">
                                 </div>
                             </div>
-                            <button type="submit" class="btn" onclick="return confirm('Confirmar cortesia?')">Dar Acesso Cortesia</button>
+                            <button type="submit" class="btn btn-primary" style="height: 48px; font-weight: 700;" onclick="return confirm('Confirmar cortesia?')">Conceder Acesso Agora</button>
                         </form>
                     </div>
                 </div>
@@ -233,33 +238,33 @@ export async function handleSubscriberDetail(c: Context) {
         </style>
     `
 
-  return c.html(renderAdminLayout({
-    title: `Detalhes: ${subscriber.email}`,
-    user,
-    bodyHtml,
-    activeTab: 'subscribers'
-  }))
+    return c.html(renderAdminLayout({
+        title: `Detalhes: ${subscriber.email}`,
+        user,
+        bodyHtml,
+        activeTab: 'subscribers'
+    }))
 }
 
 export async function handleUpdateStatus(c: Context) {
-  const env = c.env as Env
-  const id = parseInt(c.req.param('id'))
-  const body = await c.req.parseBody()
-  const status = body.status as 'active' | 'blocked'
+    const env = c.env as Env
+    const id = parseInt(c.req.param('id'))
+    const body = await c.req.parseBody()
+    const status = body.status as 'active' | 'blocked'
 
-  await updateSubscriberStatus(env, id, status)
-  return c.redirect(`/admin/subscribers/${id}?success=status_updated`)
+    await updateSubscriberStatus(env, id, status)
+    return c.redirect(`/admin/subscribers/${id}?success=status_updated`)
 }
 
 export async function handleGrantComplimentary(c: Context) {
-  const env = c.env as Env
-  const id = parseInt(c.req.param('id'))
-  const body = await c.req.parseBody()
-  const planType = body.plan_type as string
-  const days = parseInt(body.days as string)
+    const env = c.env as Env
+    const id = parseInt(c.req.param('id'))
+    const body = await c.req.parseBody()
+    const planType = body.plan_type as string
+    const days = parseInt(body.days as string)
 
-  const { grantComplimentarySubscription } = await import('../db/subscribers')
-  await grantComplimentarySubscription(env, id, planType, days)
+    const { grantComplimentarySubscription } = await import('../db/subscribers')
+    await grantComplimentarySubscription(env, id, planType, days)
 
-  return c.redirect(`/admin/subscribers/${id}?success=complimentary_granted`)
+    return c.redirect(`/admin/subscribers/${id}?success=complimentary_granted`)
 }

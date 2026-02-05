@@ -90,12 +90,13 @@ export function renderMarkdownEditor(params: MarkdownEditorParams): string {
         </div>
         <div class="modal-body" style="padding: 1.5rem; overflow-y: auto; flex: 1;">
           <!-- Busca -->
-          <div class="field" style="margin-bottom: 1.5rem;">
+          <div class="form-group" style="margin-bottom: 2rem;">
             <input
               type="text"
               id="mediaSearch"
+              class="form-control"
               placeholder="🔍 Buscar imagens na biblioteca..."
-              style="background: var(--bg-main); border: 1px solid var(--border-color);"
+              style="background: #f8fafc; border: 2px solid #e2e8f0; font-size: 1.125rem; height: 56px;"
             />
           </div>
 
@@ -110,19 +111,19 @@ export function renderMarkdownEditor(params: MarkdownEditorParams): string {
               <span>📝</span> Detalhes da Inserção
             </div>
             
-            <div class="field">
+            <div class="form-group">
               <label>URL Original</label>
-              <input type="text" id="imageUrl" readonly style="font-family: monospace; font-size: 0.75rem; background: var(--bg-card); opacity: 0.7;">
+              <input type="text" id="imageUrl" class="form-control" readonly style="font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem; background: var(--bg-card); opacity: 0.7;">
             </div>
             
             <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
-              <div class="field">
+              <div class="form-group">
                 <label>Texto Alternativo (SEO)</label>
-                <input type="text" id="imageAlt" placeholder="Descreva a imagem...">
+                <input type="text" id="imageAlt" class="form-control" placeholder="Descreva a imagem...">
               </div>
-              <div class="field">
+              <div class="form-group">
                 <label>Legenda / Créditos</label>
-                <input type="text" id="imageCaption" placeholder="Texto que aparecerá abaixo">
+                <input type="text" id="imageCaption" class="form-control" placeholder="Texto que aparecerá abaixo">
               </div>
             </div>
             

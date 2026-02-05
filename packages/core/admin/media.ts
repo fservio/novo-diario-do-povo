@@ -42,19 +42,21 @@ export async function handleMediaList(c: Context<{ Bindings: Env; Variables: App
     </div>
 
     <!-- Search -->
-    <form method="GET" action="/admin/media" class="card" style="margin-bottom: 2rem;">
-      <div style="display: flex; gap: 1rem; align-items: center;">
-        <div class="field" style="margin: 0; flex: 1;">
+    <form method="GET" action="/admin/media" class="card" style="margin-bottom: 2rem; padding: 1.5rem;">
+      <div style="display: flex; gap: 1rem; align-items: flex-end;">
+        <div class="form-group" style="margin: 0; flex: 1;">
+          <label for="mediaSearch" style="margin-bottom: 0.5rem; font-size: 0.75rem;">Buscar Arquivos</label>
           <input 
             type="text" 
             name="q" 
+            class="form-control"
             value="${escapeHtml(query)}"
-            placeholder="Buscar por nome do arquivo, texto alt ou créditos..."
+            placeholder="Nome, texto alt ou créditos..."
             id="mediaSearch"
           >
         </div>
-        <button type="submit" class="btn">Buscar</button>
-        ${query ? `<a href="/admin/media" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem; font-weight: 600;">Limpar</a>` : ''}
+        <button type="submit" class="btn" style="height: 48px; min-width: 120px; font-weight: 700;">Buscar</button>
+        ${query ? `<a href="/admin/media" class="btn btn-outline" style="height: 48px; display: flex; align-items: center; border-color: transparent;">Limpar</a>` : ''}
       </div>
     </form>
     
@@ -147,35 +149,40 @@ export async function handleMediaUpload(c: Context<{ Bindings: Env; Variables: A
       <form method="POST" action="/admin/media" enctype="multipart/form-data">
         ${renderCsrfInput(csrfToken)}
         
-        <div class="field">
+        <div class="form-group">
           <label>Selecionar Arquivo *</label>
-          <input 
-            type="file" 
-            name="file" 
-            accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
-            required
-            style="padding: 1rem; background: var(--bg-main); border: 2px dashed var(--border-color); cursor: pointer;"
-          >
-          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
-            Aceitos: JPG, PNG, WebP, AVIF, GIF. Máximo: 10MB
+          <div style="position: relative;">
+            <input 
+              type="file" 
+              name="file" 
+              class="form-control"
+              accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
+              required
+              style="padding: 2rem 1.125rem; background: #fafbfc; border: 2px dashed #e2e8f0; cursor: pointer; text-align: center;"
+            >
+          </div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.75rem; font-weight: 500;">
+             JPG, PNG, WebP, AVIF ou GIF. Máximo de 10MB por arquivo.
           </div>
         </div>
         
-        <div class="field">
+        <div class="form-group">
           <label>Texto Alternativo (Alt Text)</label>
           <input 
             type="text" 
             name="alt" 
-            placeholder="Descrição da imagem para acessibilidade"
+            class="form-control"
+            placeholder="Descrição da imagem para acessibilidade e SEO"
           >
         </div>
         
-        <div class="field">
+        <div class="form-group">
           <label>Créditos / Fonte</label>
           <input 
             type="text" 
             name="credits" 
-            placeholder="Fotógrafo, Agência ou Fonte"
+            class="form-control"
+            placeholder="Ex: Nome do Fotógrafo / Agência"
           >
         </div>
         
@@ -343,20 +350,21 @@ export async function handleMediaDetail(c: Context<{ Bindings: Env; Variables: A
           >
         </div>
         
-        <div style="background: var(--bg-main); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-           <div class="field" style="margin-bottom: 0;">
-             <label>URL do Arquivo</label>
-             <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+        <div style="background: #fafbfc; padding: 1.5rem; border-radius: 0.75rem; border: 1.5px solid #e2e8f0;">
+           <div class="form-group" style="margin-bottom: 0;">
+             <label style="color: var(--text-muted);">URL do Arquivo</label>
+             <div style="display: flex; gap: 0.75rem; margin-top: 0.75rem;">
                <input 
                  type="text" 
                  readonly 
+                 class="form-control"
                  value="/i/${escapeHtml(media.r2_key)}"
-                 style="font-family: monospace; font-size: 0.8125rem; background: var(--bg-card);"
+                 style="font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem; background: var(--white);"
                >
                <button 
-                 class="btn"
+                 class="btn btn-outline"
                  onclick="navigator.clipboard.writeText('/i/${escapeHtml(media.r2_key)}'); this.textContent='✓'; setTimeout(() => this.textContent='Copiar', 2000)"
-                 style="background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); font-size: 0.75rem; width: 80px;"
+                 style="width: 100px; font-weight: 700;"
                >
                  Copiar
                </button>
@@ -373,31 +381,34 @@ export async function handleMediaDetail(c: Context<{ Bindings: Env; Variables: A
           <form method="POST" action="/admin/media/${id}">
             ${renderCsrfInput(csrfToken)}
             
-            <div class="field">
+            <div class="form-group">
               <label>Nome do Arquivo</label>
               <input 
                 type="text" 
                 name="filename" 
+                class="form-control"
                 value="${escapeHtml(media.filename)}"
                 required
               >
             </div>
             
-            <div class="field">
+            <div class="form-group">
               <label>Texto Alt (SEO)</label>
               <input 
                 type="text" 
                 name="alt" 
+                class="form-control"
                 value="${escapeHtml(media.alt || '')}"
                 placeholder="Descrição"
               >
             </div>
             
-            <div class="field">
+            <div class="form-group">
               <label>Créditos</label>
               <input 
                 type="text" 
                 name="credits" 
+                class="form-control"
                 value="${escapeHtml(media.credits || '')}"
                 placeholder="Fonte ou Fotógrafo"
               >

@@ -135,46 +135,48 @@ export async function renderSettingEditPage(
       <div class="card">
         <form method="post" action="/admin/settings/${scope}/${key}">
           <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-            <div class="field">
+            <div class="form-group">
               <label>Chave (Key)</label>
-              <input type="text" value="${escapeHtml(key)}" disabled style="background: var(--bg-main); font-family: monospace;">
+              <input type="text" class="form-control" value="${escapeHtml(key)}" disabled style="background: #f1f5f9; font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem;">
             </div>
-            <div class="field">
+            <div class="form-group">
               <label>Escopo</label>
-              <input type="text" value="${scope}" disabled style="background: var(--bg-main); text-transform: uppercase; font-weight: 700; color: ${scope === 'public' ? '#3b82f6' : '#ef4444'};">
+              <input type="text" class="form-control" value="${scope}" disabled style="background: #f1f5f9; text-transform: uppercase; font-weight: 700; color: ${scope === 'public' ? '#3b82f6' : '#ef4444'};">
             </div>
           </div>
 
           ${scope === 'public' ? (key === 'public_theme' ? `
-            <div class="field">
+            <div class="form-group">
               <label>Tema do Site</label>
-              <select name="value" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+              <select name="value" class="form-control">
                 <option value='"default"' ${value === 'default' ? 'selected' : ''}>Padrão (Magazine)</option>
                 <option value='"minimal"' ${value === 'minimal' ? 'selected' : ''}>Minimalista (Google Style)</option>
               </select>
-              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Selecione o tema visual do site público.</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500;">Selecione o tema visual do site público.</div>
             </div>
           ` : `
-            <div class="field">
+            <div class="form-group">
               <label>Valor (Formato JSON)</label>
               <textarea 
                 name="value" 
+                class="form-control"
                 rows="10" 
                 required 
-                style="font-family: monospace; font-size: 0.8125rem;"
+                style="font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem; background: #fafbfc;"
               >${escapeHtml(displayValue)}</textarea>
-              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">⚠️ Certifique-se de usar um JSON válido.</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500;">⚠️ Certifique-se de usar um JSON válido.</div>
             </div>
           `) : `
-            <div class="field">
+            <div class="form-group">
               <label>Valor Privado</label>
               <input 
                 type="password" 
                 name="value" 
+                class="form-control"
                 placeholder="${value ? maskSecretValue(value) : '(vazio)'}"
-                style="letter-spacing: 0.1em;"
+                style="letter-spacing: 0.2em;"
               >
-              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Deixe vazio para manter o valor atual. Preencha para sobrescrever.</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500;">Deixe vazio para manter o valor atual. Preencha para sobrescrever.</div>
             </div>
           `}
 

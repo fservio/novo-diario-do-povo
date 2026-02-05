@@ -1,19 +1,18 @@
 import { renderAdminLayout, type AdminUser, renderCsrfInput } from './ui'
 import type { MediaItem } from '../db/media'
-import type { Setting } from '../db/settings'
 
 export function renderDailyCoverPage(params: {
-    currentCoverId: number | null
-    currentCoverMedia: MediaItem | null
-    user: AdminUser
-    csrfToken: string
-    cspNonce: string
-    success?: boolean
-    error?: string
+  currentCoverId: number | null
+  currentCoverMedia: MediaItem | null
+  user: AdminUser
+  csrfToken: string
+  cspNonce: string
+  success?: boolean
+  error?: string
 }): string {
-    const { currentCoverId, currentCoverMedia, user, csrfToken, cspNonce, success, error } = params
+  const { currentCoverId, currentCoverMedia, user, csrfToken, cspNonce, success, error } = params
 
-    const bodyHtml = `
+  const bodyHtml = `
     <div style="margin-bottom: 2rem;">
       <h1 class="section-title">Capa do Dia</h1>
       <p style="color: var(--text-muted);">Defina a imagem de destaque que aparecerá na página inicial e no topo do aplicativo.</p>
@@ -31,55 +30,59 @@ export function renderDailyCoverPage(params: {
       </div>
     ` : ''}
 
-    <form method="post" action="/api/admin/settings" class="card" style="max-width: 600px;">
+    <form method="post" action="/api/admin/settings" class="card" style="max-width: 600px; padding: 2rem;">
       ${renderCsrfInput(csrfToken)}
       <input type="hidden" name="setting_key" value="daily_cover">
       
-      <div class="field">
-        <label>Imagem da Capa</label>
+      <div class="form-group">
+        <label>Imagem da Capa em Destaque</label>
         
-        <div id="previewContainer" style="margin: 1rem 0; aspect-ratio: 16/9; background: var(--bg-main); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; position: relative;">
+        <div id="previewContainer" style="margin: 1.5rem 0; aspect-ratio: 16/9; background: #f8fafc; border-radius: 1rem; overflow: hidden; border: 2px dashed #e2e8f0; display: flex; align-items: center; justify-content: center; position: relative; transition: all 0.3s ease;">
           ${currentCoverMedia ? `
             <img src="https://pub-77114170e599427092eb96ac6e46955a.r2.dev/${currentCoverMedia.r2_key}" style="width: 100%; height: 100%; object-fit: cover;">
           ` : `
-            <span style="color: var(--text-muted);">Nenhuma capa selecionada</span>
+            <div style="text-align: center;">
+              <div style="font-size: 2.5rem; margin-bottom: 0.5rem; opacity: 0.5;">🖼️</div>
+              <span style="color: var(--text-muted); font-weight: 500;">Nenhuma capa selecionada</span>
+            </div>
           `}
         </div>
 
-        <div style="display: flex; gap: 0.5rem;">
+        <div style="display: flex; gap: 0.75rem;">
           <input 
             type="number" 
             name="value_json" 
             id="coverMediaInput"
+            class="form-control"
             value="${currentCoverId || ''}"
             placeholder="ID da Mídia"
-            style="flex: 1;"
+            style="flex: 1; font-weight: 700; background: #f1f5f9;"
             readonly
           >
-          <button type="button" class="btn" id="openMediaPickerBtn" style="padding: 0 1rem; background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color);">
+          <button type="button" class="btn" id="openMediaPickerBtn" style="min-width: 120px; font-weight: 700;">
             🔍 Buscar
           </button>
-           <button type="button" class="btn" id="clearBtn" style="padding: 0 1rem; background: var(--bg-card); color: var(--danger); border: 1px solid var(--border-color);">
-            ❌ Remover
+           <button type="button" class="btn btn-outline" id="clearBtn" style="min-width: 110px; color: #ef4444; border-color: #fecaca; font-weight: 700;">
+            Remover
           </button>
         </div>
       </div>
 
-      <div style="margin-top: 2rem;">
-        <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Salvar Alterações</button>
+      <div style="margin-top: 2rem; border-top: 1px solid #e2e8f0; padding-top: 2rem;">
+        <button type="submit" class="btn" style="width: 100%; justify-content: center; font-size: 1.125rem; height: 56px; font-weight: 800;">Salvar Alterações</button>
       </div>
     </form>
 
     <!-- Media Picker Modal (Repurposed) -->
-    <dialog id="mediaPicker" style="padding: 0; border: none; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); width: 100%; max-width: 800px; backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.95);">
+    <dialog id="mediaPicker" style="padding: 0; border: none; border-radius: 1.25rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); width: 95%; max-width: 900px; background: white; overflow: hidden;">
         <div style="padding: 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
           <h3 style="margin: 0; font-size: 1.25rem;">Selecionar Mídia</h3>
           <button type="button" id="closeMediaPickerBtn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>
         </div>
-        <div style="padding: 1.5rem;">
-          <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
-            <input type="text" id="mediaSearch" placeholder="Buscar por nome..." style="flex: 1; padding: 0.75rem;">
-            <button type="button" class="btn" id="doSearchMediaBtn" style="padding: 0 2rem;">Buscar</button>
+        <div style="padding: 2rem;">
+          <div style="display: flex; gap: 1rem; margin-bottom: 2rem;">
+            <input type="text" id="mediaSearch" class="form-control" placeholder="Buscar por nome do arquivo..." style="flex: 1;">
+            <button type="button" class="btn" id="doSearchMediaBtn" style="padding: 0 2.5rem; font-weight: 700;">Buscar</button>
           </div>
           <div id="mediaResults" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; max-height: 400px; overflow-y: auto; padding: 0.5rem;">
             <p style="color: var(--text-muted); text-align: center; grid-column: 1/-1; padding: 2rem;">Digite e busque para encontrar imagens...</p>
@@ -168,11 +171,11 @@ export function renderDailyCoverPage(params: {
     </script>
   `
 
-    return renderAdminLayout({
-        title: 'Capa do Dia',
-        user,
-        bodyHtml,
-        activeTab: 'daily-cover',
-        csrfToken
-    })
+  return renderAdminLayout({
+    title: 'Capa do Dia',
+    user,
+    bodyHtml,
+    activeTab: 'daily-cover',
+    csrfToken
+  })
 }

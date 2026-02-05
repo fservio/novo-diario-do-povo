@@ -146,32 +146,32 @@ function renderAuthorForm(author: Author | null, csrfToken: string, error?: stri
               👤 Informações Básicas
             </h2>
 
-            <div class="field">
+            <div class="form-group">
               <label>Nome Completo *</label>
-              <input type="text" name="name" value="${escapeHtml(author?.name || '')}" required placeholder="Nome do autor" />
+              <input type="text" name="name" class="form-control" value="${escapeHtml(author?.name || '')}" required placeholder="Nome do autor" />
             </div>
 
-            <div class="field">
+            <div class="form-group">
               <label>Email (Opcional)</label>
-              <input type="email" name="email" value="${escapeHtml(author?.email || '')}" placeholder="contato@exemplo.com" />
-              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Visível apenas internamente, a menos que especificado.</div>
+              <input type="email" name="email" class="form-control" value="${escapeHtml(author?.email || '')}" placeholder="contato@exemplo.com" />
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500;">Visível apenas internamente, a menos que especificado.</div>
             </div>
 
-            <div class="field">
+            <div class="form-group">
               <label>Slug (URL) </label>
-              <input type="text" name="slug" value="${escapeHtml(author?.slug || '')}" placeholder="nome-sobrenome (automático se vazio)" />
+              <input type="text" name="slug" class="form-control" value="${escapeHtml(author?.slug || '')}" placeholder="nome-sobrenome (automático se vazio)" style="font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem; background: #f8fafc;" />
             </div>
 
-            <div class="field">
+            <div class="form-group">
               <label>Biografia Curta</label>
-              <textarea name="bio" rows="4" placeholder="Breve descrição do autor...">${escapeHtml(author?.bio || '')}</textarea>
+              <textarea name="bio" class="form-control" rows="4" placeholder="Breve descrição do autor...">${escapeHtml(author?.bio || '')}</textarea>
             </div>
             
-            <div class="field">
-              <label>ID da Foto (Media ID)</label>
-              <div style="display: flex; gap: 0.5rem;">
-                <input type="number" name="avatar_media_id" id="avatar_media_id" value="${author?.avatar_media_id || ''}" placeholder="ID da imagem" style="width: 100px;" />
-                <a href="/admin/media" target="_blank" class="btn" style="background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); padding: 0.5rem;">Galeria ↗</a>
+            <div class="form-group">
+              <label>Foto do Autor (ID)</label>
+              <div style="display: flex; gap: 0.75rem;">
+                <input type="number" name="avatar_media_id" id="avatar_media_id" class="form-control" value="${author?.avatar_media_id || ''}" placeholder="ID" style="width: 100px;" />
+                <a href="/admin/media" target="_blank" class="btn btn-outline" style="padding: 0 1.25rem; display: flex; align-items: center;">Galeria ↗</a>
               </div>
             </div>
           </div>
@@ -185,22 +185,22 @@ function renderAuthorForm(author: Author | null, csrfToken: string, error?: stri
                 📰 Configuração de Coluna
               </h2>
               
-              <div class="field">
-                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 0.75rem; background: var(--bg-main); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-                  <input type="checkbox" name="is_columnist" value="1" id="is_columnist_toggle" ${isColumnist ? 'checked' : ''} onchange="toggleColumnFields()" style="width: auto; margin: 0;" />
-                  <span style="font-weight: 600;">Este autor é Colunista?</span>
+              <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 1rem; cursor: pointer; padding: 1rem; background: #fafbfc; border-radius: 0.75rem; border: 1.5px solid #e2e8f0; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='#e2e8f0'">
+                  <input type="checkbox" name="is_columnist" value="1" id="is_columnist_toggle" ${isColumnist ? 'checked' : ''} onchange="toggleColumnFields()" style="width: 1.25rem; height: 1.25rem; margin: 0; accent-color: var(--primary);" />
+                  <span style="font-weight: 700; color: var(--primary); text-transform: none; letter-spacing: normal;">Este autor possui uma Coluna?</span>
                 </label>
               </div>
 
               <div id="column_fields" style="display: ${isColumnist ? 'block' : 'none'}; padding-top: 1rem;">
-                <div class="field">
+                <div class="form-group">
                   <label>Nome da Coluna</label>
-                  <input type="text" name="column_name" value="${escapeHtml(author?.column_name || '')}" placeholder="Ex: Ponto de Vista, Tech News..." />
+                  <input type="text" name="column_name" class="form-control" value="${escapeHtml(author?.column_name || '')}" placeholder="Ex: Ponto de Vista, Tech News..." />
                 </div>
                 
-                 <div class="field">
+                 <div class="form-group">
                   <label>Descrição da Coluna</label>
-                  <textarea name="column_description" rows="3" placeholder="Sobre o que é esta coluna...">${escapeHtml(author?.column_description || '')}</textarea>
+                  <textarea name="column_description" class="form-control" rows="3" placeholder="Sobre o que é esta coluna...">${escapeHtml(author?.column_description || '')}</textarea>
                 </div>
               </div>
 
@@ -219,25 +219,25 @@ function renderAuthorForm(author: Author | null, csrfToken: string, error?: stri
                 🌐 Redes Sociais
               </h2>
               
-              <div class="field">
-                <label>Instagram Handle</label>
+              <div class="form-group">
+                <label>Instagram</label>
                 <div style="position: relative;">
-                  <span style="position: absolute; left: 10px; top: 10px; color: var(--text-muted);">@</span>
-                  <input type="text" name="social_instagram" value="${escapeHtml(author?.social_instagram || '')}" style="padding-left: 30px;" placeholder="usuario" />
+                  <span style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #94a3b8; font-weight: 700;">@</span>
+                  <input type="text" name="social_instagram" class="form-control" value="${escapeHtml(author?.social_instagram || '')}" style="padding-left: 2.25rem;" placeholder="usuario" />
                 </div>
               </div>
 
-              <div class="field">
-                <label>Twitter / X Handle</label>
+              <div class="form-group">
+                <label>Twitter / X</label>
                 <div style="position: relative;">
-                  <span style="position: absolute; left: 10px; top: 10px; color: var(--text-muted);">@</span>
-                  <input type="text" name="social_twitter" value="${escapeHtml(author?.social_twitter || '')}" style="padding-left: 30px;" placeholder="usuario" />
+                  <span style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #94a3b8; font-weight: 700;">@</span>
+                  <input type="text" name="social_twitter" class="form-control" value="${escapeHtml(author?.social_twitter || '')}" style="padding-left: 2.25rem;" placeholder="usuario" />
                 </div>
               </div>
 
-              <div class="field">
+              <div class="form-group">
                 <label>LinkedIn URL</label>
-                <input type="text" name="social_linkedin" value="${escapeHtml(author?.social_linkedin || '')}" placeholder="https://linkedin.com/in/..." />
+                <input type="text" name="social_linkedin" class="form-control" value="${escapeHtml(author?.social_linkedin || '')}" placeholder="https://linkedin.com/in/..." />
               </div>
             </div>
             

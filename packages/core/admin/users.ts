@@ -161,56 +161,62 @@ function renderUserForm(user: any | null, csrfToken: string, error?: string): st
         <form method="POST" action="${formAction}">
           <input type="hidden" name="csrf_token" value="${csrfToken}" />
 
-          <div class="field">
+          <div class="form-group">
             <label>Email *</label>
             <input 
               type="email" 
               name="email" 
+              class="form-control"
               value="${escapeHtml(user?.email || '')}"
               required
               placeholder="exemplo@jornal.com"
             />
           </div>
 
-          <div class="field">
+          <div class="form-group">
             <label>Nome Completo *</label>
             <input 
               type="text" 
               name="name" 
+              class="form-control"
               value="${escapeHtml(user?.name || '')}"
               required
               placeholder="Nome do colaborador"
             />
           </div>
 
-          <div class="field">
+          <div class="form-group">
             <label>Papel (Cargo) *</label>
-            <select name="role" required>
+            <select name="role" class="form-control" required>
               <option value="writer" ${user?.role === 'writer' ? 'selected' : ''}>Redator</option>
               <option value="editor" ${user?.role === 'editor' ? 'selected' : ''}>Editor</option>
               <option value="director" ${user?.role === 'director' || user?.role === 'admin' ? 'selected' : ''}>Diretor</option>
             </select>
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
-              <strong>Redator:</strong> cria e edita posts | <strong>Editor:</strong> publica tudo | <strong>Diretor:</strong> acesso total
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.75rem; font-weight: 500; line-height: 1.5;">
+              <span style="display: block;">• <strong>Redator:</strong> cria e edita posts</span>
+              <span style="display: block;">• <strong>Editor:</strong> publica tudo</span>
+              <span style="display: block;">• <strong>Diretor:</strong> acesso total</span>
             </div>
           </div>
 
           ${!isEdit ? `
-            <div class="field">
+            <div class="form-group">
               <label>Senha Provisória *</label>
               <input 
                 type="password" 
                 name="password" 
+                class="form-control"
                 required
                 minlength="8"
                 placeholder="Mínimo 8 caracteres"
+                style="letter-spacing: 0.1em;"
               />
             </div>
 
-            <div class="field">
-              <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 0.75rem; background: var(--bg-main); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-                <input type="checkbox" name="must_change_password" value="1" style="width: auto; margin: 0;" />
-                <span style="font-weight: 600;">Forçar troca de senha no primeiro login</span>
+            <div class="form-group">
+              <label style="display: flex; align-items: center; gap: 1rem; cursor: pointer; padding: 1rem; background: #fafbfc; border-radius: 0.75rem; border: 1.5px solid #e2e8f0; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='#e2e8f0'">
+                <input type="checkbox" name="must_change_password" value="1" style="width: 1.25rem; height: 1.25rem; margin: 0; accent-color: var(--primary);" />
+                <span style="font-weight: 700; color: var(--primary);">Forçar troca de senha no primeiro login</span>
               </label>
             </div>
           ` : ''}
@@ -232,39 +238,41 @@ function renderUserForm(user: any | null, csrfToken: string, error?: string): st
 
           <div style="display: flex; flex-direction: column; gap: 1.5rem; margin-top: 1.5rem;">
             <!-- Reset Password -->
-            <details style="border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow: hidden;">
-              <summary style="cursor: pointer; font-weight: 700; padding: 1rem; background: var(--bg-main); color: #f59e0b;">
+            <details style="border: 1.5px solid #e2e8f0; border-radius: 0.75rem; overflow: hidden; background: var(--white); box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);">
+              <summary style="cursor: pointer; font-weight: 700; padding: 1.25rem; background: #fffbeb; color: #92400e; display: flex; align-items: center; gap: 0.5rem;">
                 🔄 Alterar / Resetar Senha
               </summary>
-              <form method="POST" action="/admin/users/${user.id}/reset-password" style="padding: 1.5rem; background: var(--bg-card);">
+              <form method="POST" action="/admin/users/${user.id}/reset-password" style="padding: 1.5rem;">
                 <input type="hidden" name="csrf_token" value="${csrfToken}" />
-                <div class="field">
+                <div class="form-group">
                   <input 
                     type="password" 
                     name="password" 
+                    class="form-control"
                     placeholder="Nova senha (mín. 8 caracteres)"
                     required
                     minlength="8"
+                    style="letter-spacing: 0.1em;"
                   />
                 </div>
-                <button type="submit" class="btn" style="background: #f59e0b; width: 100%;">
-                  Resetar Senha do Usuário
+                <button type="submit" class="btn" style="background: #f59e0b; width: 100%; font-weight: 700;">
+                  Atualizar Senha Agora
                 </button>
               </form>
             </details>
 
             <!-- Enable/Disable -->
-            <div style="padding: 1.5rem; background: var(--bg-main); border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+            <div style="padding: 1.5rem; background: #fafbfc; border-radius: 0.75rem; border: 1.5px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
               <div>
-                <div style="font-weight: 700; color: var(--text-main);">${user.is_active ? 'Desativar Acesso' : 'Reativar Acesso'}</div>
-                <div style="font-size: 0.8125rem; color: var(--text-muted);">${user.is_active ? 'O usuário não conseguirá mais fazer login.' : 'O usuário voltará a ter acesso ao painel.'}</div>
+                <div style="font-weight: 700; color: var(--text-main); font-size: 0.9375rem;">${user.is_active ? 'Desativar Acesso' : 'Reativar Acesso'}</div>
+                <div style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.25rem;">${user.is_active ? 'O usuário não conseguirá mais fazer login.' : 'O usuário voltará a ter acesso ao painel.'}</div>
               </div>
               ${user.is_active ? `
                 <form method="POST" action="/admin/users/${user.id}/disable">
                   <input type="hidden" name="csrf_token" value="${csrfToken}" />
                   <button 
                     type="submit" 
-                    class="btn" style="background: #ef4444;"
+                    class="btn" style="background: #ef4444; padding: 0.625rem 1.25rem;"
                     onclick="return confirm('Tem certeza que deseja desativar este usuário?')"
                   >
                     Desativar
@@ -275,7 +283,7 @@ function renderUserForm(user: any | null, csrfToken: string, error?: string): st
                   <input type="hidden" name="csrf_token" value="${csrfToken}" />
                   <button 
                     type="submit" 
-                    class="btn" style="background: #10b981;"
+                    class="btn" style="background: #10b981; padding: 0.625rem 1.25rem;"
                   >
                     Reativar
                   </button>

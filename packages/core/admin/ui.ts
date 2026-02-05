@@ -303,23 +303,42 @@ export function renderAdminLayout(
     tr:hover td { background: #fbfcfe; }
 
     /* Forms */
-    .form-group { margin-bottom: 1.5rem; }
-    .form-group label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-main); }
+    .form-group { margin-bottom: 2rem; }
+    .form-group label { 
+        display: block; 
+        font-size: 0.8125rem; 
+        font-weight: 700; 
+        margin-bottom: 0.625rem; 
+        color: var(--text-main);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
     .form-control { 
       width: 100%; 
-      padding: 0.75rem 1rem; 
+      padding: 0.875rem 1.125rem; 
       background: var(--white); 
-      border: 1px solid #cbd5e1; 
-      border-radius: 0.5rem; 
+      border: 1.5px solid #e2e8f0; 
+      border-radius: 0.625rem; 
       color: var(--text-main);
-      font-family: inherit;
+      font-family: 'Inter', sans-serif;
       font-size: 0.9375rem;
-      transition: all 0.2s;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     }
     .form-control:focus { 
       outline: none; 
       border-color: var(--primary); 
-      box-shadow: 0 0 0 4px rgba(43, 83, 117, 0.1); 
+      box-shadow: 0 0 0 4px rgba(43, 83, 117, 0.15); 
+      background: #fafbfc;
+    }
+    .form-control::placeholder {
+        color: #94a3b8;
+    }
+
+    textarea.form-control {
+        min-height: 120px;
+        line-height: 1.6;
+        resize: vertical;
     }
 
     .badge {

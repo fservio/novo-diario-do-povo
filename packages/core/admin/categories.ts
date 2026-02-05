@@ -155,67 +155,71 @@ function renderCategoryForm(params: {
       <form method="POST" action="${formAction}" id="categoryForm">
         <input type="hidden" name="csrf" value="${escapeHtml(csrfToken)}">
 
-        <div class="field">
+        <div class="form-group">
           <label>Nome da Categoria *</label>
           <input 
             type="text" 
             name="name" 
+            class="form-control"
             value="${escapeHtml(category?.name || '')}"
             required
             placeholder="Ex: Tecnologia, Economia, Esportes"
-            style="font-weight: 600;"
+            style="font-weight: 700; font-size: 1.125rem;"
           >
         </div>
 
-        <div class="field">
+        <div class="form-group">
           <label>Slug (URL amigável)</label>
           <input 
             type="text" 
             name="slug" 
+            class="form-control"
             value="${escapeHtml(category?.slug || '')}"
             placeholder="tecnologia"
-            style="font-family: monospace; font-size: 0.8125rem;"
+            style="font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem; background: #f8fafc;"
           >
-          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500;">
             Deixe em branco para gerar automaticamente a partir do nome.
           </div>
         </div>
 
-        <div class="field">
+        <div class="form-group">
           <label>Descrição</label>
           <textarea 
             name="description" 
+            class="form-control"
             rows="3"
             placeholder="Breve descrição dos assuntos desta categoria..."
           >${escapeHtml(category?.description || '')}</textarea>
         </div>
 
         <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-          <div class="field">
+          <div class="form-group">
             <label>Ordem de Exibição</label>
             <input 
               type="number" 
               name="display_order" 
+              class="form-control"
               value="${category?.display_order ?? 0}"
               min="0"
-              style="font-weight: 600;"
+              style="font-weight: 700; width: 120px;"
             >
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500;">
               Menor valor aparece primeiro nos menus.
             </div>
           </div>
 
-          <div class="field">
+          <div class="form-group">
             <label>Status</label>
-            <label style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: var(--bg-main); border: 1px solid var(--border-color); border-radius: var(--radius-md); cursor: pointer; border: 1px solid var(--border-color);">
+            <label style="display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #fafbfc; border-radius: 0.75rem; border: 1.5px solid #e2e8f0; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='#e2e8f0'">
               <input 
                 type="checkbox" 
                 name="is_active" 
                 value="1"
                 ${!category || category.is_active === 1 ? 'checked' : ''}
-                style="width: auto; margin: 0;"
+                style="width: 1.25rem; height: 1.25rem; margin: 0; accent-color: var(--primary);"
               >
-              <span style="font-weight: 600;">Esta categoria está visível</span>
+              <span style="font-weight: 700; color: var(--primary);">Esta categoria está visível</span>
             </label>
           </div>
         </div>
@@ -225,21 +229,23 @@ function renderCategoryForm(params: {
             🔍 SEO & Metadados
           </h3>
 
-          <div class="field">
+          <div class="form-group">
             <label>Título SEO</label>
             <input 
               type="text" 
               name="seo_title" 
+              class="form-control"
               value="${escapeHtml(category?.seo_title || '')}"
               maxlength="200"
               placeholder="Título para motores de busca"
             >
           </div>
 
-          <div class="field">
+          <div class="form-group">
             <label>Descrição SEO</label>
             <textarea 
               name="seo_description" 
+              class="form-control"
               rows="2"
               maxlength="500"
               placeholder="Meta descrição para motores de busca"

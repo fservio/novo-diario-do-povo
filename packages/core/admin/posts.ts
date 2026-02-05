@@ -366,78 +366,84 @@ function renderPostFormPage(params: {
       ${renderCsrfInput(csrfToken)}
       
       <!-- Chapéu -->
-      <div class="field">
+      <div class="form-group">
         <label>Chapéu (Antetítulo)</label>
         <input 
           type="text" 
           name="hat" 
+          class="form-control"
           value="${escapeHtml(post?.hat || '')}"
           maxlength="60"
           placeholder="Ex: URGENTE, ESPORTES, ECONOMIA"
-          style="text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;"
+          style="text-transform: uppercase; font-weight: 800; letter-spacing: 0.1em; color: var(--primary);"
         >
-        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500;">
           Texto curto que aparece acima do título principal.
         </div>
       </div>
       
       <!-- Título -->
-      <div class="field">
+      <div class="form-group">
         <label>Título Principal *</label>
         <input 
           type="text" 
           name="title" 
+          class="form-control"
           value="${escapeHtml(post?.title || '')}"
           required
           placeholder="Escreva um título chamativo..."
-          style="font-size: 1.25rem; font-weight: 700;"
+          style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em;"
         >
       </div>
       
       <!-- Slug -->
-      <div class="field">
+      <div class="form-group">
         <label>Slug (URL amigável)</label>
         <input 
           type="text" 
           name="slug" 
+          class="form-control"
           value="${escapeHtml(post?.slug || '')}"
           placeholder="exemplo-de-url-amigavel"
-          style="font-family: monospace; font-size: 0.8125rem;"
+          style="font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem; background: #f8fafc;"
         >
-        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500;">
           Deixe em branco para gerar automaticamente a partir do título.
         </div>
       </div>
       
       <!-- Excerpt -->
-      <div class="field">
+      <div class="form-group">
         <label>Linha de Apoio (Resumo)</label>
         <textarea 
           name="excerpt" 
+          class="form-control"
           rows="3"
           placeholder="Breve resumo que aparece na listagem e abaixo do título..."
         >${escapeHtml(post?.excerpt || '')}</textarea>
       </div>
       
       <!-- Content Editor (Markdown) -->
-      <div class="field">
+      <div class="form-group">
         <label>Conteúdo da Matéria *</label>
+        <div style="border: 1.5px solid #e2e8f0; border-radius: 0.625rem; overflow: hidden; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);">
         ${renderMarkdownEditor({
     name: 'content',
     value: post?.content_markdown || post?.content || '',
     nonce: cspNonce,
     id: 'mdEditor'
   })}
-        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.75rem; display: flex; align-items: center; gap: 0.5rem; font-weight: 500;">
           <span>💡 <strong>Dica:</strong> Use Markdown para formatar. Clique em 🖼️ para gerenciar mídias.</span>
         </div>
       </div>
       
       <!-- Categoria + Autor -->
-      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
-        <div class="field" style="margin-bottom: 0;">
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+        <div class="form-group" style="margin-bottom: 0;">
           <label>Categoria *</label>
-          <select name="category_id" required>
+          <select name="category_id" class="form-control" required>
             <option value="">Selecione...</option>
             ${categories.map(cat => `
               <option value="${cat.id}" ${post?.category_id === cat.id ? 'selected' : ''}>
@@ -447,9 +453,9 @@ function renderPostFormPage(params: {
           </select>
         </div>
         
-        <div class="field" style="margin-bottom: 0;">
+        <div class="form-group" style="margin-bottom: 0;">
           <label>Autor *</label>
-          <select name="author_id" required>
+          <select name="author_id" class="form-control" required>
             ${authors.length === 0 ? `
               <option value="">Nenhum autor disponível</option>
             ` : `
@@ -475,10 +481,10 @@ function renderPostFormPage(params: {
       </div>
       
       <!-- Template + Cover Media -->
-      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
-        <div class="field" style="margin-bottom: 0;">
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+        <div class="form-group" style="margin-bottom: 0;">
           <label>Layout do Post</label>
-          <select name="template">
+          <select name="template" class="form-control">
             <option value="article" ${post?.template === 'article' ? 'selected' : ''}>Artigo Padrão</option>
             <option value="liveblog" ${post?.template === 'liveblog' ? 'selected' : ''}>Liveblog (Tempo Real)</option>
             <option value="hub" ${post?.template === 'hub' ? 'selected' : ''}>Hub Editorial</option>
@@ -508,40 +514,41 @@ function renderPostFormPage(params: {
           </script>
         </div>
 
-        <div class="field" style="margin-bottom: 0;">
+        <div class="form-group" style="margin-bottom: 0;">
           <label>Destaque</label>
-          <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; margin-top: 0.5rem; background: var(--bg-card); padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+          <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; margin-top: 0.5rem; background: #f8fafc; padding: 1rem; border: 1.5px solid #e2e8f0; border-radius: 0.625rem; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='#e2e8f0'">
             <input 
               type="checkbox" 
               name="is_headline" 
               value="1"
               ${post?.is_headline ? 'checked' : ''}
-              style="width: auto; margin: 0;"
+              style="width: 1.25rem; height: 1.25rem; accent-color: var(--primary);"
             >
-            <span style="font-weight: 700; color: var(--accent);">⭐ Fixar como Manchete (Hero)</span>
+            <span style="font-weight: 700; color: var(--primary); font-size: 0.875rem;">⭐ Fixar como Manchete (Hero)</span>
           </label>
-          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500;">
             Se marcado, este post ocupará o espaço principal da Home.
           </div>
         </div>
         
-        <div class="field" style="margin-bottom: 0;">
-          <label>ID da Imagem de Capa</label>
-          <div style="display: flex; gap: 0.5rem;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label>Imagem de Capa (ID)</label>
+          <div style="display: flex; gap: 0.75rem;">
             <input 
               type="number" 
               name="cover_media_id" 
               id="coverMediaInput"
+              class="form-control"
               value="${post?.cover_media_id || ''}"
               placeholder="Ex: 123"
               style="flex: 1;"
             >
-            <button type="button" class="btn" id="openMediaPickerBtn" style="padding: 0 1rem; background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color);">
-              🔍 Buscar
+            <button type="button" class="btn btn-outline" id="openMediaPickerBtn" style="padding: 0 1.25rem;">
+              🔍 Galeria
             </button>
           </div>
-          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
-            Selecione uma imagem da galeria ou digite o ID manualmente. Deixe vazio para remover.
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500;">
+            Selecione uma imagem ou digite o ID manualmente.
           </div>
         </div>
       </div>
@@ -634,17 +641,17 @@ function renderPostFormPage(params: {
       </script>
       
       <!-- Tags -->
-      <div class="field">
+      <div class="form-group">
         <label>Tags (Palavras-chave)</label>
-        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem; background: var(--bg-main); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem; background: #f8fafc; padding: 1.5rem; border-radius: 0.75rem; border: 1.5px solid #e2e8f0; box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.02);">
           ${tags.length === 0 ? '<span style="color: var(--text-muted); font-size: 0.8125rem;">Nenhuma tag cadastrada.</span>' : tags.map(tag => `
-            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; background: var(--bg-card); padding: 0.4rem 0.75rem; border-radius: 6px; border: 1px solid var(--border-color); font-size: 0.8125rem; font-weight: 500; transition: all 0.2s;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; background: var(--white); padding: 0.5rem 1rem; border-radius: 0.5rem; border: 1.5px solid #e2e8f0; font-size: 0.8125rem; font-weight: 600; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='#e2e8f0'">
               <input 
                 type="checkbox" 
                 name="tags" 
                 value="${tag.id}"
                 ${post?.tags?.includes(tag.name) ? 'checked' : ''}
-                style="width: auto; margin: 0;"
+                style="width: 1rem; height: 1rem; accent-color: var(--primary);"
               >
               ${escapeHtml(tag.name)}
             </label>
@@ -657,46 +664,49 @@ function renderPostFormPage(params: {
         <summary style="cursor: pointer; font-weight: 700; padding: 1rem; background: var(--bg-main); font-size: 0.875rem; display: flex; align-items: center; gap: 0.5rem;">
           🔍 SEO & Metadados
         </summary>
-        <div style="padding: 1.5rem; background: var(--bg-card); display: flex; flex-direction: column; gap: 1.25rem;">
-          <div class="field" style="margin-bottom: 0;">
+        <div style="padding: 2rem; background: var(--white); display: flex; flex-direction: column; gap: 1.5rem;">
+          <div class="form-group" style="margin-bottom: 0;">
             <label>Título SEO (Meta Title)</label>
             <input 
               type="text" 
               name="seo_title" 
+              class="form-control"
               value="${escapeHtml(post?.seo_title || '')}"
               maxlength="200"
               placeholder="Como aparecerá no Google..."
             >
           </div>
           
-          <div class="field" style="margin-bottom: 0;">
+          <div class="form-group" style="margin-bottom: 0;">
             <label>Descrição SEO (Meta Description)</label>
             <textarea 
               name="seo_description" 
+              class="form-control"
               rows="3"
               maxlength="500"
               placeholder="Breve descrição para motores de busca..."
             >${escapeHtml(post?.seo_description || '')}</textarea>
           </div>
           
-          <div class="field" style="margin-bottom: 0;">
+          <div class="form-group" style="margin-bottom: 0;">
             <label>URL Canônica (opcional)</label>
             <input 
               type="url" 
               name="seo_canonical" 
+              class="form-control"
               value="${escapeHtml(post?.seo_canonical || '')}"
               placeholder="https://exemplo.com/url-original"
             >
           </div>
           
-          <div class="field" style="margin-bottom: 0;">
-            <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; font-weight: 600; color: var(--text-main);">
               <input 
                 type="checkbox" 
                 name="seo_noindex" 
                 value="1"
                 ${post?.seo_noindex ? 'checked' : ''}
-                style="width: auto; margin: 0;"
+                style="width: 1.125rem; height: 1.125rem; accent-color: var(--primary);"
               >
               <span>🚫 Noindex (não indexar nos buscadores)</span>
             </label>
@@ -709,37 +719,37 @@ function renderPostFormPage(params: {
         <summary style="cursor: pointer; font-weight: 700; padding: 1rem; background: var(--bg-main); font-size: 0.875rem; display: flex; align-items: center; gap: 0.5rem;">
           🔒 Paywall & Monetização
         </summary>
-        <div style="padding: 1.5rem; background: var(--bg-card); display: flex; flex-direction: column; gap: 1.25rem;">
-          <div class="field" style="margin-bottom: 0;">
-            <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer;">
+        <div style="padding: 2rem; background: var(--white); display: flex; flex-direction: column; gap: 1.5rem;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; font-weight: 700; color: var(--primary);">
               <input 
                 type="checkbox" 
                 name="is_premium" 
                 value="1"
                 ${post?.is_premium ? 'checked' : ''}
-                style="width: auto; margin: 0;"
+                style="width: 1.25rem; height: 1.25rem; accent-color: var(--primary);"
               >
               <span>⭐ Conteúdo Premium (exclusivo para assinantes)</span>
             </label>
           </div>
           
-          <div class="field" style="margin-bottom: 0;">
+          <div class="form-group" style="margin-bottom: 0;">
             <label>Nível do Paywall</label>
-            <select name="paywall_tier">
+            <select name="paywall_tier" class="form-control">
               <option value="">Aberto (Gratuito)</option>
               <option value="metered" ${post?.paywall_tier === 'metered' ? 'selected' : ''}>Metered (Gratuito com limite de leitura)</option>
               <option value="hard" ${post?.paywall_tier === 'hard' ? 'selected' : ''}>Hard (Bloqueio Total para não-assinantes)</option>
             </select>
           </div>
           
-          <div class="field" style="margin-bottom: 0;">
-            <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; font-weight: 600; color: var(--text-main);">
               <input 
                 type="checkbox" 
                 name="metering_exempt" 
                 value="1"
                 ${post?.metering_exempt ? 'checked' : ''}
-                style="width: auto; margin: 0;"
+                style="width: 1.125rem; height: 1.125rem; accent-color: var(--primary);"
               >
               <span>🔓 Isento de limite (Sempre acessível, mesmo no limite do plano)</span>
             </label>

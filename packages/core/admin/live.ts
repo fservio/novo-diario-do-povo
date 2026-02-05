@@ -181,13 +181,13 @@ export function renderLiveControlPanel(params: {
           <h2 style="margin-top: 0; margin-bottom: var(--space-8); font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em;">Publicar no Feed</h2>
           <form method="post" action="/api/admin/posts/${post.id}/live-updates?redirect=/admin/live/${post.id}">
              ${renderCsrfInput(csrfToken)}
-             <div class="field" style="margin-bottom: var(--space-8);">
-               <label style="font-size: 0.875rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.1em; font-weight: 800; margin-bottom: var(--space-3); display: block;">Título ou Chamada (Opcional)</label>
-               <input type="text" name="title" placeholder="Ex: URGENTE: Resultado oficial..." style="padding: 1.5rem; font-size: 1.25rem; border-radius: 16px; border: 2px solid var(--border-color); font-weight: 600;">
+             <div class="form-group">
+               <label>Título ou Chamada (Opcional)</label>
+               <input type="text" name="title" class="form-control" placeholder="Ex: URGENTE: Resultado oficial..." style="font-weight: 700; font-size: 1.125rem;">
              </div>
-             <div class="field" style="margin-bottom: var(--space-8);">
-               <label style="font-size: 0.875rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.1em; font-weight: 800; margin-bottom: var(--space-3); display: block;">Corpo do Update *</label>
-               <div style="background: var(--bg-main); border-radius: 16px; overflow: hidden; border: 2px solid var(--border-color);">
+             <div class="form-group">
+               <label>Corpo do Update *</label>
+               <div style="background: var(--bg-main); border-radius: 0.75rem; overflow: hidden; border: 1.5px solid #e2e8f0;">
                  ${renderMarkdownEditor({
     name: 'content',
     value: '',
@@ -197,8 +197,8 @@ export function renderLiveControlPanel(params: {
                </div>
              </div>
              <div style="display: flex; justify-content: space-between; align-items: center; padding-top: var(--space-10); border-top: 2px solid var(--bg-main);">
-               <label style="display: flex; align-items: center; gap: var(--space-3); cursor: pointer; font-size: 1.125rem; font-weight: 700;">
-                 <input type="checkbox" name="is_pinned" value="1" style="width: 1.75rem; height: 1.75rem; border-radius: 8px;">
+               <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; font-size: 1rem; font-weight: 700; color: var(--primary);">
+                 <input type="checkbox" name="is_pinned" value="1" style="width: 1.25rem; height: 1.25rem; accent-color: var(--primary);">
                  Fixar como destaque
                </label>
                <button type="submit" class="btn" style="padding: 1.25rem 4rem; font-size: 1.25rem; border-radius: 100px; box-shadow: 0 15px 30px -10px var(--accent-soft);">Publicar Agora</button>
