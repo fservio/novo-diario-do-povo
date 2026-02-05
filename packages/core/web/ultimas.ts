@@ -319,7 +319,7 @@ export async function renderUltimasPage(
     navItems: [], // Will be injected or fetched if needed
     categories,
     bodyHtml,
-    theme: 'default', // Using modern default theme
+    theme,
     subscriber: params.subscriber
   })
 }

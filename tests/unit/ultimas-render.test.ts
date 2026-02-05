@@ -104,4 +104,32 @@ describe('renderUltimasPage', () => {
         expect(html).toContain('href="/ultimas?page=1"')
         expect(html).toContain('href="/ultimas?page=3"')
     })
+
+    it('should render in minimalist theme when requested', async () => {
+        const posts = [
+            {
+                id: 1,
+                slug: 'post-1',
+                title: 'Post Minimal',
+                published_at: new Date().toISOString(),
+                category_name: 'Tech',
+                category_slug: 'tech'
+            }
+        ]
+
+        const html = await renderUltimasPage(mockContext, posts, {
+            baseUrl: 'https://test.com',
+            siteName: 'Test Site',
+            page: 1,
+            limit: 30,
+            theme: 'minimal'
+        })
+
+        // Check for minimalist-specific classes/elements
+        expect(html).toContain('gb-container')
+        expect(html).toContain('timeline-minimal')
+        expect(html).toContain('AO VIVO') // Live tag in minimal theme
+        expect(html).toContain('minimal.css') // Should load minimal.css
+        expect(html).not.toContain('styles.css') // Should NOT load styles.css
+    })
 })
