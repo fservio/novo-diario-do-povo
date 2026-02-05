@@ -5,6 +5,8 @@ import { getSetting } from '../../db'
 export async function renderAccountPage(c: Context) {
     const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
 
+    const nonce = c.get('cspNonce')
+
     return `
     <!DOCTYPE html>
     <html lang="pt-BR">
@@ -30,7 +32,7 @@ export async function renderAccountPage(c: Context) {
                 <a href="/" class="text-xl font-bold text-gray-900">${siteName}</a>
                 <div class="flex items-center space-x-4">
                     <a href="/portal" class="text-sm text-gray-600 hover:text-gray-900">Dashboard</a>
-                    <button onclick="logout()" class="text-sm text-gray-500 hover:text-gray-900">Sair</button>
+                    <button id="logoutBtn" class="text-sm text-gray-500 hover:text-gray-900">Sair</button>
                 </div>
             </div>
         </nav>
@@ -70,7 +72,7 @@ export async function renderAccountPage(c: Context) {
             </div>
         </main>
 
-        <script>
+        <script nonce="${nonce}">
             async function loadAccount() {
                 try {
                     const res = await fetch('/api/portal/me');
@@ -124,10 +126,10 @@ export async function renderAccountPage(c: Context) {
                 }
             });
 
-            async function logout() {
+            document.getElementById('logoutBtn').addEventListener('click', async () => {
                 await fetch('/api/portal/auth/logout', { method: 'POST' });
                 window.location.href = '/portal/login';
-            }
+            });
 
             loadAccount();
         </script>

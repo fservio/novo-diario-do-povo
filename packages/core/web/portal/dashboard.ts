@@ -5,6 +5,8 @@ import { getSetting } from '../../db'
 export async function renderDashboardPage(c: Context) {
     const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
 
+    const nonce = c.get('cspNonce')
+
     return `
     <!DOCTYPE html>
     <html lang="pt-BR">
@@ -36,7 +38,7 @@ export async function renderDashboardPage(c: Context) {
                 <div class="flex items-center space-x-4">
                     <a href="/conta" class="text-sm text-gray-600 hover:text-gray-900">Meus Dados</a>
                     <span id="userName" class="text-sm text-gray-600 hidden md:inline font-medium"></span>
-                    <button onclick="logout()" class="text-sm text-gray-500 hover:text-gray-900">Sair</button>
+                    <button id="logoutBtn" class="text-sm text-gray-500 hover:text-gray-900">Sair</button>
                 </div>
             </div>
         </nav>
@@ -91,11 +93,11 @@ export async function renderDashboardPage(c: Context) {
                     <div id="subscribeActions" class="hidden space-y-4">
                         <p class="text-gray-600 text-sm">Escolha um plano para ter acesso ilimitado:</p>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <button onclick="startSubscription('mensal')" class="border rounded-lg p-4 hover:border-blue-500 text-left hover:bg-blue-50 transition">
+                            <button id="subMensalBtn" class="border rounded-lg p-4 hover:border-blue-500 text-left hover:bg-blue-50 transition">
                                 <strong class="block text-lg">Mensal</strong>
                                 <span class="text-2xl font-bold">R$ 9,90</span>/mês
                             </button>
-                            <button onclick="startSubscription('anual')" class="border rounded-lg p-4 hover:border-blue-500 text-left hover:bg-blue-50 transition">
+                            <button id="subAnualBtn" class="border rounded-lg p-4 hover:border-blue-500 text-left hover:bg-blue-50 transition">
                                 <strong class="block text-lg">Anual</strong>
                                 <span class="text-2xl font-bold">R$ 94,90</span>/ano
                             </button>
@@ -114,7 +116,7 @@ export async function renderDashboardPage(c: Context) {
             </div>
         </main>
 
-        <script>
+        <script nonce="${nonce}">
             async function loadDashboard() {
                 try {
                     const res = await fetch('/api/portal/dashboard');
@@ -158,9 +160,10 @@ export async function renderDashboardPage(c: Context) {
                         <div class="text-red-600 bg-red-50 p-4 rounded-lg border border-red-200">
                             <p class="font-bold">Erro ao carregar informações</p>
                             <p class="text-sm">\${e.message}</p>
-                            <button onclick="window.location.reload()" class="mt-4 text-blue-600 underline text-sm">Tentar novamente</button>
+                            <button id="retryBtn" class="mt-4 text-blue-600 underline text-sm">Tentar novamente</button>
                         </div>
                     \`;
+                    document.getElementById('retryBtn')?.addEventListener('click', () => window.location.reload());
                 }
             }
 
@@ -232,11 +235,12 @@ export async function renderDashboardPage(c: Context) {
                 }
             }
 
-            async function startSubscription(plan) {
-                 const btn = event.currentTarget;
-                 const originalText = btn.innerHTML;
-                 btn.disabled = true;
-                 btn.innerHTML = 'Processando...';
+            async function startSubscription(plan, btn) {
+                 const originalText = btn ? btn.innerHTML : 'Processando...';
+                 if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = 'Processando...';
+                 }
 
                  try {
                      const res = await fetch('/api/portal/assinatura/start', {
@@ -253,20 +257,27 @@ export async function renderDashboardPage(c: Context) {
                          setTimeout(() => window.location.reload(), 2000);
                      } else {
                          alert('Erro ao iniciar: ' + (data.error || 'Desconhecido'));
-                         btn.disabled = false;
-                         btn.innerHTML = originalText;
+                         if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = originalText;
+                         }
                      }
                  } catch (e) {
                      alert('Erro de conexão');
-                     btn.disabled = false;
-                     btn.innerHTML = originalText;
+                     if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = originalText;
+                     }
                  }
             }
 
-            async function logout() {
+            document.getElementById('logoutBtn').addEventListener('click', async () => {
                 await fetch('/api/portal/auth/logout', { method: 'POST' });
                 window.location.href = '/portal/login';
-            }
+            });
+
+            document.getElementById('subMensalBtn').addEventListener('click', (e) => startSubscription('mensal', e.currentTarget));
+            document.getElementById('subAnualBtn').addEventListener('click', (e) => startSubscription('anual', e.currentTarget));
 
             loadDashboard();
         </script>

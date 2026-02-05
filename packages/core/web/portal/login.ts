@@ -5,6 +5,7 @@ import { getSetting } from '../../db'
 export async function renderLoginPage(c: Context) {
     const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
     const error = c.req.query('error')
+    const nonce = c.get('cspNonce')
 
     return `
     <!DOCTYPE html>
@@ -72,7 +73,7 @@ export async function renderLoginPage(c: Context) {
             </div>
         </div>
 
-        <script>
+        <script nonce="${nonce}">
             document.getElementById('loginForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const btn = document.getElementById('submitBtn');
@@ -95,7 +96,10 @@ export async function renderLoginPage(c: Context) {
                     const data = await res.json();
 
                     if (data.success) {
-                        window.location.href = '/portal';
+                        // Check if there is a 'next' param in URL
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const next = urlParams.get('next');
+                        window.location.href = next || '/portal';
                     } else {
                         btn.disabled = false;
                         btn.textContent = 'Entrar';
@@ -114,5 +118,5 @@ export async function renderLoginPage(c: Context) {
         </script>
     </body>
     </html>
-  `
+    `
 }
