@@ -1025,8 +1025,13 @@ app.get('/admin/posts', async (c) => {
   const category_id = c.req.query('category_id') ? parseInt(c.req.query('category_id')!) : undefined
   const is_premium = c.req.query('is_premium') ? parseInt(c.req.query('is_premium')!) : undefined
   const search = c.req.query('search') || undefined
+  const year = c.req.query('year') ? parseInt(c.req.query('year')!) : undefined
+  const month = c.req.query('month') ? parseInt(c.req.query('month')!) : undefined
+  const day = c.req.query('day') ? parseInt(c.req.query('day')!) : undefined
+
   const limit = parseInt(c.req.query('limit') || '20')
-  const offset = parseInt(c.req.query('offset') || '0')
+  const page = parseInt(c.req.query('page') || '1')
+  const offset = (page - 1) * limit
 
   // Get posts
   const { posts, total } = await listPosts(c.env.DB, {
@@ -1034,6 +1039,9 @@ app.get('/admin/posts', async (c) => {
     category_id,
     is_premium,
     search,
+    year,
+    month,
+    day,
     limit,
     offset
   })
@@ -1047,7 +1055,7 @@ app.get('/admin/posts', async (c) => {
   return c.html(renderPostsListPage({
     posts,
     total,
-    filters: { status, category_id, is_premium, search, limit, offset },
+    filters: { status, category_id, is_premium, search, year, month, day, limit, offset, page },
     categories,
     authors: authorsResult.results || [],
     user,

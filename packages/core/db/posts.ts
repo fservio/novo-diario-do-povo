@@ -61,6 +61,9 @@ export interface PostFilters {
   is_headline?: number
   slug?: string
   original_link?: string
+  year?: number
+  month?: number
+  day?: number
 }
 
 export interface CreatePostInput {
@@ -169,6 +172,9 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
     missing_cover,
     slug,
     original_link,
+    year,
+    month,
+    day,
     limit = 20,
     offset = 0
   } = filters
@@ -213,6 +219,23 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
   if (original_link) {
     whereConditions.push('p.original_link = ?')
     params.push(original_link)
+  }
+
+  if (year) {
+    whereConditions.push("strftime('%Y', p.created_at) = ?")
+    params.push(String(year))
+  }
+
+  if (month) {
+    const monthStr = String(month).padStart(2, '0')
+    whereConditions.push("strftime('%m', p.created_at) = ?")
+    params.push(monthStr)
+  }
+
+  if (day) {
+    const dayStr = String(day).padStart(2, '0')
+    whereConditions.push("strftime('%d', p.created_at) = ?")
+    params.push(dayStr)
   }
 
   if (search) {

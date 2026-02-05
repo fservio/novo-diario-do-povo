@@ -65,7 +65,7 @@ const scheduleSchema = z.object({
 function renderPostsListPage(params: {
   posts: Post[]
   total: number
-  filters: PostFilters
+  filters: PostFilters & { page?: number }
   categories: any[]
   authors: any[]
   user: AdminUser
@@ -74,182 +74,193 @@ function renderPostsListPage(params: {
   const { posts, total, filters, categories, authors, user, csrfToken } = params
 
   const statusOptions = [
-    { value: '', label: 'Todos os status' },
+    { value: '', label: 'Status: Todos' },
     { value: 'draft', label: 'Rascunho' },
-    { value: 'review', label: 'Em revisão' },
+    { value: 'review', label: 'Revisão' },
     { value: 'published', label: 'Publicado' },
     { value: 'archived', label: 'Arquivado' },
   ]
 
-  const premiumOptions = [
-    { value: '', label: 'Todos (free + premium)' },
-    { value: '0', label: 'Apenas free' },
-    { value: '1', label: 'Apenas premium' },
+  const years = []
+  const currentYear = new Date().getFullYear()
+  for (let y = currentYear; y >= 2020; y--) years.push(y)
+
+  const months = [
+    { value: '01', label: 'Janeiro' },
+    { value: '02', label: 'Fevereiro' },
+    { value: '03', label: 'Março' },
+    { value: '04', label: 'Abril' },
+    { value: '05', label: 'Maio' },
+    { value: '06', label: 'Junho' },
+    { value: '07', label: 'Julho' },
+    { value: '08', label: 'Agosto' },
+    { value: '09', label: 'Setembro' },
+    { value: '10', label: 'Outubro' },
+    { value: '11', label: 'Novembro' },
+    { value: '12', label: 'Dezembro' },
   ]
+
+  const limit = filters.limit || 20
+  const currentPage = filters.page || 1
+  const totalPages = Math.ceil(total / limit)
+
+  const buildQuery = (newFilters: any) => {
+    const q = new URLSearchParams()
+    const all = { ...filters, ...newFilters }
+    Object.entries(all).forEach(([k, v]) => {
+      if (v !== undefined && v !== '' && v !== null) q.set(k, String(v))
+    })
+    return q.toString()
+  }
 
   const bodyHtml = `
     <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
-      <h1 class="section-title" style="margin: 0;">Posts</h1>
-      <a href="/admin/posts/new" class="btn"><span>+</span> Novo Post</a>
+      <div>
+         <h1 class="section-title" style="margin: 0;">Matérias</h1>
+         <p style="color: var(--text-muted); font-size: 0.875rem;">Gerencie as publicações do jornal</p>
+      </div>
+      <a href="/admin/posts/new" class="btn"><span>+</span> Nova Matéria</a>
     </div>
     
-    <!-- Filtros -->
-    <form method="get" action="/admin/posts" class="card" style="margin-bottom: 2rem;">
-      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
-        <div class="field" style="margin-bottom: 0;">
-          <label>Status</label>
-          <select name="status" onchange="this.form.submit()">
-            ${statusOptions.map(opt => `
-              <option value="${opt.value}" ${filters.status === opt.value ? 'selected' : ''}>
-                ${opt.label}
-              </option>
-            `).join('')}
-          </select>
+    <!-- Filtros Superiores -->
+    <div class="card" style="margin-bottom: 2rem; padding: 1.5rem;">
+      <form method="get" action="/admin/posts" id="filterForm">
+        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+          <div class="form-group" style="margin: 0;">
+            <label>Busca livre</label>
+            <input type="text" name="search" class="form-control" value="${escapeHtml(filters.search || '')}" placeholder="Título ou conteúdo...">
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label>Status</label>
+            <select name="status" class="form-control" onchange="this.form.submit()">
+              ${statusOptions.map(opt => `<option value="${opt.value}" ${filters.status === opt.value ? 'selected' : ''}>${opt.label}</option>`).join('')}
+            </select>
+          </div>
+          
+          <div class="form-group" style="margin: 0;">
+            <label>Categoria</label>
+            <select name="category_id" class="form-control" onchange="this.form.submit()">
+              <option value="">Todas</option>
+              ${categories.map(cat => `<option value="${cat.id}" ${filters.category_id === cat.id ? 'selected' : ''}>${escapeHtml(cat.name)}</option>`).join('')}
+            </select>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label>Premium</label>
+            <select name="is_premium" class="form-control" onchange="this.form.submit()">
+              <option value="">Todos</option>
+              <option value="0" ${String(filters.is_premium) === '0' ? 'selected' : ''}>Grátis</option>
+              <option value="1" ${String(filters.is_premium) === '1' ? 'selected' : ''}>Premium</option>
+            </select>
+          </div>
         </div>
-        
-        <div class="field" style="margin-bottom: 0;">
-          <label>Categoria</label>
-          <select name="category_id" onchange="this.form.submit()">
-            <option value="">Todas</option>
-            ${categories.map(cat => `
-              <option value="${cat.id}" ${filters.category_id === cat.id ? 'selected' : ''}>
-                ${escapeHtml(cat.name)}
-              </option>
-            `).join('')}
-          </select>
+
+        <!-- Filtro de Calendário -->
+        <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+            <span style="font-size: 0.875rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">📅 Calendário:</span>
+            
+            <select name="year" class="form-control" style="width: auto;" onchange="this.form.submit()">
+              <option value="">Ano</option>
+              ${years.map(y => `<option value="${y}" ${filters.year === y ? 'selected' : ''}>${y}</option>`).join('')}
+            </select>
+
+            <select name="month" class="form-control" style="width: auto;" onchange="this.form.submit()">
+              <option value="">Mês</option>
+              ${months.map(m => `<option value="${m.value}" ${filters.month === parseInt(m.value) ? 'selected' : ''}>${m.label}</option>`).join('')}
+            </select>
+
+            <select name="day" class="form-control" style="width: auto;" onchange="this.form.submit()">
+              <option value="">Dia</option>
+              ${Array.from({ length: 31 }, (_, i) => i + 1).map(d => {
+    const ds = String(d).padStart(2, '0');
+    return `<option value="${ds}" ${filters.day === d ? 'selected' : ''}>${ds}</option>`;
+  }).join('')}
+            </select>
+
+            <button type="submit" class="btn" style="margin-left: auto;">Aplicar Filtros</button>
+            <a href="/admin/posts" class="btn btn-outline">Limpar</a>
         </div>
-        
-        <div class="field" style="margin-bottom: 0;">
-          <label>Premium</label>
-          <select name="is_premium" onchange="this.form.submit()">
-            ${premiumOptions.map(opt => `
-              <option value="${opt.value}" ${String(filters.is_premium) === opt.value ? 'selected' : ''}>
-                ${opt.label}
-              </option>
-            `).join('')}
-          </select>
-        </div>
-        
-        <div class="field" style="margin-bottom: 0;">
-          <label>Busca</label>
-          <input 
-            type="text" 
-            name="search" 
-            value="${escapeHtml(filters.search || '')}"
-            placeholder="Título, conteúdo..."
-          >
-        </div>
-      </div>
-      
-      <div style="margin-top: 1.5rem; display: flex; align-items: center; gap: 1rem;">
-        <button type="submit" class="btn">Filtrar</button>
-        <a href="/admin/posts" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem; font-weight: 500;">Limpar filtros</a>
-      </div>
-    </form>
+      </form>
+    </div>
     
-    <!-- Lista de Posts -->
-    <div class="card" style="padding: 0; overflow: hidden;">
+    <!-- Tabela -->
+    <div class="table-container shadow-sm">
       <table>
         <thead>
           <tr>
-            <th>Título</th>
+            <th style="width: 45%;">Título</th>
             <th>Categoria</th>
-            <th>Autor</th>
             <th>Status</th>
-            <th>Premium</th>
+            <th>Acesso</th>
             <th>Data</th>
-            <th>Ações</th>
+            <th style="text-align: right;">Ações</th>
           </tr>
         </thead>
         <tbody>
           ${posts.length === 0 ? `
             <tr>
-              <td colspan="7" style="padding: 3rem; text-align: center; color: var(--text-muted);">
-                Nenhum post encontrado
+              <td colspan="6" style="padding: 4rem; text-align: center; color: var(--text-muted);">
+                <div style="font-size: 2rem; margin-bottom: 1rem;">🔍</div>
+                Nenhuma matéria encontrada com estes filtros.
               </td>
             </tr>
           ` : posts.map(post => `
             <tr>
               <td>
-                ${post.hat ? `
-                  <div style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 700; margin-bottom: 0.25rem;">
-                    ${escapeHtml(post.hat)}
-                  </div>
-                ` : ''}
-                <a href="/admin/posts/${post.id}" style="color: var(--accent); text-decoration: none; font-weight: 600;">
-                  ${escapeHtml(post.title)}
-                </a>
+                <div style="display: flex; flex-direction: column;">
+                    ${post.hat ? `<span style="font-size: 0.65rem; font-weight: 800; color: var(--primary); text-transform: uppercase; margin-bottom: 2px;">${escapeHtml(post.hat)}</span>` : ''}
+                    <a href="/admin/posts/${post.id}" style="text-decoration: none; color: var(--text-main); font-weight: 600; font-size: 0.9375rem; line-height: 1.3;">
+                      ${escapeHtml(post.title)}
+                    </a>
+                </div>
               </td>
-              <td style="font-size: 0.875rem; color: var(--text-muted);">
-                ${escapeHtml(post.category_name || '-')}
-              </td>
-              <td style="font-size: 0.875rem; color: var(--text-muted);">
-                ${escapeHtml(post.author_name || '-')}
-              </td>
+              <td><span class="badge" style="background: #f1f5f9; color: #475569;">${escapeHtml(post.category_name || 'Geral')}</span></td>
               <td>
-                <span style="display: inline-flex; align-items: center; justify-content: center; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
-                  ${post.status === 'published' ? 'background: rgba(16, 185, 129, 0.1); color: #10b981;' : ''}
-                  ${post.status === 'draft' ? 'background: var(--bg-main); color: var(--text-muted);' : ''}
-                  ${post.status === 'review' ? 'background: rgba(245, 158, 11, 0.1); color: #f59e0b;' : ''}
-                  ${post.status === 'archived' ? 'background: rgba(239, 68, 68, 0.1); color: #ef4444;' : ''}
-                ">
-                  ${post.status}
-                </span>
+                ${post.status === 'published' ? '<span class="badge badge-success">Publicado</span>' :
+      post.status === 'draft' ? '<span class="badge" style="background: #e2e8f0; color: #475569;">Rascunho</span>' :
+        post.status === 'review' ? '<span class="badge badge-warning">Revisão</span>' :
+          '<span class="badge badge-danger">Arquivado</span>'
+    }
               </td>
-              <td style="font-size: 0.875rem;">
-                ${post.is_premium ? '🔒 <span style="color: var(--text-muted)">Premium</span>' : '🆓 <span style="color: var(--text-muted)">Free</span>'}
+              <td>${post.is_premium ? '💎 <span style="font-size: 0.75rem; font-weight: 600;">Premium</span>' : '✅ <span style="font-size: 0.75rem; font-weight: 600;">Livre</span>'}</td>
+              <td style="white-space: nowrap; color: var(--text-muted); font-size: 0.8125rem;">
+                ${new Date(post.created_at).toLocaleDateString('pt-BR')}
               </td>
-              <td style="font-size: 0.875rem; color: var(--text-muted);">
-                ${post.published_at ? new Date(post.published_at).toLocaleDateString('pt-BR') : '-'}
-              </td>
-              <td>
-                <div style="display: flex; align-items: center; gap: 0.75rem;">
-                  <a href="/admin/posts/${post.id}" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color);">
-                    Editar
-                  </a>
-                  <a href="/admin/posts/${post.id}/preview" target="_blank" title="Preview" style="color: var(--text-muted); font-size: 1.1rem;">👁️</a>
-                  ${post.status !== 'published' ? `
-                    <form method="post" action="/admin/posts/${post.id}/publish" style="display: inline;">
-                      ${renderCsrfInput(csrfToken)}
-                      <button type="submit" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; background: #10b981;">
-                        Publicar
-                      </button>
-                    </form>
-                  ` : ''}
-                  <form method="post" action="/admin/posts/${post.id}/delete" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este post permanentemente?')">
-                    ${renderCsrfInput(csrfToken)}
-                    <button type="submit" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; background: #ef4444;">
-                      Excluir
-                    </button>
-                  </form>
+              <td style="text-align: right;">
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                  <a href="/admin/posts/${post.id}" class="btn btn-outline" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">Editar</a>
+                  <a href="/admin/posts/${post.id}/preview" target="_blank" class="btn btn-outline" style="padding: 0.35rem 0.5rem; font-size: 0.75rem;" title="Ver Preview">👁️</a>
                 </div>
               </td>
             </tr>
           `).join('')}
         </tbody>
       </table>
-      
-      ${total > (filters.limit || 20) ? `
-        <div style="padding: 1.25rem; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: var(--bg-card);">
-          <div style="font-size: 0.875rem; color: var(--text-muted); font-weight: 500;">
-            Mostrando ${(filters.offset || 0) + 1} - ${Math.min((filters.offset || 0) + (filters.limit || 20), total)} de ${total} posts
-          </div>
-          <div style="display: flex; gap: 0.5rem;">
-            ${(filters.offset || 0) > 0 ? `
-              <a href="/admin/posts?offset=${Math.max(0, (filters.offset || 0) - (filters.limit || 20))}&limit=${filters.limit || 20}" 
-                 class="btn" style="background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color);">
-                ← Anterior
-              </a>
-            ` : ''}
-            ${(filters.offset || 0) + (filters.limit || 20) < total ? `
-              <a href="/admin/posts?offset=${(filters.offset || 0) + (filters.limit || 20)}&limit=${filters.limit || 20}" 
-                 class="btn" style="background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color);">
-                Próxima →
-              </a>
-            ` : ''}
-          </div>
+    </div>
+
+    <!-- Paginação -->
+    ${totalPages > 1 ? `
+    <div style="margin-top: 2rem; display: flex; justify-content: center; align-items: center; gap: 0.5rem;">
+        ${currentPage > 1 ? `
+            <a href="/admin/posts?${buildQuery({ page: 1 })}" class="btn btn-outline" style="padding: 0.5rem 0.75rem;">«</a>
+            <a href="/admin/posts?${buildQuery({ page: currentPage - 1 })}" class="btn btn-outline" style="padding: 0.5rem 0.75rem;">‹ Anterior</a>
+        ` : ''}
+
+        <div style="display: flex; gap: 0.25rem; align-items: center; padding: 0 1rem;">
+            <span style="font-weight: 700; color: var(--primary);">Página ${currentPage}</span>
+            <span style="color: var(--text-muted);"> de ${totalPages}</span>
         </div>
-      ` : ''}
+
+        ${currentPage < totalPages ? `
+            <a href="/admin/posts?${buildQuery({ page: currentPage + 1 })}" class="btn btn-outline" style="padding: 0.5rem 0.75rem;">Próxima ›</a>
+            <a href="/admin/posts?${buildQuery({ page: totalPages })}" class="btn btn-outline" style="padding: 0.5rem 0.75rem;">»</a>
+        ` : ''}
+    </div>
+    ` : ''}
+    
+    <div style="margin-top: 1rem; text-align: center; font-size: 0.75rem; color: var(--text-muted);">
+        Total de ${total} matérias encontradas
     </div>
   `
 
