@@ -59,16 +59,19 @@ app.get('/', async (c) => {
 // GET /ultimas - Latest Posts
 app.get('/ultimas', async (c) => {
     const { getSetting } = await import('../db')
-    const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
+    const { renderUltimasPage } = await import('./ultimas')
+    const { getReaderContext } = await import('../paywall/helpers')
 
-    // Simple paginated list of latest posts
+    const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
+    const readerContext = await getReaderContext(c as any)
+
     const page = parseInt(c.req.query('page') || '1')
     const limit = 30
     const offset = (page - 1) * limit
 
     const posts = await c.env.DB.prepare(`
     SELECT 
-      p.id, p.slug, p.title, p.published_at,
+      p.id, p.slug, p.title, p.published_at, p.excerpt,
       c.name as category_name, c.slug as category_slug
     FROM posts p
     INNER JOIN categories c ON p.category_id = c.id
@@ -81,65 +84,15 @@ app.get('/ultimas', async (c) => {
 
     const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
 
-    // Temporary inline HTML (should be refactored to a renderer later)
-    return c.html(`
-    <!DOCTYPE html>
-    <html lang="pt-BR">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Últimas Notícias | ${siteName}</title>
-        <link href="/static/styles.css" rel="stylesheet">
-        <style>
-          body { background-color: #f6f7f8; margin: 0; font-family: system-ui, -apple-system, sans-serif; }
-          .container { max-width: 1536px; margin: 0 auto; padding: 0 1rem; }
-          header { background: white; border-bottom: 1px solid #e5e7eb; }
-        </style>
-    </head>
-    <body>
-        <header>
-            <div class="container py-4">
-                <a href="/" class="text-2xl font-bold">${siteName}</a>
-            </div>
-        </header>
-        
-        <main class="container py-8">
-            <h1 class="text-4xl font-bold mb-8">Últimas Notícias</h1>
-            
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                <ul class="space-y-4">
-                    ${(posts.results || []).map((post: any) => `
-                        <li class="border-b last:border-0 pb-4 last:pb-0">
-                            <a href="${getPostUrl(post, baseUrl)}" class="block hover:text-[#FF4D00] transition-colors">
-                                <div class="flex items-baseline gap-2">
-                                    <span class="text-xs text-gray-500 font-mono">
-                                        ${new Date(post.published_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                    <span class="flex-1 font-medium">${post.title}</span>
-                                </div>
-                                <span class="text-xs text-[#FF4D00] font-bold uppercase mt-1 inline-block">
-                                    ${post.category_name}
-                                </span>
-                            </a>
-                        </li>
-                    `).join('')}
-                </ul>
-                
-                <div class="flex gap-4 mt-6 pt-6 border-t">
-                    ${page > 1 ? `<a href="/ultimas?page=${page - 1}" class="px-4 py-2 bg-[#FF4D00] text-white rounded hover:bg-[#E04400]">← Anterior</a>` : ''}
-                    ${(posts.results || []).length === limit ? `<a href="/ultimas?page=${page + 1}" class="px-4 py-2 bg-[#FF4D00] text-white rounded hover:bg-[#E04400]">Próximo →</a>` : ''}
-                </div>
-            </div>
-        </main>
-        
-        <footer class="bg-gray-900 text-white mt-12 py-8">
-            <div class="container text-center">
-                <p>&copy; ${new Date().getFullYear()} ${siteName}. Todos os direitos reservados.</p>
-            </div>
-        </footer>
-    </body>
-    </html>
-  `)
+    const html = await renderUltimasPage(c, posts.results as any[], {
+        baseUrl,
+        siteName,
+        page,
+        limit,
+        subscriber: readerContext.subscriber
+    })
+
+    return c.html(html)
 })
 
 // GET /categoria/:slug - Category Page
