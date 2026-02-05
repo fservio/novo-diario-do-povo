@@ -319,10 +319,10 @@ export async function renderAccountPage(c: Context) {
             document.getElementById('accountForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const btn = document.getElementById('saveBtn');
-                const alert = document.getElementById('successAlert');
+                const sAlert = document.getElementById('successAlert');
                 btn.disabled = true;
                 btn.textContent = 'Salvando...';
-                alert.style.display = 'none';
+                sAlert.style.display = 'none';
 
                 const formData = {
                     name: document.getElementById('name').value,
@@ -338,8 +338,8 @@ export async function renderAccountPage(c: Context) {
                     });
                     const data = await res.json();
                     if (data.success) {
-                        alert.style.display = 'block';
-                        setTimeout(() => { alert.style.display = 'none'; }, 4000);
+                        sAlert.style.display = 'block';
+                        setTimeout(() => { sAlert.style.display = 'none'; }, 4000);
                     } else {
                         alert('Erro ao salvar: ' + (data.error || 'Desconhecido'));
                     }

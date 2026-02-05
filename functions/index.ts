@@ -2254,10 +2254,12 @@ app.get('/assinar', async (c) => {
   return c.html(html)
 })
 
-app.get('/conta', async (c) => {
+app.get('/portal/account', async (c) => {
   const { renderAccountPage } = await import('../packages/core/web/portal/account')
   return c.html(await renderAccountPage(c))
 })
+
+app.get('/conta', (c) => c.redirect('/portal/account', 301))
 
 // ============================================================================
 // Subscriber Portal UI
@@ -2275,8 +2277,6 @@ app.get('/portal/register', async (c) => {
 
 app.get('/portal', async (c) => {
   const { renderDashboardPage } = await import('../packages/core/web/portal/dashboard')
-  // For the SPA-like dashboard, we render the skeleton and let the JS fetch data
-  // But we can check cookie here to avoid flicker if we want, or just let JS handle it.
   return c.html(await renderDashboardPage(c))
 })
 
