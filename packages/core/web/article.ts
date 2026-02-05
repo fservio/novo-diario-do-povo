@@ -471,6 +471,7 @@ export async function renderArticlePage(
     coverOfDay,
     bodyHtml,
     extraHeadHtml,
-    theme
+    theme,
+    subscriber: options.accessCheck?.subscriber
   })
 }

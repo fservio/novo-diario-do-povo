@@ -924,24 +924,6 @@ app.get('/admin/integrations', async (c) => {
   return c.html(await renderIntegrationsPage(c))
 })
 
-// ============================================================================
-// Admin Subscribers Routes
-// ============================================================================
-
-app.get('/admin/subscribers', async (c) => {
-  const { handleSubscribersList } = await import('../packages/core/admin/subscribers')
-  return handleSubscribersList(c)
-})
-
-app.post('/admin/subscribers/:id/block', async (c) => {
-  const { handleBlockSubscriber } = await import('../packages/core/admin/subscribers')
-  return handleBlockSubscriber(c)
-})
-
-app.post('/admin/subscribers/:id/unblock', async (c) => {
-  const { handleUnblockSubscriber } = await import('../packages/core/admin/subscribers')
-  return handleUnblockSubscriber(c)
-})
 
 app.post('/admin/integrations/n8n/generate', async (c) => {
   const { handleGenerateKey } = await import('../packages/core/admin/integrations')
@@ -2286,6 +2268,11 @@ app.get('/portal/login', async (c) => {
   return c.html(await renderLoginPage(c))
 })
 
+app.get('/portal/register', async (c) => {
+  const { renderRegisterPage } = await import('../packages/core/web/portal/register')
+  return c.html(await renderRegisterPage(c))
+})
+
 app.get('/portal', async (c) => {
   const { renderDashboardPage } = await import('../packages/core/web/portal/dashboard')
   // For the SPA-like dashboard, we render the skeleton and let the JS fetch data
@@ -2305,7 +2292,7 @@ app.post('/api/portal/auth/register', async (c) => {
   const { v4: uuidv4 } = await import('uuid')
 
   const body = await c.req.json()
-  const { email, password, name, phone } = body
+  const { email, password, name, phone, cpf } = body
 
   if (!email || !password || password.length < 8) {
     return c.json({ success: false, error: 'Email required and password must be at least 8 chars' }, 400)
@@ -2325,7 +2312,8 @@ app.post('/api/portal/auth/register', async (c) => {
       email,
       password,
       name,
-      phone
+      phone,
+      cpf
     })
 
     // Create session
@@ -2421,9 +2409,10 @@ app.get('/api/portal/dashboard', async (c) => {
   }
 
   // Parallel fetch for speed
-  const [subStatus, latestInvoice] = await Promise.all([
+  const [subStatus, latestInvoice, allInvoices] = await Promise.all([
     getSubscriptionStatus(c.env, subscriber.id),
-    getLatestOpenInvoice(c.env, subscriber.id)
+    getLatestOpenInvoice(c.env, subscriber.id),
+    c.env.DB.prepare('SELECT id, amount, status, due_date, payment_url, paid_at FROM invoices WHERE subscriber_id = ? ORDER BY due_date DESC LIMIT 12').bind(subscriber.id).all()
   ])
 
   // Construct Contract Response
@@ -2442,12 +2431,19 @@ app.get('/api/portal/dashboard', async (c) => {
     next_invoice: latestInvoice ? {
       status: latestInvoice.status,
       amount: latestInvoice.amount,
-      // Ensure ISO format for UI consistency
       due_date: latestInvoice.due_date.includes('T')
         ? latestInvoice.due_date
         : `${latestInvoice.due_date}T00:00:00.000Z`,
       payment_url: latestInvoice.payment_url
-    } : null
+    } : null,
+    invoices: (allInvoices.results || []).map((inv: any) => ({
+      id: inv.id,
+      amount: inv.amount,
+      status: inv.status,
+      due_date: inv.due_date,
+      paid_at: inv.paid_at,
+      payment_url: inv.payment_url
+    }))
   })
 })
 
@@ -2470,6 +2466,8 @@ app.get('/api/portal/me', async (c) => {
       id: subscriber.id,
       email: subscriber.email,
       name: subscriber.name,
+      phone: subscriber.phone,
+      cpf: subscriber.cpf,
       status: subscriber.status,
       created_at: subscriber.created_at
     }
@@ -2496,8 +2494,13 @@ app.post('/api/portal/assinatura/start', async (c) => {
     const result = await createSubscriptionFlow(c.env, subscriber.id, plan)
     return c.json({ success: true, ...result })
   } catch (err: any) {
-    console.error('Subscription error:', err)
-    return c.json({ success: false, error: 'Checkout failed' }, 500)
+    console.error('Subscription error details:', {
+      message: err.message,
+      stack: err.stack,
+      subscriberId: subscriber.id,
+      plan
+    })
+    return c.json({ success: false, error: 'Checkout failed: ' + err.message }, 500)
   }
 })
 
@@ -2733,6 +2736,42 @@ app.post('/admin/users/:id{[0-9]+}/enable', async (c) => {
 
   const { handleUsersEnable } = await import('../packages/core/admin/users')
   return handleUsersEnable(c)
+})
+
+// ============================================================================
+// Admin Subscribers Routes (RBAC: Director only)
+// ============================================================================
+
+// GET /admin/subscribers - List subscribers
+app.get('/admin/subscribers', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => { })
+  const { handleSubscribersList } = await import('../packages/core/admin/subscribers')
+  return handleSubscribersList(c)
+})
+
+// GET /admin/subscribers/:id - Subscriber detail
+app.get('/admin/subscribers/:id{[0-9]+}', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => { })
+  const { handleSubscriberDetail } = await import('../packages/core/admin/subscribers')
+  return handleSubscriberDetail(c)
+})
+
+// POST /admin/subscribers/:id/status - Update account status
+app.post('/admin/subscribers/:id{[0-9]+}/status', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => { })
+  const { handleUpdateStatus } = await import('../packages/core/admin/subscribers')
+  return handleUpdateStatus(c)
+})
+
+// POST /admin/subscribers/:id/grant-complimentary - Grant manual subscription
+app.post('/admin/subscribers/:id{[0-9]+}/grant-complimentary', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => { })
+  const { handleGrantComplimentary } = await import('../packages/core/admin/subscribers')
+  return handleGrantComplimentary(c)
 })
 
 // ============================================================================

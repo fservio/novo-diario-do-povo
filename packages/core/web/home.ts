@@ -437,6 +437,7 @@ export async function renderHomePage(
     coverR2Key: string
     coverAlt: string
     coverAspectRatio: string
+    subscriber?: any
   }
 ): Promise<string> {
   const nonce = c.get('cspNonce') || ''
@@ -524,7 +525,8 @@ export async function renderHomePage(
     categories,
     coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null,
     bodyHtml,
-    theme
+    theme,
+    subscriber: params.subscriber
   })
 }
 

@@ -103,6 +103,8 @@ export interface AppContext {
     id: number
     email: string
     name: string | null
+    phone: string | null
+    cpf: string | null
     status: 'active' | 'blocked'
     created_at: string
   } | null

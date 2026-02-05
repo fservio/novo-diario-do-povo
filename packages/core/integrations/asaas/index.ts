@@ -55,6 +55,20 @@ export async function getAsaasConfig(env: Env): Promise<AsaasConfig> {
     }
   }
 
+  // Try individual settings (alternate CMS format)
+  const apiKey = await getSetting(env, 'asaas.api_key', 'private')
+  const environment = await getSetting(env, 'asaas.environment', 'public')
+
+  if (apiKey && environment) {
+    return {
+      apiKey,
+      environment,
+      baseUrl: environment === 'production'
+        ? 'https://api.asaas.com/v3'
+        : 'https://sandbox.asaas.com/api/v3',
+    }
+  }
+
   // Fallback to bootstrap env vars (dev/staging only)
   if (env.ASAAS_BOOTSTRAP_API_KEY) {
     return {
@@ -187,6 +201,7 @@ export async function ensureAsaasCustomer(
     name: subscriber.name || subscriber.email,
     email: subscriber.email,
     phone: subscriber.phone || undefined,
+    cpfCnpj: subscriber.cpf || undefined,
     externalReference: subscriberId.toString()
   }) as { id: string }
 
@@ -216,6 +231,19 @@ export async function createSubscriptionFlow(
   if (!plan) throw new Error('Invalid plan')
 
   const asaasCustomerId = await ensureAsaasCustomer(env, subscriberId)
+
+  // Check if we already have a pending subscription for this user and plan
+  const existing = await env.DB.prepare(`
+    SELECT asaas_subscription_id FROM subscriptions
+    WHERE subscriber_id = ? AND plan_type = ? AND status = 'pending'
+    LIMIT 1
+  `).bind(subscriberId, planSlug).first<{ asaas_subscription_id: string }>()
+
+  if (existing) {
+    console.log(`[Asaas] Reusing existing pending subscription: ${existing.asaas_subscription_id}`)
+    return { subscriptionId: existing.asaas_subscription_id }
+  }
+
   const config = await getAsaasConfig(env)
   const client = new AsaasClient(config)
 

@@ -21,6 +21,7 @@ export type PublicLayoutParams = {
   bodyHtml: string
   extraHeadHtml?: string  // JSON-LD scripts and OG tags
   theme?: 'default' | 'minimal'
+  subscriber?: any
 }
 
 // ============================================================================
@@ -105,7 +106,8 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     coverOfDay,
     bodyHtml,
     extraHeadHtml = '',
-    theme = 'default'
+    theme = 'default',
+    subscriber
   } = params
 
   const today = new Date().toLocaleDateString('pt-BR', {
@@ -206,6 +208,16 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
         });
       }
     }
+
+    // Auto-append 'next' parameter to login/register links
+    const currentPath = window.location.pathname + window.location.search;
+    document.querySelectorAll('a[href^="/portal/login"], a[href^="/portal/register"]').forEach(link => {
+      const url = new URL(link.href, window.location.origin);
+      if (!url.searchParams.has('next')) {
+        url.searchParams.set('next', currentPath);
+        link.href = url.pathname + url.search;
+      }
+    });
   `, nonce).replace('<script', '<script data-script="header-scroll"')
 
   // Theme Selection
@@ -234,7 +246,11 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
 
         <!-- 3. Actions (Modern Google Style) -->
         <div class="gb-actions" style="display: flex; gap: 8px; align-items: center;">
-          <a href="/login" class="gb-btn gb-btn--text">Entrar</a>
+          ${subscriber ? `
+            <a href="/portal" class="gb-btn gb-btn--text">Minha Conta</a>
+          ` : `
+            <a href="/portal/login" class="gb-btn gb-btn--text">Entrar</a>
+          `}
           <a href="/assinar" class="gb-btn gb-btn--primary">Assine</a>
         </div>
       </div>
@@ -271,7 +287,11 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
           </button>
         ` : ''}
         <a href="/assinar" class="btn btn-primary">Assine</a>
-        <a href="/login" class="btn btn-outline desktop-only">Entrar</a>
+        ${subscriber ? `
+          <a href="/portal" class="btn btn-outline desktop-only">Minha Conta</a>
+        ` : `
+          <a href="/portal/login" class="btn btn-outline desktop-only">Entrar</a>
+        `}
       </div>
     </div>
   </header>
@@ -365,7 +385,11 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
         <hr style="border: 0; border-top: 1px solid #dadce0; margin: 16px 0;">
         
         <a href="/assinar" class="gb-btn gb-btn--primary" style="width: 100%; justify-content: center; margin-bottom: 12px;">Assine</a>
-        <a href="/login" class="gb-btn gb-btn--text" style="width: 100%; justify-content: flex-start; padding-left: 0;">Entrar</a>
+        ${subscriber ? `
+          <a href="/portal" class="gb-btn gb-btn--text" style="width: 100%; justify-content: flex-start; padding-left: 0;">Minha Conta</a>
+        ` : `
+          <a href="/portal/login" class="gb-btn gb-btn--text" style="width: 100%; justify-content: flex-start; padding-left: 0;">Entrar</a>
+        `}
       </nav>
     </div>
   </div>

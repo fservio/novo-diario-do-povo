@@ -109,7 +109,7 @@ export async function checkPostAccess(
   }
 ): Promise<AccessCheckResult> {
   // 0. Defaults
-  const defaults: AccessCheckResult = { allowed: true, paywallMode: 'free' }
+  const defaults: AccessCheckResult = { allowed: true, paywallMode: 'free', subscriber: context.subscriber }
 
   // 1. Check Subscriber Access (if logged in)
   if (context.readerUserId) {
@@ -214,7 +214,8 @@ export async function checkPostAccess(
         paywallMode: 'metered',
         meteringState,
         lockRatio: globalRules.lock_after_ratio_mobile || 0.22,
-        cta: { primary: 'subscribe_monthly' } // Anon limit reached -> subscribe
+        cta: { primary: 'subscribe_monthly' }, // Anon limit reached -> subscribe
+        subscriber: context.subscriber
       }
     }
 
@@ -222,7 +223,8 @@ export async function checkPostAccess(
       allowed: true,
       paywallMode: 'metered',
       meteringState,
-      showSoftCta: meteringState.count >= (globalRules.meter_soft_cta_at || 2)
+      showSoftCta: meteringState.count >= (globalRules.meter_soft_cta_at || 2),
+      subscriber: context.subscriber
     }
   }
 
@@ -232,7 +234,8 @@ export async function checkPostAccess(
     reason: 'not_logged_in',
     paywallMode: 'hard',
     lockRatio: 0.2, // Show a bit of teaser
-    cta: { primary: 'login' }
+    cta: { primary: 'login' },
+    subscriber: context.subscriber
   }
 }
 

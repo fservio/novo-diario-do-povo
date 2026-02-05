@@ -60,6 +60,7 @@ export async function renderCategoryPage(
     siteName: string
     navItems: Array<{ label: string; href: string; active?: boolean }>
     coverOfDay?: { r2Key: string; alt: string; aspectRatio?: string } | null
+    subscriber?: any
   }
 ): Promise<string> {
   const { category, posts, page, totalPages } = data
@@ -193,6 +194,7 @@ export async function renderCategoryPage(
     categories,
     coverOfDay,
     bodyHtml,
-    theme
+    theme,
+    subscriber: options.subscriber
   })
 }

@@ -15,6 +15,7 @@ export interface Subscriber {
     email: string
     name: string | null
     phone: string | null
+    cpf: string | null
     asaas_customer_id: string | null
     status: 'active' | 'blocked'
     created_at: string
@@ -34,6 +35,7 @@ export interface CreateSubscriberPayload {
     password: string
     name?: string
     phone?: string
+    cpf?: string
 }
 
 // ============================================================================
@@ -48,8 +50,8 @@ export async function createSubscriber(env: Env, payload: CreateSubscriberPayloa
     const now = new Date().toISOString()
 
     const stmt = env.DB.prepare(`
-    INSERT INTO subscribers (email, password_hash, name, phone, status, created_at)
-    VALUES (?, ?, ?, ?, 'active', ?)
+    INSERT INTO subscribers (email, password_hash, name, phone, cpf, status, created_at)
+    VALUES (?, ?, ?, ?, ?, 'active', ?)
   `)
 
     // Normalize email
@@ -60,6 +62,7 @@ export async function createSubscriber(env: Env, payload: CreateSubscriberPayloa
         passwordHash,
         payload.name?.trim() || null,
         payload.phone?.trim() || null,
+        payload.cpf?.replace(/\D/g, '') || null,
         now
     ).run()
 
@@ -86,9 +89,9 @@ export async function getSubscriberById(env: Env, id: number): Promise<Subscribe
 /**
  * Update Subscriber Profile (name, phone)
  */
-export async function updateSubscriberProfile(env: Env, id: number, data: { name?: string, phone?: string }): Promise<void> {
-    await env.DB.prepare('UPDATE subscribers SET name = ?, phone = ?, updated_at = datetime(\'now\') WHERE id = ?')
-        .bind(data.name || null, data.phone || null, id)
+export async function updateSubscriberProfile(env: Env, id: number, data: { name?: string, phone?: string, cpf?: string }): Promise<void> {
+    await env.DB.prepare('UPDATE subscribers SET name = ?, phone = ?, cpf = ?, updated_at = datetime(\'now\') WHERE id = ?')
+        .bind(data.name || null, data.phone || null, data.cpf?.replace(/\D/g, '') || null, id)
         .run()
 }
 
@@ -147,6 +150,22 @@ export async function updateSubscriberLastLogin(env: Env, id: number): Promise<v
     await env.DB.prepare('UPDATE subscribers SET last_login_at = ? WHERE id = ?')
         .bind(new Date().toISOString(), id)
         .run()
+}
+
+/**
+ * Grant a complimentary subscription manually (admin)
+ */
+export async function grantComplimentarySubscription(env: Env, subscriberId: number, planType: string, days: number): Promise<void> {
+    const now = new Date();
+    const periodEnd = new Date(now);
+    periodEnd.setDate(periodEnd.getDate() + days);
+
+    await env.DB.prepare(`
+        INSERT INTO subscriptions (subscriber_id, plan_type, status, asaas_subscription_id, current_period_end)
+        VALUES (?, ?, 'active', ?, ?)
+    `)
+        .bind(subscriberId, planType, `manual_${Date.now()}`, periodEnd.toISOString())
+        .run();
 }
 
 // ============================================================================

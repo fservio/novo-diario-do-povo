@@ -13,6 +13,10 @@ app.get('/', async (c) => {
     const { getHomeData } = await import('../db/home')
     const { renderHomePage } = await import('./home')
     const { getSetting, getMediaById } = await import('../db')
+    const { getReaderContext } = await import('../paywall/helpers')
+
+    // Get reader context
+    const readerContext = await getReaderContext(c as any)
 
     // Get home data (optimized queries)
     const data = await getHomeData(c.env)
@@ -45,7 +49,8 @@ app.get('/', async (c) => {
         siteName,
         coverR2Key,
         coverAlt,
-        coverAspectRatio
+        coverAspectRatio,
+        subscriber: readerContext.subscriber
     })
 
     return c.html(html)
@@ -146,6 +151,10 @@ app.get('/categoria/:slug', async (c) => {
     const { getHomeSections } = await import('../db/home')
     const { renderCategoryPage } = await import('./category')
     const { getSetting, getMediaById } = await import('../db')
+    const { getReaderContext } = await import('../paywall/helpers')
+
+    // Get reader context
+    const readerContext = await getReaderContext(c as any)
 
     // Get category data with pagination
     const data = await getCategoryPageData(c.env, slug, page, 20)
@@ -190,7 +199,8 @@ app.get('/categoria/:slug', async (c) => {
         baseUrl,
         siteName,
         navItems,
-        coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null
+        coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null,
+        subscriber: readerContext.subscriber
     })
 
     if (!html) {
