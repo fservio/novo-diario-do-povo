@@ -10,67 +10,192 @@ import { getPostUrl } from '../utils/post'
 import { getActiveCategories } from '../db/categories-cache'
 
 export interface UltimasPost {
-    id: number
-    slug: string
-    title: string
-    published_at: string
-    category_name: string
-    category_slug: string
-    content?: string
-    excerpt?: string
+  id: number
+  slug: string
+  title: string
+  published_at: string
+  category_name: string
+  category_slug: string
+  content?: string
+  excerpt?: string
 }
 
 function getRelativeGroup(publishedAt: string): string {
-    const now = new Date()
-    const pubDate = new Date(publishedAt)
-    const diffMs = now.getTime() - pubDate.getTime()
-    const diffMins = Math.floor(diffMs / (1000 * 60))
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+  const now = new Date()
+  const pubDate = new Date(publishedAt)
+  const diffMs = now.getTime() - pubDate.getTime()
+  const diffMins = Math.floor(diffMs / (1000 * 60))
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
 
-    if (diffMins < 60) return 'Agora'
-    if (diffHours < 6) return 'Hoje Cedo'
+  if (diffMins < 60) return 'Agora'
+  if (diffHours < 6) return 'Hoje Cedo'
 
-    const isToday = now.toDateString() === pubDate.toDateString()
-    if (isToday) return 'Hoje'
+  const isToday = now.toDateString() === pubDate.toDateString()
+  if (isToday) return 'Hoje'
 
-    const yesterday = new Date(now)
-    yesterday.setDate(yesterday.getDate() - 1)
-    if (yesterday.toDateString() === pubDate.toDateString()) return 'Ontem'
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (yesterday.toDateString() === pubDate.toDateString()) return 'Ontem'
 
-    return pubDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })
+  return pubDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })
 }
 
 function isLive(publishedAt: string): boolean {
-    const now = new Date()
-    const pubDate = new Date(publishedAt)
-    const diffMins = Math.floor((now.getTime() - pubDate.getTime()) / (1000 * 60))
-    return diffMins <= 30
+  const now = new Date()
+  const pubDate = new Date(publishedAt)
+  const diffMins = Math.floor((now.getTime() - pubDate.getTime()) / (1000 * 60))
+  return diffMins <= 30
 }
 
 export async function renderUltimasPage(
-    c: Context<{ Bindings: Env; Variables: AppContext }>,
-    posts: UltimasPost[],
-    params: {
-        baseUrl: string
-        siteName: string
-        page: number
-        limit: number
-        subscriber?: any
-    }
+  c: Context<{ Bindings: Env; Variables: AppContext }>,
+  posts: UltimasPost[],
+  params: {
+    baseUrl: string
+    siteName: string
+    page: number
+    limit: number
+    subscriber?: any
+    theme?: 'default' | 'minimal'
+  }
 ): Promise<string> {
-    const nonce = c.get('cspNonce') || ''
-    const { baseUrl, siteName, page, limit } = params
-    const categories = await getActiveCategories(c.env)
+  const nonce = c.get('cspNonce') || ''
+  const { baseUrl, siteName, page, limit, theme = 'default' } = params
+  const categories = await getActiveCategories(c.env)
 
-    // Group posts by relative time
-    const groups: Record<string, UltimasPost[]> = {}
-    posts.forEach(post => {
-        const group = getRelativeGroup(post.published_at)
-        if (!groups[group]) groups[group] = []
-        groups[group].push(post)
-    })
+  // Group posts by relative time
+  const groups: Record<string, UltimasPost[]> = {}
+  posts.forEach(post => {
+    const group = getRelativeGroup(post.published_at)
+    if (!groups[group]) groups[group] = []
+    groups[group].push(post)
+  })
 
-    const bodyHtml = `
+  const bodyHtml = theme === 'minimal' ? `
+    <div style="font-family: var(--font-sans); background: var(--gb-bg); color: var(--gb-text);">
+      <section class="gb-container gb-section" style="border-top: none; padding-top: 48px;">
+        <div class="gb-section__header" style="margin-bottom: 48px; display: block;">
+          <h1 class="gb-section__title" style="font-size: 56px; margin-bottom: 16px;">Últimas Notícias</h1>
+          <p style="font-size: 20px; color: var(--gb-text-secondary); max-width: 600px;">
+            O acompanhamento em tempo real de tudo o que acontece no Diário do Povo.
+          </p>
+        </div>
+
+        <div class="timeline-minimal">
+          ${Object.entries(groups).map(([groupName, groupPosts]) => `
+            <div class="day-group mb-12">
+              <h2 class="day-header">${groupName}</h2>
+              <div class="posts-list">
+                ${groupPosts.map(post => {
+    const liveIndicator = isLive(post.published_at)
+      ? `<span class="gb-live-tag">AO VIVO</span>`
+      : ''
+    return `
+                    <article class="gb-timeline-item">
+                      <a href="${getPostUrl(post, baseUrl)}" class="gb-timeline-link">
+                        <time class="gb-timeline-time">${formatTime(post.published_at)}</time>
+                        <div class="gb-timeline-body">
+                          <span class="gb-timeline-cat">${escapeHtml(post.category_name)}</span>
+                          <h3 class="gb-timeline-title">
+                            ${liveIndicator}
+                            ${escapeHtml(post.title)}
+                          </h3>
+                        </div>
+                      </a>
+                    </article>
+                  `
+  }).join('')}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination-minimal">
+          ${page > 1 ? `<a href="/ultimas?page=${page - 1}" class="gb-btn gb-btn--text">← Anterior</a>` : ''}
+          ${posts.length === limit ? `<a href="/ultimas?page=${page + 1}" class="gb-btn gb-btn--primary">Próximo →</a>` : ''}
+        </div>
+      </section>
+    </div>
+
+    <style nonce="${nonce}">
+      .timeline-minimal {
+        max-width: 800px;
+      }
+      .day-header {
+        font-size: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--gb-blue);
+        margin-bottom: 24px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--gb-border);
+      }
+      .gb-timeline-item {
+        margin-bottom: 16px;
+        padding: 16px 0;
+        transition: all 0.2s;
+      }
+      .gb-timeline-link {
+        display: flex;
+        gap: 24px;
+        align-items: flex-start;
+      }
+      .gb-timeline-time {
+        font-family: 'Roboto Mono', monospace;
+        font-size: 14px;
+        color: var(--gb-text-secondary);
+        width: 60px;
+        flex-shrink: 0;
+        padding-top: 4px;
+      }
+      .gb-timeline-body {
+        flex: 1;
+      }
+      .gb-timeline-cat {
+        display: block;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--gb-text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 4px;
+      }
+      .gb-timeline-title {
+        font-size: 20px;
+        font-weight: 500;
+        line-height: 1.3;
+        color: var(--gb-text);
+        margin: 0;
+      }
+      .gb-timeline-item:hover .gb-timeline-title {
+        color: var(--gb-blue);
+      }
+      .gb-live-tag {
+        background: #d93025;
+        color: white;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-right: 8px;
+        vertical-align: middle;
+      }
+      .pagination-minimal {
+        display: flex;
+        gap: 16px;
+        margin-top: 64px;
+        padding-top: 32px;
+        border-top: 1px solid var(--gb-border);
+      }
+      @media (max-width: 768px) {
+        .gb-timeline-link { gap: 16px; }
+        .gb-timeline-time { width: 45px; font-size: 12px; }
+        .gb-timeline-title { font-size: 18px; }
+      }
+    </style>
+  ` : `
     <div class="container py-12">
       <header class="mb-12">
         <h1 class="text-5xl font-black mb-4 tracking-tighter" style="display: block !important;">Últimas Notícias</h1>
@@ -90,12 +215,12 @@ export async function renderUltimasPage(
 
              <div class="space-y-8">
                ${groupPosts.map(post => {
-        const liveIndicator = isLive(post.published_at)
-            ? `<span class="pulse-live"></span>`
-            : ''
-        const readingTime = estimateReadingTime(post.content || post.excerpt || '')
+    const liveIndicator = isLive(post.published_at)
+      ? `<span class="pulse-live"></span>`
+      : ''
+    const readingTime = estimateReadingTime(post.content || post.excerpt || '')
 
-        return `
+    return `
                    <article class="relative pl-12 md:pl-20 group">
                       <!-- Dot on hover -->
                       <div class="absolute left-3.5 md:left-7.5 w-2 h-2 rounded-full bg-gray-700 group-hover:bg-white transition-colors z-10 mt-2"></div>
@@ -123,7 +248,7 @@ export async function renderUltimasPage(
                       </a>
                    </article>
                  `
-    }).join('')}
+  }).join('')}
              </div>
           </div>
         `).join('')}
@@ -185,16 +310,16 @@ export async function renderUltimasPage(
     </style>
   `
 
-    return renderPublicLayout({
-        title: `Últimas Notícias | ${siteName}`,
-        description: "Confira as últimas notícias e atualizações em tempo real no Diário do Povo.",
-        canonicalUrl: `${baseUrl}/ultimas${page > 1 ? `?page=${page}` : ''}`,
-        nonce,
-        siteName,
-        navItems: [], // Will be injected or fetched if needed
-        categories,
-        bodyHtml,
-        theme: 'default', // Using modern default theme
-        subscriber: params.subscriber
-    })
+  return renderPublicLayout({
+    title: `Últimas Notícias | ${siteName}`,
+    description: "Confira as últimas notícias e atualizações em tempo real no Diário do Povo.",
+    canonicalUrl: `${baseUrl}/ultimas${page > 1 ? `?page=${page}` : ''}`,
+    nonce,
+    siteName,
+    navItems: [], // Will be injected or fetched if needed
+    categories,
+    bodyHtml,
+    theme: 'default', // Using modern default theme
+    subscriber: params.subscriber
+  })
 }

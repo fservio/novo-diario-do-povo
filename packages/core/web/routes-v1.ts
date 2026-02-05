@@ -84,12 +84,17 @@ app.get('/ultimas', async (c) => {
 
     const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
 
+    // Determine Theme
+    const themeSetting = await getSetting(c.env, 'public_theme')
+    const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
+
     const html = await renderUltimasPage(c, posts.results as any[], {
         baseUrl,
         siteName,
         page,
         limit,
-        subscriber: readerContext.subscriber
+        subscriber: readerContext.subscriber,
+        theme: theme as 'default' | 'minimal'
     })
 
     return c.html(html)
