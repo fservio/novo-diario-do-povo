@@ -20,8 +20,8 @@ export async function renderDashboardPage(c: Context) {
             .status-past_due { background-color: #fde8e8; color: #9b1c1c; }
             .status-canceled { background-color: #f3f4f6; color: #374151; }
             .status-none { background-color: #f3f4f6; color: #374151; }
-            
-            .card { background: white; border-radius: 0.5rem; border: 1px solid #e5e7eb; padding: 1.5rem; margin-bottom: 1.5rem; }
+            .card { background: white; border-radius: 0.5rem; border: 1px solid #e5e7eb; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); transition: box-shadow 0.2s; }
+            .card:hover { box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
             .btn-primary { background-color: #2563eb; color: white; padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: 500; cursor: pointer; display: inline-block; text-align: center; }
             .btn-primary:hover { background-color: #1d4ed8; }
             .btn-secondary { background-color: white; border: 1px solid #d1d5db; color: #374151; padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: 500; cursor: pointer; }
@@ -34,7 +34,8 @@ export async function renderDashboardPage(c: Context) {
             <div class="container mx-auto px-4 h-16 flex items-center justify-between">
                 <a href="/" class="text-xl font-bold text-gray-900">${siteName}</a>
                 <div class="flex items-center space-x-4">
-                    <span id="userName" class="text-sm text-gray-600 hidden md:inline"></span>
+                    <a href="/conta" class="text-sm text-gray-600 hover:text-gray-900">Meus Dados</a>
+                    <span id="userName" class="text-sm text-gray-600 hidden md:inline font-medium"></span>
                     <button onclick="logout()" class="text-sm text-gray-500 hover:text-gray-900">Sair</button>
                 </div>
             </div>

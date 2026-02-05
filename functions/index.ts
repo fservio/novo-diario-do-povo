@@ -2254,46 +2254,8 @@ app.get('/assinar', async (c) => {
 })
 
 app.get('/conta', async (c) => {
-  const { getSetting } = await import('../packages/core/db')
-  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
-
-  // TODO: Implementar página de conta com status de assinatura
-  return c.html(`
-    <!DOCTYPE html>
-    <html lang="pt-BR">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Minha Conta | ${siteName}</title>
-        <link href="/static/styles.css" rel="stylesheet">
-    </head>
-    <body class="bg-gray-50">
-        <header class="bg-white border-b">
-            <div class="container mx-auto px-4 py-4">
-                <a href="/" class="text-2xl font-bold text-gray-900">${siteName}</a>
-            </div>
-        </header>
-
-        <main class="container mx-auto px-4 py-8 max-w-4xl">
-            <h1 class="text-4xl font-bold mb-8">Minha Conta</h1>
-            
-            <div class="bg-white rounded-lg shadow-sm p-8">
-                <h2 class="text-2xl font-bold mb-4">Status da Assinatura</h2>
-                <p class="text-gray-700 mb-6">Funcionalidade em desenvolvimento. Em breve você poderá gerenciar sua assinatura aqui.</p>
-                <a href="/assinar" class="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700">
-                    Assinar Agora
-                </a>
-            </div>
-        </main>
-
-        <footer class="bg-gray-900 text-white mt-12 py-8">
-            <div class="container mx-auto px-4 text-center">
-                <p>&copy; 2024 ${siteName}. Todos os direitos reservados.</p>
-            </div>
-        </footer>
-    </body>
-    </html>
-  `)
+  const { renderAccountPage } = await import('../packages/core/web/portal/account')
+  return c.html(await renderAccountPage(c))
 })
 
 // ============================================================================
@@ -2517,6 +2479,28 @@ app.post('/api/portal/assinatura/start', async (c) => {
   } catch (err: any) {
     console.error('Subscription error:', err)
     return c.json({ success: false, error: 'Checkout failed' }, 500)
+  }
+})
+
+// PATCH /api/portal/account - Update profile
+app.patch('/api/portal/account', async (c) => {
+  const { subscriberAuthMiddleware } = await import('../packages/core/middleware')
+  const { updateSubscriberProfile } = await import('../packages/core/db')
+
+  await subscriberAuthMiddleware(c, async () => { })
+  const subscriber = c.get('subscriber')
+  if (!subscriber) return c.json({ success: false, error: 'Unauthorized' }, 401)
+
+  try {
+    const body = await c.req.json()
+    const { name, phone } = body
+
+    await updateSubscriberProfile(c.env, subscriber.id, { name, phone })
+
+    return c.json({ success: true })
+  } catch (err: any) {
+    console.error('Update profile error:', err)
+    return c.json({ success: false, error: err.message }, 500)
   }
 })
 
@@ -2830,7 +2814,7 @@ app.get('/p/:slug', async (c) => {
   const slug = c.req.param('slug')
   const { renderStaticPage } = await import('../packages/core/web/pages')
 
-  const html = await renderStaticPage(c, slug)
+  const html = await renderStaticPage(c as any, slug)
 
   if (!html) {
     return c.notFound()

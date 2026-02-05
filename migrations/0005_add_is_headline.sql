@@ -1,2 +1,1 @@
--- Migration: Add is_headline to posts
--- ALTER TABLE posts ADD COLUMN is_headline BOOLEAN DEFAULT 0;
+ALTER TABLE posts ADD COLUMN is_headline BOOLEAN DEFAULT 0;

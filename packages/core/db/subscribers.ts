@@ -84,6 +84,15 @@ export async function getSubscriberById(env: Env, id: number): Promise<Subscribe
 }
 
 /**
+ * Update Subscriber Profile (name, phone)
+ */
+export async function updateSubscriberProfile(env: Env, id: number, data: { name?: string, phone?: string }): Promise<void> {
+    await env.DB.prepare('UPDATE subscribers SET name = ?, phone = ?, updated_at = datetime(\'now\') WHERE id = ?')
+        .bind(data.name || null, data.phone || null, id)
+        .run()
+}
+
+/**
  * Update Last Login
  */
 export async function updateSubscriberLastLogin(env: Env, id: number): Promise<void> {
