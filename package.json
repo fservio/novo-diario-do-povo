@@ -19,7 +19,7 @@
     "db:create:local": "wrangler d1 create webapp-prod-v2 --local",
     "db:create:prod": "wrangler d1 create webapp-prod-v2",
     "db:migrate:local": "wrangler d1 migrations apply webapp-prod-v2 --local",
-    "db:migrate:prod": "wrangler d1 migrations apply webapp-prod-v2",
+    "db:migrate:prod": "wrangler d1 migrations apply webapp-prod-v2 --remote",
     "db:seed": "wrangler d1 execute webapp-prod-v2 --local --file=./scripts/seed.sql",
     "db:reset": "rm -rf .wrangler/state/v3/d1 && npm run db:migrate:local && npm run db:seed",
     "db:console:local": "wrangler d1 execute webapp-prod-v2 --local",

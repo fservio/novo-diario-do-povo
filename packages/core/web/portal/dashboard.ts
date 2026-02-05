@@ -119,7 +119,6 @@ export async function renderDashboardPage(c: Context) {
                 try {
                     const res = await fetch('/api/portal/dashboard');
                     if (res.status === 401) {
-                        // Redirect to login but preserve the current intent parameters
                         const urlParams = new URLSearchParams(window.location.search);
                         const intent = urlParams.get('intent');
                         const plan = urlParams.get('plan');
@@ -129,20 +128,23 @@ export async function renderDashboardPage(c: Context) {
                              nextUrl = \`/portal?intent=\${intent}&plan=\${plan}\`;
                         }
                         
-                        // Pass 'next' to login page so it redirects back here after login
                         window.location.href = \`/portal/login?next=\${encodeURIComponent(nextUrl)}\`;
                         return;
                     }
+                    
+                    if (!res.ok) {
+                        const errorData = await res.json().catch(() => ({}));
+                        throw new Error(errorData.error || 'Erro ao carregar dados do portal');
+                    }
+
                     const data = await res.json();
                     render(data);
 
-                    // Auto-trigger subscription flow if intent is present
                     const urlParams = new URLSearchParams(window.location.search);
                     const intent = urlParams.get('intent');
                     const plan = urlParams.get('plan');
                     
                     if (intent === 'subscribe' && plan) {
-                        // Small delay to ensure UI is ready and user sees the dashboard first
                         setTimeout(() => {
                             if (confirm(\`Deseja iniciar a assinatura do plano \${plan === 'mensal' ? 'Mensal' : 'Anual'}?\`)) {
                                 startSubscription(plan);
@@ -151,8 +153,14 @@ export async function renderDashboardPage(c: Context) {
                     }
 
                 } catch (e) {
-                    console.error(e);
-                    alert('Erro ao carregar dashboard. Recarregue a página.');
+                    console.error('Dashboard Load Error:', e);
+                    document.getElementById('loading').innerHTML = \`
+                        <div class="text-red-600 bg-red-50 p-4 rounded-lg border border-red-200">
+                            <p class="font-bold">Erro ao carregar informações</p>
+                            <p class="text-sm">\${e.message}</p>
+                            <button onclick="window.location.reload()" class="mt-4 text-blue-600 underline text-sm">Tentar novamente</button>
+                        </div>
+                    \`;
                 }
             }
 
