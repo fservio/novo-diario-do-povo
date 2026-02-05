@@ -93,6 +93,54 @@ export async function updateSubscriberProfile(env: Env, id: number, data: { name
 }
 
 /**
+ * Update Subscriber Status (admin)
+ */
+export async function updateSubscriberStatus(env: Env, id: number, status: 'active' | 'blocked'): Promise<void> {
+    await env.DB.prepare('UPDATE subscribers SET status = ?, updated_at = datetime(\'now\') WHERE id = ?')
+        .bind(status, id)
+        .run()
+}
+
+/**
+ * List Subscribers (admin)
+ */
+export interface ListSubscribersFilters {
+    status?: string
+    q?: string
+}
+
+export async function listSubscribers(env: Env, filters: ListSubscribersFilters = {}): Promise<any[]> {
+    let query = `
+        SELECT s.*, 
+        (SELECT status FROM subscriptions WHERE subscriber_id = s.id ORDER BY id DESC LIMIT 1) as subscription_status,
+        (SELECT plan_type FROM subscriptions WHERE subscriber_id = s.id ORDER BY id DESC LIMIT 1) as plan_type
+        FROM subscribers s
+    `
+    const conditions: string[] = []
+    const params: any[] = []
+
+    if (filters.status) {
+        conditions.push('s.status = ?')
+        params.push(filters.status)
+    }
+
+    if (filters.q) {
+        conditions.push('(s.email LIKE ? OR s.name LIKE ?)')
+        params.push(`%${filters.q}%`, `%${filters.q}%`)
+    }
+
+    if (conditions.length > 0) {
+        query += ' WHERE ' + conditions.join(' AND ')
+    }
+
+    query += ' ORDER BY s.created_at DESC'
+
+    const stmt = env.DB.prepare(query)
+    const result = await (params.length > 0 ? stmt.bind(...params) : stmt).all()
+    return result.results
+}
+
+/**
  * Update Last Login
  */
 export async function updateSubscriberLastLogin(env: Env, id: number): Promise<void> {

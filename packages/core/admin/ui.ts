@@ -375,8 +375,11 @@ export function renderAdminLayout(
         <a class="${isActive('authors')}" href="/admin/authors">
           <span>✒️</span> Autores
         </a>
+        <a class="${isActive('subscribers')}" href="/admin/subscribers">
+          <span>👥</span> Assinantes
+        </a>
         <a class="${isActive('users')}" href="/admin/users">
-          <span>👥</span> Usuários
+          <span>🛡️</span> Usuários Staff
         </a>
         <a class="${isActive('settings')}" href="/admin/settings">
           <span>⚙️</span> Configurações

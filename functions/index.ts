@@ -924,6 +924,25 @@ app.get('/admin/integrations', async (c) => {
   return c.html(await renderIntegrationsPage(c))
 })
 
+// ============================================================================
+// Admin Subscribers Routes
+// ============================================================================
+
+app.get('/admin/subscribers', async (c) => {
+  const { handleSubscribersList } = await import('../packages/core/admin/subscribers')
+  return handleSubscribersList(c)
+})
+
+app.post('/admin/subscribers/:id/block', async (c) => {
+  const { handleBlockSubscriber } = await import('../packages/core/admin/subscribers')
+  return handleBlockSubscriber(c)
+})
+
+app.post('/admin/subscribers/:id/unblock', async (c) => {
+  const { handleUnblockSubscriber } = await import('../packages/core/admin/subscribers')
+  return handleUnblockSubscriber(c)
+})
+
 app.post('/admin/integrations/n8n/generate', async (c) => {
   const { handleGenerateKey } = await import('../packages/core/admin/integrations')
   return handleGenerateKey(c)
@@ -2269,8 +2288,8 @@ app.get('/portal/login', async (c) => {
 
 app.get('/portal', async (c) => {
   const { renderDashboardPage } = await import('../packages/core/web/portal/dashboard')
-  // We allow rendering the shell; the client-side JS checks auth via API
-  // This allows for better loading states
+  // For the SPA-like dashboard, we render the skeleton and let the JS fetch data
+  // But we can check cookie here to avoid flicker if we want, or just let JS handle it.
   return c.html(await renderDashboardPage(c))
 })
 
