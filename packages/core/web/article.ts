@@ -54,11 +54,10 @@ function renderArticleCard(post: RelatedPost, baseUrl: string, options?: { isLar
       <a href="${getPostUrl(post, baseUrl)}" class="gb-card__link">
         <div class="gb-card__media">
           <img 
-            src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=${isLarge ? '1200' : '600'}` : '/static/placeholder.jpg'}" 
+            src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=${isLarge ? '1200' : '600'}` : '/static/logo-dp.png'}" 
             alt="${escapeAttr(post.title)}"
             class="img-aesthetic"
             loading="lazy"
-            onerror="this.onerror=null;this.src='/static/placeholder.jpg';"
           />
         </div>
         <div class="gb-card__content">
@@ -137,7 +136,7 @@ function renderArticleHeader(post: ArticlePost, readingTime: number): string {
 
 import type { AccessCheckResult } from '../paywall'
 
-function renderPaywallGate(access: AccessCheckResult, baseUrl: string): string {
+function renderPaywallGate(access: AccessCheckResult, baseUrl: string, nonce: string): string {
   const reason = access.reason
   const cta = access.cta || { primary: 'subscribe_monthly' }
 
@@ -192,7 +191,7 @@ function renderPaywallGate(access: AccessCheckResult, baseUrl: string): string {
         </div>
       </div>
     </div>
-    <style>
+    <style nonce="${nonce}">
       .paywall-gate {
         background: #f9fafb;
         border: 1px solid #e5e7eb;
@@ -226,13 +225,13 @@ function renderPaywallGate(access: AccessCheckResult, baseUrl: string): string {
   `
 }
 
-function renderArticleContent(content: string, isBlocked: boolean, accessCheck?: AccessCheckResult): string {
+function renderArticleContent(content: string, isBlocked: boolean, nonce: string, accessCheck?: AccessCheckResult): string {
   if (isBlocked && accessCheck) {
     return `
       <div id="articleBody" class="article-content teaser-mode">
         ${content}
       </div>
-      ${renderPaywallGate(accessCheck, '/')}
+      ${renderPaywallGate(accessCheck, '/', nonce)}
     `
   }
 
@@ -409,7 +408,7 @@ export async function renderArticlePage(
       ${renderArticleHeader(post, readingTime)}
       
       <!-- Content -->
-      ${isLiveBlog ? renderLiveBlogTimeline(liveUpdates, post.is_live === 1) : renderArticleContent(contentWithAds, isBlocked)}
+      ${isLiveBlog ? renderLiveBlogTimeline(liveUpdates, post.is_live === 1) : renderArticleContent(contentWithAds, isBlocked, nonce, accessCheck)}
       
       ${!isBlocked ? `
         <!-- Footer Navigation: Next + Related + Most Read -->
