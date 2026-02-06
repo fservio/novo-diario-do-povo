@@ -278,7 +278,8 @@ ul {
 
 .gb-section__title {
     font-size: 40px;
-    font-weight: 900 margin: 0;
+    font-weight: 900;
+    margin: 0;
     color: var(--gb-text);
 }
 
@@ -1183,6 +1184,7 @@ ul {
     /* IE and Edge */
     scrollbar-width: none;
     /* Firefox */
+    scroll-snap-type: x mandatory;
 }
 
 .gb-carousel::-webkit-scrollbar {
@@ -1192,6 +1194,7 @@ ul {
 .gb-carousel>* {
     flex: 0 0 300px;
     min-width: 300px;
+    scroll-snap-align: start;
 }
 
 /* Ensure card images in carousel are visible */

@@ -368,15 +368,15 @@ function renderHomePageMinimal(data: HomeData, baseUrl: string, adTop: string, a
         const carousel = document.getElementById(targetId);
         
         if (carousel) {
-          // Scroll by the visible width of the carousel (90%)
-          // Relies on CSS scroll-behavior: smooth for animation
-          const scrollAmount = carousel.clientWidth * 0.90; 
+          // Calculate scroll amount based on visible width
+          // Using 0.85 to ensure the previous/next item is partially visible for context
+          const scrollAmount = carousel.clientWidth * 0.85; 
           const targetPos = direction === 'next' 
             ? carousel.scrollLeft + scrollAmount 
             : carousel.scrollLeft - scrollAmount;
             
           carousel.scrollTo({
-            left: targetPos,
+            left: Math.round(targetPos),
             behavior: 'smooth' 
           });
         }
