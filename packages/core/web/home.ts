@@ -241,24 +241,38 @@ function renderCategorySection(block: CategoryBlock, baseUrl: string, index: num
 // Google Blog Replica Renderers (The Keyword)
 // ============================================================================
 
+function isRecentlyPublished(isoDate: string): boolean {
+  try {
+    const published = new Date(isoDate).getTime()
+    const now = new Date().getTime()
+    const diffMinutes = (now - published) / (1000 * 60)
+    return diffMinutes >= 0 && diffMinutes <= 30
+  } catch {
+    return false
+  }
+}
+
 function renderPostGB(post: HomePost, baseUrl: string, params?: { isLcp?: boolean }): string {
   const authorName = post.author_name || 'Redação'
+  const isLive = isRecentlyPublished(post.published_at)
+
   return `
     <article class="gb-card">
       <a href="${getPostUrl(post, baseUrl)}" class="gb-card__link">
         <div class="gb-card__media">
           <img 
-            src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=600` : '/static/placeholder.jpg'}" 
+            src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=600` : '/static/logo-dp.png'}" 
             alt="${escapeAttr(post.title)}"
             class="img-aesthetic"
             loading="${params?.isLcp ? 'eager' : 'lazy'}"
             ${params?.isLcp ? 'fetchpriority="high"' : ''}
-            onerror="this.onerror=null;this.src='/static/placeholder.jpg';"
           />
         </div>
         <div class="gb-card__content">
-          <!-- Hat on Top -->
-          ${post.hat ? `<span class="gb-hat">${escapeHtml(post.hat)}</span>` : ''}
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            ${post.hat ? `<span class="gb-hat" style="margin-bottom: 0;">${escapeHtml(post.hat)}</span>` : `<span class="gb-hat" style="margin-bottom: 0;">${escapeHtml(post.category_name)}</span>`}
+            ${isLive ? `<span class="gb-live-indicator" style="background: #d93025; color: white; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; animation: gb-pulse 2s infinite;">AO VIVO</span>` : ''}
+          </div>
           
           <h3 class="gb-title--card">
             ${escapeHtml(post.title)}
@@ -269,11 +283,19 @@ function renderPostGB(post: HomePost, baseUrl: string, params?: { isLcp?: boolea
             <span>${escapeHtml(authorName)}</span>
             
             <!-- Category (Editoria) on Bottom -->
-            <span>• ${escapeHtml(post.category_name)}</span>
+            <span>• ${formatTime(post.published_at)}</span>
           </div>
         </div>
       </a>
     </article>
+
+    <style>
+      @keyframes gb-pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.6; }
+        100% { opacity: 1; }
+      }
+    </style>
   `
 }
 
@@ -281,11 +303,22 @@ function renderHomePageMinimal(data: HomeData, baseUrl: string, adTop: string, a
   // 1. Hero Data
   const hero = data.hero
 
-  // 2. Latest Updates (Grid of 6)
-  const latestPosts = [...data.topColumns, ...data.hotRail].slice(0, 6)
+  // Deduplication Set
+  const shownIds = new Set<number>()
+  if (hero) shownIds.add(hero.id)
 
-  // 3. Sections (Categories)
-  const categories = data.categoryBlocks
+  // 2. Latest Updates (Grid of 6) - Deduplicated
+  const latestPosts = [...data.topColumns, ...data.hotRail]
+    .filter(p => !shownIds.has(p.id))
+    .slice(0, 6)
+
+  latestPosts.forEach(p => shownIds.add(p.id))
+
+  // 3. Sections (Categories) - Deduplicated within blocks if needed
+  const categories = data.categoryBlocks.map(block => ({
+    ...block,
+    list: block.list.filter(p => !shownIds.has(p.id))
+  }))
 
   return `
     <div style="font-family: var(--font-sans); background: var(--gb-bg); color: var(--gb-text);">

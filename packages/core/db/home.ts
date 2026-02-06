@@ -314,12 +314,13 @@ export async function getHomeData(env: Env): Promise<HomeData> {
     SELECT * FROM (
       SELECT 
         p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at,
-        NULL as featured_image_r2_key,
+        m.r2_key as featured_image_r2_key,
         c.name as category_name, c.slug as category_slug,
         a.name as author_name
       FROM posts p
       JOIN categories c ON p.category_id = c.id
       JOIN authors a ON p.author_id = a.id
+      LEFT JOIN media m ON p.cover_media_id = m.id
       WHERE c.slug = 'politica' AND p.status = 'published' AND p.published_at <= ?1
       ORDER BY p.published_at DESC LIMIT 1
     )
@@ -327,12 +328,13 @@ export async function getHomeData(env: Env): Promise<HomeData> {
     SELECT * FROM (
       SELECT 
         p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at,
-        NULL as featured_image_r2_key,
+        m.r2_key as featured_image_r2_key,
         c.name as category_name, c.slug as category_slug,
         a.name as author_name
       FROM posts p
       JOIN categories c ON p.category_id = c.id
       JOIN authors a ON p.author_id = a.id
+      LEFT JOIN media m ON p.cover_media_id = m.id
       WHERE c.slug = 'economia' AND p.status = 'published' AND p.published_at <= ?1
       ORDER BY p.published_at DESC LIMIT 1
     )
@@ -340,12 +342,13 @@ export async function getHomeData(env: Env): Promise<HomeData> {
     SELECT * FROM (
       SELECT 
         p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at,
-        NULL as featured_image_r2_key,
+        m.r2_key as featured_image_r2_key,
         c.name as category_name, c.slug as category_slug,
         a.name as author_name
       FROM posts p
       JOIN categories c ON p.category_id = c.id
       JOIN authors a ON p.author_id = a.id
+      LEFT JOIN media m ON p.cover_media_id = m.id
       WHERE c.slug = 'esporte' AND p.status = 'published' AND p.published_at <= ?1
       ORDER BY p.published_at DESC LIMIT 1
     )
