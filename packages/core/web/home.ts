@@ -307,18 +307,27 @@ function renderHomePageMinimal(data: HomeData, baseUrl: string, adTop: string, a
   const shownIds = new Set<number>()
   if (hero) shownIds.add(hero.id)
 
-  // 2. Latest Updates (Grid of 6) - Deduplicated
-  const latestPosts = [...data.topColumns, ...data.hotRail]
-    .filter(p => !shownIds.has(p.id))
-    .slice(0, 6)
+  // 2. Latest Updates (Grid of 6) - Robust Deduplication
+  const rawLatest = [...data.topColumns, ...data.hotRail]
+  const latestPosts: HomePost[] = []
 
-  latestPosts.forEach(p => shownIds.add(p.id))
+  for (const post of rawLatest) {
+    if (latestPosts.length >= 6) break
+    if (!shownIds.has(post.id)) {
+      latestPosts.push(post)
+      shownIds.add(post.id)
+    }
+  }
 
-  // 3. Sections (Categories) - Deduplicated within blocks if needed
-  const categories = data.categoryBlocks.map(block => ({
-    ...block,
-    list: block.list.filter(p => !shownIds.has(p.id))
-  }))
+  // 3. Sections (Categories) - Robust Deduplication per block
+  const categories = data.categoryBlocks.map(block => {
+    const filteredList = block.list.filter(p => {
+      if (shownIds.has(p.id)) return false
+      shownIds.add(p.id)
+      return true
+    })
+    return { ...block, list: filteredList }
+  })
 
   return `
     <div style="font-family: var(--font-sans); background: var(--gb-bg); color: var(--gb-text);">
