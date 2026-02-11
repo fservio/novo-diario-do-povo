@@ -385,6 +385,16 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     @media (max-width: 768px) {
       .gb-container { padding-left: 16px !important; padding-right: 16px !important; }
     }
+    /* Forced Link Styling */
+    .article-content a {
+      color: #1a73e8 !important;
+      font-weight: 700 !important;
+      text-decoration: none !important;
+    }
+    .article-content a:hover {
+      text-decoration: underline !important;
+      color: #1557b0 !important;
+    }
   </style>
 
   <!-- Main CSS -->
