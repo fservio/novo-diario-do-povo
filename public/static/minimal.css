@@ -562,6 +562,17 @@ ul {
     word-break: break-word;
 }
 
+.article-content a {
+    color: var(--gb-blue);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.article-content a:hover {
+    text-decoration: underline;
+    color: var(--gb-blue-dark);
+}
+
 .article-hat {
     font-family: 'Google Sans', sans-serif;
     color: #5f6368;
