@@ -385,15 +385,18 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     @media (max-width: 768px) {
       .gb-container { padding-left: 16px !important; padding-right: 16px !important; }
     }
-    /* Forced Link Styling */
-    .article-content a {
+    /* Forced Link Styling - High Specificity */
+    #articleBody a, 
+    .article-content a,
+    .article-content p a {
       color: #1a73e8 !important;
-      font-weight: 700 !important;
-      text-decoration: none !important;
-    }
-    .article-content a:hover {
+      font-weight: 800 !important;
       text-decoration: underline !important;
+    }
+    #articleBody a:hover,
+    .article-content a:hover {
       color: #1557b0 !important;
+      text-decoration: underline !important;
     }
   </style>
 
