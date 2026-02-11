@@ -145,6 +145,7 @@ export interface Author {
   social_instagram?: string
   social_linkedin?: string
   is_active: number
+  author_type: 'staff' | 'columnist' | 'editorial' | 'contributor'
   created_at: string
   updated_at: string
 }
@@ -279,6 +280,7 @@ export const createPostSchema = z.object({
   category_id: z.number().int().positive(),
   author_id: z.number().int().positive(),
   cover_media_id: z.number().int().positive().optional(),
+  author_type: z.enum(['staff', 'columnist', 'editorial', 'contributor']).default('staff'),
   status: z.enum(['draft', 'review', 'published', 'archived']).default('draft'),
   template: z.enum(['article', 'liveblog', 'hub', 'story']).default('article'),
   seo_title: z.string().max(70).optional(),

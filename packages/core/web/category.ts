@@ -6,7 +6,7 @@
 import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
 import type { CategoryPageData, CategoryPost } from '../db/category'
-import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, truncate, type PublicLayoutParams } from './layout'
+import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, truncate, generateSrcSet, type PublicLayoutParams } from './layout'
 import { getPostUrl } from '../utils/post'
 import { renderAdSlot, findActiveSlotsByTemplate, generateAdsLoaderScript } from '../ads'
 import { getSetting } from '../db'
@@ -34,11 +34,13 @@ function renderPostGB(post: CategoryPost, baseUrl: string, params?: { isLcp?: bo
   return `
     <article class="gb-card">
       <a href="${getPostUrl(post, baseUrl)}" class="gb-card__link">
-        <div class="gb-card__media">
+        <div class="gb-card__media" style="aspect-ratio: 3/2; overflow: hidden; background: #f0f0f0;">
           <img 
             src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=600` : '/static/logo-dp.png'}" 
+            ${post.featured_image_r2_key ? `srcset="${generateSrcSet(post.featured_image_r2_key)}"` : ''}
+            sizes="(max-width: 600px) 100vw, 600px"
             alt="${escapeAttr(post.title)}"
-            class="img-aesthetic"
+            style="width: 100%; height: 100%; object-fit: cover;"
             loading="${params?.isLcp ? 'eager' : 'lazy'}"
             ${params?.isLcp ? 'fetchpriority="high"' : ''}
           />
@@ -84,6 +86,7 @@ export async function renderCategoryPage(
     navItems: Array<{ label: string; href: string; active?: boolean }>
     coverOfDay?: { r2Key: string; alt: string; aspectRatio?: string } | null
     subscriber?: any
+    googleAnalyticsId?: string
   }
 ): Promise<string> {
   const { category, posts, page, totalPages } = data
@@ -100,7 +103,7 @@ export async function renderCategoryPage(
 
   const adTopHtml = adTop ? renderAdSlot({ slot: adTop, page: pageContext, user: userContext }) : ''
   const adMidHtml = adMid ? renderAdSlot({ slot: adMid, page: pageContext, user: userContext }) : ''
-  const adsScript = await generateAdsLoaderScript(c.env)
+  const adsScript = await generateAdsLoaderScript(c.env, nonce)
 
   // Fetch active categories for mobile menu
   const categories = await getActiveCategories(c.env)
@@ -141,13 +144,18 @@ export async function renderCategoryPage(
             </div>
             <div class="gb-hero__media">
                <a href="${getPostUrl(hero, baseUrl)}">
-                <img 
-                  src="${hero.featured_image_r2_key ? `/i/${escapeAttr(hero.featured_image_r2_key)}` : '/hero-placeholder.jpg'}" 
-                  alt="${escapeAttr(hero.title)}" 
-                  class="img-aesthetic"
-                  loading="eager"
-                  fetchpriority="high"
-                />
+                <div class="gb-media-wrapper" style="aspect-ratio: 16 / 9; background: #f0f0f0;">
+                  <img 
+                    src="${hero.featured_image_r2_key ? `/i/${escapeAttr(hero.featured_image_r2_key)}?w=1200` : '/hero-placeholder.jpg'}" 
+                    ${hero.featured_image_r2_key ? `srcset="${generateSrcSet(hero.featured_image_r2_key)}"` : ''}
+                    sizes="(max-width: 800px) 100vw, 1200px"
+                    alt="${escapeAttr(hero.title)}" 
+                    width="1200"
+                    height="675"
+                    loading="eager"
+                    fetchpriority="high"
+                  />
+                </div>
                </a>
             </div>
           </div>
@@ -218,6 +226,9 @@ export async function renderCategoryPage(
     coverOfDay,
     bodyHtml,
     theme,
-    subscriber: options.subscriber
+    subscriber: options.subscriber,
+    googleAnalyticsId: options.googleAnalyticsId,
+    lcpPreloadUrl: hero?.featured_image_r2_key ? `/i/${escapeAttr(hero.featured_image_r2_key)}?w=1200` : undefined,
+    lcpSrcSet: hero?.featured_image_r2_key ? generateSrcSet(hero.featured_image_r2_key) : undefined
   })
 }

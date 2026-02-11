@@ -57,6 +57,7 @@ export async function renderUltimasPage(
     limit: number
     subscriber?: any
     theme?: 'default' | 'minimal'
+    googleAnalyticsId?: string
   }
 ): Promise<string> {
   const nonce = c.get('cspNonce') || ''
@@ -75,7 +76,7 @@ export async function renderUltimasPage(
     <div style="font-family: var(--font-sans); background: var(--gb-bg); color: var(--gb-text);">
       <section class="gb-container gb-section" style="border-top: none; padding-top: 48px;">
         <div class="gb-section__header" style="margin-bottom: 48px; display: block;">
-          <h1 class="gb-section__title" style="font-size: 56px; margin-bottom: 16px;">Últimas Notícias</h1>
+          <h1 class="gb-section__title" style="font-size: 56px; margin-bottom: 16px; line-height: 1.1;">Últimas Notícias</h1>
           <p style="font-size: 20px; color: var(--gb-text-secondary); max-width: 600px;">
             O acompanhamento em tempo real de tudo o que acontece no Diário do Povo.
           </p>
@@ -320,6 +321,8 @@ export async function renderUltimasPage(
     categories,
     bodyHtml,
     theme,
-    subscriber: params.subscriber
+    subscriber: params.subscriber,
+    googleAnalyticsId: params.googleAnalyticsId,
+    lcpPreloadUrl: undefined // Timeline has no major hero image candidate
   })
 }

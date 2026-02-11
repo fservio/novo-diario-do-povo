@@ -20,8 +20,11 @@ export type PublicLayoutParams = {
   coverOfDay?: { r2Key: string; alt: string; aspectRatio?: string } | null
   bodyHtml: string
   extraHeadHtml?: string  // JSON-LD scripts and OG tags
+  googleAnalyticsId?: string
   theme?: 'default' | 'minimal'
   subscriber?: any
+  lcpPreloadUrl?: string
+  lcpSrcSet?: string
 }
 
 // ============================================================================
@@ -62,7 +65,8 @@ export function formatDate(isoDate: string | null | undefined): string {
     return date.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: 'long',
-      year: 'numeric'
+      year: 'numeric',
+      timeZone: 'America/Sao_Paulo'
     })
   } catch {
     return ''
@@ -74,7 +78,11 @@ export function formatTime(isoDate: string | null | undefined): string {
   try {
     const date = new Date(isoDate)
     if (isNaN(date.getTime())) return ''
-    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    return date.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'America/Sao_Paulo'
+    })
   } catch {
     return ''
   }
@@ -86,6 +94,11 @@ export function estimateReadingTime(content: string | null | undefined): number 
   const words = text.trim().split(/\s+/).filter(Boolean).length
   const minutes = Math.ceil(words / 200)
   return Math.max(1, minutes)
+}
+
+export function generateSrcSet(r2Key: string): string {
+  if (!r2Key) return ''
+  return `/i/${escapeAttr(r2Key)}?w=400 400w, /i/${escapeAttr(r2Key)}?w=800 800w, /i/${escapeAttr(r2Key)}?w=1200 1200w`
 }
 
 export { getPostUrl } from '../utils/post'
@@ -106,6 +119,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     coverOfDay,
     bodyHtml,
     extraHeadHtml = '',
+    googleAnalyticsId,
     theme = 'default',
     subscriber
   } = params
@@ -238,7 +252,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
 
         <!-- 2. Logo (Image Only, Larger) -->
         <a href="/" class="gb-logo" aria-label="${escapeAttr(siteName)}">
-          <img src="/static/logo-dp.png" alt="${escapeAttr(siteName)}" style="height: 32px; width: auto; opacity: 1;">
+          <img src="/i/static/logo-dp.png?w=324" alt="${escapeAttr(siteName)}" style="max-height: 32px; max-width: 180px; height: auto; width: auto; object-fit: contain;">
         </a>
 
         <!-- Spacer -->
@@ -305,60 +319,145 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
   <title>${escapeHtml(title)}</title>
   ${description ? `<meta name="description" content="${escapeAttr(description)}">` : ''}
   <link rel="canonical" href="${escapeAttr(canonicalUrl)}">
+  ${params.lcpPreloadUrl ? `<link rel="preload" as="image" href="${escapeAttr(params.lcpPreloadUrl)}" ${params.lcpSrcSet ? `imagesrcset="${escapeAttr(params.lcpSrcSet)}"` : ''} fetchpriority="high">` : ''}
   
   <link rel="dns-prefetch" href="https://securepubads.g.doubleclick.net">
   <link rel="dns-prefetch" href="https://pagead2.googlesyndication.com">
-  <link rel="dns-prefetch" href="https://www.googletagservices.com">
+  <link rel="dns-prefetch" href="https://www.googletagmanager.com">
+  <link rel="dns-prefetch" href="https://www.google-analytics.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://pagead2.googlesyndication.com">
+  <link rel="preconnect" href="https://securepubads.g.doubleclick.net">
 
   <!-- Fonts - Faster Loading -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=swap">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=swap" media="print" id="google-fonts-link">
+  <link rel="preload" as="font" href="https://fonts.gstatic.com/s/inter/v18/UcC7EFIdjxPjmlpbc0Q-QSv_D8w.woff2" type="font/woff2" crossorigin>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=swap" media="print" id="google-fonts-link">
   <script nonce="${nonce}">
     document.getElementById('google-fonts-link').addEventListener('load', function() {
       this.media = 'all';
     });
   </script>
   <noscript>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=swap">
   </noscript>
   
-  <!-- CSS -->
-  <link rel="preload" href="${cssFile}" as="style">
-  <link href="${cssFile}" rel="stylesheet" fetchpriority="high">
-  
-  <style>
-    body { font-family: 'Inter', sans-serif; }
-    .img-aesthetic {
-      filter: url(#aesthetic-newspaper) contrast(1.05) brightness(1.02) saturate(0.85);
-      transition: filter 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-      object-fit: cover;
+  <!-- Critical CSS - Inlined for FCP -->
+  <style nonce="${nonce}">
+    :root {
+      --gb-bg: #ffffff;
+      --gb-surface: #f8f9fa;
+      --gb-text: #202124;
+      --gb-text-secondary: #5f6368;
+      --gb-blue: #1a73e8;
+      --gb-border: #dadce0;
+      --gb-header-height: 64px;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
     }
-    .img-aesthetic:hover {
-      filter: none;
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--gb-bg);
+      color: var(--gb-text);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
     }
-    
-    /* CRITICAL: Mobile Padding Fix */
+    .gb-header {
+      height: var(--gb-header-height);
+      background: #fff;
+      display: flex;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+    .gb-container {
+      width: 100%;
+      max-width: 1296px;
+      margin: 0 auto;
+      padding: 0 24px;
+      box-sizing: border-box;
+    }
+    /* Fixed mobile padding for FCP */
     @media (max-width: 768px) {
-      html, body {
-        overflow-x: hidden !important;
-        max-width: 100vw !important;
-      }
-      
-      .gb-container {
-        padding-left: 16px !important;
-        padding-right: 16px !important;
-      }
-      
-      .gb-grid {
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-      }
+      .gb-container { padding-left: 16px !important; padding-right: 16px !important; }
     }
   </style>
 
+  <!-- Main CSS -->
+  <link rel="preload" href="${cssFile}?v=${Date.now()}" as="style">
+  <link href="${cssFile}?v=${Date.now()}" rel="stylesheet" fetchpriority="high">
+
   ${extraHeadHtml}
+  ${googleAnalyticsId ? `
+    <!-- Google Analytics (GA4) - Delayed Loading with FCP Tracking -->
+    <script nonce="${nonce}">
+      (function() {
+        let loaded = false;
+        let fcpSent = false;
+        let fcpValue = null;
+        const gaId = '${googleAnalyticsId}';
+
+        // 1. Start observing FCP immediately
+        if (window.PerformanceObserver) {
+          try {
+            const observer = new PerformanceObserver((list) => {
+              const entries = list.getEntriesByName('first-contentful-paint');
+              if (entries.length > 0) {
+                fcpValue = entries[0].startTime;
+                if (loaded) sendFCP();
+              }
+            });
+            observer.observe({ type: 'paint', buffered: true });
+          } catch (e) {
+            console.warn('PerformanceObserver not supported for paint');
+          }
+        }
+
+        function sendFCP() {
+          if (fcpValue !== null && !fcpSent && typeof gtag === 'function') {
+            fcpSent = true;
+            gtag('event', 'web_vitals_fcp', {
+              value: Math.round(fcpValue),
+              event_category: 'Web Vitals',
+              event_label: 'FCP',
+              non_interaction: true
+            });
+            console.log('FCP recorded and sent to GA:', Math.round(fcpValue) + 'ms');
+          }
+        }
+
+        function loadGA() {
+          if (loaded) return;
+          loaded = true;
+          const script = document.createElement('script');
+          script.src = 'https://www.googletagmanager.com/gtag/js?id=' + gaId;
+          script.async = true;
+          document.head.appendChild(script);
+          
+          window.dataLayer = window.dataLayer || [];
+          window.gtag = function(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', gaId);
+          console.log('Third-party scripts (GA) loaded.');
+          
+          // Send FCP if it was already captured
+          if (fcpValue !== null) sendFCP();
+        }
+        
+        // Listen for common interactions
+        ['mousedown', 'mousemove', 'scroll', 'touchstart', 'keydown'].forEach(event => {
+          window.addEventListener(event, loadGA, { once: true, passive: true });
+        });
+        
+        // Fallback after 6s
+        setTimeout(loadGA, 6000);
+      })();
+    </script>
+  ` : ''}
 </head>
 <body style="padding: 0 !important;">
   <div style="padding-inline: 16px; max-width: 100vw; overflow-x: hidden;">
@@ -478,20 +577,6 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
   
   ${headerScript}
   
-  <!-- Aesthetic Identity Filter -->
-  <svg style="position: absolute; width: 0; height: 0;" aria-hidden="true" focusable="false">
-    <filter id="aesthetic-newspaper">
-      <feColorMatrix type="matrix" values="0.3333 0.3333 0.3333 0 0
-                                           0.3333 0.3333 0.3333 0 0
-                                           0.3333 0.3333 0.3333 0 0
-                                           0      0      0      1 0" />
-      <feComponentTransfer color-interpolation-filters="sRGB">
-        <feFuncR type="table" tableValues="0.05 0.94" />
-        <feFuncG type="table" tableValues="0.09 0.96" />
-        <feFuncB type="table" tableValues="0.16 0.97" />
-      </feComponentTransfer>
-    </filter>
-  </svg>
   
   </div>
 </body>

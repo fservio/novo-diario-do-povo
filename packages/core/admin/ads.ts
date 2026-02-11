@@ -11,7 +11,7 @@ import type { AdSlot } from '../ads'
 const adSlotSchema = z.object({
   name: z.string().min(1),
   template: z.enum(['home', 'article', 'listing', 'live', 'story']),
-  provider: z.enum(['gam', 'adsense']),
+  provider: z.enum(['gam', 'adsense', 'custom']),
   sizes_json: z.string(),
   lazy: z.string().optional(),
   min_height: z.string(),
@@ -19,7 +19,8 @@ const adSlotSchema = z.object({
   gam_unit_path: z.string().optional(),
   gam_targeting_json: z.string().optional(),
   adsense_slot_id: z.string().optional(),
-  adsense_format: z.string().optional()
+  adsense_format: z.string().optional(),
+  custom_code: z.string().optional()
 })
 
 const adsTxtSchema = z.object({
@@ -68,7 +69,7 @@ export async function renderAdsListPage(c: Context<{ Bindings: Env; Variables: A
               <tr>
                 <td><code style="background: var(--bg-main); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8125rem; border: 1px solid var(--border-color); color: var(--accent); font-weight: 700;">${escapeHtml(slot.name)}</code></td>
                 <td style="text-transform: capitalize;">${slot.template}</td>
-                <td style="font-weight: 600;">${slot.provider === 'gam' ? 'Ad Manager' : 'AdSense'}</td>
+                <td style="font-weight: 600;">${slot.provider === 'gam' ? 'Ad Manager' : (slot.provider === 'custom' ? 'Custom Code' : 'AdSense')}</td>
                 <td>
                   <span style="display: inline-flex; align-items: center; justify-content: center; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; ${slot.is_active ? 'background: rgba(16, 185, 129, 0.1); color: #10b981;' : 'background: rgba(239, 68, 68, 0.1); color: #ef4444;'}">
                     ${slot.is_active ? 'Ativo' : 'Inativo'}
@@ -172,6 +173,7 @@ export async function renderAdSlotForm(c: Context<{ Bindings: Env; Variables: Ap
               <select name="provider" class="form-control" required id="provider-select" onchange="toggleProviderFields(this.value)">
                 <option value="gam" ${slot?.provider === 'gam' ? 'selected' : ''}>Google Ad Manager (GAM)</option>
                 <option value="adsense" ${slot?.provider === 'adsense' ? 'selected' : ''}>Google AdSense</option>
+                <option value="custom" ${slot?.provider === 'custom' ? 'selected' : ''}>Custom HTML / Script</option>
               </select>
             </div>
             
@@ -253,6 +255,18 @@ export async function renderAdSlotForm(c: Context<{ Bindings: Env; Variables: Ap
             </div>
           </div>
 
+          <div id="custom-fields" style="display:${slot?.provider === 'custom' ? 'block' : 'none'}; border-top: 1.5px solid #e2e8f0; padding-top: 2rem; margin-top: 1rem;">
+            <h3 style="font-size: 0.8125rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2rem; color: #10b981; background: #d1fae5; display: inline-block; padding: 0.25rem 0.75rem; border-radius: 4px;">Custom HTML Code</h3>
+            <div class="form-group">
+              <label>Raw HTML / Script</label>
+              <textarea name="custom_code" class="form-control" rows="8" style="font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem;" placeholder="<script>...</script>">${slot?.custom_code ? escapeHtml(slot.custom_code) : ''}</textarea>
+              <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+                Cole aqui o código fornecido pela rede de anúncios (incluindo tags &lt;script&gt;).
+                ⚠️ <strong>Cuidado:</strong> Scripts maliciosos podem comprometer o site.
+              </p>
+            </div>
+          </div>
+
           <div style="display: flex; gap: 1rem; margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 2rem;">
             <button type="submit" class="btn" style="min-width: 150px;">
                <span>💾</span> Salvar Configuração
@@ -269,6 +283,7 @@ export async function renderAdSlotForm(c: Context<{ Bindings: Env; Variables: Ap
       function toggleProviderFields(provider) {
         document.getElementById('gam-fields').style.display = provider === 'gam' ? 'block' : 'none';
         document.getElementById('adsense-fields').style.display = provider === 'adsense' ? 'block' : 'none';
+        document.getElementById('custom-fields').style.display = provider === 'custom' ? 'block' : 'none';
       }
 
       function applyFormat(val) {
@@ -322,9 +337,20 @@ export async function handleAdSlotSave(c: Context<{ Bindings: Env; Variables: Ap
     const formData = await c.req.parseBody()
     const data = adSlotSchema.parse(formData)
 
-    // Validate JSON
-    JSON.parse(data.sizes_json)
-    if (data.gam_targeting_json) JSON.parse(data.gam_targeting_json)
+    // Validate JSON fields based on provider
+    try {
+      JSON.parse(data.sizes_json)
+    } catch (e) {
+      throw new Error('O campo "Configuração de Tamanho" contém JSON inválido.')
+    }
+
+    if (data.provider === 'gam' && data.gam_targeting_json) {
+      try {
+        JSON.parse(data.gam_targeting_json)
+      } catch (e) {
+        throw new Error('O campo "Targeting (JSON)" contém JSON inválido.')
+      }
+    }
 
     const lazy = data.lazy === '1' ? 1 : 0
     const isActive = data.is_active === '1' ? 1 : 0
@@ -333,19 +359,19 @@ export async function handleAdSlotSave(c: Context<{ Bindings: Env; Variables: Ap
       // Update
       await c.env.DB.prepare(`
         UPDATE ads_slots SET name=?, template=?, provider=?, sizes_json=?, lazy=?, min_height=?, is_active=?,
-        gam_unit_path=?, gam_targeting_json=?, adsense_slot_id=?, adsense_format=?, updated_at=datetime('now')
+        gam_unit_path=?, gam_targeting_json=?, adsense_slot_id=?, adsense_format=?, custom_code=?, updated_at=datetime('now')
         WHERE id=?
       `).bind(data.name, data.template, data.provider, data.sizes_json, lazy, parseInt(data.min_height), isActive,
         data.gam_unit_path || null, data.gam_targeting_json || null,
-        data.adsense_slot_id || null, data.adsense_format || null, slotId).run()
+        data.adsense_slot_id || null, data.adsense_format || null, data.custom_code || null, slotId).run()
     } else {
       // Insert
       await c.env.DB.prepare(`
-        INSERT INTO ads_slots (name, template, provider, sizes_json, lazy, min_height, is_active, gam_unit_path, gam_targeting_json, adsense_slot_id, adsense_format)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO ads_slots (name, template, provider, sizes_json, lazy, min_height, is_active, gam_unit_path, gam_targeting_json, adsense_slot_id, adsense_format, custom_code)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(data.name, data.template, data.provider, data.sizes_json, lazy, parseInt(data.min_height), isActive,
         data.gam_unit_path || null, data.gam_targeting_json || null,
-        data.adsense_slot_id || null, data.adsense_format || null).run()
+        data.adsense_slot_id || null, data.adsense_format || null, data.custom_code || null).run()
     }
 
     return c.redirect('/admin/ads', 302)

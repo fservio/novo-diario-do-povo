@@ -383,6 +383,9 @@ export function renderAdminLayout(
         <a class="${isActive('categories')}" href="/admin/categories">
           <span class="icon">📂</span> Categorias
         </a>
+        <a class="${isActive('tags')}" href="/admin/tags">
+          <span class="icon">🏷️</span> Tags
+        </a>
         <a class="${isActive('authors')}" href="/admin/authors">
           <span class="icon">✒️</span> Autores
         </a>

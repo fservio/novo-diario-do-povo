@@ -1,0 +1,356 @@
+{
+    "name": "Enhanced Linking Automation (Robust) - Novo Diário do Povo",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 30
+                        }
+                    ]
+                }
+            },
+            "name": "Schedule Trigger",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.1,
+            "position": [
+                240,
+                300
+            ],
+            "id": "schedule-trigger-id"
+        },
+        {
+            "parameters": {
+                "values": {
+                    "string": [
+                        {
+                            "name": "BASE_URL",
+                            "value": "https://diario.dopovo.com.br"
+                        },
+                        {
+                            "name": "API_KEY",
+                            "value": "e5538c76f6030d83439822f961c5f45a14446058e59f84205a2951bc06719d0d"
+                        },
+                        {
+                            "name": "MAX_INTERNAL_LINKS",
+                            "value": "3"
+                        },
+                        {
+                            "name": "MAX_EXTERNAL_LINKS",
+                            "value": "1"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Config",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 1,
+            "position": [
+                460,
+                300
+            ],
+            "id": "config-id"
+        },
+        {
+            "parameters": {
+                "url": "={{ $('Config').first().json['BASE_URL'].replace(/\\/$/, '') }}/api/n8n/posts",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "X-API-Key",
+                            "value": "={{ $('Config').first().json['API_KEY'] }}"
+                        }
+                    ]
+                },
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "limit",
+                            "value": "100"
+                        },
+                        {
+                            "name": "status",
+                            "value": "published"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Get Internal Pool",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                680,
+                300
+            ],
+            "id": "get-internal-pool-id"
+        },
+        {
+            "parameters": {
+                "url": "={{ $('Config').first().json['BASE_URL'].replace(/\\/$/, '') }}/api/n8n/posts",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "X-API-Key",
+                            "value": "={{ $('Config').first().json['API_KEY'] }}"
+                        }
+                    ]
+                },
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "status",
+                            "value": "published"
+                        },
+                        {
+                            "name": "limit",
+                            "value": "5"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Get Published Posts to Enrich",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                900,
+                300
+            ],
+            "id": "get-published-posts-id"
+        },
+        {
+            "parameters": {
+                "fieldToSplitOut": "data",
+                "options": {}
+            },
+            "name": "Split Out Posts",
+            "type": "n8n-nodes-base.splitOut",
+            "typeVersion": 1,
+            "position": [
+                1120,
+                300
+            ],
+            "id": "split-out-id"
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "=Você é um especialista em SEO para o 'Novo Diário do Povo'.\\n\\n**REGRA DE OURO: TRANSFORMAÇÃO HTML APENAS**\\nSua tarefa é envolver palavras existentes no texto com tags `<a>`.\\n\\n**EXEMPLO DE TRANSMORMAÇÃO:**\\n- Texto original: \"O governo de São Paulo anunciou novas medidas...\"\\n- Link sugerido: São Paulo -> URL: /2026/02/11/sao-paulo-noticias/\\n- Resultado correto: \"O governo de <a href=\\\"/2026/02/11/sao-paulo-noticias/\\\">São Paulo</a> anunciou novas medidas...\"\\n- RESULTADO ERRADO (NUNCA FAÇA): \"O governo de São Paulo (Link: /2026/02/11/sao-paulo-noticias/) anunciou...\"\\n\\n**PROIBIÇÃO ABSOLUTA:**\\n1. NÃO reescreva o texto original.\\n2. NÃO adicione URLs puras no meio do texto.\\n3. NÃO adicione explicações ou conversa (ex: \"Aqui está o link\").\\n\\n**CONTEÚDO ORIGINAL:**\\n{{ $json.content }}\\n\\n**POOL DE LINKS INTERNOS:**\\n{{ $('Get Internal Pool').first().json['data'].map(p => { const d = new Date(p.published_at || p.created_at); return `- \"${p.title}\" -> URL: /${d.getFullYear()}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}/${p.slug}/`; }).join('\\\\n') }}\\n\\n**REGRAS:**\\n1. Use no máximo {{ $('Config').first().json['MAX_INTERNAL_LINKS'] }} links internos.\\n2. Para links externos (Wikipedia, Gov, BBC), use `target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\"`.\\n3. Se não encontrar onde colocar os links, retorne o texto 100% original sem nenhuma mudança.\\n\\n**SAÍDA OBRIGATÓRIA:**\\nApenas o HTML final, sem markdown e sem conversa.",
+                "options": {}
+            },
+            "name": "AI Linker Agent",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 3.1,
+            "position": [
+                1340,
+                200
+            ],
+            "id": "ai-linker-agent-id"
+        },
+        {
+            "parameters": {
+                "mode": "combine",
+                "combinationMode": "position"
+            },
+            "name": "Merge ID and Content",
+            "type": "n8n-nodes-base.merge",
+            "typeVersion": 2,
+            "position": [
+                1560,
+                300
+            ],
+            "id": "merge-id"
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "={{ $('Config').first().json['BASE_URL'].replace(/\\/$/, '') }}/api/n8n/posts/{{ $json.id }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "X-API-Key",
+                            "value": "={{ $('Config').first().json['API_KEY'] }}"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "content",
+                            "value": "={{ $json.output }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Update Post",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                1780,
+                300
+            ],
+            "id": "update-post-id"
+        },
+        {
+            "parameters": {
+                "modelName": "models/gemini-2.0-flash-exp",
+                "options": {}
+            },
+            "name": "Gemini Model",
+            "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+            "typeVersion": 1,
+            "position": [
+                1340,
+                400
+            ],
+            "id": "gemini-model-id",
+            "credentials": {
+                "googlePalmApi": {
+                    "id": "JwdjrWEg1SSQObBi",
+                    "name": "Google Gemini(PaLM) Api account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "options": {
+                    "language": "pt-br",
+                    "num": 3
+                }
+            },
+            "name": "Google Custom Search",
+            "type": "@n8n/n8n-nodes-langchain.toolGoogleSearch",
+            "typeVersion": 1,
+            "position": [
+                1560,
+                500
+            ],
+            "id": "google-search-tool-id"
+        }
+    ],
+    "connections": {
+        "Schedule Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Config",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Config": {
+            "main": [
+                [
+                    {
+                        "node": "Get Internal Pool",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Internal Pool": {
+            "main": [
+                [
+                    {
+                        "node": "Get Published Posts to Enrich",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Published Posts to Enrich": {
+            "main": [
+                [
+                    {
+                        "node": "Split Out Posts",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Split Out Posts": {
+            "main": [
+                [
+                    {
+                        "node": "AI Linker Agent",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Merge ID and Content",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Linker Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Merge ID and Content",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "Merge ID and Content": {
+            "main": [
+                [
+                    {
+                        "node": "Update Post",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Gemini Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "AI Linker Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Google Custom Search": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Linker Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "meta": {
+        "instanceId": "9ad7d2620889f0a899118105df07f7332720fd8aaa707ac235dd72e1a9956cc9"
+    }
+}

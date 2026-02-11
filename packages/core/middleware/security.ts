@@ -48,6 +48,14 @@ export async function securityHeaders(c: Context<{ Bindings: Env; Variables: App
   const baseSources = ["'self'", 'https://cdn.jsdelivr.net']
 
   // Ads sources (only if provider_mode != 'off')
+  // We ALWAYS allow Google Analytics (googletagmanager) regardless of ads mode
+  const analyticsHosts = [
+    '*.googletagmanager.com',
+    'https://www.googletagmanager.com',
+    '*.google-analytics.com',
+    'https://www.google-analytics.com'
+  ]
+
   const adsScriptHosts = providerMode !== 'off' ? [
     '*.googletagservices.com',
     '*.googlesyndication.com',
@@ -56,34 +64,39 @@ export async function securityHeaders(c: Context<{ Bindings: Env; Variables: App
     'securepubads.g.doubleclick.net',
     'googleads.g.doubleclick.net',
     'tpc.googlesyndication.com',
+    ...analyticsHosts,
     ...scriptHosts
-  ] : scriptHosts
+  ] : [...analyticsHosts, ...scriptHosts]
 
   const adsFrameHosts = providerMode !== 'off' ? [
     '*.googlesyndication.com',
     '*.google.com',
     '*.doubleclick.net',
+    ...analyticsHosts,
     ...frameHosts
-  ] : frameHosts
+  ] : [...analyticsHosts, ...frameHosts]
 
   const adsConnectHosts = providerMode !== 'off' ? [
     '*.googlesyndication.com',
     '*.google.com',
     '*.doubleclick.net',
+    'https://ep1.adtrafficquality.google',
+    ...analyticsHosts,
     ...connectHosts
-  ] : connectHosts
+  ] : [...analyticsHosts, ...connectHosts]
 
   const adsImgHosts = providerMode !== 'off' ? [
     '*.googlesyndication.com',
     '*.google.com',
     '*.doubleclick.net',
+    ...analyticsHosts,
     ...imgHosts
-  ] : imgHosts
+  ] : [...analyticsHosts, ...imgHosts]
 
-  const scriptSourcesWithPrefix = adsScriptHosts.map(h => `https://${h}`)
-  const frameSourcesWithPrefix = adsFrameHosts.map(h => `https://${h}`)
-  const connectSourcesWithPrefix = adsConnectHosts.map(h => `https://${h}`)
-  const imgSourcesWithPrefix = adsImgHosts.map(h => `https://${h}`)
+  const scriptSourcesWithPrefix = adsScriptHosts.map(h => h.startsWith('http') ? h : `https://${h}`)
+  const frameSourcesWithPrefix = adsFrameHosts.map(h => h.startsWith('http') ? h : `https://${h}`)
+  const connectSourcesWithPrefix = adsConnectHosts.map(h => h.startsWith('http') ? h : `https://${h}`)
+  const imgSourcesWithPrefix = adsImgHosts.map(h => h.startsWith('http') ? h : `https://${h}`)
 
   // Build CSP directives with NONCE (NO 'unsafe-inline' for script-src)
   const scriptSources = [
@@ -126,7 +139,10 @@ export async function securityHeaders(c: Context<{ Bindings: Env; Variables: App
   if (path.startsWith('/static/') || path.startsWith('/i/')) {
     c.header('Cache-Control', 'public, max-age=31536000, immutable')
   } else if (path === '/robots.txt' || path === '/ads.txt' || path.endsWith('.xml')) {
-    c.header('Cache-Control', 'public, max-age=3600') // 1 hour for SEO/Ads files
+    c.header('Cache-Control', 'public, max-age=3600, stale-while-revalidate=600') // 1 hour for SEO/Ads files
+  } else {
+    // Default for public SSR pages
+    c.header('Cache-Control', 'public, max-age=60, stale-while-revalidate=59')
   }
 }
 

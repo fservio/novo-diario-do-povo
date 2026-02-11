@@ -9,23 +9,30 @@ const app = new Hono<{ Bindings: Env; Variables: AppContext }>()
 // ============================================================================
 
 // GET / - Home Page
+// GET / - Home Page
 app.get('/', async (c) => {
     const { getHomeData } = await import('../db/home')
     const { renderHomePage } = await import('./home')
     const { getSetting, getMediaById } = await import('../db')
     const { getReaderContext } = await import('../paywall/helpers')
 
-    // Get reader context
-    const readerContext = await getReaderContext(c as any)
+    // Parallel fetch: Reader context, Home data, Settings
+    const [
+        readerContext,
+        data,
+        googleAnalyticsId,
+        siteNameResult,
+        dailyCover
+    ] = await Promise.all([
+        getReaderContext(c as any),
+        getHomeData(c.env),
+        getSetting(c.env, 'google_analytics_id', 'public'),
+        getSetting(c.env, 'site_name', 'public'),
+        getSetting(c.env, 'daily_cover') as Promise<{ media_id: number } | null>
+    ])
 
-    // Get home data (optimized queries)
-    const data = await getHomeData(c.env)
+    const siteName = (siteNameResult as string) || 'Jornal'
 
-    // Get CMS settings
-    const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
-
-    // Daily Cover
-    const dailyCover = await getSetting(c.env, 'daily_cover') as { media_id: number } | null
     let coverR2Key = ''
     let coverAlt = 'Capa do Dia'
     let coverAspectRatio = '3/4'
@@ -41,7 +48,8 @@ app.get('/', async (c) => {
         }
     }
 
-    const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
+    let baseUrl = c.env.PUBLIC_BASE_URL || 'https://diario.dopovo.com.br'
+    if (baseUrl.includes('.pages.dev')) baseUrl = 'https://diario.dopovo.com.br'
 
     // Render home page (Verge style)
     const html = await renderHomePage(c, data, {
@@ -50,10 +58,18 @@ app.get('/', async (c) => {
         coverR2Key,
         coverAlt,
         coverAspectRatio,
-        subscriber: readerContext.subscriber
+        subscriber: readerContext.subscriber,
+        googleAnalyticsId: googleAnalyticsId as string
     })
 
-    return c.html(html)
+    // Cache Control (CDN + Browser)
+    // Cache for 60 seconds public
+    const headers = {
+        'Cache-Control': 'public, max-age=60, s-maxage=60',
+        'Content-Type': 'text/html; charset=UTF-8'
+    }
+
+    return c.body(html, 200, headers)
 })
 
 // GET /ultimas - Latest Posts
@@ -62,6 +78,7 @@ app.get('/ultimas', async (c) => {
     const { renderUltimasPage } = await import('./ultimas')
     const { getReaderContext } = await import('../paywall/helpers')
 
+    const googleAnalyticsId = await getSetting(c.env, 'google_analytics_id', 'public')
     const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
     const readerContext = await getReaderContext(c as any)
 
@@ -76,13 +93,14 @@ app.get('/ultimas', async (c) => {
     FROM posts p
     INNER JOIN categories c ON p.category_id = c.id
     WHERE p.status = 'published' 
-      AND p.published_at <= datetime('now')
+      AND p.published_at <= ?
       AND p.seo_noindex = 0
     ORDER BY p.published_at DESC
     LIMIT ? OFFSET ?
-  `).bind(limit, offset).all()
+  `).bind(new Date().toISOString(), limit, offset).all()
 
-    const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
+    let baseUrl = c.env.PUBLIC_BASE_URL || 'https://diario.dopovo.com.br'
+    if (baseUrl.includes('.pages.dev')) baseUrl = 'https://diario.dopovo.com.br'
 
     // Determine Theme
     const themeSetting = await getSetting(c.env, 'public_theme')
@@ -94,7 +112,8 @@ app.get('/ultimas', async (c) => {
         page,
         limit,
         subscriber: readerContext.subscriber,
-        theme: theme as 'default' | 'minimal'
+        theme: theme as 'default' | 'minimal',
+        googleAnalyticsId
     })
 
     return c.html(html)
@@ -121,6 +140,7 @@ app.get('/categoria/:slug', async (c) => {
     }
 
     // Get CMS settings
+    const googleAnalyticsId = await getSetting(c.env, 'google_analytics_id', 'public')
     const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
 
     // Daily Cover
@@ -140,7 +160,8 @@ app.get('/categoria/:slug', async (c) => {
         }
     }
 
-    const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
+    let baseUrl = c.env.PUBLIC_BASE_URL || 'https://diario.dopovo.com.br'
+    if (baseUrl.includes('.pages.dev')) baseUrl = 'https://diario.dopovo.com.br'
 
     // Get nav sections
     const sections = await getHomeSections(c.env)
@@ -158,7 +179,8 @@ app.get('/categoria/:slug', async (c) => {
         siteName,
         navItems,
         coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null,
-        subscriber: readerContext.subscriber
+        subscriber: readerContext.subscriber,
+        googleAnalyticsId
     })
 
     if (!html) {
@@ -171,66 +193,85 @@ app.get('/categoria/:slug', async (c) => {
 
 // GET /tag/:slug - Tag Page (Simplified)
 app.get('/tag/:slug', async (c) => {
-    const slug = c.req.param('slug')
-    const { findTagBySlug, getSetting } = await import('../db')
+    try {
+        const slug = c.req.param('slug')
+        const { findTagBySlug, getSetting } = await import('../db')
 
-    const tag = await findTagBySlug(c.env, slug)
-    if (!tag) {
-        return c.notFound()
-    }
+        const tag = await findTagBySlug(c.env, slug)
+        if (!tag) {
+            return c.notFound()
+        }
 
-    // Get posts by tag
-    const posts = await c.env.DB.prepare(`
-    SELECT p.* FROM posts p
-    INNER JOIN post_tags pt ON pt.post_id = p.id
-    WHERE pt.tag_id = ? AND p.status = 'published'
-    ORDER BY p.published_at DESC
-    LIMIT 30
-  `).bind(tag.id).all()
+        // Get posts by tag
+        const posts = await c.env.DB.prepare(`
+        SELECT p.* FROM posts p
+        INNER JOIN post_tags pt ON pt.post_id = p.id
+        WHERE pt.tag_id = ? AND p.status = 'published'
+        ORDER BY p.published_at DESC
+        LIMIT 30
+      `).bind(tag.id).all()
 
-    const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
-    const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
+        const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+        let baseUrl = c.env.PUBLIC_BASE_URL || 'https://diario.dopovo.com.br'
+        if (baseUrl.includes('.pages.dev')) baseUrl = 'https://diario.dopovo.com.br'
 
-    return c.html(`
-    <!DOCTYPE html>
-    <html lang="pt-BR">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${tag.name} | ${siteName}</title>
-        <meta name="description" content="${tag.description || `Notícias sobre ${tag.name}`}">
-        ${tag.seo_noindex ? '<meta name="robots" content="noindex, follow">' : ''}
-        <link href="/static/styles.css" rel="stylesheet">
-    </head>
-    <body class="bg-gray-50">
-        <header class="bg-white border-b">
-            <div class="container mx-auto px-4 py-4">
-                <a href="/" class="text-2xl font-bold text-gray-900">${siteName}</a>
-            </div>
-        </header>
-        
-        <main class="container mx-auto px-4 py-8">
-            <h1 class="text-4xl font-bold mb-8">${tag.name}</h1>
+        const googleAnalyticsId = await getSetting(c.env, 'google_analytics_id', 'public')
+        const nonce = c.get('cspNonce') || ''
+
+        return c.html(`
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${tag.name} | ${siteName}</title>
+            <meta name="description" content="${tag.description || `Notícias sobre ${tag.name}`}">
+            ${tag.seo_noindex ? '<meta name="robots" content="noindex, follow">' : ''}
+            <link href="/static/styles.css" rel="stylesheet">
+            ${googleAnalyticsId ? `
+              <!-- Google Analytics (GA4) -->
+              <script async src="https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}"></script>
+              <script nonce="${nonce}">
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${googleAnalyticsId}');
+              </script>
+            ` : ''}
+        </head>
+        <body class="bg-gray-50">
+            <header class="bg-white border-b">
+                <div class="container mx-auto px-4 py-4">
+                    <a href="/" class="text-2xl font-bold text-gray-900">${siteName}</a>
+                </div>
+            </header>
             
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                ${(posts.results || []).map((post: any) => `
-                    <article class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition">
-                        <a href="${getPostUrl(post, baseUrl)}">
-                            <div class="p-4">
-                                <h2 class="text-xl font-bold mb-2 text-gray-900">${post.title}</h2>
-                                <p class="text-gray-600 text-sm">${post.excerpt || ''}</p>
-                                <span class="text-xs text-gray-400 mt-2 block">
-                                    ${new Date(post.published_at || '').toLocaleDateString('pt-BR')}
-                                </span>
-                            </div>
-                        </a>
-                    </article>
-                `).join('')}
-            </div>
-        </main>
-    </body>
-    </html>
-  `)
+            <main class="container mx-auto px-4 py-8">
+                <h1 class="text-4xl font-bold mb-8">${tag.name}</h1>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    ${(posts.results || []).map((post: any) => `
+                        <article class="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition">
+                            <a href="${getPostUrl(post, baseUrl)}">
+                                <div class="p-4">
+                                    <h2 class="text-xl font-bold mb-2 text-gray-900">${post.title}</h2>
+                                    <p class="text-gray-600 text-sm">${post.excerpt || ''}</p>
+                                    <span class="text-xs text-gray-400 mt-2 block">
+                                        ${new Date(post.published_at || '').toLocaleDateString('pt-BR')}
+                                    </span>
+                                </div>
+                            </a>
+                        </article>
+                    `).join('')}
+                </div>
+            </main>
+        </body>
+        </html>
+      `)
+    } catch (error: any) {
+        console.error('Error rendering tag page:', error)
+        return c.text(`Error: ${error.message}`, 500)
+    }
 })
 
 
@@ -301,12 +342,14 @@ const handleArticleRequest = async (c: any) => {
 
 
     // Get CMS settings
+    const googleAnalyticsId = await getSetting(c.env, 'google_analytics_id', 'public')
     const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
     const coverR2Key = (await getSetting(c.env, 'cover_of_day.r2_key', 'public') as string) || ''
     const coverAlt = (await getSetting(c.env, 'cover_of_day.alt', 'public') as string) || 'Capa do Dia'
     const coverAspectRatio = (await getSetting(c.env, 'cover_of_day.aspect_ratio', 'public') as string) || '3/4'
 
-    const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
+    let baseUrl = c.env.PUBLIC_BASE_URL || 'https://diario.dopovo.com.br'
+    if (baseUrl.includes('.pages.dev')) baseUrl = 'https://diario.dopovo.com.br'
 
     // Get nav sections
     const sections = await getHomeSections(c.env)
@@ -342,7 +385,8 @@ const handleArticleRequest = async (c: any) => {
         relatedPosts,
         mostRead,
         isBlocked: !accessCheck.allowed,
-        accessCheck // Pass rich object for UI rendering
+        accessCheck, // Pass rich object for UI rendering
+        googleAnalyticsId
     }, contentSource) // Pass modified content source to renderer
 
     if (!html) {
@@ -372,6 +416,13 @@ const handleArticleRequest = async (c: any) => {
 
 // GET /noticia/:slug - Legacy/Short URL
 app.get('/noticia/:slug', async (c) => {
+    const slug = c.req.param('slug')
+    const { findArticleBySlug } = await import('../db/article')
+    const post = await findArticleBySlug(c.env, slug)
+    if (!post) return c.notFound()
+    return c.redirect(getPostUrl(post), 301)
+})
+app.get('/noticia/:slug/', async (c) => {
     const slug = c.req.param('slug')
     const { findArticleBySlug } = await import('../db/article')
     const post = await findArticleBySlug(c.env, slug)

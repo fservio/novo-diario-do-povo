@@ -38,9 +38,7 @@ export type ColumnistPageData = {
 // ============================================================================
 
 function renderColumnistCard(author: Author): string {
-  const avatarUrl = author.avatar_media_id ? `/i/media-id-placeholder` : '/static/default-avatar.png' // Needs proper media resolution
-  // We don't have media URL in Author struct easily without a join or extra fetch.
-  // For now, let's assume we might need to fetch it or use a placeholder if not joined.
+  const avatarUrl = author.avatar_r2_key ? `/i/${author.avatar_r2_key}?w=200&h=200&fit=cover` : '/static/default-avatar.png'
   // The listActiveAuthors query DOES NOT join media.
   // Users will need to update the query if they want avatars in the list.
   // Let's check authors.ts listActiveAuthors again. It selects avatar_media_id but not the URL/Key.
@@ -54,10 +52,10 @@ function renderColumnistCard(author: Author): string {
   return `
     <a href="/coluna/${escapeAttr(author.slug)}" class="card hover:shadow-lg transition p-6 flex flex-col items-center text-center h-full">
       <div class="w-24 h-24 rounded-full bg-gray-200 mb-4 overflow-hidden relative">
-         ${author.avatar_media_id ? `<img src="/api/media/${author.avatar_media_id}/thumb" class="w-full h-full object-cover" alt="${escapeAttr(author.name)}">` : `<span class="absolute inset-0 flex items-center justify-center text-2xl font-bold text-gray-400">${escapeHtml(author.name.substring(0, 2).toUpperCase())}</span>`}
+         ${author.avatar_r2_key ? `<img src="/i/${author.avatar_r2_key}?w=200&h=200&fit=cover" class="w-full h-full object-cover" alt="${escapeAttr(author.name)}">` : `<span class="absolute inset-0 flex items-center justify-center text-2xl font-bold text-gray-400">${escapeHtml(author.name.substring(0, 2).toUpperCase())}</span>`}
       </div>
       
-      <div class="text-xs font-bold uppercase tracking-widest text-accent mb-2">
+      <div style="background-color: #1a73e8; color: #ffffff; padding: 4px 12px; border-radius: 4px; font-size: 14px; font-weight: 800; text-transform: uppercase; margin-bottom: 12px; display: inline-block;">
         ${escapeHtml(author.column_name || 'Coluna')}
       </div>
       
@@ -111,9 +109,10 @@ export async function renderColumnsList(
     siteName: string
     navItems: Array<{ label: string; href: string; active?: boolean }>
     coverOfDay?: any
+    googleAnalyticsId?: string
   }
 ): Promise<string> {
-  const { baseUrl, siteName, navItems, coverOfDay } = options
+  const { baseUrl, siteName, navItems, coverOfDay, googleAnalyticsId } = options
 
   // 1. Fetch active authors who are columnists
   const allAuthors = await listActiveAuthors(c.env)
@@ -149,15 +148,15 @@ export async function renderColumnsList(
                 <div class="flex items-center gap-4 mb-3">
                     <a href="/coluna/${escapeAttr(author.slug)}" class="shrink-0 group">
                          <div class="w-12 h-12 rounded-full bg-gray-200 overflow-hidden relative group-hover:ring-2 ring-accent transition">
-                            ${author.avatar_media_id
-        ? `<img src="/api/media/${author.avatar_media_id}/thumb" class="w-full h-full object-cover" alt="${escapeAttr(author.name)}">`
+                            ${author.avatar_r2_key
+        ? `<img src="/i/${author.avatar_r2_key}?w=100&h=100&fit=cover" class="w-full h-full object-cover" alt="${escapeAttr(author.name)}">`
         : `<span class="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-500">${escapeHtml(author.name.substring(0, 2).toUpperCase())}</span>`
       }
                         </div>
                     </a>
                     <div>
                         ${author.column_name ? `
-                        <a href="/coluna/${escapeAttr(author.slug)}" class="block text-xs font-bold uppercase tracking-wider text-accent hover:underline mb-0.5">
+                        <a href="/coluna/${escapeAttr(author.slug)}" class="inline-block text-[16px] font-black uppercase tracking-wider bg-[#1a73e8] color-white px-3 py-1 rounded mb-2 transition hover:opacity-90" style="color: white; text-decoration: none;">
                             ${escapeHtml(author.column_name)}
                         </a>
                         ` : ''}
@@ -205,7 +204,8 @@ export async function renderColumnsList(
     categories,
     coverOfDay,
     bodyHtml,
-    theme
+    theme,
+    googleAnalyticsId
   })
 }
 
@@ -220,9 +220,10 @@ export async function renderColumnPage(
     siteName: string
     navItems: Array<{ label: string; href: string; active?: boolean }>
     coverOfDay?: any
+    googleAnalyticsId?: string
   }
 ): Promise<string | null> {
-  const { baseUrl, siteName, navItems, coverOfDay } = options
+  const { baseUrl, siteName, navItems, coverOfDay, googleAnalyticsId } = options
 
   const author = await findAuthorBySlug(c.env, authorSlug)
 
@@ -247,13 +248,15 @@ export async function renderColumnPage(
 
   const bodyHtml = `
     <div class="bg-gray-50 py-12 border-b border-gray-200">
-      <div class="container max-w-4xl mx-auto text-center">
-        <div class="w-32 h-32 rounded-full bg-white shadow-md mx-auto mb-6 overflow-hidden relative border-4 border-white">
-          ${author.avatar_media_id ? `<img src="/api/media/${author.avatar_media_id}/thumb" class="w-full h-full object-cover" alt="${escapeAttr(author.name)}">` : `<span class="absolute inset-0 flex items-center justify-center text-4xl font-bold text-gray-300">${escapeHtml(author.name.substring(0, 2).toUpperCase())}</span>`}
+      <div class="container max-w-4xl text-left">
+        <div class="w-32 h-32 rounded-full bg-white shadow-md mb-6 overflow-hidden relative border-4 border-white">
+          ${author.avatar_r2_key ? `<img src="/i/${author.avatar_r2_key}?w=300&h=300&fit=cover" class="w-full h-full object-cover" alt="${escapeAttr(author.name)}">` : `<span class="absolute inset-0 flex items-center justify-center text-4xl font-bold text-gray-300">${escapeHtml(author.name.substring(0, 2).toUpperCase())}</span>`}
         </div>
         
-        <div class="text-sm font-bold uppercase tracking-widest text-accent mb-2">
-          ${escapeHtml(author.column_name || 'Coluna')}
+        <div class="inline-block text-lg font-black uppercase tracking-widest bg-[#1a73e8] text-white px-4 py-1.5 rounded-md mb-6 shadow-sm">
+          ${author.author_type === 'columnist' ? escapeHtml(author.column_name || 'Coluna') :
+      author.author_type === 'editorial' ? 'Editorial' :
+        author.author_type === 'contributor' ? 'Opinião' : 'Autor'}
         </div>
         
         <h1 class="text-4xl font-black mb-6 text-gray-900 leading-tight">
@@ -266,7 +269,7 @@ export async function renderColumnPage(
           </div>
         ` : ''}
         
-        <div class="flex justify-center gap-4">
+        <div class="flex justify-start gap-4">
           ${author.social_twitter ? `<a href="https://twitter.com/${author.social_twitter}" target="_blank" class="text-gray-400 hover:text-accent transition">Twitter</a>` : ''}
           ${author.social_instagram ? `<a href="https://instagram.com/${author.social_instagram}" target="_blank" class="text-gray-400 hover:text-accent transition">Instagram</a>` : ''}
           ${author.social_linkedin ? `<a href="${author.social_linkedin}" target="_blank" class="text-gray-400 hover:text-accent transition">LinkedIn</a>` : ''}
@@ -314,6 +317,7 @@ export async function renderColumnPage(
     categories,
     coverOfDay,
     bodyHtml,
-    theme
+    theme,
+    googleAnalyticsId
   })
 }

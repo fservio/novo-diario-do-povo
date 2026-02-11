@@ -1,4 +1,5 @@
 {
+    "name": "RSS Automation - Novo Diário do Povo (Otimizado)",
     "nodes": [
         {
             "parameters": {
@@ -6,7 +7,7 @@
                     "string": [
                         {
                             "name": "BASE_URL",
-                            "value": "https://novo-diario-do-povo.pages.dev"
+                            "value": "https://diario.dopovo.com.br"
                         },
                         {
                             "name": "API_KEY",
@@ -24,37 +25,37 @@
                 },
                 "options": {}
             },
-            "name": "Config1",
+            "name": "Config",
             "type": "n8n-nodes-base.set",
             "typeVersion": 1,
             "position": [
-                1616,
-                -912
+                1360,
+                -608
             ],
-            "id": "f3249ffd-0921-46ba-9a98-439b184d1013"
+            "id": "996274b5-dc88-443b-ac69-aaed1d5047de"
         },
         {
             "parameters": {
-                "url": "={{$node[\"Config1\"].json[\"BASE_URL\"]}}/api/n8n/posts?original_link={{ $('RSS Read1').item.json.link }}&limit=1",
+                "url": "={{$node[\"Config\"].json[\"BASE_URL\"].replace(/\\/$/, '')}}/api/n8n/posts?original_link={{ $('RSS Read').item.json.link }}&limit=1",
                 "sendHeaders": true,
                 "headerParameters": {
                     "parameters": [
                         {
                             "name": "X-API-Key",
-                            "value": "={{$node[\"Config1\"].json[\"API_KEY\"]}}"
+                            "value": "={{$node[\"Config\"].json[\"API_KEY\"]}}"
                         }
                     ]
                 },
                 "options": {}
             },
-            "name": "Check Duplicate1",
+            "name": "Check Duplicate",
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 3,
             "position": [
-                1840,
-                -912
+                1600,
+                -608
             ],
-            "id": "d66642ce-94b4-4908-819e-b5a792cabb98"
+            "id": "a21e68ae-14a6-4f8e-9328-74f57a27a1a7"
         },
         {
             "parameters": {
@@ -67,39 +68,38 @@
                     ]
                 }
             },
-            "name": "Is New?1",
+            "name": "Is New?",
             "type": "n8n-nodes-base.if",
             "typeVersion": 1,
             "position": [
-                2048,
-                -912
+                1808,
+                -608
             ],
-            "id": "89aabdd9-7083-4f8f-aa84-596dfa303886"
+            "id": "ce3efad5-893a-40ef-8cc2-1bc4defea061"
         },
         {
             "parameters": {
-                "jsCode": "const aiOutput = $('AI Journalist1').first().json.output;\nlet parsed = {};\ntry {\n  // 1. Limpar cleanups básicos\n  let jsonStr = aiOutput.replace(/```json/g, '').replace(/```/g, '').trim();\n  \n  // 2. Encontrar os limites do objeto JSON\n  const firstOpen = jsonStr.indexOf('{');\n  const lastClose = jsonStr.lastIndexOf('}');\n  \n  if (firstOpen !== -1 && lastClose !== -1) {\n    jsonStr = jsonStr.substring(firstOpen, lastClose + 1);\n  }\n\n  parsed = JSON.parse(jsonStr);\n} catch (e) {\n  // Fallback: Retornar o erro e o raw output para debug\n  parsed = {\n    title: $('RSS Read1').item.json.title,\n    hat: 'ERRO JSON',\n    content: `<p><strong>Erro de Parsing:</strong> ${e.message}</p><pre>${aiOutput}</pre>`,\n    excerpt: 'Erro ao processar IA',\n    tags: ''\n  };\n}\n\nreturn { json: { ...parsed, original_link: $('RSS Read1').item.json.link } };"
+                "jsCode": "const aiOutput = $('AI Journalist').first().json.output;\nlet parsed = {};\ntry {\n  let jsonStr = aiOutput.replace(/```json/g, '').replace(/```/g, '').trim();\n  const firstOpen = jsonStr.indexOf('{');\n  const lastClose = jsonStr.lastIndexOf('}');\n  if (firstOpen !== -1 && lastClose !== -1) {\n    jsonStr = jsonStr.substring(firstOpen, lastClose + 1);\n  }\n  parsed = JSON.parse(jsonStr);\n} catch (e) {\n  parsed = {\n    title: $('RSS Read').item.json.title,\n    hat: 'ERRO JSON',\n    content: `<p><strong>Erro de Parsing:</strong> ${e.message}</p><pre>${aiOutput}</pre>`,\n    excerpt: 'Erro ao processar IA',\n    tags: ''\n  };\n}\nreturn { json: { ...parsed, original_link: $('RSS Read').item.json.link } };"
             },
-            "name": "Parse AI1",
+            "name": "Parse AI",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                2864,
-                -912
+                2464,
+                -624
             ],
-            "id": "d32ab1e3-2820-412e-bc89-a0351686e023"
+            "id": "6d8a0ef5-9453-4671-95e7-4bdd1f073dd3"
         },
         {
             "parameters": {
                 "method": "POST",
-                "url": "={{$node[\"Config1\"].json[\"BASE_URL\"]}}/api/n8n/posts",
-                "authentication": "none",
+                "url": "={{$node[\"Config\"].json[\"BASE_URL\"].replace(/\\/$/, '')}}/api/n8n/posts",
                 "sendHeaders": true,
                 "headerParameters": {
                     "parameters": [
                         {
                             "name": "X-API-Key",
-                            "value": "={{$node[\"Config1\"].json[\"API_KEY\"]}}"
+                            "value": "={{$node[\"Config\"].json[\"API_KEY\"]}}"
                         },
                         {
                             "name": "Content-Type",
@@ -108,7 +108,6 @@
                     ]
                 },
                 "sendBody": true,
-                "contentType": "json",
                 "bodyParameters": {
                     "parameters": [
                         {
@@ -129,11 +128,11 @@
                         },
                         {
                             "name": "category_id",
-                            "value": "={{ $node[\"Config1\"].json[\"DEFAULT_CATEGORY_ID\"] }}"
+                            "value": "={{ $node[\"Config\"].json[\"DEFAULT_CATEGORY_ID\"] }}"
                         },
                         {
                             "name": "author_id",
-                            "value": "={{ $node[\"Config1\"].json[\"DEFAULT_AUTHOR_ID\"] }}"
+                            "value": "={{ $node[\"Config\"].json[\"DEFAULT_AUTHOR_ID\"] }}"
                         },
                         {
                             "name": "status",
@@ -147,188 +146,538 @@
                 },
                 "options": {}
             },
-            "name": "Create Post1",
+            "name": "Create Post",
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 3,
             "position": [
-                3088,
-                -912
+                2704,
+                -624
             ],
-            "id": "f3053a39-0763-4b48-b378-191c482df83a"
+            "id": "def75109-4447-4013-b7e1-d5a5de61902b"
         },
         {
             "parameters": {
-                "model": {
-                    "__rl": true,
-                    "value": "gpt-4o-mini",
-                    "mode": "list",
-                    "cachedResultName": "gpt-4o-mini"
-                },
-                "builtInTools": {},
-                "options": {}
-            },
-            "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-            "typeVersion": 1.3,
-            "position": [
-                2352,
-                -768
-            ],
-            "id": "314f12f4-df75-499f-9614-9963abd8f14d",
-            "name": "OpenAI Chat Model",
-            "credentials": {
-                "openAiApi": {
-                    "id": "nLuuEwm3AOMjFhwE",
-                    "name": "OpenAi account"
-                }
-            }
-        },
-        {
-            "parameters": {
-                "url": "https://oglobo.globo.com/rss/oglobo/politica",
+                "url": "https://oglobo.globo.com/rss/oglobo/economia",
                 "options": {}
             },
             "type": "n8n-nodes-base.rssFeedRead",
             "typeVersion": 1.2,
             "position": [
-                1200,
-                -912
+                944,
+                -608
             ],
-            "id": "6ca1e3e5-d8dc-4380-ba61-ace93631f209",
-            "name": "RSS Read1"
-        },
-        {
-            "parameters": {
-                "maxItems": 1
-            },
-            "name": "Limit",
-            "type": "n8n-nodes-base.limit",
-            "typeVersion": 1,
-            "position": [
-                1400,
-                -912
-            ],
-            "id": "generated-limit-node"
-        },
-        {
-            "parameters": {
-                "text": "=Atue como um editor sênior do 'Novo Diário do Povo'. Sua tarefa é reescrever a notícia abaixo com tom jornalístico profissional, direto e humano.\n\n**INPUT:**\nTítulo: {{ $('RSS Read1').item.json.title }}\nConteúdo: {{ $('RSS Read1').item.json.contentSnippet }}\nLink: {{ $('RSS Read1').item.json.link }}\n\n**DIRETRIZES:**\n1. Lide direto (quem, o que, onde, quando).\n2. Voz ativa e parágrafos curtos.\n3. Sem adjetivos vazios ou clichês ('Vale notar', 'Em suma').\n4. Citação da fonte no final em formato Markdown: 'Fonte: [Nome do site ou veículo](Link original)'.\n\n**SAÍDA OBRIGATÓRIA (JSON VÁLIDO):**\nResponda APENAS o JSON cru. NÃO use blocos de código markdown (```json). NÃO adicione texto antes ou depois.\nEscape aspas duplas dentro do conteúdo (\\\") e não quebre linhas dentro das strings (use \\n).\n\n{\n  \"title\": \"Título curto e direto (sem ponto final)\",\n  \"hat\": \"Chapéu (ex: POLÍTICA)\",\n  \"content\": \"<p>Texto em HTML...</p>\",\n  \"excerpt\": \"Resumo social media\",\n  \"tags\": \"tag1, tag2\"\n}",
-                "options": {}
-            },
-            "name": "AI Journalist1",
-            "type": "@n8n/n8n-nodes-langchain.agent",
-            "typeVersion": 1,
-            "position": [
-                2352,
-                -1056
-            ],
-            "id": "abf9b638-71f0-4dd3-bf37-08ed6758b722"
+            "id": "61d895d8-b092-4848-9d11-a91c833637fa",
+            "name": "RSS Read"
         },
         {
             "parameters": {},
-            "type": "n8n-nodes-base.manualTrigger",
+            "name": "Limit1",
+            "type": "n8n-nodes-base.limit",
             "typeVersion": 1,
             "position": [
-                1000,
-                -912
+                1152,
+                -608
             ],
-            "id": "208988b9-f208-4abf-b0f9-e5fb8981195e",
-            "name": "When clicking ‘Execute workflow’"
+            "id": "d266d2b0-cd26-4777-84d7-dedcf2350a02"
+        },
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 15
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.3,
+            "position": [
+                720,
+                -608
+            ],
+            "id": "c2d7e489-3171-4785-90ee-65a7d2487cf7",
+            "name": "Schedule Trigger"
+        },
+        {
+            "parameters": {
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+            "typeVersion": 1,
+            "position": [
+                2096,
+                -448
+            ],
+            "id": "32e80fc4-1c21-4b09-91b5-f81f9a040431",
+            "name": "Google Gemini Chat Model",
+            "credentials": {
+                "googlePalmApi": {
+                    "id": "JwdjrWEg1SSQObBi",
+                    "name": "Google Gemini(PaLM) Api account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "=Atue como um editor sênior do 'Novo Diário do Povo'. Sua tarefa é reescrever a notícia abaixo com tom jornalístico profissional, direto e humano.\n\n**INPUT:**\nTítulo: {{ $('RSS Read').item.json.title }}\nConteúdo: {{ $('RSS Read').item.json.contentSnippet }}\nLink: {{ $('RSS Read').item.json.link }}\n\n**DIRETRIZES:**\n1. Lide direto (quem, o que, onde, quando).\n2. Voz ativa e parágrafos curtos.\n3. Sem adjetivos vazios ou clichês ('Vale notar', 'Em suma').\n4. Citação da fonte no final em formato Markdown: 'Fonte: [Nome do site ou veículo](Link original)'.\n\n**SAÍDA OBRIGATÓRIA (JSON VÁLIDO):**\nResponda APENAS o JSON cru. NÃO use blocos de código markdown (```json). NÃO adicione texto antes ou depois.\nEscape aspas duplas dentro do conteúdo (\\\") e não quebre linhas dentro das strings (use \\n).\n\n{\n  \"title\": \"Título curto e direto (sem ponto final)\",\n  \"hat\": \"Chapéu (ex: POLÍTICA)\",\n  \"content\": \"<p>Texto em HTML...</p>\",\n  \"excerpt\": \"Resumo social media\",\n  \"tags\": \"tag1, tag2\"\n}",
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 3.1,
+            "position": [
+                2096,
+                -624
+            ],
+            "id": "68a4f20e-3d7c-4a23-bb69-4df40643c49d",
+            "name": "AI Journalist"
+        },
+        {
+            "parameters": {
+                "jsCode": "const item = items[0];\nif (item.binary && item.binary.data) {\n  return [{ json: { success: true, needs_download: false }, binary: item.binary }];\n}\nif (item.json && (item.json.url || (item.json.data && item.json.data[0] && item.json.data[0].url))) {\n  const url = item.json.url || item.json.data[0].url;\n  return [{ json: { success: true, needs_download: true, download_url: url } }];\n}\nreturn [{ json: { success: false, error: 'No image data or URL found' } }];"
+            },
+            "name": "Check Result1",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3536,
+                -448
+            ],
+            "id": "482a784e-63ff-49a3-8ffe-27e475254c5e"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.success }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "name": "Success?1",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                3760,
+                -448
+            ],
+            "id": "46333df8-07c6-4b75-894d-ca33e636bf4f"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.needs_download }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "name": "Needs Download?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                4112,
+                -464
+            ],
+            "id": "d1be17bb-c1c2-46a4-9a32-7e784c66d5b7"
+        },
+        {
+            "parameters": {
+                "operations": "resize",
+                "width": 1280,
+                "options": {
+                    "format": "jpeg",
+                    "quality": 80,
+                    "resizeOption": "limit"
+                }
+            },
+            "name": "Optimize Image",
+            "type": "n8n-nodes-base.imageHelper",
+            "typeVersion": 1,
+            "position": [
+                4464,
+                -464
+            ],
+            "id": "optimize-image-rss"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{$node[\"Config\"].json[\"BASE_URL\"].replace(/\\/$/, '')}}/api/n8n/media",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "X-API-Key",
+                            "value": "={{$node[\"Config\"].json[\"API_KEY\"]}}"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "contentType": "multipart-form-data",
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "parameterType": "formBinaryData",
+                            "name": "file",
+                            "inputDataFieldName": "data"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Upload to Media Library1",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                4720,
+                -464
+            ],
+            "id": "2fd95a1c-240c-48f0-8d35-408e97c7790b"
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "={{$node[\"Config\"].json[\"BASE_URL\"].replace(/\\/$/, '')}}/api/n8n/posts/{{ $('Create Post').item.json.data.id }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "X-API-Key",
+                            "value": "={{$node[\"Config\"].json[\"API_KEY\"]}}"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "cover_media_id",
+                            "value": "={{ Number($('Upload to Media Library1').item.json.data.id) }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Update Post in CMS",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                5000,
+                -464
+            ],
+            "id": "66ea426d-3bbc-4d57-be4d-b88b00348162"
+        },
+        {
+            "parameters": {
+                "jsCode": "const titulo = $('Parse AI').item.json.title;\nconst postId = $('Create Post').item.json.data.id;\nconst uploadNode = $('Upload to Media Library1').item.json;\nconst mediaId = uploadNode.data ? uploadNode.data.id : null;\nreturn [{ json: { media_id: mediaId, post_id: postId, title: titulo, success: true } }];"
+            },
+            "name": "Format Success1",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                5280,
+                -464
+            ],
+            "id": "b49a10d2-d87d-436b-abea-ee25dd72c2c7"
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "acab4af3-9f79-4170-b0a9-740b9ec1a189",
+                            "name": "Título",
+                            "value": "={{ $('Parse AI').item.json.title }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "adfb010d-e6e9-4729-908f-0c3dfddb1f6e",
+                            "name": "Resumo",
+                            "value": "={{ $('Parse AI').item.json.excerpt }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "7482b370-ba93-480b-8b93-8c844df564e4",
+                            "name": "Tags",
+                            "value": "={{ $('Parse AI').item.json.tags }}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                2912,
+                -624
+            ],
+            "id": "a8e05f29-73e9-4d65-99a9-a4ac98944bf6",
+            "name": "Edit Fields"
+        },
+        {
+            "parameters": {
+                "resource": "image",
+                "modelId": {
+                    "__rl": true,
+                    "value": "models/gemini-2.5-flash-image",
+                    "mode": "list"
+                },
+                "prompt": "=`Editorial illustration collage for newspaper regarding \"{{ $json['Título'] }}\". Context: {{ $json.Resumo }}. Key elements: {{ $json.Tags }}. Style: Mixed media editorial collage, grainy paper textures, bold vector shapes, Dadaist influence. Colors: deep navy, carmine red, off-white. NO TEXT.`;",
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.googleGemini",
+            "typeVersion": 1.1,
+            "position": [
+                3264,
+                -448
+            ],
+            "id": "2508ef6c-a944-46c2-86a0-fa719ab48d4a",
+            "name": "Generate an image1",
+            "credentials": {
+                "googlePalmApi": {
+                    "id": "JwdjrWEg1SSQObBi",
+                    "name": "Google Gemini(PaLM) Api account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "url": "={{$json.download_url}}",
+                "options": {}
+            },
+            "name": "Download Image1",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                4300,
+                -600
+            ],
+            "id": "rss-download-node"
         }
     ],
     "connections": {
-        "Config1": {
+        "Config": {
             "main": [
                 [
                     {
-                        "node": "Check Duplicate1",
+                        "node": "Check Duplicate",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "Check Duplicate1": {
+        "Check Duplicate": {
             "main": [
                 [
                     {
-                        "node": "Is New?1",
+                        "node": "Is New?",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "Is New?1": {
+        "Is New?": {
             "main": [
                 [
                     {
-                        "node": "AI Journalist1",
+                        "node": "AI Journalist",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "Parse AI1": {
+        "Parse AI": {
             "main": [
                 [
                     {
-                        "node": "Create Post1",
+                        "node": "Create Post",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "OpenAI Chat Model": {
+        "Create Post": {
+            "main": [
+                [
+                    {
+                        "node": "Edit Fields",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "RSS Read": {
+            "main": [
+                [
+                    {
+                        "node": "Limit1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Limit1": {
+            "main": [
+                [
+                    {
+                        "node": "Config",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Schedule Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "RSS Read",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Google Gemini Chat Model": {
             "ai_languageModel": [
                 [
                     {
-                        "node": "AI Journalist1",
+                        "node": "AI Journalist",
                         "type": "ai_languageModel",
                         "index": 0
                     }
                 ]
             ]
         },
-        "RSS Read1": {
+        "AI Journalist": {
             "main": [
                 [
                     {
-                        "node": "Limit",
+                        "node": "Parse AI",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "Limit": {
+        "Check Result1": {
             "main": [
                 [
                     {
-                        "node": "Config1",
+                        "node": "Success?1",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "AI Journalist1": {
+        "Success?1": {
             "main": [
                 [
                     {
-                        "node": "Parse AI1",
+                        "node": "Needs Download?",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "When clicking ‘Execute workflow’": {
+        "Needs Download?": {
             "main": [
                 [
                     {
-                        "node": "RSS Read1",
+                        "node": "Download Image1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Optimize Image",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Download Image1": {
+            "main": [
+                [
+                    {
+                        "node": "Optimize Image",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Optimize Image": {
+            "main": [
+                [
+                    {
+                        "node": "Upload to Media Library1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Upload to Media Library1": {
+            "main": [
+                [
+                    {
+                        "node": "Update Post in CMS",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Update Post in CMS": {
+            "main": [
+                [
+                    {
+                        "node": "Format Success1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Edit Fields": {
+            "main": [
+                [
+                    {
+                        "node": "Generate an image1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Generate an image1": {
+            "main": [
+                [
+                    {
+                        "node": "Check Result1",
                         "type": "main",
                         "index": 0
                     }

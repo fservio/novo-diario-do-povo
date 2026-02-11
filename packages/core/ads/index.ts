@@ -10,7 +10,7 @@ export interface AdSlot {
   id: number
   name: string
   template: string
-  provider: 'gam' | 'adsense'
+  provider: 'gam' | 'adsense' | 'custom'
   sizes_json: string
   lazy: number
   min_height: number
@@ -19,6 +19,7 @@ export interface AdSlot {
   gam_targeting_json?: string | null
   adsense_slot_id?: string | null
   adsense_format?: string | null
+  custom_code?: string | null
 }
 
 export interface PageContext {
@@ -52,6 +53,16 @@ export function renderAdSlot(params: {
 
   const sizesStr = JSON.stringify(sizes)
   const isLazy = slot.lazy === 1 ? '1' : '0'
+
+  if (slot.provider === 'custom' && slot.custom_code) {
+    return `<div class="ad-slot" 
+      data-ad-slot="${escapeHtml(slot.name)}" 
+      data-provider="custom"
+      style="min-height: ${slot.min_height}px; display: block;"
+    >
+      ${slot.custom_code}
+    </div>`
+  }
 
   return `<div class="ad-slot" 
     data-ad-slot="${escapeHtml(slot.name)}" 
@@ -91,7 +102,7 @@ export async function filterSlotsBySubscriberMode(
   template: string
 ): Promise<AdSlot[]> {
   const subscriberModeEnabled = await getSetting(env, 'ads.subscriber_mode.enabled', 'public')
-  
+
   if (!subscriberModeEnabled || !isSubscriber) {
     return slots
   }
@@ -126,7 +137,7 @@ export async function filterSlotsBySubscriberMode(
 /**
  * Generate client loader script
  */
-export async function generateAdsLoaderScript(env: Env): Promise<string> {
+export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<string> {
   const providerMode = await getSetting(env, 'ads.provider_mode', 'public') || 'off'
   const consentEnabled = await getSetting(env, 'ads.consent.enabled', 'public') || false
   const adsenseClientId = await getSetting(env, 'ads.adsense.client_id', 'public') || ''
@@ -136,7 +147,7 @@ export async function generateAdsLoaderScript(env: Env): Promise<string> {
     return '<!-- Ads disabled -->'
   }
 
-  return `<script>
+  return `<script nonce="${nonce}">
 (function() {
   'use strict';
   
@@ -184,21 +195,38 @@ export async function generateAdsLoaderScript(env: Env): Promise<string> {
     const provider = el.dataset.provider;
     const name = el.dataset.adSlot;
     
+    // Custom slots are handled directly by injected HTML, no loader needed unless they use adsense/gam internally
+    // If custom code contains adsbygoogle push, we might need to ensure library is loaded.
+    // For now, we assume custom code is self-sufficient or relies on global libs if present.
+    // But if custom code is just the <ins> tag, user might expect us to load adsense lib.
+    // Given the user request showed <script> + <ins> + <script>, it is self-sufficient.
+    if (provider === 'custom') return;
+
     if (provider === 'adsense' && (providerMode === 'adsense' || providerMode === 'both')) {
       loadAdSenseScript();
-      setTimeout(() => {
-        if (window.adsbygoogle) {
-          const ins = document.createElement('ins');
-          ins.className = 'adsbygoogle';
-          ins.style.display = 'block';
-          ins.dataset.adClient = adsenseClientId;
-          ins.dataset.adSlot = el.dataset.adsenseSlot || '';
-          ins.dataset.adFormat = el.dataset.adsenseFormat || 'auto';
-          el.innerHTML = '';
-          el.appendChild(ins);
-          (adsbygoogle = window.adsbygoogle || []).push({});
-        }
-      }, 100);
+      loadAdSenseScript();
+      
+      // Initialize shim immediately if not present
+      window.adsbygoogle = window.adsbygoogle || [];
+
+      // No need to wait for script load. The push() will act as a queue.
+      // We process immediately to ensure the <ins> tag is ready when the script runs.
+      const ins = document.createElement('ins');
+      ins.className = 'adsbygoogle';
+      ins.style.display = 'block';
+      ins.dataset.adClient = adsenseClientId;
+      ins.dataset.adSlot = el.dataset.adsenseSlot || '';
+      ins.dataset.adFormat = el.dataset.adsenseFormat || 'auto';
+      ins.dataset.fullWidthResponsive = 'true'; // Default to true for responsiveness
+      
+      el.innerHTML = '';
+      el.appendChild(ins);
+      
+      try {
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+      } catch (e) {
+        console.error('AdSense push error:', e);
+      }
     } else if (provider === 'gam' && (providerMode === 'gam' || providerMode === 'both')) {
       loadGAMScript();
       setTimeout(() => {
@@ -246,11 +274,32 @@ export async function generateAdsLoaderScript(env: Env): Promise<string> {
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', observeAdSlots);
-  } else {
-    observeAdSlots();
+  function startAds() {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', observeAdSlots);
+    } else {
+      observeAdSlots();
+    }
   }
+
+  // Delay ads initialization until interaction or 4s
+  let adsStarted = false;
+  function initOnInteraction() {
+    if (adsStarted) return;
+    adsStarted = true;
+    startAds();
+    // Cleanup listeners
+    ['mousedown', 'mousemove', 'scroll', 'touchstart', 'keydown'].forEach(event => {
+      window.removeEventListener(event, initOnInteraction);
+    });
+  }
+
+  ['mousedown', 'mousemove', 'scroll', 'touchstart', 'keydown'].forEach(event => {
+    window.addEventListener(event, initOnInteraction, { once: true, passive: true });
+  });
+
+  // Fallback after 4s to ensure ads eventually show if no interaction
+  setTimeout(initOnInteraction, 4000);
 })();
 </script>`
 }
@@ -265,3 +314,4 @@ function escapeHtml(text: string): string {
   }
   return text.replace(/[&<>"']/g, m => map[m] || m)
 }
+

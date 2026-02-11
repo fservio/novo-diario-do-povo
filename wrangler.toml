@@ -20,3 +20,6 @@ id = "627e53560f4845948da9ef9f69a842cc"
 [[r2_buckets]]
 binding = "R2"
 bucket_name = "webapp-media"
+
+[vars]
+PUBLIC_BASE_URL = "https://diario.dopovo.com.br"

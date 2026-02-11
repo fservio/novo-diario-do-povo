@@ -7,7 +7,7 @@
 import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
 import type { HomeData, HomePost, CategoryBlock } from '../db/home'
-import { renderPublicLayout, escapeHtml, escapeAttr, truncate, formatTime } from './layout'
+import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, formatTime, truncate, generateSrcSet, type PublicLayoutParams } from './layout'
 import { getPostUrl } from '../utils/post'
 import { getSetting } from '../db'
 import { getActiveCategories } from '../db/categories-cache'
@@ -27,6 +27,8 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
               src="${hero.featured_image_r2_key ? `/i/${escapeAttr(hero.featured_image_r2_key)}?w=1200` : '/placeholder-hero.jpg'}" 
               alt="${escapeAttr(hero.title)}"
               class="card-img w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 img-aesthetic"
+              width="1200"
+              height="800"
               loading="eager"
               fetchpriority="high"
             />
@@ -65,6 +67,8 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
             src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=600` : '/placeholder.jpg'}" 
             alt="${escapeAttr(post.title)}"
             class="card-img w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 img-aesthetic"
+            width="600"
+            height="400"
             loading="lazy"
           />
         </div>
@@ -141,6 +145,8 @@ function renderRadarSection(posts: HomePost[], baseUrl: string): string {
                 src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=400` : '/placeholder.jpg'}" 
                 alt="${escapeAttr(post.title)}"
                 class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 img-aesthetic"
+                width="400"
+                height="225"
                 loading="lazy"
               />
             </div>
@@ -179,12 +185,16 @@ function renderCategorySection(block: CategoryBlock, baseUrl: string, index: num
         <!-- Lead Story -->
         <div class="lg:col-span-7 ${isInverted ? 'lg:order-2' : ''}">
           <a href="${getPostUrl(lead, baseUrl)}" class="group block relative aspect-video rounded-xl overflow-hidden">
-            <img 
-              src="${leadImage}"
-              alt="${escapeAttr(lead.title)}"
-              class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-              loading="lazy"
-            />
+            <div class="gb-media-wrapper" style="aspect-ratio: 16 / 9; background: #f0f0f0;">
+              <img 
+                src="${leadImage}"
+                alt="${escapeAttr(lead.title)}"
+                class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                width="800"
+                height="450"
+                loading="lazy"
+              />
+            </div>
             <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent"></div>
             <div class="absolute bottom-0 left-0 p-6 w-full">
               ${lead.hat ? `
@@ -208,10 +218,12 @@ function renderCategorySection(block: CategoryBlock, baseUrl: string, index: num
             ${list.map(post => `
               <li class="group">
                 <a href="${getPostUrl(post, baseUrl)}" class="flex gap-4">
-                  <div class="w-24 h-16 rounded bg-gray-100 overflow-hidden flex-shrink-0">
+                  <div class="w-24 h-16 rounded bg-gray-100 overflow-hidden flex-shrink-0" style="aspect-ratio: 96 / 64;">
                     <img 
-                      src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}` : '/placeholder.jpg'}"
+                      src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=200` : '/placeholder.jpg'}"
                       class="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                      width="96"
+                      height="64"
                       loading="lazy"
                     />
                   </div>
@@ -259,11 +271,13 @@ function renderPostGB(post: HomePost, baseUrl: string, params?: { isLcp?: boolea
   return `
     <article class="gb-card">
       <a href="${getPostUrl(post, baseUrl)}" class="gb-card__link">
-        <div class="gb-card__media">
+        <div class="gb-card__media" style="aspect-ratio: 6 / 4; background: #f0f0f0; overflow: hidden;">
           <img 
             src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=600` : '/static/logo-dp.png'}" 
             alt="${escapeAttr(post.title)}"
-            class="img-aesthetic"
+            style="width: 100%; height: 100%; object-fit: cover;"
+            width="600"
+            height="400"
             loading="${params?.isLcp ? 'eager' : 'lazy'}"
             ${params?.isLcp ? 'fetchpriority="high"' : ''}
           />
@@ -312,7 +326,7 @@ function renderHomePageMinimal(data: HomeData, baseUrl: string, adTop: string, a
   const latestPosts: HomePost[] = []
 
   for (const post of rawLatest) {
-    if (latestPosts.length >= 6) break
+    if (latestPosts.length >= 8) break
     if (!shownIds.has(post.id)) {
       latestPosts.push(post)
       shownIds.add(post.id)
@@ -321,13 +335,15 @@ function renderHomePageMinimal(data: HomeData, baseUrl: string, adTop: string, a
 
   // 3. Sections (Categories) - Robust Deduplication per block
   const categories = data.categoryBlocks.map(block => {
-    const filteredList = block.list.filter(p => {
+    // Combine lead and list for unified filtering in minimal theme
+    const allPosts = [block.lead, ...block.list]
+    const filtered = allPosts.filter(p => {
       if (shownIds.has(p.id)) return false
       shownIds.add(p.id)
       return true
     })
-    return { ...block, list: filteredList }
-  })
+    return { ...block, list: filtered }
+  }).filter(cat => cat.list.length > 0)
 
   return `
     <div style="font-family: var(--font-sans); background: var(--gb-bg); color: var(--gb-text);">
@@ -353,13 +369,18 @@ function renderHomePageMinimal(data: HomeData, baseUrl: string, adTop: string, a
             </div>
             <div class="gb-hero__media">
               <a href="${getPostUrl(hero, baseUrl)}">
-                <img 
-                  src="${hero.featured_image_r2_key ? `/i/${escapeAttr(hero.featured_image_r2_key)}` : '/hero-placeholder.jpg'}" 
-                  alt="${escapeAttr(hero.title)}" 
-                  class="img-aesthetic"
-                  loading="eager"
-                  fetchpriority="high"
-                />
+                <div class="gb-media-wrapper" style="aspect-ratio: 16 / 9; background: #f0f0f0;">
+                  <img 
+                    src="${hero.featured_image_r2_key ? `/i/${escapeAttr(hero.featured_image_r2_key)}?w=1200` : '/hero-placeholder.jpg'}" 
+                    ${hero.featured_image_r2_key ? `srcset="${generateSrcSet(hero.featured_image_r2_key)}"` : ''}
+                    sizes="(max-width: 800px) 100vw, 1200px"
+                    alt="${escapeAttr(hero.title)}" 
+                    width="1200"
+                    height="675"
+                    loading="eager"
+                    fetchpriority="high"
+                  />
+                </div>
               </a>
             </div>
           </div>
@@ -370,12 +391,12 @@ function renderHomePageMinimal(data: HomeData, baseUrl: string, adTop: string, a
 
       <!-- Latest Updates Grid -->
       <section class="gb-container gb-section">
-        <div class="gb-section__header">
-          <h2 class="gb-section__title">Últimas Noticias</h2>
-          <a href="/ultimas" class="gb-btn gb-btn--primary">Ver tudo</a>
+        <div class="gb-section__header" style="gap: 16px;">
+          <h2 class="gb-section__title" style="min-width: 0; flex: 1; line-height: 1.1;">Últimas Notícias</h2>
+          <a href="/ultimas" class="gb-btn gb-btn--primary" style="white-space: nowrap; flex-shrink: 0;">Ver tudo</a>
         </div>
         
-        <div class="gb-grid" style="grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));">
+        <div class="gb-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
           ${latestPosts.map((p, i) => renderPostGB(p, baseUrl, { isLcp: i === 0 && !hero })).join('')}
         </div>
       </section>
@@ -386,7 +407,7 @@ function renderHomePageMinimal(data: HomeData, baseUrl: string, adTop: string, a
       ${categories.map((cat, i) => `
         <section class="gb-container gb-section">
            <div class="gb-section__header">
-              <h2 class="gb-section__title">${escapeHtml(cat.name)}</h2>
+              <h2 class="gb-section__title"><a href="/categoria/${cat.slug}">${escapeHtml(cat.name)}</a></h2>
               <div class="gb-carousel-controls">
                  <button class="gb-control-btn" data-carousel-target="carousel-${i}" data-direction="prev" aria-label="Previous">←</button>
                  <button class="gb-control-btn" data-carousel-target="carousel-${i}" data-direction="next" aria-label="Next">→</button>
@@ -480,6 +501,7 @@ export async function renderHomePage(
     coverAlt: string
     coverAspectRatio: string
     subscriber?: any
+    googleAnalyticsId?: string
   }
 ): Promise<string> {
   const nonce = c.get('cspNonce') || ''
@@ -499,7 +521,7 @@ export async function renderHomePage(
   const adTop = findSlot('home_top_leaderboard') ? renderAdSlot({ slot: findSlot('home_top_leaderboard')!, page: pageContext, user: userContext }) : ''
   const adMid = findSlot('home_infeed_1') ? renderAdSlot({ slot: findSlot('home_infeed_1')!, page: pageContext, user: userContext }) : ''
 
-  const adsScript = await generateAdsLoaderScript(c.env)
+  const adsScript = await generateAdsLoaderScript(c.env, nonce)
 
   // Prepare Nav
   const navItems = data.sections.map(s => ({
@@ -568,7 +590,10 @@ export async function renderHomePage(
     coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null,
     bodyHtml,
     theme,
-    subscriber: params.subscriber
+    subscriber: params.subscriber,
+    googleAnalyticsId: params.googleAnalyticsId,
+    lcpPreloadUrl: data.hero?.featured_image_r2_key ? `/i/${escapeAttr(data.hero.featured_image_r2_key)}?w=1200` : undefined,
+    lcpSrcSet: data.hero?.featured_image_r2_key ? generateSrcSet(data.hero.featured_image_r2_key) : undefined
   })
 }
 

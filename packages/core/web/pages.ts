@@ -8,9 +8,9 @@ import type { Env } from '../types'
 // Content maps for static pages
 // In a future version, this should come from a 'pages' table in DB
 const STATIC_PAGES: Record<string, { title: string; content: string }> = {
-    'sobre': {
-        title: 'Sobre Nós',
-        content: `
+  'sobre': {
+    title: 'Sobre Nós',
+    content: `
       <h2>Quem Somos</h2>
       <p>O <strong>Novo Diário do Povo</strong> é um veículo de comunicação independente, comprometido com a verdade e a qualidade da informação.</p>
       <p>Nossa missão é levar notícias relevantes, análises aprofundadas e opiniões diversas para nossos leitores, sempre pautados pela ética jornalística.</p>
@@ -26,10 +26,10 @@ const STATIC_PAGES: Record<string, { title: string; content: string }> = {
       <h3>Fale Conosco</h3>
       <p>Para pautas, sugestões ou correções: <a href="mailto:redacao@novodiariodopovo.com.br">redacao@novodiariodopovo.com.br</a></p>
     `
-    },
-    'termos': {
-        title: 'Termos de Uso',
-        content: `
+  },
+  'termos': {
+    title: 'Termos de Uso',
+    content: `
       <h2>1. Aceitação dos Termos</h2>
       <p>Ao acessar e utilizar o Novo Diário do Povo, você concorda com estes termos de uso. Se você não concordar com algum destes termos, por favor, não utilize nosso site.</p>
       
@@ -45,12 +45,12 @@ const STATIC_PAGES: Record<string, { title: string; content: string }> = {
       <h2>5. Alterações</h2>
       <p>Reservamo-nos o direito de alterar estes termos a qualquer momento. O uso contínuo do site após as alterações implica na aceitação dos novos termos.</p>
     `
-    },
-    'privacidade': {
-        title: 'Política de Privacidade',
-        content: `
+  },
+  'privacidade': {
+    title: 'Política de Privacidade',
+    content: `
       <h2>1. Coleta de Dados</h2>
-      <p>Respeitamos sua privacidade. Coletamos apenas os dados necessários para o funcionamento do site e para melhorar sua experiência, como cookies de navegação e, no caso de assinantes, dados de cadastro.</p>
+      <p>Respeitamos sua privacidade. Coletamos apenas os dados necessários para o funcionamento do site e para melhorar sua experiênca, como cookies de navegação e, no caso de assinantes, dados de cadastro.</p>
       
       <h2>2. Uso das Informações</h2>
       <p>Seus dados são utilizados para:</p>
@@ -69,49 +69,51 @@ const STATIC_PAGES: Record<string, { title: string; content: string }> = {
       <h2>5. Seus Direitos</h2>
       <p>Você tem o direito de solicitar o acesso, correção ou exclusão de seus dados pessoais a qualquer momento. Entre em contato conosco para exercer esses direitos.</p>
     `
-    }
+  }
 }
 
 export async function renderStaticPage(c: Context<{ Bindings: Env }>, slug: string) {
-    const page = STATIC_PAGES[slug]
+  const page = STATIC_PAGES[slug]
 
-    if (!page) {
-        return null // Will trigger 404 in the caller
+  if (!page) {
+    return null // Will trigger 404 in the caller
+  }
+
+  const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
+  let baseUrl = c.env.PUBLIC_BASE_URL || 'https://diario.dopovo.com.br'
+  if (baseUrl.includes('.pages.dev')) baseUrl = 'https://diario.dopovo.com.br'
+
+  // Daily Cover (optional context for layout)
+  const { getMediaById } = await import('../db')
+  const dailyCover = await getSetting(c.env, 'daily_cover') as { media_id: number } | null
+  let coverR2Key = ''
+  let coverAlt = 'Capa do Dia'
+  let coverAspectRatio = '3/4'
+
+  if (dailyCover?.media_id) {
+    const media = await getMediaById(c.env, dailyCover.media_id)
+    if (media) {
+      coverR2Key = media.r2_key
+      coverAlt = media.alt || media.filename
+      if (media.width && media.height) {
+        coverAspectRatio = `${media.width}/${media.height}`
+      }
     }
+  }
 
-    const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
-    const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
+  // Get Home Sections for Nav
+  const { getHomeSections } = await import('../db/home')
+  const sections = await getHomeSections(c.env)
+  const categories = await getActiveCategories(c.env)
+  const navItems = sections
+    .filter(s => s.enabled)
+    .map(s => ({
+      label: s.title,
+      href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
+      active: false
+    }))
 
-    // Daily Cover (optional context for layout)
-    const { getMediaById } = await import('../db')
-    const dailyCover = await getSetting(c.env, 'daily_cover') as { media_id: number } | null
-    let coverR2Key = ''
-    let coverAlt = 'Capa do Dia'
-    let coverAspectRatio = '3/4'
-
-    if (dailyCover?.media_id) {
-        const media = await getMediaById(c.env, dailyCover.media_id)
-        if (media) {
-            coverR2Key = media.r2_key
-            coverAlt = media.alt || media.filename
-            if (media.width && media.height) {
-                coverAspectRatio = `${media.width}/${media.height}`
-            }
-        }
-    }
-
-    // Get Home Sections for Nav
-    const { getHomeSections } = await import('../db/home')
-    const sections = await getHomeSections(c.env)
-    const navItems = sections
-        .filter(s => s.enabled)
-        .map(s => ({
-            label: s.title,
-            href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
-            active: false
-        }))
-
-    const bodyHtml = `
+  const bodyHtml = `
     <div class="gb-container gb-content" style="padding-top: 40px; padding-bottom: 60px; max-width: 800px;">
       <h1 class="gb-title" style="margin-bottom: 32px; font-size: 2.5rem;">${page.title}</h1>
       <div class="gb-prose static-page-content" style="font-size: 1.125rem; line-height: 1.7;">
@@ -132,15 +134,18 @@ export async function renderStaticPage(c: Context<{ Bindings: Env }>, slug: stri
     </style>
   `
 
-    return renderPublicLayout({
-        title: `${page.title} | ${siteName}`,
-        description: page.content.substring(0, 150).replace(/<[^>]+>/g, '') + '...',
-        canonicalUrl: `${baseUrl}/p/${slug}`,
-        siteName,
-        navItems,
-        coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null,
-        bodyHtml,
-        theme: 'minimal' // Use minimal layout for static pages
-    })
-}
+  const googleAnalyticsId = await getSetting(c.env, 'google_analytics_id', 'public')
 
+  return renderPublicLayout({
+    title: `${page.title} | ${siteName}`,
+    description: page.content.substring(0, 150).replace(/<[^>]+>/g, '') + '...',
+    canonicalUrl: `${baseUrl}/p/${slug}`,
+    siteName,
+    navItems,
+    categories,
+    coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null,
+    bodyHtml,
+    theme: 'minimal', // Use minimal layout for static pages
+    googleAnalyticsId
+  })
+}

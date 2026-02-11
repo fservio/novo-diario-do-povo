@@ -45,6 +45,7 @@ export interface Post {
   // Joined
   category_name?: string
   author_name?: string
+  author_avatar_url?: string
   cover_media_url?: string
   tags?: string[]
 }
@@ -265,11 +266,13 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
       p.*,
       c.name as category_name,
       a.name as author_name,
+      ma.r2_key as author_avatar_url,
       m.r2_key as cover_media_url
     FROM posts p
     LEFT JOIN categories c ON c.id = p.category_id
     LEFT JOIN authors a ON a.id = p.author_id
     LEFT JOIN media m ON m.id = p.cover_media_id
+    LEFT JOIN media ma ON ma.id = a.avatar_media_id
     ${whereClause}
     ORDER BY p.created_at DESC
     LIMIT ? OFFSET ?
@@ -291,11 +294,13 @@ export async function getPostById(db: D1Database, id: number): Promise<Post | nu
       p.*,
       c.name as category_name,
       a.name as author_name,
+      ma.r2_key as author_avatar_url,
       m.r2_key as cover_media_url
     FROM posts p
     LEFT JOIN categories c ON c.id = p.category_id
     LEFT JOIN authors a ON a.id = p.author_id
     LEFT JOIN media m ON m.id = p.cover_media_id
+    LEFT JOIN media ma ON ma.id = a.avatar_media_id
     WHERE p.id = ?
     LIMIT 1
   `).bind(id).first<Post>()
@@ -324,11 +329,13 @@ export async function getPostBySlug(db: D1Database, slug: string): Promise<Post 
       p.*,
       c.name as category_name,
       a.name as author_name,
+      ma.r2_key as author_avatar_url,
       m.r2_key as cover_media_url
     FROM posts p
     LEFT JOIN categories c ON c.id = p.category_id
     LEFT JOIN authors a ON a.id = p.author_id
     LEFT JOIN media m ON m.id = p.cover_media_id
+    LEFT JOIN media ma ON ma.id = a.avatar_media_id
     WHERE p.slug = ?
     LIMIT 1
   `).bind(slug).first<Post>()

@@ -79,9 +79,9 @@ export async function findPublishedPosts(
     SELECT DISTINCT p.* 
     FROM posts p
     WHERE p.status = 'published' 
-    AND p.published_at <= datetime('now')
+    AND p.published_at <= ?
   `
-  const bindings: any[] = []
+  const bindings: any[] = [new Date().toISOString()]
 
   if (filters.categoryId) {
     query += ' AND p.category_id = ?'
@@ -126,9 +126,9 @@ export async function countPublishedPosts(
     SELECT COUNT(*) as total
     FROM posts p
     WHERE p.status = 'published' 
-    AND p.published_at <= datetime('now')
+    AND p.published_at <= ?
   `
-  const bindings: any[] = []
+  const bindings: any[] = [new Date().toISOString()]
 
   if (filters.categoryId) {
     query += ' AND p.category_id = ?'
@@ -361,10 +361,10 @@ export async function findActiveEntitlement(env: Env, readerUserId: number): Pro
     SELECT * FROM entitlements 
     WHERE reader_user_id = ? 
     AND status = 'active'
-    AND (current_period_end IS NULL OR current_period_end > datetime('now'))
+    AND (current_period_end IS NULL OR current_period_end > ?)
     ORDER BY id DESC
     LIMIT 1
-  `).bind(readerUserId).first<Entitlement>()
+  `).bind(readerUserId, new Date().toISOString()).first<Entitlement>()
 }
 
 export async function hasActiveSubscription(env: Env, readerUserId: number): Promise<boolean> {

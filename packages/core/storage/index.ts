@@ -105,15 +105,70 @@ export async function uploadMedia(
 // R2 Serving (GET /i/:key)
 // ============================================================================
 
-export async function serveMedia(env: Env, r2Key: string): Promise<Response> {
+export async function serveMedia(env: Env, r2Key: string, request: Request): Promise<Response> {
   // Bloquear acesso a paths privados
   if (r2Key.includes('private/')) {
     return new Response('Forbidden', { status: 403 })
   }
 
+  const url = new URL(request.url)
+  const width = url.searchParams.get('w')
+  const height = url.searchParams.get('h')
+  const quality = url.searchParams.get('q') || '85'
+  const isProcessed = url.searchParams.has('processed')
+
+  // Se houver parâmetros de redimensionamento e NÃO for o fetch interno de processamento
+  if ((width || height) && !isProcessed) {
+    const resizedUrl = new URL(request.url)
+    resizedUrl.searchParams.set('processed', 'true')
+
+
+    // IMPORTANTE: Para o Cloudflare Image Resizing funcionar, devemos usar o domínio da zona (Custom Domain).
+    // O domínio .pages.dev muitas vezes não tem o add-on ativado ou não processa o 'cf: image' da mesma forma.
+    // Garantimos a proteção contra loop com a flag 'processed=true' acima.
+    const customDomain = 'diario.dopovo.com.br'
+    if (!resizedUrl.hostname.includes('localhost')) {
+      resizedUrl.hostname = customDomain;
+      resizedUrl.protocol = 'https:';
+      resizedUrl.port = ''; // Ensure no port (like 8788) leaks into prod
+    }
+
+    // REMOVER headers de range para garantir que o Cloudflare receba um 200 OK
+    // O Image Resizing não funciona com 206 Partial Content
+    const newHeaders = new Headers(request.headers)
+    newHeaders.delete('Range')
+
+    // Dispara o Image Resizing do Cloudflare via fetch recursivo
+    // Nota: O Cloudflare detecta esse fetch interno e aplica as transformações na resposta
+    return (fetch as any)(resizedUrl.toString(), {
+      headers: newHeaders,
+      cf: {
+        image: {
+          width: width ? parseInt(width) : undefined,
+          height: height ? parseInt(height) : undefined,
+          quality: parseInt(quality),
+          format: 'auto', // AVIF/WebP negotiation
+          fit: 'cover',
+        }
+      }
+    })
+  }
+
+  // Se for uma imagem estática (logo, etc) servida via /i/static/
+  if (r2Key.startsWith('static/')) {
+    const staticPath = r2Key.replace('static/', '')
+    // Se for um fetch interno de processamento, buscamos o arquivo e retornamos 200 OK
+    if (isProcessed) {
+      const resp = await fetch(`${url.origin}/static/${staticPath}`)
+      return resp
+    }
+    // Caso contrário, redirect normal para cache de borda (sem resize)
+    return Response.redirect(`${url.origin}/static/${staticPath}`, 301)
+  }
+
   // Buscar no R2
   const object = await env.R2.get(r2Key)
-  
+
   if (!object) {
     return new Response('Not Found', { status: 404 })
   }
@@ -123,7 +178,8 @@ export async function serveMedia(env: Env, r2Key: string): Promise<Response> {
   headers.set('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream')
   headers.set('Cache-Control', 'public, max-age=31536000, immutable')
   headers.set('ETag', object.httpEtag)
-  
+  headers.set('Vary', 'Accept') // Importante para format: auto
+
   // Suporte a range requests (vídeos)
   if (object.range && 'offset' in object.range) {
     const rangeData = object.range as { offset: number; length: number }
@@ -159,13 +215,13 @@ export async function downloadAndUploadExternalMedia(
   }
 
   const contentType = response.headers.get('content-type') || 'application/octet-stream'
-  
+
   if (!ALLOWED_MIME_TYPES.includes(contentType)) {
     throw new Error(`Tipo de conteúdo não permitido: ${contentType}`)
   }
 
   const arrayBuffer = await response.arrayBuffer()
-  
+
   // Extrair filename da URL
   const urlParts = new URL(url).pathname.split('/')
   const filename = urlParts[urlParts.length - 1] || 'download'

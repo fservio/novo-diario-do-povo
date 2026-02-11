@@ -15,9 +15,10 @@ export async function renderSubscribePage(
     baseUrl: string
     siteName: string
     navItems: Array<{ label: string; href: string; active?: boolean }>
+    googleAnalyticsId?: string
   }
 ): Promise<string> {
-  const { baseUrl, siteName, navItems } = options
+  const { baseUrl, siteName, navItems, googleAnalyticsId } = options
   const nonce = c.get('cspNonce') || ''
 
   const extraHeadHtml = `
@@ -326,6 +327,7 @@ export async function renderSubscribePage(
     categories,
     bodyHtml,
     extraHeadHtml,
-    theme
+    theme,
+    googleAnalyticsId: options.googleAnalyticsId
   })
 }

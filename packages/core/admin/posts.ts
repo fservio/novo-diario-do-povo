@@ -231,6 +231,12 @@ function renderPostsListPage(params: {
                 <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
                   <a href="/admin/posts/${post.id}" class="btn btn-outline" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">Editar</a>
                   <a href="/admin/posts/${post.id}/preview" target="_blank" class="btn btn-outline" style="padding: 0.35rem 0.5rem; font-size: 0.75rem;" title="Ver Preview">👁️</a>
+                  <form method="post" action="/admin/posts/${post.id}/delete" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir esta matéria permanentemente?')">
+                    ${renderCsrfInput(csrfToken)}
+                    <button type="submit" class="btn" style="padding: 0.35rem 0.75rem; font-size: 0.75rem; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca;">
+                      Excluir
+                    </button>
+                  </form>
                 </div>
               </td>
             </tr>

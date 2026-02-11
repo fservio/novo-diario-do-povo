@@ -25,6 +25,16 @@ export interface ArticlePost {
   category_name: string
   category_slug: string
   author_name?: string
+  author_slug?: string
+  author_bio?: string | null
+  author_avatar_r2_key?: string | null
+  author_type?: 'staff' | 'columnist' | 'editorial' | 'contributor'
+  author_social_instagram?: string | null
+  author_social_twitter?: string | null
+  author_social_linkedin?: string | null
+  author_email?: string | null
+  column_name?: string | null
+  column_description?: string | null
   is_premium: number
   template?: string
   is_live: number
@@ -39,6 +49,8 @@ export interface RelatedPost {
   hat?: string
   featured_image_r2_key?: string
   author_name?: string
+  author_type?: string
+  author_avatar_r2_key?: string
 }
 
 /**
@@ -57,11 +69,22 @@ export async function findArticleBySlug(env: Env, slug: string): Promise<Article
       c.id as category_id,
       c.name as category_name,
       c.slug as category_slug,
-      u.name as author_name
+      a.name as author_name,
+      a.slug as author_slug,
+      a.bio as author_bio,
+      a.author_type,
+      a.social_instagram as author_social_instagram,
+      a.social_twitter as author_social_twitter,
+      a.social_linkedin as author_social_linkedin,
+      a.email as author_email,
+      a.column_name,
+      a.column_description,
+      ma.r2_key as author_avatar_r2_key
     FROM posts p
     JOIN categories c ON p.category_id = c.id
-    LEFT JOIN users u ON p.author_id = u.id
+    LEFT JOIN authors a ON p.author_id = a.id
     LEFT JOIN media m ON p.cover_media_id = m.id
+    LEFT JOIN media ma ON a.avatar_media_id = ma.id
     WHERE p.slug = ? AND p.status = 'published'
     LIMIT 1
   `).bind(slug).first<ArticlePost>()
@@ -86,11 +109,14 @@ export async function findRelatedPosts(
       p.id, p.slug, p.title, p.published_at, p.hat,
       c.name as category_name,
       m.r2_key as featured_image_r2_key,
-      u.name as author_name
+      a.name as author_name,
+      a.author_type,
+      ma.r2_key as author_avatar_r2_key
     FROM posts p
     JOIN categories c ON p.category_id = c.id
-    LEFT JOIN users u ON p.author_id = u.id
+    LEFT JOIN authors a ON p.author_id = a.id
     LEFT JOIN media m ON p.cover_media_id = m.id
+    LEFT JOIN media ma ON a.avatar_media_id = ma.id
     WHERE p.category_id = ?
       AND p.id != ?
       AND p.status = 'published'
@@ -121,6 +147,9 @@ export async function incrementPostViews(env: Env, postId: number): Promise<void
  */
 export async function findMostRead(env: Env, options: { limit: number; days?: number }): Promise<RelatedPost[]> {
   const { limit, days = 7 } = options
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - days)
+  const cutoffIso = cutoff.toISOString()
 
   // Query: Posts with most views in the last X days
   const result = await env.DB.prepare(`
@@ -129,19 +158,22 @@ export async function findMostRead(env: Env, options: { limit: number; days?: nu
       COUNT(v.id) as views_count,
       c.name as category_name,
       m.r2_key as featured_image_r2_key,
-      u.name as author_name
+      a.name as author_name,
+      a.author_type,
+      ma.r2_key as author_avatar_r2_key
     FROM posts p
     JOIN categories c ON p.category_id = c.id
-    LEFT JOIN users u ON p.author_id = u.id
+    LEFT JOIN authors a ON p.author_id = a.id
     LEFT JOIN media m ON p.cover_media_id = m.id
+    LEFT JOIN media ma ON a.avatar_media_id = ma.id
     LEFT JOIN post_views v ON p.id = v.post_id
     WHERE p.status = 'published'
       AND p.seo_noindex = 0
-      AND v.created_at >= datetime('now', '-' || ? || ' days')
+      AND v.created_at >= ?
     GROUP BY p.id
     ORDER BY views_count DESC, p.published_at DESC
     LIMIT ?
-  `).bind(days, limit).all<RelatedPost>()
+  `).bind(cutoffIso, limit).all<RelatedPost>()
 
   // Fallback if no views data found yet (empty result or low counts), fill with latest
   if (!result.results || result.results.length < limit) {
@@ -154,10 +186,11 @@ export async function findMostRead(env: Env, options: { limit: number; days?: nu
           p.id, p.slug, p.title, p.published_at, p.hat,
           c.name as category_name,
           m.r2_key as featured_image_r2_key,
-          u.name as author_name
+          a.name as author_name,
+          a.author_type
         FROM posts p
         JOIN categories c ON p.category_id = c.id
-        LEFT JOIN users u ON p.author_id = u.id
+        LEFT JOIN authors a ON p.author_id = a.id
         LEFT JOIN media m ON p.cover_media_id = m.id
         WHERE p.status = 'published'
           AND p.seo_noindex = 0

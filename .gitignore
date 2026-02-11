@@ -25,6 +25,7 @@ logs/
 *.bak
 *.tar.gz
 *.zip
+*.sql
 
 # Wrangler
 .wrangler/

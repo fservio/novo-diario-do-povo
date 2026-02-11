@@ -1,10 +1,4 @@
-/**
- * Minimalist Theme - Google Blog (The Keyword) Replica
- * Fidelity Target: 95%
- */
-
 :root {
-    /* Google Palette */
     --gb-bg: #ffffff;
     --gb-surface: #f8f9fa;
     --gb-text: #202124;
@@ -12,23 +6,14 @@
     --gb-blue: #1a73e8;
     --gb-blue-dark: #174ea6;
     --gb-border: #dadce0;
-
-    /* Dimensions & Shape */
     --gb-max-width: 1296px;
     --gb-header-height: 64px;
     --gb-radius: 24px;
     --gb-gap: 24px;
-
-    /* Typography */
     --font-sans: 'Google Sans', 'Noto Sans', Roboto, sans-serif;
-
-    /* Transitions */
     --ease-std: cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
-/* =========================================
-   Reset & Base
-   ========================================= */
 *,
 *::before,
 *::after {
@@ -62,9 +47,6 @@ ul {
     margin: 0;
 }
 
-/* =========================================
-   Layout Utilities
-   ========================================= */
 .gb-container {
     width: 100%;
     max-width: var(--gb-max-width);
@@ -77,9 +59,6 @@ ul {
     gap: var(--gb-gap);
 }
 
-/* =========================================
-   Component: Header
-   ========================================= */
 .gb-header {
     position: sticky;
     top: 0;
@@ -155,9 +134,6 @@ ul {
     box-shadow: 0 1px 3px 1px rgba(66, 133, 244, 0.15);
 }
 
-/* =========================================
-   Component: Hero
-   ========================================= */
 .gb-hero {
     padding: 48px 0 64px;
 }
@@ -190,7 +166,7 @@ ul {
 .gb-title--hero {
     font-size: 56px;
     line-height: 1.1;
-    font-weight: 700;
+    font-weight: 900;
     color: var(--gb-text);
     margin: 0 0 24px 0;
     letter-spacing: -1px;
@@ -203,14 +179,10 @@ ul {
     margin-bottom: 32px;
 }
 
-/* =========================================
-   Component: Article Card
-   ========================================= */
 .gb-card {
     display: flex;
     flex-direction: column;
     height: 100%;
-    /* group behavior is handled via parent/descendant selectors naturally */
 }
 
 .gb-card__media {
@@ -241,8 +213,8 @@ ul {
 
 .gb-title--card {
     font-size: 24px;
-    line-height: 1.3;
-    font-weight: 700;
+    line-height: 1.15;
+    font-weight: 900;
     margin: 0 0 12px 0;
     color: var(--gb-text);
 }
@@ -261,9 +233,6 @@ ul {
     gap: 8px;
 }
 
-/* =========================================
-   Component: Sections & Carousel
-   ========================================= */
 .gb-section {
     padding: 64px 0;
     border-top: 1px solid var(--gb-border);
@@ -281,6 +250,15 @@ ul {
     font-weight: 900;
     margin: 0;
     color: var(--gb-text);
+}
+
+.gb-section__title a {
+    color: inherit;
+    transition: color 0.2s;
+}
+
+.gb-section__title a:hover {
+    color: var(--gb-blue);
 }
 
 .gb-carousel-controls {
@@ -306,9 +284,6 @@ ul {
     border-color: var(--gb-text-secondary);
 }
 
-/* =========================================
-   Top Columns (Special 3-col Grid)
-   ========================================= */
 .gb-top-cols {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -320,14 +295,10 @@ ul {
     width: 100px;
     height: 100px;
     border-radius: 100px;
-    /* Circle/Pill */
     margin-bottom: 16px;
     object-fit: cover;
 }
 
-/* =========================================
-   Footer
-   ========================================= */
 .gb-footer {
     background: var(--gb-surface);
     padding: 80px 0 40px;
@@ -365,10 +336,7 @@ ul {
     margin-right: 12px;
 }
 
-/* =========================================
-   Responsiveness
-   ========================================= */
-@media (max-width: 1024px) {
+@media (max-width:1024px) {
 
     .gb-grid,
     .gb-top-cols,
@@ -380,8 +348,6 @@ ul {
     .gb-nav {
         display: none;
     }
-
-    /* Mobile toggle handling needed in JS */
 
     .gb-title--hero {
         font-size: 40px;
@@ -401,21 +367,42 @@ ul {
     }
 }
 
-/* Utilities */
-@media (min-width: 1025px) {
+@media (max-width:480px) {
+    .gb-section__title {
+        font-size: 24px;
+    }
+
+    .gb-btn {
+        padding: 0 16px;
+        height: 40px;
+        font-size: 14px;
+    }
+
+    .gb-title--hero {
+        font-weight: 900 !important;
+    }
+
+    .gb-title--card {
+        font-weight: 900 !important;
+    }
+
+    .article-title {
+        font-weight: 900 !important;
+    }
+}
+
+@media (min-width:1025px) {
     .mobile-only {
         display: none !important;
     }
 }
 
-@media (max-width: 1024px) {
+@media (max-width:1024px) {
     .desktop-only {
         display: none !important;
     }
 }
 
-
-/* Adjusted Header Styles */
 .gb-logo img {
     height: 32px !important;
     width: auto;
@@ -452,11 +439,8 @@ ul {
 
 .gb-icon-btn:hover {
     background: rgba(60, 64, 64, 0.08);
-    /* Fixed color syntax error if present */
 }
 
-
-/* Layout Utilities */
 .hidden {
     display: none !important;
 }
@@ -501,7 +485,6 @@ ul {
     letter-spacing: 0.1em;
 }
 
-/* Mobile Menu Drawer */
 .mobile-menu-overlay {
     position: fixed;
     inset: 0;
@@ -552,13 +535,6 @@ ul {
     color: var(--gb-blue);
 }
 
-
-
-/* =========================================
-   Article Detail Page Layout
-   Scope: .article-detail (and children)
-   ========================================= */
-
 .article-detail {
     --post-gutter: clamp(16px, 4vw, 40px);
     --post-reading-max: 72ch;
@@ -586,7 +562,6 @@ ul {
     word-break: break-word;
 }
 
-/* Typography Restore */
 .article-hat {
     font-family: 'Google Sans', sans-serif;
     color: #5f6368;
@@ -656,12 +631,6 @@ ul {
     padding-inline: var(--post-gutter);
 }
 
-
-/* =========================================
-   Google Blog Footer Replica
-   Scope: .gblog-footer
-   ========================================= */
-
 .gblog-footer {
     --gf-bg: #f8f9fa;
     --gf-text: #3c4043;
@@ -670,7 +639,6 @@ ul {
     --gf-icon-size: 24px;
     --gf-max-width: 1296px;
     --gf-gutter: 24px;
-
     background-color: var(--gf-bg);
     color: var(--gf-text-sec);
     font-family: var(--font-sans);
@@ -689,7 +657,6 @@ ul {
     gap: 40px;
 }
 
-/* Top: Social */
 .gblog-footer__top {
     display: flex;
     align-items: center;
@@ -733,7 +700,6 @@ ul {
     fill: currentColor;
 }
 
-/* Bottom: Links & Brand */
 .gblog-footer__bottom {
     display: grid;
     grid-template-columns: 1fr auto;
@@ -778,16 +744,12 @@ ul {
     opacity: 0.8;
 }
 
-/* Mobile Responsive */
-@media (max-width: 768px) {
-
-    /* Force mobile gutter */
+@media (max-width:768px) {
     .gb-container {
         padding-left: 16px !important;
         padding-right: 16px !important;
     }
 
-    /* Prevent horizontal overflow */
     html,
     body {
         overflow-x: hidden !important;
@@ -796,6 +758,35 @@ ul {
 
     body {
         padding-inline: 0 !important;
+    }
+
+    /* Next Post - Vertical on mobile */
+    .gb-card--next {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    /* Compact Card - Smaller image on mobile */
+    .gb-card--compact {
+        grid-template-columns: 120px 1fr;
+        gap: 0.75rem;
+    }
+
+    .gb-card--compact .gb-title--card {
+        font-size: 16px;
+    }
+
+    /* Related Grid - Single column on mobile */
+    .gb-related-grid {
+        grid-template-columns: 1fr !important;
+        gap: 1.5rem !important;
+    }
+
+    /* Section backgrounds - Less padding on mobile */
+    .gb-section--next,
+    .gb-section--related {
+        padding: 2rem 1.5rem !important;
+        margin-bottom: 2rem !important;
     }
 
     .gblog-footer {
@@ -828,33 +819,19 @@ ul {
     }
 }
 
-
-
-/* =========================================
-   Header Shadow System
-   Selector: .gb-header
-   ========================================= */
 .gb-header {
     --header-bg: rgba(255, 255, 255, 0.98);
     --header-shadow: 0 1px 0 rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.04);
     transition: box-shadow 0.2s ease, background-color 0.2s ease;
-
-    /* Option A: Always Visible */
     box-shadow: var(--header-shadow);
     background-color: #ffffff;
 }
 
-/* Opcao A (Sempre visivel) - Descomente para ativar */
-/* .gb-header { box-shadow: var(--header-shadow); } */
-
-/* Opcao C (Ao rolar - Default) */
 .gb-header.scrolled {
     box-shadow: var(--header-shadow);
     background-color: #ffffff;
-    /* Ensure solid bg when shadow is present */
 }
 
-/* Card Adjustments */
 .gb-card {
     border: 1px solid var(--gb-border);
     border-radius: var(--gb-radius);
@@ -868,9 +845,49 @@ ul {
     border-color: transparent;
 }
 
+/* Next Post - Horizontal Premium Card */
+.gb-card--next .gb-card__link {
+    display: grid;
+    grid-template-columns: 45% 1fr;
+    gap: 3rem;
+    align-items: center;
+}
+
+.gb-card--next .gb-card__media {
+    margin-bottom: 0;
+}
+
+.gb-card--next .gb-title--card {
+    font-size: 32px;
+    line-height: 1.1;
+    margin-bottom: 1rem;
+}
+
+/* Compact Card - Horizontal for Related rows */
+.gb-card--compact .gb-card__link {
+    display: grid !important;
+    grid-template-columns: 240px 1fr;
+    gap: 2rem;
+    align-items: flex-start;
+}
+
+.gb-card--compact .gb-card__media {
+    margin-bottom: 0;
+    aspect-ratio: 16 / 9;
+}
+
+.gb-card--compact .gb-card__content {
+    padding-top: 0.5rem;
+}
+
+.gb-card--compact .gb-title--card {
+    font-size: 20px;
+    line-height: 1.3;
+    margin-bottom: 12px;
+}
+
 .gb-card__media {
     border-radius: 0;
-    /* Let parent handle radius */
     margin-bottom: 0;
     border-bottom: 1px solid var(--gb-border);
 }
@@ -879,7 +896,6 @@ ul {
     padding: 24px;
 }
 
-/* LIVEBLOG STYLES - Moved from styles.css */
 .liveblog-status-banner {
     max-width: 900px;
     margin: 0 auto 3rem;
@@ -929,7 +945,7 @@ ul {
     margin-right: auto;
 }
 
-@media (min-width: 1024px) {
+@media (min-width:1024px) {
     .liveblog-timeline {
         margin-left: calc(50% - 400px);
         padding-left: 3rem;
@@ -954,7 +970,7 @@ ul {
     z-index: 10;
 }
 
-@media (min-width: 1024px) {
+@media (min-width:1024px) {
     .update-indicator {
         left: -3.55rem;
     }
@@ -1039,34 +1055,23 @@ ul {
     }
 }
 
-/* ============================================================================
-   Newsprint Printing Press Effect
-   Simula máquina de impressão revelando a foto
-   ============================================================================ */
-
-/* Container */
 .newsprint {
     position: relative;
     overflow: hidden;
     background: #f3f1ea;
-    /* papel amarelado */
 }
 
-/* Imagem com filtro de jornal */
 .newsprint-img {
     display: block;
     width: 100%;
     height: auto;
-    filter: grayscale(1) contrast(1.6) brightness(1.08);
 }
 
-/* ====== 1) Revelação (folha saindo) ====== */
 .print .newsprint-img {
     clip-path: inset(0 0 100% 0);
     animation: print-reveal 1.4s ease-out forwards, ink-settle 0.9s ease-out forwards;
 }
 
-/* ====== 2) Scanlines (cabeçote da impressora) ====== */
 .print::after {
     content: "";
     position: absolute;
@@ -1074,28 +1079,17 @@ ul {
     right: 0;
     top: -20%;
     height: 28%;
-
-    /* faixa + linhas finas */
-    background:
-        linear-gradient(to bottom, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0) 60%),
-        repeating-linear-gradient(to bottom,
-            rgba(0, 0, 0, 0.25) 0px,
-            rgba(0, 0, 0, 0.25) 1px,
-            rgba(0, 0, 0, 0) 2px,
-            rgba(0, 0, 0, 0) 6px);
-
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0) 60%), repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.25) 0px, rgba(0, 0, 0, 0.25) 1px, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0) 6px);
     mix-blend-mode: multiply;
     opacity: 0.55;
     animation: print-head 1.4s ease-out forwards;
     pointer-events: none;
 }
 
-/* ====== 3) Leve "tremor" mecânico ====== */
 .print {
     animation: print-jitter 0.22s linear 6;
 }
 
-/* Halftone pattern (pontilhado de impressão) */
 .newsprint::before {
     content: "";
     position: absolute;
@@ -1107,7 +1101,6 @@ ul {
     pointer-events: none;
 }
 
-/* Keyframes */
 @keyframes print-reveal {
     0% {
         clip-path: inset(0 0 100% 0);
@@ -1154,16 +1147,15 @@ ul {
 
 @keyframes ink-settle {
     0% {
-        filter: grayscale(1) contrast(0.95) brightness(1.06) blur(0.35px);
+        filter: blur(0.35px);
     }
 
     100% {
-        filter: grayscale(1) contrast(1.6) brightness(1.08) blur(0);
+        filter: blur(0);
     }
 }
 
-/* Acessibilidade: respeitar quem reduz animações */
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion:reduce) {
 
     .print .newsprint-img,
     .print::after,
@@ -1173,7 +1165,6 @@ ul {
     }
 }
 
-/* Carousel Styles */
 .gb-carousel {
     display: flex;
     gap: 24px;
@@ -1181,9 +1172,7 @@ ul {
     scroll-behavior: smooth;
     padding-bottom: 30px;
     -ms-overflow-style: none;
-    /* IE and Edge */
     scrollbar-width: none;
-    /* Firefox */
     scroll-snap-type: x mandatory;
 }
 
@@ -1197,7 +1186,6 @@ ul {
     scroll-snap-align: start;
 }
 
-/* Ensure card images in carousel are visible */
 .gb-carousel .card-img {
     height: 200px;
     object-fit: cover;

@@ -47,6 +47,8 @@ export interface Author {
   social_linkedin: string | null
   is_active: number
   is_columnist: number
+  author_type: 'staff' | 'columnist' | 'editorial' | 'contributor'
+  avatar_r2_key?: string | null
   column_name: string | null
   column_description: string | null
   user_id: number | null
@@ -65,6 +67,7 @@ export interface CreateAuthorInput {
   social_linkedin?: string | null
   is_active?: number
   is_columnist?: number
+  author_type?: 'staff' | 'columnist' | 'editorial' | 'contributor'
   column_name?: string | null
   column_description?: string | null
   user_id?: number | null
@@ -81,6 +84,7 @@ export interface UpdateAuthorInput {
   social_linkedin?: string | null
   is_active?: number
   is_columnist?: number
+  author_type?: 'staff' | 'columnist' | 'editorial' | 'contributor'
   column_name?: string | null
   column_description?: string | null
   user_id?: number | null
@@ -92,13 +96,15 @@ export interface UpdateAuthorInput {
 export async function listActiveAuthors(env: Env): Promise<Author[]> {
   const result = await env.DB.prepare(`
     SELECT 
-      id, slug, name, bio, avatar_media_id, email,
-      social_twitter, social_instagram, social_linkedin,
-      is_active, is_columnist, column_name, column_description,
-      user_id, created_at, updated_at
-    FROM authors
-    WHERE is_active = 1
-    ORDER BY name ASC
+      a.id, a.slug, a.name, a.bio, a.avatar_media_id, a.email,
+      a.social_twitter, a.social_instagram, a.social_linkedin,
+      a.is_active, a.is_columnist, a.author_type, a.column_name, a.column_description,
+      a.user_id, a.created_at, a.updated_at,
+      m.r2_key as avatar_r2_key
+    FROM authors a
+    LEFT JOIN media m ON a.avatar_media_id = m.id
+    WHERE a.is_active = 1
+    ORDER BY a.name ASC
   `).all<Author>()
 
   return result.results || []
@@ -110,12 +116,14 @@ export async function listActiveAuthors(env: Env): Promise<Author[]> {
 export async function findAuthorByEmail(env: Env, email: string): Promise<Author | null> {
   const result = await env.DB.prepare(`
     SELECT 
-      id, slug, name, bio, avatar_media_id, email,
-      social_twitter, social_instagram, social_linkedin,
-      is_active, is_columnist, column_name, column_description,
-      user_id, created_at, updated_at
-    FROM authors
-    WHERE email = ?
+      a.id, a.slug, a.name, a.bio, a.avatar_media_id, a.email,
+      a.social_twitter, a.social_instagram, a.social_linkedin,
+      a.is_active, a.is_columnist, a.author_type, a.column_name, a.column_description,
+      a.user_id, a.created_at, a.updated_at,
+      m.r2_key as avatar_r2_key
+    FROM authors a
+    LEFT JOIN media m ON a.avatar_media_id = m.id
+    WHERE a.email = ?
     LIMIT 1
   `).bind(email).first<Author>()
 
@@ -128,12 +136,14 @@ export async function findAuthorByEmail(env: Env, email: string): Promise<Author
 export async function findAuthorByUserId(env: Env, userId: number): Promise<Author | null> {
   const result = await env.DB.prepare(`
     SELECT 
-      id, slug, name, bio, avatar_media_id, email,
-      social_twitter, social_instagram, social_linkedin,
-      is_active, is_columnist, column_name, column_description,
-      user_id, created_at, updated_at
-    FROM authors
-    WHERE user_id = ?
+      a.id, a.slug, a.name, a.bio, a.avatar_media_id, a.email,
+      a.social_twitter, a.social_instagram, a.social_linkedin,
+      a.is_active, a.is_columnist, a.author_type, a.column_name, a.column_description,
+      a.user_id, a.created_at, a.updated_at,
+      m.r2_key as avatar_r2_key
+    FROM authors a
+    LEFT JOIN media m ON a.avatar_media_id = m.id
+    WHERE a.user_id = ?
     LIMIT 1
   `).bind(userId).first<Author>()
 
@@ -146,12 +156,14 @@ export async function findAuthorByUserId(env: Env, userId: number): Promise<Auth
 export async function findAuthorBySlug(env: Env, slug: string): Promise<Author | null> {
   const result = await env.DB.prepare(`
     SELECT 
-      id, slug, name, bio, avatar_media_id, email,
-      social_twitter, social_instagram, social_linkedin,
-      is_active, is_columnist, column_name, column_description,
-      user_id, created_at, updated_at
-    FROM authors
-    WHERE slug = ?
+      a.id, a.slug, a.name, a.bio, a.avatar_media_id, a.email,
+      a.social_twitter, a.social_instagram, a.social_linkedin,
+      a.is_active, a.is_columnist, a.author_type, a.column_name, a.column_description,
+      a.user_id, a.created_at, a.updated_at,
+      m.r2_key as avatar_r2_key
+    FROM authors a
+    LEFT JOIN media m ON a.avatar_media_id = m.id
+    WHERE a.slug = ?
     LIMIT 1
   `).bind(slug).first<Author>()
 
@@ -164,12 +176,14 @@ export async function findAuthorBySlug(env: Env, slug: string): Promise<Author |
 export async function findAuthorById(env: Env, id: number): Promise<Author | null> {
   const result = await env.DB.prepare(`
     SELECT 
-      id, slug, name, bio, avatar_media_id, email,
-      social_twitter, social_instagram, social_linkedin,
-      is_active, is_columnist, column_name, column_description,
-      user_id, created_at, updated_at
-    FROM authors
-    WHERE id = ?
+      a.id, a.slug, a.name, a.bio, a.avatar_media_id, a.email,
+      a.social_twitter, a.social_instagram, a.social_linkedin,
+      a.is_active, a.is_columnist, a.author_type, a.column_name, a.column_description,
+      a.user_id, a.created_at, a.updated_at,
+      m.r2_key as avatar_r2_key
+    FROM authors a
+    LEFT JOIN media m ON a.avatar_media_id = m.id
+    WHERE a.id = ?
     LIMIT 1
   `).bind(id).first<Author>()
 
@@ -218,9 +232,9 @@ export async function createAuthor(env: Env, data: CreateAuthorInput): Promise<n
     INSERT INTO authors (
       slug, name, bio, avatar_media_id, email,
       social_twitter, social_instagram, social_linkedin,
-      is_active, is_columnist, column_name, column_description,
+      is_active, is_columnist, author_type, column_name, column_description,
       user_id, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
   `).bind(
     data.slug,
     data.name,
@@ -232,6 +246,7 @@ export async function createAuthor(env: Env, data: CreateAuthorInput): Promise<n
     data.social_linkedin || null,
     data.is_active ?? 1,
     data.is_columnist ?? 0,
+    data.author_type || 'staff',
     data.column_name || null,
     data.column_description || null,
     data.user_id || null
@@ -299,6 +314,11 @@ export async function updateAuthor(env: Env, id: number, data: UpdateAuthorInput
   if (data.is_columnist !== undefined) {
     fields.push('is_columnist = ?')
     values.push(data.is_columnist)
+  }
+
+  if (data.author_type !== undefined) {
+    fields.push('author_type = ?')
+    values.push(data.author_type)
   }
 
   if (data.column_name !== undefined) {

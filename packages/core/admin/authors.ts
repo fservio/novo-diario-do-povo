@@ -30,6 +30,7 @@ const createAuthorSchema = z.object({
   social_twitter: z.string().optional(),
   social_instagram: z.string().optional(),
   social_linkedin: z.string().optional(),
+  author_type: z.enum(['staff', 'columnist', 'editorial', 'contributor']).default('staff'),
   is_columnist: z.string().transform(val => val === '1').optional(),
   column_name: z.string().optional(),
   column_description: z.string().optional(),
@@ -44,6 +45,7 @@ const updateAuthorSchema = z.object({
   social_twitter: z.string().optional(),
   social_instagram: z.string().optional(),
   social_linkedin: z.string().optional(),
+  author_type: z.enum(['staff', 'columnist', 'editorial', 'contributor']).optional(),
   is_columnist: z.string().transform(val => val === '1').optional(),
   column_name: z.string().optional(),
   column_description: z.string().optional(),
@@ -98,6 +100,7 @@ function renderAuthorsList(authors: Author[], csrfToken: string): string {
       <table>
         <thead>
           <tr>
+            <th style="width: 50px;">ID</th>
             <th>Nome / Email</th>
             <th>Tipo / Coluna</th>
             <th>Redes</th>
@@ -105,7 +108,35 @@ function renderAuthorsList(authors: Author[], csrfToken: string): string {
           </tr>
         </thead>
         <tbody>
-          ${rows}
+          ${authors.map(author => `
+            <tr>
+              <td><code style="background: var(--bg-main); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8125rem; font-weight: 700; color: var(--text-muted);">#${author.id}</code></td>
+              <td>
+                <div style="font-weight: 700;">${escapeHtml(author.name)}</div>
+                ${author.email ? `<div style="font-size: 0.8125rem; color: var(--text-muted);">${escapeHtml(author.email)}</div>` : ''}
+              </td>
+              <td>
+                ${author.author_type === 'columnist'
+      ? '<span style="display: inline-flex; align-items: center; justify-content: center; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; background: var(--accent-soft); color: var(--accent);">Colunista</span>'
+      : author.author_type === 'editorial'
+        ? '<span style="display: inline-flex; align-items: center; justify-content: center; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; background: #e0f2fe; color: #0369a1;">Editorial</span>'
+        : author.author_type === 'contributor'
+          ? '<span style="display: inline-flex; align-items: center; justify-content: center; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; background: #fef3c7; color: #92400e;">Artigo Opinião</span>'
+          : '<span style="display: inline-flex; align-items: center; justify-content: center; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; background: var(--bg-main); color: var(--text-muted);">Autor</span>'}
+                ${author.column_name ? `<div style="font-size: 0.8125rem; font-weight: 600; margin-top: 0.25rem;">${escapeHtml(author.column_name)}</div>` : ''}
+              </td>
+              <td style="color: var(--text-muted); font-size: 0.875rem;">
+                ${author.social_instagram ? 'IG ' : ''}
+                ${author.social_twitter ? 'TW ' : ''}
+                ${author.social_linkedin ? 'LI' : ''}
+              </td>
+              <td>
+                <a href="/admin/authors/${author.id}" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color);">
+                  Editar
+                </a>
+              </td>
+            </tr>
+          `).join('')}
         </tbody>
       </table>
     </div>
@@ -179,20 +210,27 @@ function renderAuthorForm(author: Author | null, csrfToken: string, error?: stri
           <!-- Social & Columnist -->
           <div style="display: flex; flex-direction: column; gap: 2rem;">
             
-            <!-- Columnist Settings -->
+            <!-- Column Type & Settings -->
             <div class="card" style="border-left: 4px solid var(--accent);">
               <h2 style="font-size: 1.125rem; font-weight: 700; margin-bottom: 1.5rem; margin-top: 0; color: var(--accent);">
-                📰 Configuração de Coluna
+                📰 Tipo e Layout
               </h2>
               
               <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 1rem; cursor: pointer; padding: 1rem; background: #fafbfc; border-radius: 0.75rem; border: 1.5px solid #e2e8f0; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='#e2e8f0'">
-                  <input type="checkbox" name="is_columnist" value="1" id="is_columnist_toggle" ${isColumnist ? 'checked' : ''} onchange="toggleColumnFields()" style="width: 1.25rem; height: 1.25rem; margin: 0; accent-color: var(--primary);" />
-                  <span style="font-weight: 700; color: var(--primary); text-transform: none; letter-spacing: normal;">Este autor possui uma Coluna?</span>
-                </label>
+                <label>Padrão Editorial</label>
+                <select name="author_type" id="author_type_select" class="form-control" onchange="toggleAuthorFields()" style="font-weight: 700;">
+                  <option value="staff" ${author?.author_type === 'staff' ? 'selected' : ''}>✒️ Redação / Staff</option>
+                  <option value="columnist" ${author?.author_type === 'columnist' ? 'selected' : ''}>👤 Colunista (Opinião)</option>
+                  <option value="editorial" ${author?.author_type === 'editorial' ? 'selected' : ''}>🏛️ Editorial (Voz do Jornal)</option>
+                  <option value="contributor" ${author?.author_type === 'contributor' ? 'selected' : ''}>🤝 Artigo de Opinião (Colaborador)</option>
+                </select>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Isso define o layout automático do post.</div>
               </div>
 
-              <div id="column_fields" style="display: ${isColumnist ? 'block' : 'none'}; padding-top: 1rem;">
+              <!-- Hidden Checkbox for backward compatibility -->
+              <input type="hidden" name="is_columnist" id="is_columnist_hidden" value="${author?.author_type === 'columnist' ? '1' : '0'}" />
+
+              <div id="column_fields" style="display: ${author?.author_type === 'columnist' ? 'block' : 'none'}; padding-top: 1rem; border-top: 1px dotted var(--border-color); margin-top: 1rem;">
                 <div class="form-group">
                   <label>Nome da Coluna</label>
                   <input type="text" name="column_name" class="form-control" value="${escapeHtml(author?.column_name || '')}" placeholder="Ex: Ponto de Vista, Tech News..." />
@@ -204,11 +242,22 @@ function renderAuthorForm(author: Author | null, csrfToken: string, error?: stri
                 </div>
               </div>
 
+              <div id="contributor_disclaimer" style="display: ${author?.author_type === 'contributor' ? 'block' : 'none'}; padding: 1rem; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 0.5rem; margin-top: 1rem;">
+                <div style="font-size: 0.8125rem; color: #92400e; font-weight: 600;">
+                  💡 <strong>Artigo de Opinião:</strong> Será exibido um disclaimer ao final do post indicando que a autoria é externa.
+                </div>
+              </div>
+
               <script>
-                function toggleColumnFields() {
-                  const checkbox = document.getElementById('is_columnist_toggle');
-                  const fields = document.getElementById('column_fields');
-                  fields.style.display = checkbox.checked ? 'block' : 'none';
+                function toggleAuthorFields() {
+                  const select = document.getElementById('author_type_select');
+                  const columnistFields = document.getElementById('column_fields');
+                  const contributorFields = document.getElementById('contributor_disclaimer');
+                  const legacyHidden = document.getElementById('is_columnist_hidden');
+                  
+                  columnistFields.style.display = select.value === 'columnist' ? 'block' : 'none';
+                  contributorFields.style.display = select.value === 'contributor' ? 'block' : 'none';
+                  legacyHidden.value = select.value === 'columnist' ? '1' : '0';
                 }
               </script>
             </div>
@@ -323,7 +372,8 @@ export async function handleAuthorsCreate(c: Context<{ Bindings: Env; Variables:
       social_instagram: data.social_instagram || null,
       social_linkedin: data.social_linkedin || null,
       is_active: 1,
-      is_columnist: data.is_columnist ? 1 : 0,
+      is_columnist: data.author_type === 'columnist' ? 1 : 0,
+      author_type: data.author_type,
       column_name: data.column_name || null,
       column_description: data.column_description || null,
     })
@@ -376,8 +426,8 @@ export async function handleAuthorsUpdate(c: Context<{ Bindings: Env; Variables:
 
     await updateAuthor(c.env, id, {
       ...data,
-      // Convert boolean check to 1/0 for update
-      is_columnist: data.is_columnist ? 1 : 0
+      // Convert boolean check to 1/0 for update based on author_type
+      is_columnist: data.author_type === 'columnist' ? 1 : 0
     })
 
     return c.redirect('/admin/authors', 303)
