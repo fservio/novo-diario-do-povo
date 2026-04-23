@@ -36,6 +36,7 @@ export interface ArticlePost {
   column_name?: string | null
   column_description?: string | null
   is_premium: number
+  paywall_tier?: 'hard' | 'metered' | 'free'
   template?: string
   is_live: number
 }
@@ -65,7 +66,7 @@ export async function findArticleBySlug(env: Env, slug: string): Promise<Article
       m.credits as featured_image_credits,
       m.alt as featured_image_alt,
       p.seo_title, p.seo_description, 
-      p.seo_noindex, p.seo_canonical, p.is_premium, p.is_live,
+      p.seo_noindex, p.seo_canonical, p.is_premium, p.is_live, p.paywall_tier,
       c.id as category_id,
       c.name as category_name,
       c.slug as category_slug,

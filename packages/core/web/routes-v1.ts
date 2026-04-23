@@ -283,6 +283,9 @@ app.get('/tag/:slug', async (c) => {
 // ============================================================================
 const handleArticleRequest = async (c: any) => {
     const { slug } = c.req.param()
+    const requestId = c.get('requestId') || 'no-id'
+
+    try {
 
     // Dynamic imports
     const { findArticleBySlug, findRelatedPosts, findMostRead, incrementPostViews } = await import('../db/article')
@@ -307,14 +310,14 @@ const handleArticleRequest = async (c: any) => {
     const readerContext = await getReaderContext(c)
 
     // Check access
-    const postForPaywall = {
-        id: post.id,
-        slug: post.slug,
-        is_premium: post.is_premium,
-        template: post.template,
-        paywall_tier: (post as any).paywall_tier,
-        category: { id: post.category_id, name: post.category_name, slug: post.category_slug }
-    }
+        const postForPaywall = {
+            id: post.id,
+            slug: post.slug,
+            is_premium: post.is_premium,
+            template: post.template,
+            paywall_tier: post.paywall_tier,
+            category: { id: post.category_id, name: post.category_name, slug: post.category_slug }
+        }
 
     const accessCheck = await checkPostAccess(c.env, postForPaywall as any, {
         isSubscriber: readerContext.isSubscriber,
@@ -411,7 +414,23 @@ const handleArticleRequest = async (c: any) => {
         headers['Cache-Control'] = 'public, max-age=60, s-maxage=60'
     }
 
-    return c.body(html, 200, headers)
+        return c.body(html, 200, headers)
+    } catch (error: any) {
+        console.error(`[handleArticleRequest][${requestId}] Error processing slug: ${slug}`, error)
+
+        // Debug mode support
+        const showDebug = c.req.query('debug_err') === '1'
+
+        return c.json({
+            success: false,
+            error: 'Erro interno do servidor',
+            ...(showDebug && {
+                debug: error.message,
+                stack: error.stack,
+                requestId
+            })
+        }, 500)
+    }
 }
 
 // GET /noticia/:slug - Legacy/Short URL

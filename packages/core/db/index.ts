@@ -382,7 +382,12 @@ export async function getSetting(env: Env, key: string, scope: 'public' | 'priva
   const cached = await env.KV.get(cacheKey)
 
   if (cached) {
-    return JSON.parse(cached)
+    try {
+      return JSON.parse(cached)
+    } catch {
+      // Corrupted cache
+      console.warn(`[getSetting] Corrupted cache for key: ${key}`)
+    }
   }
 
   // Fetch from DB
@@ -392,12 +397,17 @@ export async function getSetting(env: Env, key: string, scope: 'public' | 'priva
 
   if (!result) return null
 
-  const value = JSON.parse(result.value_json)
+  try {
+    const value = JSON.parse(result.value_json)
 
-  // Cache for 5 minutes
-  await env.KV.put(cacheKey, result.value_json, { expirationTtl: 300 })
+    // Cache for 5 minutes
+    await env.KV.put(cacheKey, result.value_json, { expirationTtl: 300 })
 
-  return value
+    return value
+  } catch (error) {
+    console.error(`[getSetting] Error parsing JSON for key: ${key}`, error)
+    return null
+  }
 }
 
 export async function setSetting(
