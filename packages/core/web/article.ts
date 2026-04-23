@@ -176,14 +176,14 @@ function renderArticleHeader(post: ArticlePost, readingTime: number): string {
       ` : ''}
       
       <!-- Featured Image -->
-      <!-- Featured Image -->
       ${post.featured_image_r2_key ? `
-        <figure class="article-featured-image">
+        <figure class="article-featured-image" style="${post.featured_image_width && post.featured_image_height ? `aspect-ratio: ${post.featured_image_width}/${post.featured_image_height};` : 'aspect-ratio: 16/9;'} background: #f1f3f4;">
           <img 
             src="/i/${escapeAttr(post.featured_image_r2_key)}?w=1200" 
             alt="${escapeAttr(post.featured_image_alt || post.title)}"
             loading="eager"
             fetchpriority="high"
+            style="width: 100%; height: auto; display: block;"
           >
           ${post.featured_image_credits ? `
             <figcaption class="article-featured-caption">
@@ -398,6 +398,12 @@ export async function renderArticlePage(
     : sanitizeHtml(contentRaw)
 
   const readingTime = estimateReadingTime(contentHtml)
+
+  // Optimization: Preload Featured Image for LCP
+  let extraHeadHtml = ''
+  if (post.featured_image_r2_key) {
+    extraHeadHtml += `<link rel="preload" as="image" href="/i/${escapeAttr(post.featured_image_r2_key)}?w=1200" fetchpriority="high">`
+  }
 
   // Get ad slots
   const adSlots = await findActiveSlotsByTemplate(c.env, 'article')

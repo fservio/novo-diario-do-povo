@@ -2,6 +2,18 @@ import { Hono } from 'hono'
 import type { Env, AppContext } from '../types'
 import { getPostUrl } from '../utils/post'
 
+// Static Imports for performance
+import { findArticleBySlug, findRelatedPosts, findMostRead, incrementPostViews } from '../db/article'
+import { getHomeSections, getHomeData } from '../db/home'
+import { renderArticlePage } from './article'
+import { checkPostAccess } from '../paywall'
+import { getReaderContext } from '../paywall/helpers'
+import { getSetting, logAudit, getMediaById, findTagBySlug } from '../db'
+import { renderHomePage } from './home'
+import { renderUltimasPage } from './ultimas'
+import { getCategoryPageData } from '../db/category'
+import { renderCategoryPage } from './category'
+
 const app = new Hono<{ Bindings: Env; Variables: AppContext }>()
 
 // ============================================================================
@@ -11,11 +23,6 @@ const app = new Hono<{ Bindings: Env; Variables: AppContext }>()
 // GET / - Home Page
 // GET / - Home Page
 app.get('/', async (c) => {
-    const { getHomeData } = await import('../db/home')
-    const { renderHomePage } = await import('./home')
-    const { getSetting, getMediaById } = await import('../db')
-    const { getReaderContext } = await import('../paywall/helpers')
-
     // Parallel fetch: Reader context, Home data, Settings
     const [
         readerContext,
@@ -74,13 +81,12 @@ app.get('/', async (c) => {
 
 // GET /ultimas - Latest Posts
 app.get('/ultimas', async (c) => {
-    const { getSetting } = await import('../db')
-    const { renderUltimasPage } = await import('./ultimas')
-    const { getReaderContext } = await import('../paywall/helpers')
-
-    const googleAnalyticsId = await getSetting(c.env, 'google_analytics_id', 'public')
-    const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
-    const readerContext = await getReaderContext(c as any)
+    const [googleAnalyticsId, siteNameResult, readerContext] = await Promise.all([
+        getSetting(c.env, 'google_analytics_id', 'public'),
+        getSetting(c.env, 'site_name', 'public'),
+        getReaderContext(c as any)
+    ])
+    const siteName = (siteNameResult as string) || 'Jornal'
 
     const page = parseInt(c.req.query('page') || '1')
     const limit = 30
@@ -124,27 +130,19 @@ app.get('/categoria/:slug', async (c) => {
     const slug = c.req.param('slug')
     const page = parseInt(c.req.query('page') || '1', 10)
 
-    const { getCategoryPageData } = await import('../db/category')
-    const { getHomeSections } = await import('../db/home')
-    const { renderCategoryPage } = await import('./category')
-    const { getSetting, getMediaById } = await import('../db')
-    const { getReaderContext } = await import('../paywall/helpers')
+    const [readerContext, data, googleAnalyticsId, siteNameResult, dailyCover] = await Promise.all([
+        getReaderContext(c as any),
+        getCategoryPageData(c.env, slug, page, 20),
+        getSetting(c.env, 'google_analytics_id', 'public'),
+        getSetting(c.env, 'site_name', 'public'),
+        getSetting(c.env, 'daily_cover') as Promise<{ media_id: number } | null>
+    ])
 
-    // Get reader context
-    const readerContext = await getReaderContext(c as any)
-
-    // Get category data with pagination
-    const data = await getCategoryPageData(c.env, slug, page, 20)
     if (!data) {
         return c.notFound()
     }
 
-    // Get CMS settings
-    const googleAnalyticsId = await getSetting(c.env, 'google_analytics_id', 'public')
-    const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
-
-    // Daily Cover
-    const dailyCover = await getSetting(c.env, 'daily_cover') as { media_id: number } | null
+    const siteName = (siteNameResult as string) || 'Jornal'
     let coverR2Key = ''
     let coverAlt = 'Capa do Dia'
     let coverAspectRatio = '3/4'
@@ -286,18 +284,11 @@ const handleArticleRequest = async (c: any) => {
     const requestId = c.get('requestId') || 'no-id'
 
     try {
-
-    // Dynamic imports
-    const { findArticleBySlug, findRelatedPosts, findMostRead, incrementPostViews } = await import('../db/article')
-    const { getHomeSections } = await import('../db/home')
-    const { renderArticlePage } = await import('./article')
-    const { checkPostAccess } = await import('../paywall')
-    const { getReaderContext } = await import('../paywall/helpers')
-    const { getSetting } = await import('../db')
-    const { logAudit } = await import('../db') // Using audit for event logging MVP
-
-    // Find post
-    const post = await findArticleBySlug(c.env, slug)
+        // Parallel fetch primary data (post and reader)
+        const [post, readerContext] = await Promise.all([
+            findArticleBySlug(c.env, slug),
+            getReaderContext(c)
+        ])
 
     if (!post || post.seo_noindex) {
         return c.notFound()
@@ -306,67 +297,73 @@ const handleArticleRequest = async (c: any) => {
     // Increment views (fire and forget)
     c.executionCtx.waitUntil(incrementPostViews(c.env, post.id))
 
-    // Get reader context
-    const readerContext = await getReaderContext(c)
+        // Parallel fetch all secondary data
+        const [
+            accessCheck,
+            googleAnalyticsId,
+            siteNameResult,
+            coverR2KeyResult,
+            coverAltResult,
+            coverAspectRatioResult,
+            sections,
+            relatedPosts,
+            mostRead
+        ] = await Promise.all([
+            checkPostAccess(c.env, {
+                id: post.id,
+                slug: post.slug,
+                is_premium: post.is_premium,
+                template: post.template,
+                paywall_tier: post.paywall_tier,
+                category: { id: post.category_id, name: post.category_name, slug: post.category_slug }
+            } as any, {
+                isSubscriber: readerContext.isSubscriber,
+                readerUserId: readerContext.readerId,
+                anonIdentifier: readerContext.anonIdentifier,
+                subscriber: readerContext.subscriber
+            }),
+            getSetting(c.env, 'google_analytics_id', 'public'),
+            getSetting(c.env, 'site_name', 'public'),
+            getSetting(c.env, 'cover_of_day.r2_key', 'public'),
+            getSetting(c.env, 'cover_of_day.alt', 'public'),
+            getSetting(c.env, 'cover_of_day.aspect_ratio', 'public'),
+            getHomeSections(c.env),
+            findRelatedPosts(c.env, post.id, post.category_id, { limit: 4 }),
+            findMostRead(c.env, { limit: 6 })
+        ])
 
-    // Check access
-        const postForPaywall = {
-            id: post.id,
-            slug: post.slug,
-            is_premium: post.is_premium,
-            template: post.template,
-            paywall_tier: post.paywall_tier,
-            category: { id: post.category_id, name: post.category_name, slug: post.category_slug }
+        const siteName = (siteNameResult as string) || 'Jornal'
+        const coverR2Key = (coverR2KeyResult as string) || ''
+        const coverAlt = (coverAltResult as string) || 'Capa do Dia'
+        const coverAspectRatio = (coverAspectRatioResult as string) || '3/4'
+
+        // Server-side Tracking (MVP)
+        const eventLog = {
+            entityType: 'article',
+            entityId: post.id,
+            action: accessCheck.allowed ? 'view_allowed' : 'view_blocked',
+            actorType: 'user' as 'user',
+            actorId: readerContext.readerId || 0,
+            metadata: {
+                reason: accessCheck.reason,
+                paywallMode: accessCheck.paywallMode,
+                slug: post.slug
+            },
+            requestId: c.get('requestId')
         }
+        c.executionCtx.waitUntil(logAudit(c.env, eventLog))
 
-    const accessCheck = await checkPostAccess(c.env, postForPaywall as any, {
-        isSubscriber: readerContext.isSubscriber,
-        readerUserId: readerContext.readerId,
-        anonIdentifier: readerContext.anonIdentifier,
-        subscriber: readerContext.subscriber
-    })
+        let baseUrl = c.env.PUBLIC_BASE_URL || 'https://diario.dopovo.com.br'
+        if (baseUrl.includes('.pages.dev')) baseUrl = 'https://diario.dopovo.com.br'
 
-    // Server-side Tracking (MVP)
-    const eventLog = {
-        entityType: 'article',
-        entityId: post.id,
-        action: accessCheck.allowed ? 'view_allowed' : 'view_blocked',
-        actorType: 'user' as 'user', // Explicit cast to satisfy union type
-        actorId: readerContext.readerId || 0,
-        metadata: {
-            reason: accessCheck.reason,
-            paywallMode: accessCheck.paywallMode,
-            slug: post.slug
-        },
-        requestId: c.get('requestId')
-    }
-    // Fire and forget logging
-    c.executionCtx.waitUntil(logAudit(c.env, eventLog))
-
-
-    // Get CMS settings
-    const googleAnalyticsId = await getSetting(c.env, 'google_analytics_id', 'public')
-    const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
-    const coverR2Key = (await getSetting(c.env, 'cover_of_day.r2_key', 'public') as string) || ''
-    const coverAlt = (await getSetting(c.env, 'cover_of_day.alt', 'public') as string) || 'Capa do Dia'
-    const coverAspectRatio = (await getSetting(c.env, 'cover_of_day.aspect_ratio', 'public') as string) || '3/4'
-
-    let baseUrl = c.env.PUBLIC_BASE_URL || 'https://diario.dopovo.com.br'
-    if (baseUrl.includes('.pages.dev')) baseUrl = 'https://diario.dopovo.com.br'
-
-    // Get nav sections
-    const sections = await getHomeSections(c.env)
-    const navItems = sections
-        .filter(s => s.enabled)
-        .map(s => ({
-            label: s.title,
-            href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
-            active: false
-        }))
-
-    // Get related posts and most read
-    const relatedPosts = await findRelatedPosts(c.env, post.id, post.category_id, { limit: 4 })
-    const mostRead = await findMostRead(c.env, { limit: 6 })
+        // Map nav items
+        const navItems = sections
+            .filter(s => s.enabled)
+            .map(s => ({
+                label: s.title,
+                href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
+                active: false
+            }))
 
     // Generate Content Source (Teaser vs Full)
     let contentSource = post.content_markdown || post.content || ''

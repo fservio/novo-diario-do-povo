@@ -17,6 +17,8 @@ export interface ArticlePost {
   featured_image_r2_key: string | null
   featured_image_credits: string | null
   featured_image_alt: string | null
+  featured_image_width?: number | null
+  featured_image_height?: number | null
   seo_title: string | null
   seo_description: string | null
   seo_noindex: number
@@ -65,6 +67,8 @@ export async function findArticleBySlug(env: Env, slug: string): Promise<Article
       m.r2_key as featured_image_r2_key,
       m.credits as featured_image_credits,
       m.alt as featured_image_alt,
+      m.width as featured_image_width,
+      m.height as featured_image_height,
       p.seo_title, p.seo_description, 
       p.seo_noindex, p.seo_canonical, p.is_premium, p.is_live, p.paywall_tier,
       c.id as category_id,
