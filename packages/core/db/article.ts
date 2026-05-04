@@ -153,7 +153,7 @@ export async function incrementPostViews(env: Env, postId: number): Promise<void
 export async function findMostRead(env: Env, options: { limit: number; days?: number }): Promise<RelatedPost[]> {
   const { limit, days = 7 } = options
   
-  // 1. Try KV Cache first (5 min TTL)
+  // 1. Try KV Cache first (1 hour TTL)
   const cacheKey = `analytics:most_read:${limit}:${days}`
   if (env.KV) {
     try {
@@ -223,9 +223,9 @@ export async function findMostRead(env: Env, options: { limit: number; days?: nu
     }
   }
 
-  // 4. Save to KV Cache (Fire and forget, 5 min TTL)
+  // 4. Save to KV Cache (Fire and forget, 1 hour TTL)
   if (env.KV && finalResults.length > 0) {
-    env.KV.put(cacheKey, JSON.stringify(finalResults), { expirationTtl: 300 }).catch(() => {})
+    env.KV.put(cacheKey, JSON.stringify(finalResults), { expirationTtl: 3600 }).catch(() => {})
   }
 
   return finalResults

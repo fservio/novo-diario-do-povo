@@ -384,10 +384,10 @@ export async function getHomeData(env: Env): Promise<HomeData> {
   }
 
   // 4. Save to Cache
-  if (env.CF_ENV !== 'dev' && env.CACHE) {
+    if (env.CF_ENV !== 'dev' && env.CACHE) {
     try {
-      // Cache for 300 seconds (5 minutes)
-      await env.CACHE.put('home_data_v3', JSON.stringify(data), { expirationTtl: 300 })
+      // Cache for 3600 seconds (1 hour) to significantly reduce D1 load
+      await env.CACHE.put('home_data_v3', JSON.stringify(data), { expirationTtl: 3600 })
     } catch (e) {
       console.error('Cache write error:', e)
     }
