@@ -290,7 +290,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
           INNER JOIN categories c ON p.category_id = c.id
           INNER JOIN authors a ON p.author_id = a.id
           LEFT JOIN media m ON p.cover_media_id = m.id
-          INNER JOIN post_tags pt ON pt.post_id = p.id
+          INNER JOIN posts_tags pt ON pt.post_id = p.id
           WHERE p.status = 'published' 
             AND p.published_at <= ?
             AND p.seo_noindex = 0
@@ -321,48 +321,64 @@ export async function getHomeData(env: Env): Promise<HomeData> {
     `).bind(now).all<HomePost>()
   })()
 
-  const categoryBlocksPromise = Promise.all(categorySections.map(async (section) => {
+  const categoryBlocksPromise = (async () => {
+    if (categorySections.length === 0) return [] as Array<CategoryBlock | null>
+
     try {
-      // Get category info
-      const category = await env.DB.prepare(
-        'SELECT id, name, slug FROM categories WHERE slug = ? LIMIT 1'
-      ).bind(section.slug).first<{ id: number; name: string; slug: string }>()
+      const categorySlugs = [...new Set(categorySections.map(section => section.slug))]
+      const placeholders = categorySlugs.map(() => '?').join(',')
+      const categoriesResult = await env.DB.prepare(`
+        SELECT id, name, slug
+        FROM categories
+        WHERE slug IN (${placeholders})
+      `).bind(...categorySlugs).all<{ id: number; name: string; slug: string }>()
 
-      if (!category) return null
+      const categoriesBySlug = new Map(
+        (categoriesResult.results || []).map(category => [category.slug, category])
+      )
 
-      // Get posts for this category
-      const postsResult = await env.DB.prepare(`
-        SELECT 
-          p.id, p.slug, p.title, p.excerpt, p.published_at, 
-          m.r2_key as featured_image_r2_key,
-          c.name as category_name, c.slug as category_slug,
-          a.name as author_name
-        FROM posts p
-        INNER JOIN categories c ON p.category_id = c.id
-        INNER JOIN authors a ON p.author_id = a.id
-        LEFT JOIN media m ON p.cover_media_id = m.id
-        WHERE p.status = 'published' 
-          AND p.published_at <= ?
-          AND p.seo_noindex = 0
-          AND c.slug = ?
-        ORDER BY p.published_at DESC
-        LIMIT 12
-      `).bind(now, section.slug).all<HomePost>()
+      const postsBySlug = new Map<string, HomePost[]>()
+      await Promise.all(categorySections.map(async (section) => {
+        const category = categoriesBySlug.get(section.slug)
+        if (!category) return
 
-      const posts = postsResult.results || []
-      if (posts.length === 0) return null
+        const postsResult = await env.DB.prepare(`
+          SELECT 
+            p.id, p.slug, p.title, p.excerpt, p.published_at, 
+            m.r2_key as featured_image_r2_key,
+            c.name as category_name, c.slug as category_slug,
+            a.name as author_name
+          FROM posts p
+          INNER JOIN categories c ON p.category_id = c.id
+          INNER JOIN authors a ON p.author_id = a.id
+          LEFT JOIN media m ON p.cover_media_id = m.id
+          WHERE p.category_id = ?
+            AND p.status = 'published'
+            AND p.published_at <= ?
+            AND p.seo_noindex = 0
+          ORDER BY p.published_at DESC
+          LIMIT 12
+        `).bind(category.id, now).all<HomePost>()
 
-      return {
-        slug: section.slug,
-        name: section.title,
-        lead: posts[0],
-        list: posts.slice(1)
-      } as CategoryBlock
+        postsBySlug.set(section.slug, postsResult.results || [])
+      }))
+
+      return categorySections.map((section) => {
+        const posts = postsBySlug.get(section.slug) || []
+        if (posts.length === 0) return null
+
+        return {
+          slug: section.slug,
+          name: section.title,
+          lead: posts[0],
+          list: posts.slice(1)
+        } as CategoryBlock
+      })
     } catch (e) {
-      console.error(`Error loading category block ${section.slug}`, e)
-      return null
+      console.error('Error loading category blocks', e)
+      return [] as Array<CategoryBlock | null>
     }
-  }))
+  })()
 
   const [dualFeaturesResult, hotRailResult, explainersResult, categoryBlocksRaw] = await Promise.all([
     dualFeaturesPromise,

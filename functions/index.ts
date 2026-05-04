@@ -294,7 +294,7 @@ app.get('/api/n8n/media', async (c) => {
 app.get('/i/:key{.+}', async (c) => {
   const { serveMedia } = await import('../packages/core/storage')
   const key = c.req.param('key')
-  return serveMedia(c.env, key)
+  return serveMedia(c.env, key, c.req.raw)
 })
 
 // Serve static assets from public/static/
@@ -545,7 +545,7 @@ app.get('/sitemap.xml', async (c) => {
 
 app.get('/sitemap-news.xml', async (c) => {
   const { generateNewsSitemap } = await import('../packages/core/seo')
-  const xml = await generateNewsSitemap(c.env, c.env.PUBLIC_BASE_URL)
+  const xml = await generateNewsSitemap(c.env)
   return c.text(xml, 200, { 'Content-Type': 'application/xml' })
 })
 
@@ -1938,126 +1938,20 @@ app.post('/api/admin/posts/:id/live-updates', async (c) => {
 
 // V2 Gold Route (Isolated)
 app.get('/v2', async (c) => {
-  const { getHomeData } = await import('../packages/core/db/home')
-  const { renderHomePageGold } = await import('../packages/core/web/home-gold')
-  const { getSetting } = await import('../packages/core/db')
-
-  // Get home data (reused from V1)
-  const data = await getHomeData(c.env)
-
-  // Get CMS settings
-  const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
-
-  // Daily Cover
-  const { getMediaById } = await import('../packages/core/db')
-  const dailyCover = await getSetting(c.env, 'daily_cover') as { media_id: number } | null
-  let coverR2Key = ''
-  let coverAlt = 'Capa do Dia'
-  let coverAspectRatio = '3/4'
-
-  if (dailyCover?.media_id) {
-    const media = await getMediaById(c.env, dailyCover.media_id)
-    if (media) {
-      coverR2Key = media.r2_key
-      coverAlt = media.alt || media.filename
-      if (media.width && media.height) {
-        coverAspectRatio = `${media.width}/${media.height}`
-      }
-    }
-  }
-
-  const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
-
-  // Render V2 Gold
-  const html = await renderHomePageGold(c, data, {
-    baseUrl,
-    siteName,
-    coverR2Key,
-    coverAlt,
-    coverAspectRatio
-  })
-
-  return c.html(html)
+  return c.redirect('/', 301)
 })
 
 // V2 Article Route (Isolated for testing)
 app.get('/v2/noticia/:slug', async (c) => {
-  const { findPostWithRelations, findPublishedPosts, getSetting } = await import('../packages/core/db')
-  const { renderArticlePageGold } = await import('../packages/core/web/article-gold')
-
   const slug = c.req.param('slug')
-  const post = await findPostWithRelations(c.env, slug)
-
-  if (!post) {
-    return c.text('Not Found', 404)
-  }
-
-  // Related Posts (Simulate Recirculation)
-  const related = await findPublishedPosts(c.env, {
-    categoryId: post.category_id,
-    limit: 3
-  })
-  // Filter out current post
-  const relatedFiltered = related.filter(p => p.id !== post.id).slice(0, 3)
-
-  const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
-  const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
-
-  const html = await renderArticlePageGold(c, post, relatedFiltered, {
-    baseUrl,
-    siteName
-  })
-
-
-  return c.html(html)
+  return c.redirect(`/noticia/${encodeURIComponent(slug)}`, 301)
 })
 
 // V2 Category Route
 app.get('/v2/categoria/:slug', async (c) => {
-  const { findCategoryBySlug, findPublishedPosts, countPublishedPosts, getSetting } = await import('../packages/core/db')
-  const { renderCategoryPageGold } = await import('../packages/core/web/category-gold')
-
   const slug = c.req.param('slug')
-  const page = Number(c.req.query('page') || 1)
-  const limit = 20
-
-  const category = await findCategoryBySlug(c.env, slug)
-  if (!category) {
-    return c.text('Category Not Found', 404)
-  }
-
-  // Fetch Posts
-  const posts = await findPublishedPosts(c.env, {
-    categoryId: category.id,
-    limit,
-    offset: (page - 1) * limit
-  })
-
-  const total = await countPublishedPosts(c.env, { categoryId: category.id })
-  const totalPages = Math.ceil(total / limit)
-
-  const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
-  const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
-
-  const html = await renderCategoryPageGold(c, {
-    category: {
-      name: category.name,
-      slug: category.slug,
-      description: category.description
-    },
-    posts: posts.map(p => ({
-      ...p,
-      published_at: p.published_at || new Date().toISOString(),
-      category_name: category.name // Ensure category name is passed
-    })),
-    page,
-    totalPages
-  }, {
-    baseUrl,
-    siteName
-  })
-
-  return c.html(html)
+  const page = c.req.query('page')
+  return c.redirect(`/categoria/${encodeURIComponent(slug)}${page ? `?page=${encodeURIComponent(page)}` : ''}`, 301)
 })
 
 // ============================================================================

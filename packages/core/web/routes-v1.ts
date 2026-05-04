@@ -38,7 +38,7 @@ app.get('/', async (c) => {
         getSetting(c.env, 'daily_cover') as Promise<{ media_id: number } | null>
     ])
 
-    const siteName = (siteNameResult as string) || 'Jornal'
+    const siteName = (siteNameResult as string) || 'Jornal Diário do Povo'
 
     let coverR2Key = ''
     let coverAlt = 'Capa do Dia'
@@ -86,7 +86,7 @@ app.get('/ultimas', async (c) => {
         getSetting(c.env, 'site_name', 'public'),
         getReaderContext(c as any)
     ])
-    const siteName = (siteNameResult as string) || 'Jornal'
+    const siteName = (siteNameResult as string) || 'Jornal Diário do Povo'
 
     const page = parseInt(c.req.query('page') || '1')
     const limit = 30
@@ -142,7 +142,7 @@ app.get('/categoria/:slug', async (c) => {
         return c.notFound()
     }
 
-    const siteName = (siteNameResult as string) || 'Jornal'
+    const siteName = (siteNameResult as string) || 'Jornal Diário do Povo'
     let coverR2Key = ''
     let coverAlt = 'Capa do Dia'
     let coverAspectRatio = '3/4'
@@ -203,13 +203,13 @@ app.get('/tag/:slug', async (c) => {
         // Get posts by tag
         const posts = await c.env.DB.prepare(`
         SELECT p.* FROM posts p
-        INNER JOIN post_tags pt ON pt.post_id = p.id
+        INNER JOIN posts_tags pt ON pt.post_id = p.id
         WHERE pt.tag_id = ? AND p.status = 'published'
         ORDER BY p.published_at DESC
         LIMIT 30
       `).bind(tag.id).all()
 
-        const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+        const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal Diário do Povo'
         let baseUrl = c.env.PUBLIC_BASE_URL || 'https://diario.dopovo.com.br'
         if (baseUrl.includes('.pages.dev')) baseUrl = 'https://diario.dopovo.com.br'
 
@@ -332,7 +332,7 @@ const handleArticleRequest = async (c: any) => {
             findMostRead(c.env, { limit: 6 })
         ])
 
-        const siteName = (siteNameResult as string) || 'Jornal'
+        const siteName = (siteNameResult as string) || 'Jornal Diário do Povo'
         const coverR2Key = (coverR2KeyResult as string) || ''
         const coverAlt = (coverAltResult as string) || 'Capa do Dia'
         const coverAspectRatio = (coverAspectRatioResult as string) || '3/4'

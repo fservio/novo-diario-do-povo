@@ -8,6 +8,8 @@ import type { Env, User, ReaderUser } from '../types'
 
 import { hashPassword, verifyPassword } from './password'
 
+export { hashPassword, verifyPassword } from './password'
+
 // ============================================================================
 // JWT (usando Web Crypto API)
 // ============================================================================

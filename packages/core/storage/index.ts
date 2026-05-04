@@ -170,6 +170,21 @@ export async function serveMedia(env: Env, r2Key: string, request: Request): Pro
   const object = await env.R2.get(r2Key)
 
   if (!object) {
+    if (env.CF_ENV === 'dev') {
+      const productionUrl = new URL(`/i/${r2Key}`, 'https://diario.dopovo.com.br')
+      productionUrl.search = url.search
+      const productionResponse = await fetch(productionUrl.toString(), {
+        headers: {
+          'User-Agent': 'localhost-production-media-sync/1.0',
+          'Accept': request.headers.get('Accept') || '*/*',
+        },
+      })
+
+      if (productionResponse.ok) {
+        return productionResponse
+      }
+    }
+
     return new Response('Not Found', { status: 404 })
   }
 

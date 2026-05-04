@@ -35,8 +35,7 @@ function escapeAttr(value: string | null | undefined): string {
 
 const markdownParser = new Marked({
   gfm: true,
-  breaks: true,
-  headerIds: false
+  breaks: true
 })
 
 /**

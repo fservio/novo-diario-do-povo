@@ -89,7 +89,7 @@ export async function findPublishedPosts(
   }
 
   if (filters.tagId) {
-    query += ` AND p.id IN (SELECT post_id FROM post_tags WHERE tag_id = ?)`
+    query += ` AND p.id IN (SELECT post_id FROM posts_tags WHERE tag_id = ?)`
     bindings.push(filters.tagId)
   }
 
@@ -136,7 +136,7 @@ export async function countPublishedPosts(
   }
 
   if (filters.tagId) {
-    query += ` AND p.id IN (SELECT post_id FROM post_tags WHERE tag_id = ?)`
+    query += ` AND p.id IN (SELECT post_id FROM posts_tags WHERE tag_id = ?)`
     bindings.push(filters.tagId)
   }
 
@@ -166,7 +166,7 @@ export async function findPostWithRelations(env: Env, slug: string) {
   // Tags
   const tags = await env.DB.prepare(`
     SELECT t.* FROM tags t
-    INNER JOIN post_tags pt ON pt.tag_id = t.id
+    INNER JOIN posts_tags pt ON pt.tag_id = t.id
     WHERE pt.post_id = ?
   `).bind(post.id).all<Tag>()
 

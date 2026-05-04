@@ -138,10 +138,16 @@ export async function filterSlotsBySubscriberMode(
  * Generate client loader script
  */
 export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<string> {
-  const providerMode = await getSetting(env, 'ads.provider_mode', 'public') || 'off'
-  const consentEnabled = await getSetting(env, 'ads.consent.enabled', 'public') || false
-  const adsenseClientId = await getSetting(env, 'ads.adsense.client_id', 'public') || ''
-  const gamNetworkCode = await getSetting(env, 'ads.gam.network_code', 'public') || ''
+  const [providerModeRaw, consentEnabledRaw, adsenseClientIdRaw, gamNetworkCodeRaw] = await Promise.all([
+    getSetting(env, 'ads.provider_mode', 'public'),
+    getSetting(env, 'ads.consent.enabled', 'public'),
+    getSetting(env, 'ads.adsense.client_id', 'public'),
+    getSetting(env, 'ads.gam.network_code', 'public'),
+  ])
+  const providerMode = providerModeRaw || 'off'
+  const consentEnabled = consentEnabledRaw || false
+  const adsenseClientId = adsenseClientIdRaw || ''
+  const gamNetworkCode = gamNetworkCodeRaw || ''
 
   if (providerMode === 'off') {
     return '<!-- Ads disabled -->'
@@ -195,17 +201,31 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
     const provider = el.dataset.provider;
     const name = el.dataset.adSlot;
     
-    // Custom slots are handled directly by injected HTML, no loader needed unless they use adsense/gam internally
-    // If custom code contains adsbygoogle push, we might need to ensure library is loaded.
-    // For now, we assume custom code is self-sufficient or relies on global libs if present.
-    // But if custom code is just the <ins> tag, user might expect us to load adsense lib.
-    // Given the user request showed <script> + <ins> + <script>, it is self-sufficient.
-    if (provider === 'custom') return;
+    if (el.dataset.adInitialized === '1') return;
+    el.dataset.adInitialized = '1';
+
+    // Inline scripts pasted into custom ad code are blocked by CSP, so initialize
+    // AdSense <ins> blocks here when custom code contains them.
+    if (provider === 'custom') {
+      const adsenseBlocks = el.querySelectorAll('ins.adsbygoogle');
+      if (adsenseBlocks.length > 0 && (providerMode === 'adsense' || providerMode === 'both')) {
+        loadAdSenseScript();
+        window.adsbygoogle = window.adsbygoogle || [];
+        adsenseBlocks.forEach(function(ins) {
+          if (ins.dataset.adsbygoogleStatus === 'done') return;
+          try {
+            (window.adsbygoogle = window.adsbygoogle || []).push({});
+          } catch (e) {
+            console.error('AdSense custom push error:', e);
+          }
+        });
+      }
+      return;
+    }
 
     if (provider === 'adsense' && (providerMode === 'adsense' || providerMode === 'both')) {
       loadAdSenseScript();
-      loadAdSenseScript();
-      
+
       // Initialize shim immediately if not present
       window.adsbygoogle = window.adsbygoogle || [];
 
@@ -261,9 +281,10 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
             observer.unobserve(entry.target);
           } else if (entry.target.dataset.lazy === '0') {
             initAdSlot(entry.target);
+            observer.unobserve(entry.target);
           }
         });
-      }, { rootMargin: '200px' });
+      }, { rootMargin: '600px' });
       
       slots.forEach(function(slot) {
         observer.observe(slot);
@@ -282,24 +303,18 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
     }
   }
 
-  // Delay ads initialization until interaction or 4s
   let adsStarted = false;
-  function initOnInteraction() {
+  function initAdsOnce() {
     if (adsStarted) return;
     adsStarted = true;
     startAds();
-    // Cleanup listeners
-    ['mousedown', 'mousemove', 'scroll', 'touchstart', 'keydown'].forEach(event => {
-      window.removeEventListener(event, initOnInteraction);
-    });
   }
 
-  ['mousedown', 'mousemove', 'scroll', 'touchstart', 'keydown'].forEach(event => {
-    window.addEventListener(event, initOnInteraction, { once: true, passive: true });
-  });
-
-  // Fallback after 4s to ensure ads eventually show if no interaction
-  setTimeout(initOnInteraction, 4000);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAdsOnce, { once: true });
+  } else {
+    initAdsOnce();
+  }
 })();
 </script>`
 }

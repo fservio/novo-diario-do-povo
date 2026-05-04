@@ -5,6 +5,8 @@
 
 import { renderScript } from '../admin/ui'
 
+const STATIC_ASSET_VERSION = '20260504'
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -115,7 +117,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     nonce = '',
     siteName,
     navItems,
-    categories,
+  categories = [],
     coverOfDay,
     bodyHtml,
     extraHeadHtml = '',
@@ -236,6 +238,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
 
   // Theme Selection
   const cssFile = theme === 'minimal' ? '/static/minimal.css' : '/static/styles.css'
+  const cssHref = `${cssFile}?v=${STATIC_ASSET_VERSION}`
 
   // Header Logic
   const headerHtml = theme === 'minimal' ? `
@@ -401,8 +404,8 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
   </style>
 
   <!-- Main CSS -->
-  <link rel="preload" href="${cssFile}?v=${Date.now()}" as="style">
-  <link href="${cssFile}?v=${Date.now()}" rel="stylesheet" fetchpriority="high">
+  <link rel="preload" href="${cssHref}" as="style">
+  <link href="${cssHref}" rel="stylesheet" fetchpriority="high">
 
   ${extraHeadHtml}
   ${googleAnalyticsId ? `

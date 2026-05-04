@@ -90,6 +90,11 @@ function renderArticleHeader(post: ArticlePost, readingTime: number): string {
 
   return `
     <header class="article-header ${isEditorial ? 'article-header--editorial' : ''}" style="${isEditorial ? 'display: flex; flex-direction: column; align-items: center; text-align: center;' : ''}">
+      <nav id="breadcrumb" aria-label="Breadcrumb" style="font-family: var(--font-sans); font-size: 0.8125rem; color: #5f6368; margin-bottom: 1rem;">
+        <a href="/" style="color: inherit; text-decoration: none;">Inicio</a>
+        <span style="margin: 0 0.5rem;">/</span>
+        <a href="/categoria/${escapeAttr(post.category_slug)}" style="color: inherit; text-decoration: none;">${escapeHtml(post.category_name)}</a>
+      </nav>
       <!-- Hat (Chapéu) -->\n      ${isColumnist && post.column_name ? `
         <!-- Chapéu de Coluna (grande, azul, bold) -->
         <div class="article-hat article-hat--columnist" style="background-color: #1a73e8; color: #ffffff; padding: 8px 16px; border-radius: 4px; font-size: 1.5rem; font-weight: 950; text-transform: uppercase; margin-bottom: 24px; display: inline-block; line-height: 1;">
@@ -248,7 +253,7 @@ function renderPaywallGate(access: AccessCheckResult, baseUrl: string, nonce: st
         <div class="paywall-icon">🔒</div>
         <h3>${escapeHtml(title)}</h3>
         <p>${escapeHtml(description)}</p>
-        <div class="paywall-actions">
+        <div id="paywallCta" class="paywall-actions">
            ${buttons}
         </div>
       </div>
@@ -400,9 +405,9 @@ export async function renderArticlePage(
   const readingTime = estimateReadingTime(contentHtml)
 
   // Optimization: Preload Featured Image for LCP
-  let extraHeadHtml = ''
+  let preloadHeadHtml = ''
   if (post.featured_image_r2_key) {
-    extraHeadHtml += `<link rel="preload" as="image" href="/i/${escapeAttr(post.featured_image_r2_key)}?w=1200" fetchpriority="high">`
+    preloadHeadHtml += `<link rel="preload" as="image" href="/i/${escapeAttr(post.featured_image_r2_key)}?w=1200" fetchpriority="high">`
   }
 
   // Get ad slots
@@ -466,6 +471,7 @@ export async function renderArticlePage(
   ], baseUrl)
 
   const extraHeadHtml = `
+    ${preloadHeadHtml}
     ${post.seo_noindex ? '<meta name="robots" content="noindex, follow">' : ''}
     ${generateOGTags(post, baseUrl)}
     <script type="application/ld+json" nonce="${nonce}">

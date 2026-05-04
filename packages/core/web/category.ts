@@ -117,7 +117,7 @@ export async function renderCategoryPage(
       
       <!-- Category Header -->
       <header class="gb-container py-8 border-b border-gray-100 mb-8">
-        <h1 class="text-4xl font-black tracking-tight mb-2">${escapeHtml(category.name)}</h1>
+        <h1 id="categoryTitle" class="text-4xl font-black tracking-tight mb-2">${escapeHtml(category.name)}</h1>
         ${category.description ? `<p class="text-gray-500 text-lg">${escapeHtml(category.description)}</p>` : ''}
       </header>
 
@@ -174,10 +174,18 @@ export async function renderCategoryPage(
                  <button class="gb-control-btn" data-carousel-target="carousel-cat" data-direction="next" aria-label="Next">→</button>
               </div>
            </div>
-           <div id="carousel-cat" class="gb-carousel">
+           <div id="categoryList" class="gb-carousel">
               ${list.map(p => renderPostGB(p, baseUrl)).join('')}
            </div>
         </section>
+      ` : ''}
+
+      ${totalPages > 1 ? `
+        <nav id="pagination" class="gb-container" style="display: flex; justify-content: center; gap: 12px; margin: 32px auto;" aria-label="Paginacao">
+          ${page > 1 ? `<a class="gb-btn gb-btn--text" href="/categoria/${escapeAttr(category.slug)}?page=${page - 1}">Anterior</a>` : ''}
+          <span style="align-self: center; color: #5f6368; font-size: 0.875rem;">Pagina ${page} de ${totalPages}</span>
+          ${page < totalPages ? `<a class="gb-btn gb-btn--text" href="/categoria/${escapeAttr(category.slug)}?page=${page + 1}">Proxima</a>` : ''}
+        </nav>
       ` : ''}
 
       ${posts.length === 0 ? `
@@ -198,7 +206,9 @@ export async function renderCategoryPage(
         
         const targetId = btn.getAttribute('data-carousel-target');
         const direction = btn.getAttribute('data-direction');
-        const carousel = document.getElementById(targetId);
+        const carousel = targetId === 'carousel-cat'
+          ? document.getElementById('categoryList')
+          : document.getElementById(targetId);
         
         if (carousel) {
           const scrollAmount = carousel.clientWidth * 0.8; 

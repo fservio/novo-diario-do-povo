@@ -26,6 +26,7 @@ logs/
 *.tar.gz
 *.zip
 *.sql
+!migrations/*.sql
 
 # Wrangler
 .wrangler/

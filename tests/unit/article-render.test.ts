@@ -65,14 +65,14 @@ describe('Article Page Rendering', () => {
 
 describe('Article Route Integration', () => {
   it('should have paywall check in route', () => {
-    const indexCode = readFileSync('functions/index.ts', 'utf-8')
+    const indexCode = readFileSync('packages/core/web/routes-v1.ts', 'utf-8')
     
     expect(indexCode).toContain('checkPostAccess')
     expect(indexCode).toContain('isBlocked')
   })
   
   it('should use renderArticlePage in route', () => {
-    const indexCode = readFileSync('functions/index.ts', 'utf-8')
+    const indexCode = readFileSync('packages/core/web/routes-v1.ts', 'utf-8')
     
     expect(indexCode).toContain('renderArticlePage')
   })

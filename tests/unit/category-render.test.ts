@@ -27,9 +27,8 @@ describe('Category Page Rendering', () => {
   it('should have listing ad slots in source', () => {
     const categoryCode = readFileSync('packages/core/web/category.ts', 'utf-8')
     
-    expect(categoryCode).toContain('listing_top')
-    expect(categoryCode).toContain('listing_infeed_1')
-    expect(categoryCode).toContain('listing_infeed_2')
+    expect(categoryCode).toContain('category_top_leaderboard')
+    expect(categoryCode).toContain('category_infeed')
   })
   
   it('should not contain Tailwind CDN', () => {

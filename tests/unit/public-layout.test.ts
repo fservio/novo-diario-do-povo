@@ -98,20 +98,20 @@ describe('renderPublicLayout', () => {
     expect(html).toContain('<meta property="og:type" content="article">')
   })
 
-  it('should render guardian theme CSS when theme is guardian', () => {
+  it('should render minimal theme CSS when theme is minimal', () => {
     const params: PublicLayoutParams = {
       title: 'Test Page',
       canonicalUrl: 'https://example.com/test',
       siteName: 'Test Site',
       navItems: [],
       bodyHtml: '<div>Test Content</div>',
-      theme: 'guardian'
+      theme: 'minimal'
     }
 
     const html = renderPublicLayout(params)
 
-    expect(html).toContain('<link href="/static/guardian.css" rel="stylesheet"')
-    expect(html).not.toContain('<link href="/static/styles.css" rel="stylesheet"')
+    expect(html).toContain('<link href="/static/minimal.css?v=')
+    expect(html).not.toContain('<link href="/static/styles.css?v=')
   })
 
   it('should render default theme CSS when theme is default or missing', () => {
@@ -125,7 +125,7 @@ describe('renderPublicLayout', () => {
 
     const html = renderPublicLayout(params)
 
-    expect(html).toContain('<link href="/static/styles.css" rel="stylesheet"')
-    expect(html).not.toContain('<link href="/static/guardian.css" rel="stylesheet"')
+    expect(html).toContain('<link href="/static/styles.css?v=')
+    expect(html).not.toContain('<link href="/static/minimal.css?v=')
   })
 })
