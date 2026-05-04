@@ -52,21 +52,26 @@ export async function loggingMiddleware(c: Context, next: Next): Promise<void> {
 // ============================================================================
 
 export function errorHandler(error: Error, c: Context) {
-  const logger = createLogger(c.get('requestId') || 'unknown')
+  const requestId = c.get('requestId') || 'unknown'
+  const logger = createLogger(requestId)
   
+  // Log detalhado no console (interno do Cloudflare)
+  console.error(`[Unhandled Error] [${requestId}] ${error.message}\nStack: ${error.stack}`)
+
   logger.error('Unhandled error', {
     error: error.message,
     stack: error.stack,
   })
 
-  // Não expor detalhes internos em produção
-  const isDev = c.env?.CF_ENV === 'dev'
+  // Não expor detalhes internos em produção, exceto se for dev ou flag de debug
+  const isDev = c.env?.CF_ENV !== 'prod'
+  const isDebug = c.req.query('debug') === 'true'
   
   return c.json(
     {
       success: false,
-      error: isDev ? error.message : 'Erro interno do servidor',
-      ...(isDev && { stack: error.stack }),
+      error: (isDev || isDebug) ? error.message : 'Erro interno do servidor',
+      ...((isDev || isDebug) && { stack: error.stack, requestId }),
     },
     500
   )

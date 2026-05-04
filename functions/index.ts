@@ -30,9 +30,14 @@ const BOOTSTRAP_FLAG = 'bootstrap:done'
 let bootstrapExecuted = false // In-memory cache
 
 app.use('*', async (c, next) => {
+  const path = c.req.path
+  if (path.startsWith('/static/') || path.startsWith('/i/') || path.startsWith('/favicon.ico') || path.startsWith('/api/debug/')) {
+    return next()
+  }
+
   // Check in-memory first (fastest)
   if (bootstrapExecuted) {
-    await next()
+    return next()
     return
   }
 
@@ -42,7 +47,7 @@ app.use('*', async (c, next) => {
 
     if (flagValue === 'true') {
       bootstrapExecuted = true
-      await next()
+      return next()
       return
     }
 

@@ -376,14 +376,23 @@ export async function hasActiveSubscription(env: Env, readerUserId: number): Pro
 // Settings Repository
 // ============================================================================
 
+// In-memory cache to avoid KV/DB roundtrips within the same isolate
+const settingsMemoryCache = new Map<string, { value: any; timestamp: number }>()
+const MEMORY_CACHE_TTL = 30000 // 30 seconds
+
 export async function getSetting(env: Env, key: string, scope: 'public' | 'private' = 'public'): Promise<any> {
   // Try cache first
   const cacheKey = `settings:${scope}:${key}`
+  const memoized = settingsMemoryCache.get(cacheKey)
+  if (memoized && (Date.now() - memoized.timestamp) < MEMORY_CACHE_TTL) return memoized.value
+
   const cached = await env.KV.get(cacheKey)
 
   if (cached) {
     try {
-      return JSON.parse(cached)
+      const value = JSON.parse(cached)
+      settingsMemoryCache.set(cacheKey, { value, timestamp: Date.now() })
+      return value
     } catch {
       // Corrupted cache
       console.warn(`[getSetting] Corrupted cache for key: ${key}`)
@@ -401,7 +410,8 @@ export async function getSetting(env: Env, key: string, scope: 'public' | 'priva
     const value = JSON.parse(result.value_json)
 
     // Cache for 5 minutes
-    await env.KV.put(cacheKey, result.value_json, { expirationTtl: 300 })
+    settingsMemoryCache.set(cacheKey, { value, timestamp: Date.now() })
+    if (env.KV) env.KV.put(cacheKey, result.value_json, { expirationTtl: 300 }).catch(() => {})
 
     return value
   } catch (error) {
@@ -432,7 +442,8 @@ export async function setSetting(
 
   // Invalidate cache
   const cacheKey = `settings:${scope}:${key}`
-  await env.KV.delete(cacheKey)
+  settingsMemoryCache.delete(cacheKey)
+  if (env.KV) await env.KV.delete(cacheKey)
 }
 
 // ============================================================================
