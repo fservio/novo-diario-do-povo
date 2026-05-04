@@ -6,6 +6,7 @@
 
 import type { Env } from '../types'
 import { z } from 'zod'
+import { findMostRead } from './article'
 
 // ============================================================================
 // Types
@@ -37,7 +38,7 @@ export interface HomeData {
   hotRail: HomePost[]
   explainers: HomePost[]
   categoryBlocks: CategoryBlock[]
-  mostRead: HomePost[]
+  mostRead: any[] // RelatedPost[] from article.ts
   topColumns: HomePost[]
   sections: HomeSection[]  // Add sections to home data
 }
@@ -132,8 +133,6 @@ export async function getHomeData(env: Env): Promise<HomeData> {
   const now = new Date().toISOString()
 
   // 2. Parallel First Phase: Hero, Sections, MostRead, TopColumns
-  // Hero is needed for exclusions in Dual/HotRail, so we fetch it alongside independent queries
-
   const heroPromise = env.DB.prepare(`
     SELECT 
       p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at, 
@@ -154,23 +153,8 @@ export async function getHomeData(env: Env): Promise<HomeData> {
 
   const sectionsPromise = getHomeSections(env)
 
-  // Most Read (Fallback to specific categories or just latest for now as per original code) OR generic latest
-  const mostReadPromise = env.DB.prepare(`
-    SELECT 
-      p.id, p.slug, p.title, p.hat, p.published_at,
-      m.r2_key as featured_image_r2_key,
-      c.name as category_name, c.slug as category_slug,
-      a.name as author_name
-    FROM posts p
-    INNER JOIN categories c ON p.category_id = c.id
-    INNER JOIN authors a ON p.author_id = a.id
-    LEFT JOIN media m ON p.cover_media_id = m.id
-    WHERE p.status = 'published' 
-      AND p.published_at <= ?
-      AND p.seo_noindex = 0
-    ORDER BY p.published_at DESC
-    LIMIT 10
-  `).bind(now).all<HomePost>()
+  // Use the cached helper for Most Read
+  const mostReadPromise = findMostRead(env, { limit: 10 })
 
   const topColumnsPromise = env.DB.prepare(`
     SELECT * FROM (
@@ -225,7 +209,6 @@ export async function getHomeData(env: Env): Promise<HomeData> {
   ])
 
   // 3. Parallel Second Phase
-  // Dependent on Hero ID (for exclusion) and Sections (for categories/tags)
   const heroId = heroResult?.id || 0
   const enabledSections = sections.filter(s => s.enabled)
   const categorySections = enabledSections.filter(s => !s.type || s.type === 'category')
@@ -395,16 +378,16 @@ export async function getHomeData(env: Env): Promise<HomeData> {
     hotRail: hotRailResult.results || [],
     explainers: explainersResult.results || [],
     categoryBlocks,
-    mostRead: mostReadResult.results || [],
+    mostRead: mostReadResult as any[],
     topColumns: topColumnsResult.results || [],
     sections: enabledSections
   }
 
   // 4. Save to Cache
   if (env.CF_ENV !== 'dev' && env.CACHE) {
-    // Fire and forget (awaiting to ensure completion in worker limit)
     try {
-      await env.CACHE.put('home_data_v3', JSON.stringify(data), { expirationTtl: 60 })
+      // Cache for 300 seconds (5 minutes)
+      await env.CACHE.put('home_data_v3', JSON.stringify(data), { expirationTtl: 300 })
     } catch (e) {
       console.error('Cache write error:', e)
     }

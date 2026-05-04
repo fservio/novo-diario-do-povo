@@ -8,7 +8,7 @@ import { getHomeSections, getHomeData } from '../db/home'
 import { renderArticlePage } from './article'
 import { checkPostAccess } from '../paywall'
 import { getReaderContext } from '../paywall/helpers'
-import { getSetting, logAudit, getMediaById, findTagBySlug } from '../db'
+import { getSetting, getSettings, logAudit, getMediaById, findTagBySlug } from '../db'
 import { renderHomePage } from './home'
 import { renderUltimasPage } from './ultimas'
 import { getCategoryPageData } from '../db/category'
@@ -21,24 +21,21 @@ const app = new Hono<{ Bindings: Env; Variables: AppContext }>()
 // ============================================================================
 
 // GET / - Home Page
-// GET / - Home Page
 app.get('/', async (c) => {
     // Parallel fetch: Reader context, Home data, Settings
     const [
         readerContext,
         data,
-        googleAnalyticsId,
-        siteNameResult,
-        dailyCover
+        settings
     ] = await Promise.all([
         getReaderContext(c as any),
         getHomeData(c.env),
-        getSetting(c.env, 'google_analytics_id', 'public'),
-        getSetting(c.env, 'site_name', 'public'),
-        getSetting(c.env, 'daily_cover') as Promise<{ media_id: number } | null>
+        getSettings(c.env, ['google_analytics_id', 'site_name', 'daily_cover'], 'public')
     ])
 
-    const siteName = (siteNameResult as string) || 'Jornal Diário do Povo'
+    const siteName = (settings['site_name'] as string) || 'Jornal Diário do Povo'
+    const googleAnalyticsId = settings['google_analytics_id'] as string
+    const dailyCover = settings['daily_cover'] as { media_id: number } | null
 
     let coverR2Key = ''
     let coverAlt = 'Capa do Dia'
@@ -66,11 +63,10 @@ app.get('/', async (c) => {
         coverAlt,
         coverAspectRatio,
         subscriber: readerContext.subscriber,
-        googleAnalyticsId: googleAnalyticsId as string
+        googleAnalyticsId: googleAnalyticsId
     })
 
     // Cache Control (CDN + Browser)
-    // Cache for 60 seconds public
     const headers = {
         'Cache-Control': 'public, max-age=60, s-maxage=60',
         'Content-Type': 'text/html; charset=UTF-8'
@@ -81,12 +77,14 @@ app.get('/', async (c) => {
 
 // GET /ultimas - Latest Posts
 app.get('/ultimas', async (c) => {
-    const [googleAnalyticsId, siteNameResult, readerContext] = await Promise.all([
-        getSetting(c.env, 'google_analytics_id', 'public'),
-        getSetting(c.env, 'site_name', 'public'),
+    const [settings, readerContext] = await Promise.all([
+        getSettings(c.env, ['google_analytics_id', 'site_name', 'public_theme'], 'public'),
         getReaderContext(c as any)
     ])
-    const siteName = (siteNameResult as string) || 'Jornal Diário do Povo'
+    const siteName = (settings['site_name'] as string) || 'Jornal Diário do Povo'
+    const googleAnalyticsId = settings['google_analytics_id'] as string
+    const themeSetting = settings['public_theme']
+    const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
 
     const page = parseInt(c.req.query('page') || '1')
     const limit = 30
@@ -108,10 +106,6 @@ app.get('/ultimas', async (c) => {
     let baseUrl = c.env.PUBLIC_BASE_URL || 'https://diario.dopovo.com.br'
     if (baseUrl.includes('.pages.dev')) baseUrl = 'https://diario.dopovo.com.br'
 
-    // Determine Theme
-    const themeSetting = await getSetting(c.env, 'public_theme')
-    const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
-
     const html = await renderUltimasPage(c, posts.results as any[], {
         baseUrl,
         siteName,
@@ -130,19 +124,20 @@ app.get('/categoria/:slug', async (c) => {
     const slug = c.req.param('slug')
     const page = parseInt(c.req.query('page') || '1', 10)
 
-    const [readerContext, data, googleAnalyticsId, siteNameResult, dailyCover] = await Promise.all([
+    const [readerContext, data, settings] = await Promise.all([
         getReaderContext(c as any),
         getCategoryPageData(c.env, slug, page, 20),
-        getSetting(c.env, 'google_analytics_id', 'public'),
-        getSetting(c.env, 'site_name', 'public'),
-        getSetting(c.env, 'daily_cover') as Promise<{ media_id: number } | null>
+        getSettings(c.env, ['google_analytics_id', 'site_name', 'daily_cover'], 'public')
     ])
 
     if (!data) {
         return c.notFound()
     }
 
-    const siteName = (siteNameResult as string) || 'Jornal Diário do Povo'
+    const siteName = (settings['site_name'] as string) || 'Jornal Diário do Povo'
+    const googleAnalyticsId = settings['google_analytics_id'] as string
+    const dailyCover = settings['daily_cover'] as { media_id: number } | null
+
     let coverR2Key = ''
     let coverAlt = 'Capa do Dia'
     let coverAspectRatio = '3/4'
@@ -193,27 +188,28 @@ app.get('/categoria/:slug', async (c) => {
 app.get('/tag/:slug', async (c) => {
     try {
         const slug = c.req.param('slug')
-        const { findTagBySlug, getSetting } = await import('../db')
-
         const tag = await findTagBySlug(c.env, slug)
         if (!tag) {
             return c.notFound()
         }
 
-        // Get posts by tag
-        const posts = await c.env.DB.prepare(`
-        SELECT p.* FROM posts p
-        INNER JOIN posts_tags pt ON pt.post_id = p.id
-        WHERE pt.tag_id = ? AND p.status = 'published'
-        ORDER BY p.published_at DESC
-        LIMIT 30
-      `).bind(tag.id).all()
+        const [settings, posts] = await Promise.all([
+            getSettings(c.env, ['site_name', 'google_analytics_id'], 'public'),
+            c.env.DB.prepare(`
+                SELECT p.* FROM posts p
+                INNER JOIN posts_tags pt ON pt.post_id = p.id
+                WHERE pt.tag_id = ? AND p.status = 'published'
+                ORDER BY p.published_at DESC
+                LIMIT 30
+            `).bind(tag.id).all()
+        ])
 
-        const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal Diário do Povo'
+        const siteName = (settings['site_name'] as string) || 'Jornal Diário do Povo'
+        const googleAnalyticsId = settings['google_analytics_id'] as string
+        
         let baseUrl = c.env.PUBLIC_BASE_URL || 'https://diario.dopovo.com.br'
         if (baseUrl.includes('.pages.dev')) baseUrl = 'https://diario.dopovo.com.br'
 
-        const googleAnalyticsId = await getSetting(c.env, 'google_analytics_id', 'public')
         const nonce = c.get('cspNonce') || ''
 
         return c.html(`
@@ -272,10 +268,6 @@ app.get('/tag/:slug', async (c) => {
     }
 })
 
-
-// ============================================================================
-// Shared Article Handler
-// ============================================================================
 // ============================================================================
 // Shared Article Handler
 // ============================================================================
@@ -290,21 +282,17 @@ const handleArticleRequest = async (c: any) => {
             getReaderContext(c)
         ])
 
-    if (!post || post.seo_noindex) {
-        return c.notFound()
-    }
+        if (!post || post.seo_noindex) {
+            return c.notFound()
+        }
 
-    // Increment views (fire and forget)
-    c.executionCtx.waitUntil(incrementPostViews(c.env, post.id))
+        // Increment views (fire and forget)
+        c.executionCtx.waitUntil(incrementPostViews(c.env, post.id))
 
         // Parallel fetch all secondary data
         const [
             accessCheck,
-            googleAnalyticsId,
-            siteNameResult,
-            coverR2KeyResult,
-            coverAltResult,
-            coverAspectRatioResult,
+            settings,
             sections,
             relatedPosts,
             mostRead
@@ -322,20 +310,23 @@ const handleArticleRequest = async (c: any) => {
                 anonIdentifier: readerContext.anonIdentifier,
                 subscriber: readerContext.subscriber
             }),
-            getSetting(c.env, 'google_analytics_id', 'public'),
-            getSetting(c.env, 'site_name', 'public'),
-            getSetting(c.env, 'cover_of_day.r2_key', 'public'),
-            getSetting(c.env, 'cover_of_day.alt', 'public'),
-            getSetting(c.env, 'cover_of_day.aspect_ratio', 'public'),
+            getSettings(c.env, [
+                'google_analytics_id',
+                'site_name',
+                'cover_of_day.r2_key',
+                'cover_of_day.alt',
+                'cover_of_day.aspect_ratio'
+            ], 'public'),
             getHomeSections(c.env),
             findRelatedPosts(c.env, post.id, post.category_id, { limit: 4 }),
             findMostRead(c.env, { limit: 6 })
         ])
 
-        const siteName = (siteNameResult as string) || 'Jornal Diário do Povo'
-        const coverR2Key = (coverR2KeyResult as string) || ''
-        const coverAlt = (coverAltResult as string) || 'Capa do Dia'
-        const coverAspectRatio = (coverAspectRatioResult as string) || '3/4'
+        const siteName = (settings['site_name'] as string) || 'Jornal Diário do Povo'
+        const googleAnalyticsId = settings['google_analytics_id'] as string
+        const coverR2Key = (settings['cover_of_day.r2_key'] as string) || ''
+        const coverAlt = (settings['cover_of_day.alt'] as string) || 'Capa do Dia'
+        const coverAspectRatio = (settings['cover_of_day.aspect_ratio'] as string) || '3/4'
 
         // Server-side Tracking (MVP)
         const eventLog = {
@@ -365,59 +356,48 @@ const handleArticleRequest = async (c: any) => {
                 active: false
             }))
 
-    // Generate Content Source (Teaser vs Full)
-    let contentSource = post.content_markdown || post.content || ''
+        // Generate Content Source (Teaser vs Full)
+        let contentSource = post.content_markdown || post.content || ''
 
-    // If blocked, slice content
-    if (!accessCheck.allowed) {
-        // Simple teaser logic: first 2 paragraphs or N chars
-        const teaserLimit = 800
-        contentSource = contentSource.slice(0, teaserLimit) + '...'
-        // TODO: Enhance slicing to respect markdown block boundaries if needed
-    }
+        // If blocked, slice content
+        if (!accessCheck.allowed) {
+            const teaserLimit = 800
+            contentSource = contentSource.slice(0, teaserLimit) + '...'
+        }
 
-    // Render article page
-    const html = await renderArticlePage(c, post, {
-        baseUrl,
-        siteName,
-        navItems,
-        coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null,
-        relatedPosts,
-        mostRead,
-        isBlocked: !accessCheck.allowed,
-        accessCheck, // Pass rich object for UI rendering
-        googleAnalyticsId
-    }, contentSource) // Pass modified content source to renderer
+        // Render article page
+        const html = await renderArticlePage(c, post, {
+            baseUrl,
+            siteName,
+            navItems,
+            coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null,
+            relatedPosts,
+            mostRead,
+            isBlocked: !accessCheck.allowed,
+            accessCheck,
+            googleAnalyticsId
+        }, contentSource)
 
-    if (!html) {
-        console.error(`[CRITICAL] renderArticlePage returned empty string for slug: ${slug}`)
-        return c.text('Erro Interno: Falha ao renderizar a página.', 500)
-    }
+        if (!html) {
+            console.error(`[CRITICAL] renderArticlePage returned empty string for slug: ${slug}`)
+            return c.text('Erro Interno: Falha ao renderizar a página.', 500)
+        }
 
-    // Cache Control
-    const headers: Record<string, string> = {
-        'Content-Type': 'text/html; charset=UTF-8'
-    }
+        // Cache Control
+        const headers: Record<string, string> = {
+            'Content-Type': 'text/html; charset=UTF-8'
+        }
 
-    if (!accessCheck.allowed) {
-        // Blocked content (teaser) can be cached carefully OR no-stored if dynamic
-        // Since it depends on login state, safer to use private or no-store
-        headers['Cache-Control'] = 'private, no-store'
-    } else if (post.is_premium) {
-        // Premium allowed content MUST NOT be cached publicly
-        headers['Cache-Control'] = 'private, no-store'
-    } else {
-        // Free content can be cached
-        headers['Cache-Control'] = 'public, max-age=60, s-maxage=60'
-    }
+        if (!accessCheck.allowed || post.is_premium) {
+            headers['Cache-Control'] = 'private, no-store'
+        } else {
+            headers['Cache-Control'] = 'public, max-age=60, s-maxage=60'
+        }
 
         return c.body(html, 200, headers)
     } catch (error: any) {
         console.error(`[handleArticleRequest][${requestId}] Error processing slug: ${slug}`, error)
-
-        // Debug mode support
         const showDebug = c.req.query('debug_err') === '1'
-
         return c.json({
             success: false,
             error: 'Erro interno do servidor',
@@ -433,22 +413,19 @@ const handleArticleRequest = async (c: any) => {
 // GET /noticia/:slug - Legacy/Short URL
 app.get('/noticia/:slug', async (c) => {
     const slug = c.req.param('slug')
-    const { findArticleBySlug } = await import('../db/article')
     const post = await findArticleBySlug(c.env, slug)
     if (!post) return c.notFound()
     return c.redirect(getPostUrl(post), 301)
 })
 app.get('/noticia/:slug/', async (c) => {
     const slug = c.req.param('slug')
-    const { findArticleBySlug } = await import('../db/article')
     const post = await findArticleBySlug(c.env, slug)
     if (!post) return c.notFound()
     return c.redirect(getPostUrl(post), 301)
 })
 
-// GET /:year/:month/:day/:slug - Date-based URL (Google News preferred)
+// GET /:year/:month/:day/:slug - Date-based URL
 app.get('/:year/:month/:day/:slug', handleArticleRequest)
 app.get('/:year/:month/:day/:slug/', handleArticleRequest)
 
 export default app
-

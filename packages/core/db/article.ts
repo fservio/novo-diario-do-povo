@@ -152,11 +152,24 @@ export async function incrementPostViews(env: Env, postId: number): Promise<void
  */
 export async function findMostRead(env: Env, options: { limit: number; days?: number }): Promise<RelatedPost[]> {
   const { limit, days = 7 } = options
+  
+  // 1. Try KV Cache first (5 min TTL)
+  const cacheKey = `analytics:most_read:${limit}:${days}`
+  if (env.KV) {
+    try {
+      const cached = await env.KV.get(cacheKey)
+      if (cached) return JSON.parse(cached)
+    } catch (e) {
+      console.warn('[findMostRead] Cache read error', e)
+    }
+  }
+
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - days)
   const cutoffIso = cutoff.toISOString()
 
-  // Query: Posts with most views in the last X days
+  // 2. Query: Posts with most views in the last X days
+  // Optimized: Ensure indexes on post_views(created_at, post_id) exist
   const result = await env.DB.prepare(`
     SELECT 
       p.id, p.slug, p.title, p.published_at, p.hat,
@@ -180,9 +193,11 @@ export async function findMostRead(env: Env, options: { limit: number; days?: nu
     LIMIT ?
   `).bind(cutoffIso, limit).all<RelatedPost>()
 
-  // Fallback if no views data found yet (empty result or low counts), fill with latest
-  if (!result.results || result.results.length < limit) {
-    const existingIds = (result.results || []).map(p => p.id)
+  let finalResults = result.results || []
+
+  // 3. Fallback if no views data found yet (empty result or low counts), fill with latest
+  if (finalResults.length < limit) {
+    const existingIds = finalResults.map(p => p.id)
     const needed = limit - existingIds.length
 
     if (needed > 0) {
@@ -204,11 +219,16 @@ export async function findMostRead(env: Env, options: { limit: number; days?: nu
         LIMIT ?
       `).bind(needed).all<RelatedPost>()
 
-      return [...(result.results || []), ...(fallback.results || [])]
+      finalResults = [...finalResults, ...(fallback.results || [])]
     }
   }
 
-  return result.results || []
+  // 4. Save to KV Cache (Fire and forget, 5 min TTL)
+  if (env.KV && finalResults.length > 0) {
+    env.KV.put(cacheKey, JSON.stringify(finalResults), { expirationTtl: 300 }).catch(() => {})
+  }
+
+  return finalResults
 }
 
 /**
