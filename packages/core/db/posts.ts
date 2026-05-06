@@ -6,6 +6,11 @@
 import type { D1Database } from '@cloudflare/workers-types'
 import { renderMarkdownToHtml, sanitizeHtml } from '../render/sanitize'
 
+// Simple in-memory cache for total counts to reduce D1 read costs
+// This avoids expensive full table scans (COUNT(*)) on every admin list refresh
+const totalCountCache = new Map<string, { count: number; expires: number }>()
+const CACHE_TTL_MS = 10 * 60 * 1000 // 10 minutes
+
 export interface Post {
   id: number
   slug: string
@@ -253,12 +258,20 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
 
   const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''
 
-  // Count total
-  const countResult = await db.prepare(
-    `SELECT COUNT(*) as count FROM posts p ${whereClause}`
-  ).bind(...params).first<{ count: number }>()
+  // Count total (with in-memory cache to save D1 reads)
+  const cacheKey = `count:${whereClause}:${params.join('|')}`
+  const cached = totalCountCache.get(cacheKey)
+  let total = 0
 
-  const total = countResult?.count || 0
+  if (cached && cached.expires > Date.now()) {
+    total = cached.count
+  } else {
+    const countResult = await db.prepare(
+      `SELECT COUNT(*) as count FROM posts p ${whereClause}`
+    ).bind(...params).first<{ count: number }>()
+    total = countResult?.count || 0
+    totalCountCache.set(cacheKey, { count: total, expires: Date.now() + CACHE_TTL_MS })
+  }
 
   // Get posts
   const query = `
