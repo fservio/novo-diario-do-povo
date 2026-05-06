@@ -409,6 +409,16 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
       justify-content: center;
       overflow: hidden;
     }
+    .ad-slot[data-provider="adsense"], .ad-slot--adsense {
+      display: block !important;
+      width: 100%;
+      text-align: center;
+      overflow: visible;
+    }
+    .ad-slot[data-provider="adsense"] .adsbygoogle {
+      display: block !important;
+      width: 100%;
+    }
     @media (max-width: 768px) {
       .ad-slot { min-height: 50px; }
       .ad-slot:first-of-type { min-height: 90px; margin-top: 8px; } /* Space for top ad */

@@ -53,6 +53,9 @@ export function renderAdSlot(params: {
 
   const sizesStr = JSON.stringify(sizes)
   const isLazy = slot.lazy === 1 ? '1' : '0'
+  const isAdSenseInArticle = slot.provider === 'adsense' && (slot.name.includes('inread') || slot.adsense_format === 'in-article' || slot.adsense_format === 'fluid')
+  const adsenseFormat = isAdSenseInArticle ? 'fluid' : (slot.adsense_format || 'auto')
+  const adsenseLayout = isAdSenseInArticle ? 'in-article' : ''
 
   if (slot.provider === 'custom' && slot.custom_code) {
     return `<div class="ad-slot" 
@@ -61,6 +64,27 @@ export function renderAdSlot(params: {
       style="min-height: ${slot.min_height}px; display: block;"
     >
       ${slot.custom_code}
+    </div>`
+  }
+
+  if (slot.provider === 'adsense' && slot.adsense_slot_id) {
+    return `<div class="ad-slot ad-slot--adsense"
+      data-ad-slot="${escapeHtml(slot.name)}"
+      data-provider="adsense"
+      data-sizes='${sizesStr}'
+      data-lazy="${isLazy}"
+      data-adsense-slot="${escapeHtml(slot.adsense_slot_id)}"
+      data-adsense-format="${escapeHtml(adsenseFormat)}"
+      ${adsenseLayout ? `data-adsense-layout="${escapeHtml(adsenseLayout)}"` : ''}
+      style="min-height: ${slot.min_height}px; display: block; width: 100%; text-align: center;"
+    >
+      <ins class="adsbygoogle"
+        style="display: block; width: 100%; min-height: ${slot.min_height}px;"
+        data-ad-client=""
+        data-ad-slot="${escapeHtml(slot.adsense_slot_id)}"
+        data-ad-format="${escapeHtml(adsenseFormat)}"
+        ${adsenseLayout ? `data-ad-layout="${escapeHtml(adsenseLayout)}"` : ''}
+        data-full-width-responsive="true"></ins>
     </div>`
   }
 
@@ -213,20 +237,26 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
 
     if (provider === 'adsense' && (providerMode === 'adsense' || providerMode === 'both')) {
       window.adsbygoogle = window.adsbygoogle || [];
-      const ins = document.createElement('ins');
+      let ins = el.querySelector('ins.adsbygoogle');
+      if (!ins) {
+        ins = document.createElement('ins');
+        el.appendChild(ins);
+      }
       ins.className = 'adsbygoogle';
       ins.style.display = 'block';
+      ins.style.width = '100%';
+      if (el.style.minHeight && !ins.style.minHeight) {
+        ins.style.minHeight = el.style.minHeight;
+      }
       ins.dataset.adClient = adsenseClientId;
       ins.dataset.adSlot = el.dataset.adsenseSlot || '';
       const adsenseFormat = el.dataset.adsenseFormat || 'auto';
-      const isInArticle = adsenseFormat === 'in-article' || (adsenseFormat === 'fluid' && name.indexOf('inread') !== -1);
+      const isInArticle = adsenseFormat === 'in-article' || el.dataset.adsenseLayout === 'in-article' || name.indexOf('inread') !== -1;
       ins.dataset.adFormat = isInArticle ? 'fluid' : adsenseFormat;
       if (isInArticle) {
         ins.dataset.adLayout = 'in-article';
       }
       ins.dataset.fullWidthResponsive = 'true';
-      el.innerHTML = '';
-      el.appendChild(ins);
       loadAdSenseScript(function() {
         try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (e) {}
       });

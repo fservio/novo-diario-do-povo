@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'fs'
-import { generateAdsLoaderScript } from '../../packages/core/ads'
+import { generateAdsLoaderScript, renderAdSlot } from '../../packages/core/ads'
 import { renderPublicLayout, type PublicLayoutParams } from '../../packages/core/web/layout'
 
 function createEnv(settings: Record<string, unknown>) {
@@ -37,7 +37,33 @@ describe('Ads runtime', () => {
 
     expect(script).toContain('script.onload = function()')
     expect(script).toContain('loadAdSenseScript(function()')
-    expect(script).toContain("ins.dataset.adLayout = 'in-article'")
+    expect(script).toContain("el.querySelector('ins.adsbygoogle')")
+    expect(script).toContain("ins.style.width = '100%'")
+  })
+
+  it('renders standard AdSense ins markup server-side', () => {
+    const html = renderAdSlot({
+      slot: {
+        id: 1,
+        name: 'article_inread_1',
+        template: 'article',
+        provider: 'adsense',
+        sizes_json: '[[300,250]]',
+        lazy: 1,
+        min_height: 250,
+        is_active: 1,
+        adsense_slot_id: '9752337983',
+        adsense_format: 'auto'
+      },
+      page: { template: 'article' },
+      user: { isSubscriber: false }
+    })
+
+    expect(html).toContain('<ins class="adsbygoogle"')
+    expect(html).toContain('data-ad-slot="9752337983"')
+    expect(html).toContain('data-ad-format="fluid"')
+    expect(html).toContain('data-ad-layout="in-article"')
+    expect(html).toContain('width: 100%')
   })
 
   it('allows Google ad traffic quality frames in CSP', () => {
@@ -60,5 +86,7 @@ describe('Ads runtime', () => {
 
     expect(html).not.toContain('UcC7EFIdjxPjmlpbc0Q-QSv_D8w.woff2')
     expect(html).toContain('https://fonts.googleapis.com/css2')
+    expect(html).toContain('.ad-slot[data-provider="adsense"]')
+    expect(html).toContain('display: block !important')
   })
 })
