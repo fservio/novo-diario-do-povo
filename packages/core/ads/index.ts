@@ -166,14 +166,30 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
     adsense: false,
     gam: false
   };
+  let adsenseReady = false;
+  let adsenseCallbacks = [];
 
-  function loadAdSenseScript() {
-    if (scriptsLoaded.adsense || !adsenseClientId) return;
+  function loadAdSenseScript(callback) {
+    if (!adsenseClientId) return;
+    if (adsenseReady || window.adsbygoogle?.loaded) {
+      callback();
+      return;
+    }
+    adsenseCallbacks.push(callback);
+    if (scriptsLoaded.adsense) return;
     
     const script = document.createElement('script');
     script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + adsenseClientId;
     script.async = true;
     script.crossOrigin = 'anonymous';
+    script.onload = function() {
+      adsenseReady = true;
+      const callbacks = adsenseCallbacks.splice(0);
+      callbacks.forEach(function(fn) { fn(); });
+    };
+    script.onerror = function() {
+      adsenseCallbacks = [];
+    };
     document.head.appendChild(script);
     scriptsLoaded.adsense = true;
   }
@@ -196,18 +212,24 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
     el.dataset.adInitialized = '1';
 
     if (provider === 'adsense' && (providerMode === 'adsense' || providerMode === 'both')) {
-      loadAdSenseScript();
       window.adsbygoogle = window.adsbygoogle || [];
       const ins = document.createElement('ins');
       ins.className = 'adsbygoogle';
       ins.style.display = 'block';
       ins.dataset.adClient = adsenseClientId;
       ins.dataset.adSlot = el.dataset.adsenseSlot || '';
-      ins.dataset.adFormat = el.dataset.adsenseFormat || 'auto';
+      const adsenseFormat = el.dataset.adsenseFormat || 'auto';
+      const isInArticle = adsenseFormat === 'in-article' || (adsenseFormat === 'fluid' && name.indexOf('inread') !== -1);
+      ins.dataset.adFormat = isInArticle ? 'fluid' : adsenseFormat;
+      if (isInArticle) {
+        ins.dataset.adLayout = 'in-article';
+      }
       ins.dataset.fullWidthResponsive = 'true';
       el.innerHTML = '';
       el.appendChild(ins);
-      try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (e) {}
+      loadAdSenseScript(function() {
+        try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (e) {}
+      });
     } else if (provider === 'gam' && (providerMode === 'gam' || providerMode === 'both')) {
       loadGAMScript();
       googletag.cmd.push(function() {

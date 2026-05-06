@@ -72,6 +72,8 @@ export async function securityHeaders(c: Context<{ Bindings: Env; Variables: App
     '*.googlesyndication.com',
     '*.google.com',
     '*.doubleclick.net',
+    'ep1.adtrafficquality.google',
+    'ep2.adtrafficquality.google',
     ...analyticsHosts,
     ...frameHosts
   ] : [...analyticsHosts, ...frameHosts]
@@ -81,6 +83,7 @@ export async function securityHeaders(c: Context<{ Bindings: Env; Variables: App
     '*.google.com',
     '*.doubleclick.net',
     'https://ep1.adtrafficquality.google',
+    'https://ep2.adtrafficquality.google',
     ...analyticsHosts,
     ...connectHosts
   ] : [...analyticsHosts, ...connectHosts]
