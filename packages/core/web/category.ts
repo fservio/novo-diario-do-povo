@@ -89,7 +89,7 @@ export async function renderCategoryPage(
     googleAnalyticsId?: string
   }
 ): Promise<string> {
-  const { category, posts, page, totalPages } = data
+  const { category, posts, page, hasNextPage } = data
   const { baseUrl, siteName, navItems, coverOfDay } = options
   const nonce = c.get('cspNonce') || ''
 
@@ -180,11 +180,11 @@ export async function renderCategoryPage(
         </section>
       ` : ''}
 
-      ${totalPages > 1 ? `
+      ${(page > 1 || hasNextPage) ? `
         <nav id="pagination" class="gb-container" style="display: flex; justify-content: center; gap: 12px; margin: 32px auto;" aria-label="Paginacao">
           ${page > 1 ? `<a class="gb-btn gb-btn--text" href="/categoria/${escapeAttr(category.slug)}?page=${page - 1}">Anterior</a>` : ''}
-          <span style="align-self: center; color: #5f6368; font-size: 0.875rem;">Pagina ${page} de ${totalPages}</span>
-          ${page < totalPages ? `<a class="gb-btn gb-btn--text" href="/categoria/${escapeAttr(category.slug)}?page=${page + 1}">Proxima</a>` : ''}
+          <span style="align-self: center; color: #5f6368; font-size: 0.875rem;">Pagina ${page}</span>
+          ${hasNextPage ? `<a class="gb-btn gb-btn--text" href="/categoria/${escapeAttr(category.slug)}?page=${page + 1}">Proxima</a>` : ''}
         </nav>
       ` : ''}
 
