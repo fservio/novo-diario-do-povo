@@ -255,7 +255,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
 
         <!-- 2. Logo (Image Only, Larger) -->
         <a href="/" class="gb-logo" aria-label="${escapeAttr(siteName)}">
-          <img src="/i/static/logo-dp.png?w=324" alt="${escapeAttr(siteName)}" style="max-height: 32px; max-width: 180px; height: auto; width: auto; object-fit: contain;">
+          <img src="/i/static/logo-dp.png?w=200" alt="${escapeAttr(siteName)}" width="162" height="56" fetchpriority="high" style="max-height: 32px; max-width: 180px; height: auto; width: auto; object-fit: contain;">
         </a>
 
         <!-- Spacer -->
@@ -400,6 +400,19 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
        background: #f0f0f0;
        object-fit: cover;
     }
+    /* Anti-CLS for Ads */
+    .ad-slot {
+      min-height: 280px;
+      background: #f8f9fa;
+      margin: 24px 0;
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    @media (max-width: 768px) {
+      .ad-slot { min-height: 250px; margin: 16px 0; }
+    }
     /* Critical Typography */
     h1, h2, h3 { line-height: 1.2; margin: 0; }
     a { text-decoration: none; color: inherit; }
@@ -487,7 +500,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     <div class="mobile-menu-panel">
       <div class="gb-menu-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
         <span class="gb-logo" style="margin: 0; opacity: 1;">
-          <img src="/static/logo-dp.png" alt="Logo" style="height: 24px; width: auto;">
+          <img src="/i/static/logo-dp.png?w=160" alt="Logo" width="120" height="42" loading="lazy" style="height: 24px; width: auto;">
         </span>
         <button id="mobileMenuClose" class="gb-icon-btn" aria-label="Fechar">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5f6368" stroke-width="2">
@@ -528,7 +541,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
       <!-- Top Section: Brand & Social -->
       <div class="gblog-footer__top">
         <div class="gblog-brand">
-          <img src="/static/logo-dp.png" alt="${escapeAttr(siteName)}" style="height: 28px; width: auto; filter: grayscale(100%); opacity: 0.6;">
+          <img src="/i/static/logo-dp.png?w=200" alt="${escapeAttr(siteName)}" width="142" height="49" loading="lazy" style="height: 28px; width: auto; filter: grayscale(100%); opacity: 0.6;">
         </div>
 
         <div class="gblog-social">
