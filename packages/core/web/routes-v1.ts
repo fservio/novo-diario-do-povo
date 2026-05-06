@@ -3,7 +3,7 @@ import type { Env, AppContext } from '../types'
 import { getPostUrl } from '../utils/post'
 
 // Static Imports for performance
-import { findArticleBySlug, findRelatedPosts, findMostRead, incrementPostViews } from '../db/article'
+import { findArticleBySlug, findRelatedPosts } from '../db/article'
 import { getHomeSections, getHomeData } from '../db/home'
 import { renderArticlePage } from './article'
 import { checkPostAccess } from '../paywall'
@@ -286,16 +286,12 @@ const handleArticleRequest = async (c: any) => {
             return c.notFound()
         }
 
-        // Increment views (fire and forget)
-        c.executionCtx.waitUntil(incrementPostViews(c.env, post.id))
-
         // Parallel fetch all secondary data
         const [
             accessCheck,
             settings,
             sections,
-            relatedPosts,
-            mostRead
+            relatedPosts
         ] = await Promise.all([
             checkPostAccess(c.env, {
                 id: post.id,
@@ -318,8 +314,7 @@ const handleArticleRequest = async (c: any) => {
                 'cover_of_day.aspect_ratio'
             ], 'public'),
             getHomeSections(c.env),
-            findRelatedPosts(c.env, post.id, post.category_id, { limit: 4 }),
-            findMostRead(c.env, { limit: 6 })
+            findRelatedPosts(c.env, post.id, post.category_id, { limit: 4 })
         ])
 
         const siteName = (settings['site_name'] as string) || 'Jornal Diário do Povo'
@@ -372,7 +367,7 @@ const handleArticleRequest = async (c: any) => {
             navItems,
             coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null,
             relatedPosts,
-            mostRead,
+            mostRead: [], // Analytics disabled
             isBlocked: !accessCheck.allowed,
             accessCheck,
             googleAnalyticsId

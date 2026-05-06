@@ -6,7 +6,6 @@
 
 import type { Env } from '../types'
 import { z } from 'zod'
-import { findMostRead } from './article'
 
 // ============================================================================
 // Types
@@ -38,7 +37,7 @@ export interface HomeData {
   hotRail: HomePost[]
   explainers: HomePost[]
   categoryBlocks: CategoryBlock[]
-  mostRead: any[] // RelatedPost[] from article.ts
+  mostRead: any[] // Legacy: keeping as empty array for template compatibility
   topColumns: HomePost[]
   sections: HomeSection[]  // Add sections to home data
 }
@@ -132,7 +131,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
 
   const now = new Date().toISOString()
 
-  // 2. Parallel First Phase: Hero, Sections, MostRead, TopColumns
+  // 2. Parallel First Phase: Hero, Sections, TopColumns
   const heroPromise = env.DB.prepare(`
     SELECT 
       p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at, 
@@ -152,9 +151,6 @@ export async function getHomeData(env: Env): Promise<HomeData> {
   `).bind(now).first<HomePost>()
 
   const sectionsPromise = getHomeSections(env)
-
-  // Use the cached helper for Most Read
-  const mostReadPromise = findMostRead(env, { limit: 10 })
 
   const topColumnsPromise = env.DB.prepare(`
     SELECT * FROM (
@@ -201,10 +197,9 @@ export async function getHomeData(env: Env): Promise<HomeData> {
   `).bind(now).all<HomePost>()
 
   // Await Phase 1
-  const [heroResult, sections, mostReadResult, topColumnsResult] = await Promise.all([
+  const [heroResult, sections, topColumnsResult] = await Promise.all([
     heroPromise,
     sectionsPromise,
-    mostReadPromise,
     topColumnsPromise
   ])
 
@@ -378,13 +373,13 @@ export async function getHomeData(env: Env): Promise<HomeData> {
     hotRail: hotRailResult.results || [],
     explainers: explainersResult.results || [],
     categoryBlocks,
-    mostRead: mostReadResult as any[],
+    mostRead: [], // Analytics disabled
     topColumns: topColumnsResult.results || [],
     sections: enabledSections
   }
 
   // 4. Save to Cache
-    if (env.CF_ENV !== 'dev' && env.CACHE) {
+  if (env.CF_ENV !== 'dev' && env.CACHE) {
     try {
       // Cache for 3600 seconds (1 hour) to significantly reduce D1 load
       await env.CACHE.put('home_data_v3', JSON.stringify(data), { expirationTtl: 3600 })
