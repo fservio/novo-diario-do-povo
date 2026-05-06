@@ -412,7 +412,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     }
     @media (max-width: 768px) {
       .ad-slot { min-height: 50px; }
-      .ad-slot:first-of-type { min-height: 0; margin-top: 0; } /* Remove top ad push on mobile for LCP */
+      .ad-slot:first-of-type { min-height: 90px; margin-top: 8px; } /* Space for top ad */
     }
     /* Critical Typography */
     h1, h2, h3 { line-height: 1.2; margin: 0; }
