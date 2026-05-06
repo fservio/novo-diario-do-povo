@@ -234,7 +234,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
         link.href = url.pathname + url.search;
       }
     });
-  `, nonce).replace('<script', '<script data-script="header-scroll"')
+  `, nonce).replace('<script', '<script data-script="header-scroll" defer')
 
   // Theme Selection
   const cssFile = theme === 'minimal' ? '/static/minimal.css' : '/static/styles.css'
@@ -400,18 +400,19 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
        background: #f0f0f0;
        object-fit: cover;
     }
-    /* Anti-CLS for Ads */
+    /* Anti-CLS for Ads - Optimized */
     .ad-slot {
-      min-height: 280px;
-      background: #f8f9fa;
-      margin: 24px 0;
+      min-height: 90px;
+      background: #fdfdfd;
+      margin: 16px 0;
       display: flex !important;
       align-items: center;
       justify-content: center;
       overflow: hidden;
     }
     @media (max-width: 768px) {
-      .ad-slot { min-height: 250px; margin: 16px 0; }
+      .ad-slot { min-height: 50px; }
+      .ad-slot:first-of-type { min-height: 0; margin-top: 0; } /* Remove top ad push on mobile for LCP */
     }
     /* Critical Typography */
     h1, h2, h3 { line-height: 1.2; margin: 0; }

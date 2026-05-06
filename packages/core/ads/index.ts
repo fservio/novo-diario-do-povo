@@ -311,9 +311,9 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initAdsOnce, { once: true });
+    window.addEventListener('load', () => setTimeout(initAdsOnce, 2500));
   } else {
-    initAdsOnce();
+    setTimeout(initAdsOnce, 2500);
   }
 })();
 </script>`
