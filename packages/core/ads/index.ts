@@ -233,8 +233,6 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
   }
 })();
 </script>`
-})();
-</script>`
 }
 
 function escapeHtml(text: string): string {
