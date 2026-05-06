@@ -322,7 +322,11 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
   <title>${escapeHtml(title)}</title>
   ${description ? `<meta name="description" content="${escapeAttr(description)}">` : ''}
   <link rel="canonical" href="${escapeAttr(canonicalUrl)}">
-  ${params.lcpPreloadUrl ? `<link rel="preload" as="image" href="${escapeAttr(params.lcpPreloadUrl)}" ${params.lcpSrcSet ? `imagesrcset="${escapeAttr(params.lcpSrcSet)}"` : ''} fetchpriority="high">` : ''}
+  ${params.lcpPreloadUrl ? `
+    <link rel="preload" as="image" href="${escapeAttr(params.lcpPreloadUrl)}" 
+      ${params.lcpSrcSet ? `imagesrcset="${escapeAttr(params.lcpSrcSet)}"` : ''} 
+      imagesizes="(max-width: 768px) 100vw, 1200px"
+      fetchpriority="high">` : ''}
   
   <link rel="dns-prefetch" href="https://securepubads.g.doubleclick.net">
   <link rel="dns-prefetch" href="https://pagead2.googlesyndication.com">
@@ -358,6 +362,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
       --gb-border: #dadce0;
       --gb-header-height: 64px;
       --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --accent: #1a73e8;
     }
     html, body {
       margin: 0;
@@ -367,6 +372,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
       font-family: var(--font-sans);
       -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
+      min-height: 100vh;
     }
     .gb-header {
       height: var(--gb-header-height);
@@ -376,6 +382,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
       position: sticky;
       top: 0;
       z-index: 1000;
+      border-bottom: 1px solid var(--gb-border);
     }
     .gb-container {
       width: 100%;
@@ -384,23 +391,18 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
       padding: 0 24px;
       box-sizing: border-box;
     }
-    /* Fixed mobile padding for FCP */
     @media (max-width: 768px) {
-      .gb-container { padding-left: 16px !important; padding-right: 16px !important; }
+      .gb-container { padding: 0 16px !important; }
+      .desktop-only { display: none !important; }
     }
-    /* Forced Link Styling - High Specificity */
-    #articleBody a, 
-    .article-content a,
-    .article-content p a {
-      color: #1a73e8 !important;
-      font-weight: 800 !important;
-      text-decoration: underline !important;
+    .img-aesthetic {
+       aspect-ratio: 16/9;
+       background: #f0f0f0;
+       object-fit: cover;
     }
-    #articleBody a:hover,
-    .article-content a:hover {
-      color: #1557b0 !important;
-      text-decoration: underline !important;
-    }
+    /* Critical Typography */
+    h1, h2, h3 { line-height: 1.2; margin: 0; }
+    a { text-decoration: none; color: inherit; }
   </style>
 
   <!-- Main CSS -->

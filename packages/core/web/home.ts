@@ -22,22 +22,24 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
   // Left Column: Main Hero (Big)
   const heroHtml = `
     <article class="card card-hero h-full">
-      <a href="${getPostUrl(hero, baseUrl)}" class="flex-col h-full relative group" style="display: flex;">
-        <div style="position: relative; width: 100%; height: 400px; overflow: hidden;"><img 
+      <a href="${getPostUrl(hero, baseUrl)}" class="flex flex-col h-full relative group">
+        <div class="gb-media-wrapper" style="aspect-ratio: 16 / 9; overflow: hidden; background: #f0f0f0;">
+           <img 
               src="${hero.featured_image_r2_key ? `/i/${escapeAttr(hero.featured_image_r2_key)}?w=1200` : '/placeholder-hero.jpg'}" 
+              ${hero.featured_image_r2_key ? `srcset="${generateSrcSet(hero.featured_image_r2_key)}"` : ''}
+              sizes="(max-width: 768px) 100vw, 800px"
               alt="${escapeAttr(hero.title)}"
               class="card-img w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 img-aesthetic"
               width="1200"
-              height="800"
+              height="675"
               loading="eager"
               fetchpriority="high"
             />
-          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
           <span class="btn btn-accent absolute top-4 left-4 text-xs font-bold px-3 py-1 uppercase tracking-wider">
             ${escapeHtml(hero.category_name)}
           </span>
         </div>
-        <div class="card-body relative -mt-16 bg-white mx-6 mb-6 rounded-lg shadow-lg p-6 border border-gray-100">
+        <div class="card-body p-6 border border-gray-100 border-t-0 rounded-b-lg">
           ${hero.hat ? `
             <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">
               ${escapeHtml(hero.hat)}
@@ -63,12 +65,15 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
   const sideHtml = sidePosts.slice(0, 2).map(post => `
     <article class="card h-full">
       <a href="${getPostUrl(post, baseUrl)}" class="flex flex-col h-full group">
-        <div style="position: relative; aspect-ratio: 3/2; overflow: hidden;"><img 
+        <div class="gb-media-wrapper" style="aspect-ratio: 16 / 9; overflow: hidden; background: #f0f0f0;">
+          <img 
             src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=600` : '/placeholder.jpg'}" 
+            ${post.featured_image_r2_key ? `srcset="${generateSrcSet(post.featured_image_r2_key)}"` : ''}
+            sizes="(max-width: 768px) 100vw, 400px"
             alt="${escapeAttr(post.title)}"
             class="card-img w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 img-aesthetic"
             width="600"
-            height="400"
+            height="338"
             loading="lazy"
           />
         </div>
@@ -140,7 +145,7 @@ function renderRadarSection(posts: HomePost[], baseUrl: string): string {
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         ${posts.map(post => `
           <a href="${getPostUrl(post, baseUrl)}" class="group block">
-            <div class="aspect-video rounded-lg overflow-hidden mb-3 bg-gray-100">
+            <div class="gb-media-wrapper" style="aspect-ratio: 16 / 9; overflow: hidden; background: #f0f0f0;">
               <img 
                 src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=400` : '/placeholder.jpg'}" 
                 alt="${escapeAttr(post.title)}"
@@ -218,7 +223,7 @@ function renderCategorySection(block: CategoryBlock, baseUrl: string, index: num
             ${list.map(post => `
               <li class="group">
                 <a href="${getPostUrl(post, baseUrl)}" class="flex gap-4">
-                  <div class="w-24 h-16 rounded bg-gray-100 overflow-hidden flex-shrink-0" style="aspect-ratio: 96 / 64;">
+                  <div class="gb-media-wrapper" style="width: 96px; height: 64px; aspect-ratio: 3 / 2; background: #f0f0f0; overflow: hidden; flex-shrink: 0;">
                     <img 
                       src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=200` : '/placeholder.jpg'}"
                       class="w-full h-full object-cover group-hover:scale-110 transition-transform"
