@@ -307,14 +307,6 @@ function renderPostGB(post: HomePost, baseUrl: string, params?: { isLcp?: boolea
         </div>
       </a>
     </article>
-
-    <style>
-      @keyframes gb-pulse {
-        0% { opacity: 1; }
-        50% { opacity: 0.6; }
-        100% { opacity: 1; }
-      }
-    </style>
   `
 }
 

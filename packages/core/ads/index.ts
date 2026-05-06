@@ -192,6 +192,8 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
   };
   let adsenseReady = false;
   let adsenseCallbacks = [];
+  let adsStarted = false;
+  const isMobileViewport = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
 
   function loadAdSenseScript(callback) {
     if (!adsenseClientId) return;
@@ -275,13 +277,40 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
   }
 
   function startAds() {
+    if (adsStarted) return;
+    adsStarted = true;
     document.querySelectorAll('.ad-slot').forEach(initAdSlot);
   }
 
+  function scheduleStartAds() {
+    if (!isMobileViewport) {
+      startAds();
+      return;
+    }
+
+    const startAfterLoad = function() {
+      setTimeout(startAds, 2500);
+    };
+
+    ['scroll', 'touchstart', 'pointerdown', 'keydown'].forEach(function(eventName) {
+      window.addEventListener(eventName, startAds, { once: true, passive: true });
+    });
+
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(startAds, { timeout: 4000 });
+    }
+
+    if (document.readyState === 'complete') {
+      startAfterLoad();
+    } else {
+      window.addEventListener('load', startAfterLoad, { once: true });
+    }
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', startAds);
+    document.addEventListener('DOMContentLoaded', scheduleStartAds);
   } else {
-    startAds();
+    scheduleStartAds();
   }
 })();
 </script>`

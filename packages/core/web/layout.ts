@@ -333,14 +333,12 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
   <link rel="dns-prefetch" href="https://www.googletagmanager.com">
   <link rel="dns-prefetch" href="https://www.google-analytics.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://pagead2.googlesyndication.com">
-  <link rel="preconnect" href="https://securepubads.g.doubleclick.net">
 
   <!-- Fonts - Faster Loading -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=swap">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=swap" media="print" id="google-fonts-link">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=optional">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=optional" media="print" id="google-fonts-link">
   <script nonce="${nonce}">
     document.getElementById('google-fonts-link').addEventListener('load', function() {
       this.media = 'all';
@@ -426,6 +424,11 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     /* Critical Typography */
     h1, h2, h3 { line-height: 1.2; margin: 0; }
     a { text-decoration: none; color: inherit; }
+    @keyframes gb-pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.6; }
+      100% { opacity: 1; }
+    }
   </style>
 
   <!-- Main CSS -->

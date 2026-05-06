@@ -39,6 +39,8 @@ describe('Ads runtime', () => {
     expect(script).toContain('loadAdSenseScript(function()')
     expect(script).toContain("el.querySelector('ins.adsbygoogle')")
     expect(script).toContain("ins.style.width = '100%'")
+    expect(script).toContain("window.matchMedia('(max-width: 768px)')")
+    expect(script).toContain('setTimeout(startAds, 2500)')
   })
 
   it('renders standard AdSense ins markup server-side', () => {
@@ -86,7 +88,9 @@ describe('Ads runtime', () => {
 
     expect(html).not.toContain('UcC7EFIdjxPjmlpbc0Q-QSv_D8w.woff2')
     expect(html).toContain('https://fonts.googleapis.com/css2')
+    expect(html).toContain('display=optional')
     expect(html).toContain('.ad-slot[data-provider="adsense"]')
     expect(html).toContain('display: block !important')
+    expect(html).not.toContain('rel="preconnect" href="https://pagead2.googlesyndication.com"')
   })
 })
