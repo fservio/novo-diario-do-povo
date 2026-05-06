@@ -182,13 +182,17 @@ function renderArticleHeader(post: ArticlePost, readingTime: number): string {
       
       <!-- Featured Image -->
       ${post.featured_image_r2_key ? `
-        <figure class="article-featured-image" style="${post.featured_image_width && post.featured_image_height ? `aspect-ratio: ${post.featured_image_width}/${post.featured_image_height};` : 'aspect-ratio: 16/9;'} background: #f1f3f4;">
+        <figure class="article-featured-image" style="aspect-ratio: ${post.featured_image_width && post.featured_image_height ? `${post.featured_image_width}/${post.featured_image_height}` : '16/9'}; background: #f1f3f4; overflow: hidden;">
           <img 
             src="/i/${escapeAttr(post.featured_image_r2_key)}?w=1200" 
+            srcset="/i/${escapeAttr(post.featured_image_r2_key)}?w=400 400w, /i/${escapeAttr(post.featured_image_r2_key)}?w=800 800w, /i/${escapeAttr(post.featured_image_r2_key)}?w=1200 1200w"
+            sizes="(max-width: 768px) 100vw, 800px"
             alt="${escapeAttr(post.featured_image_alt || post.title)}"
             loading="eager"
             fetchpriority="high"
             style="width: 100%; height: auto; display: block;"
+            width="${post.featured_image_width || 1200}"
+            height="${post.featured_image_height || 675}"
           >
           ${post.featured_image_credits ? `
             <figcaption class="article-featured-caption">
@@ -407,7 +411,10 @@ export async function renderArticlePage(
   // Optimization: Preload Featured Image for LCP
   let preloadHeadHtml = ''
   if (post.featured_image_r2_key) {
-    preloadHeadHtml += `<link rel="preload" as="image" href="/i/${escapeAttr(post.featured_image_r2_key)}?w=1200" fetchpriority="high">`
+    preloadHeadHtml += `<link rel="preload" as="image" href="/i/${escapeAttr(post.featured_image_r2_key)}?w=1200" 
+      imagesrcset="/i/${escapeAttr(post.featured_image_r2_key)}?w=400 400w, /i/${escapeAttr(post.featured_image_r2_key)}?w=800 800w, /i/${escapeAttr(post.featured_image_r2_key)}?w=1200 1200w"
+      imagesizes="(max-width: 768px) 100vw, 800px"
+      fetchpriority="high">`
   }
 
   // Get ad slots
