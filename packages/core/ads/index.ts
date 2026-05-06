@@ -167,14 +167,8 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
     gam: false
   };
 
-  function checkConsent() {
-    if (!consentEnabled) return true;
-    return window.__consent === true;
-  }
-
   function loadAdSenseScript() {
     if (scriptsLoaded.adsense || !adsenseClientId) return;
-    if (!checkConsent()) return;
     
     const script = document.createElement('script');
     script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + adsenseClientId;
@@ -186,135 +180,59 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
 
   function loadGAMScript() {
     if (scriptsLoaded.gam || !gamNetworkCode) return;
-    if (!checkConsent()) return;
     
     const script = document.createElement('script');
     script.src = 'https://securepubads.g.doubleclick.net/tag/js/gpt.js';
     script.async = true;
     document.head.appendChild(script);
     scriptsLoaded.gam = true;
-    
     window.googletag = window.googletag || {cmd: []};
   }
 
   function initAdSlot(el) {
     const provider = el.dataset.provider;
     const name = el.dataset.adSlot;
-    
     if (el.dataset.adInitialized === '1') return;
     el.dataset.adInitialized = '1';
 
-    // Inline scripts pasted into custom ad code are blocked by CSP, so initialize
-    // AdSense <ins> blocks here when custom code contains them.
-    if (provider === 'custom') {
-      const adsenseBlocks = el.querySelectorAll('ins.adsbygoogle');
-      if (adsenseBlocks.length > 0 && (providerMode === 'adsense' || providerMode === 'both')) {
-        loadAdSenseScript();
-        window.adsbygoogle = window.adsbygoogle || [];
-        adsenseBlocks.forEach(function(ins) {
-          if (ins.dataset.adsbygoogleStatus === 'done') return;
-          try {
-            (window.adsbygoogle = window.adsbygoogle || []).push({});
-          } catch (e) {
-            console.error('AdSense custom push error:', e);
-          }
-        });
-      }
-      return;
-    }
-
     if (provider === 'adsense' && (providerMode === 'adsense' || providerMode === 'both')) {
       loadAdSenseScript();
-
-      // Initialize shim immediately if not present
       window.adsbygoogle = window.adsbygoogle || [];
-
-      // No need to wait for script load. The push() will act as a queue.
-      // We process immediately to ensure the <ins> tag is ready when the script runs.
       const ins = document.createElement('ins');
       ins.className = 'adsbygoogle';
       ins.style.display = 'block';
       ins.dataset.adClient = adsenseClientId;
       ins.dataset.adSlot = el.dataset.adsenseSlot || '';
       ins.dataset.adFormat = el.dataset.adsenseFormat || 'auto';
-      ins.dataset.fullWidthResponsive = 'true'; // Default to true for responsiveness
-      
+      ins.dataset.fullWidthResponsive = 'true';
       el.innerHTML = '';
       el.appendChild(ins);
-      
-      try {
-        (window.adsbygoogle = window.adsbygoogle || []).push({});
-      } catch (e) {
-        console.error('AdSense push error:', e);
-      }
+      try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (e) {}
     } else if (provider === 'gam' && (providerMode === 'gam' || providerMode === 'both')) {
       loadGAMScript();
-      setTimeout(() => {
-        if (window.googletag) {
-          googletag.cmd.push(function() {
-            const sizes = JSON.parse(el.dataset.sizes || '[[300,250]]');
-            const unitPath = el.dataset.gamUnit || '';
-            const targeting = el.dataset.gamTargeting ? JSON.parse(el.dataset.gamTargeting) : {};
-            
-            const slot = googletag.defineSlot('/' + gamNetworkCode + unitPath, sizes, name);
-            if (slot) {
-              for (const key in targeting) {
-                slot.setTargeting(key, targeting[key]);
-              }
-              slot.addService(googletag.pubads());
-              googletag.display(name);
-            }
-          });
+      googletag.cmd.push(function() {
+        const sizes = JSON.parse(el.dataset.sizes || '[[300,250]]');
+        const unitPath = el.dataset.gamUnit || '';
+        const slot = googletag.defineSlot('/' + gamNetworkCode + unitPath, sizes, name);
+        if (slot) {
+          slot.addService(googletag.pubads());
+          googletag.display(name);
         }
-      }, 100);
-    }
-  }
-
-  function observeAdSlots() {
-    const slots = document.querySelectorAll('.ad-slot');
-    
-    if ('IntersectionObserver' in window) {
-      const observer = new IntersectionObserver(function(entries) {
-        entries.forEach(function(entry) {
-          if (entry.isIntersecting && entry.target.dataset.lazy === '1') {
-            initAdSlot(entry.target);
-            observer.unobserve(entry.target);
-          } else if (entry.target.dataset.lazy === '0') {
-            initAdSlot(entry.target);
-            observer.unobserve(entry.target);
-          }
-        });
-      }, { rootMargin: '600px' });
-      
-      slots.forEach(function(slot) {
-        observer.observe(slot);
       });
-    } else {
-      // Fallback: load all immediately
-      slots.forEach(initAdSlot);
     }
   }
 
   function startAds() {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', observeAdSlots);
-    } else {
-      observeAdSlots();
-    }
-  }
-
-  let adsStarted = false;
-  function initAdsOnce() {
-    if (adsStarted) return;
-    adsStarted = true;
-    startAds();
+    document.querySelectorAll('.ad-slot').forEach(initAdSlot);
   }
 
   if (document.readyState === 'loading') {
-    window.addEventListener('load', () => setTimeout(initAdsOnce, 1000));
+    document.addEventListener('DOMContentLoaded', startAds);
   } else {
-    setTimeout(initAdsOnce, 1000);
+    startAds();
   }
+})();
+</script>`
 })();
 </script>`
 }
