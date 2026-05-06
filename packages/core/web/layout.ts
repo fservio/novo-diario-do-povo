@@ -335,17 +335,23 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
   <!-- Fonts - Faster Loading -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=optional">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=optional" media="print" id="google-fonts-link">
+  <link rel="preconnect" href="https://fonts.googleapis.com" media="(min-width: 769px)">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin media="(min-width: 769px)">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=optional" media="(min-width: 769px)">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=optional" media="print" id="google-fonts-link" data-desktop-media="(min-width: 769px)">
   <script nonce="${nonce}">
-    document.getElementById('google-fonts-link').addEventListener('load', function() {
-      this.media = 'all';
-    });
+    (function() {
+      const fontsLink = document.getElementById('google-fonts-link');
+      if (!fontsLink) return;
+      const desktopMedia = fontsLink.getAttribute('data-desktop-media') || '(min-width: 769px)';
+      if (window.matchMedia && !window.matchMedia(desktopMedia).matches) return;
+      fontsLink.addEventListener('load', function() {
+        this.media = desktopMedia;
+      });
+    })();
   </script>
   <noscript>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=optional" media="(min-width: 769px)">
   </noscript>
   
   <!-- Critical CSS - Inlined for FCP -->
@@ -418,8 +424,25 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
       width: 100%;
     }
     @media (max-width: 768px) {
-      .ad-slot { min-height: 50px; }
-      .ad-slot:first-of-type { min-height: 90px; margin-top: 8px; } /* Space for top ad */
+      .ad-slot { min-height: 100px !important; }
+      .ad-slot[data-ad-slot="home_top_leaderboard"] {
+        height: 100px !important;
+        min-height: 100px !important;
+        max-height: 100px !important;
+        margin: 12px 0 !important;
+        overflow: hidden !important;
+      }
+      .ad-slot[data-ad-slot="home_top_leaderboard"] .adsbygoogle {
+        height: 100px !important;
+        min-height: 100px !important;
+      }
+      .ad-slot[data-ad-slot^="article_top"],
+      .ad-slot[data-ad-slot^="article_footer"] {
+        height: 100px !important;
+        min-height: 100px !important;
+        max-height: 100px !important;
+        overflow: hidden !important;
+      }
     }
     /* Critical Typography */
     h1, h2, h3 { line-height: 1.2; margin: 0; }
