@@ -70,6 +70,7 @@ export interface PostFilters {
   year?: number
   month?: number
   day?: number
+  includeCount?: boolean // Optional: only count if requested to save D1 costs
 }
 
 export interface CreatePostInput {
@@ -181,6 +182,7 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
     year,
     month,
     day,
+    includeCount = false,
     limit = 20,
     offset = 0
   } = filters
@@ -258,19 +260,21 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
 
   const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''
 
-  // Count total (with in-memory cache to save D1 reads)
-  const cacheKey = `count:${whereClause}:${params.join('|')}`
-  const cached = totalCountCache.get(cacheKey)
+  // Count total (Disabled by default to save D1 reads)
   let total = 0
+  if (includeCount) {
+    const cacheKey = `count:${whereClause}:${params.join('|')}`
+    const cached = totalCountCache.get(cacheKey)
 
-  if (cached && cached.expires > Date.now()) {
-    total = cached.count
-  } else {
-    const countResult = await db.prepare(
-      `SELECT COUNT(*) as count FROM posts p ${whereClause}`
-    ).bind(...params).first<{ count: number }>()
-    total = countResult?.count || 0
-    totalCountCache.set(cacheKey, { count: total, expires: Date.now() + CACHE_TTL_MS })
+    if (cached && cached.expires > Date.now()) {
+      total = cached.count
+    } else {
+      const countResult = await db.prepare(
+        `SELECT COUNT(*) as count FROM posts p ${whereClause}`
+      ).bind(...params).first<{ count: number }>()
+      total = countResult?.count || 0
+      totalCountCache.set(cacheKey, { count: total, expires: Date.now() + CACHE_TTL_MS })
+    }
   }
 
   // Get posts

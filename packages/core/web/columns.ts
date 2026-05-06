@@ -241,7 +241,8 @@ export async function renderColumnPage(
     author_id: author.id,
     status: 'published',
     limit,
-    offset
+    offset,
+    includeCount: true
   })
 
   const totalPages = Math.ceil(total / limit)
