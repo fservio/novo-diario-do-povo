@@ -646,6 +646,16 @@ export async function archivePost(db: D1Database, id: number): Promise<void> {
  * Deleta post
  */
 export async function deletePost(db: D1Database, id: number): Promise<void> {
-  // Tags serão deletadas automaticamente (CASCADE)
+  // Production databases may contain historical rows created before all cascade
+  // constraints were in place, so clear known dependents before deleting posts.
+  await db.prepare('DELETE FROM posts_tags WHERE post_id = ?').bind(id).run()
+  await db.prepare('DELETE FROM post_revisions WHERE post_id = ?').bind(id).run()
+  await db.prepare('DELETE FROM live_blog_updates WHERE post_id = ?').bind(id).run()
+  await db.prepare('DELETE FROM post_views WHERE post_id = ?').bind(id).run()
+  await db.prepare('DELETE FROM paywall_views WHERE post_id = ?').bind(id).run()
+  await db.prepare('DELETE FROM liveblog_entries WHERE liveblog_id IN (SELECT id FROM liveblogs WHERE post_id = ?)').bind(id).run()
+  await db.prepare('DELETE FROM liveblogs WHERE post_id = ?').bind(id).run()
+  await db.prepare('DELETE FROM hub_blocks WHERE hub_id IN (SELECT id FROM hubs WHERE post_id = ?)').bind(id).run()
+  await db.prepare('DELETE FROM hubs WHERE post_id = ?').bind(id).run()
   await db.prepare('DELETE FROM posts WHERE id = ?').bind(id).run()
 }

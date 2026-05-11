@@ -368,7 +368,7 @@ function renderPostFormPage(params: {
     
     ${publicationPanel}
     
-    <form method="post" action="${isNew ? '/admin/posts' : `/admin/posts/${post.id}`}" class="card">
+    <form id="postEditorForm" method="post" action="${isNew ? '/admin/posts' : `/admin/posts/${post.id}`}" class="card">
       ${renderCsrfInput(csrfToken)}
       
       <!-- Chapéu -->
@@ -772,16 +772,24 @@ function renderPostFormPage(params: {
           Cancelar
         </a>
         ${!isNew ? `
-          <form method="post" action="/admin/posts/${post.id}/delete" style="display: inline; margin-left: auto;" onsubmit="return confirm('Tem certeza que deseja excluir este post permanentemente?')">
-            ${renderCsrfInput(csrfToken)}
-            <button type="submit" class="btn" style="background: #ef4444; border: none;">
-              Excluir Post
-            </button>
-          </form>
+          <button
+            type="submit"
+            form="deletePostForm"
+            class="btn"
+            style="background: #ef4444; border: none; margin-left: auto;"
+            onclick="return confirm('Tem certeza que deseja excluir este post permanentemente?')"
+          >
+            Excluir Post
+          </button>
         ` : ''}
       </div>
       
     </form>
+    ${!isNew ? `
+      <form id="deletePostForm" method="post" action="/admin/posts/${post.id}/delete" style="display: none;">
+        ${renderCsrfInput(csrfToken)}
+      </form>
+    ` : ''}
   `
 
   return renderAdminLayout({

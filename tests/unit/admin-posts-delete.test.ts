@@ -5,7 +5,7 @@
 import { describe, it, expect, vi } from 'vitest'
 
 describe('Admin Posts Deletion', () => {
-    it('deletePost remove o post do banco de dados', async () => {
+    it('deletePost remove dependências conhecidas antes do post', async () => {
         const mockDB = {
             prepare: vi.fn().mockReturnValue({
                 bind: vi.fn().mockReturnValue({
@@ -18,7 +18,16 @@ describe('Admin Posts Deletion', () => {
 
         await deletePost(mockDB as any, 1)
 
-        expect(mockDB.prepare).toHaveBeenCalledWith('DELETE FROM posts WHERE id = ?')
+        expect(mockDB.prepare).toHaveBeenCalledWith('DELETE FROM posts_tags WHERE post_id = ?')
+        expect(mockDB.prepare).toHaveBeenCalledWith('DELETE FROM post_revisions WHERE post_id = ?')
+        expect(mockDB.prepare).toHaveBeenCalledWith('DELETE FROM live_blog_updates WHERE post_id = ?')
+        expect(mockDB.prepare).toHaveBeenCalledWith('DELETE FROM post_views WHERE post_id = ?')
+        expect(mockDB.prepare).toHaveBeenCalledWith('DELETE FROM paywall_views WHERE post_id = ?')
+        expect(mockDB.prepare).toHaveBeenCalledWith('DELETE FROM liveblog_entries WHERE liveblog_id IN (SELECT id FROM liveblogs WHERE post_id = ?)')
+        expect(mockDB.prepare).toHaveBeenCalledWith('DELETE FROM liveblogs WHERE post_id = ?')
+        expect(mockDB.prepare).toHaveBeenCalledWith('DELETE FROM hub_blocks WHERE hub_id IN (SELECT id FROM hubs WHERE post_id = ?)')
+        expect(mockDB.prepare).toHaveBeenCalledWith('DELETE FROM hubs WHERE post_id = ?')
+        expect(mockDB.prepare).toHaveBeenLastCalledWith('DELETE FROM posts WHERE id = ?')
     })
 
     it('o código-fonte de index.ts contém a nova rota de exclusão', async () => {
@@ -38,5 +47,15 @@ describe('Admin Posts Deletion', () => {
 
         expect(postsUiContent).toContain("action=\"/admin/posts/${post.id}/delete\"")
         expect(postsUiContent).toContain("confirm('Tem certeza que deseja excluir")
+    })
+
+    it('a tela de edição não renderiza formulário de exclusão aninhado no formulário de salvar', async () => {
+        const fs = await import('fs')
+        const path = await import('path')
+        const postsUiContent = fs.readFileSync(path.join(__dirname, '../../packages/core/admin/posts.ts'), 'utf-8')
+
+        expect(postsUiContent).toContain('form="deletePostForm"')
+        expect(postsUiContent).toContain('id="deletePostForm"')
+        expect(postsUiContent).toContain('id="postEditorForm"')
     })
 })
