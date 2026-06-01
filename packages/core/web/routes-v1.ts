@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { Env, AppContext } from '../types'
 import { getPostUrl } from '../utils/post'
+import { normalizePublicTheme } from './layout'
 
 // Static Imports for performance
 import { findArticleBySlug, findRelatedPosts } from '../db/article'
@@ -83,8 +84,8 @@ app.get('/ultimas', async (c) => {
     ])
     const siteName = (settings['site_name'] as string) || 'Jornal Diário do Povo'
     const googleAnalyticsId = settings['google_analytics_id'] as string
-    // Determine Theme (Minimalist Google Style is the only native theme)
-    const theme = 'minimal'
+    const themeSetting = settings['public_theme']
+    const theme = normalizePublicTheme(themeSetting)
 
     const page = parseInt(c.req.query('page') || '1')
     const limit = 30

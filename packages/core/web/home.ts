@@ -7,7 +7,7 @@
 import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
 import type { HomeData, HomePost, CategoryBlock } from '../db/home'
-import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, formatTime, truncate, generateSrcSet, type PublicLayoutParams } from './layout'
+import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, formatTime, truncate, generateSrcSet, normalizePublicTheme, type PublicLayoutParams } from './layout'
 import { getPostUrl } from '../utils/post'
 import { getSetting } from '../db'
 import { getActiveCategories } from '../db/categories-cache'
@@ -505,8 +505,9 @@ export async function renderHomePage(
   const { renderAdSlot, generateAdsLoaderScript, findActiveSlotsByTemplate } = await import('../ads')
   const { baseUrl, siteName, coverR2Key, coverAlt, coverAspectRatio } = params
 
-  // Determine Theme FIRST (Minimalist Google Style is the only native theme)
-  const theme = 'minimal'
+  // Determine Theme
+  const themeSetting = await getSetting(c.env, 'public_theme')
+  const theme = normalizePublicTheme(themeSetting)
 
   // Ad Slots
   const adSlots = await findActiveSlotsByTemplate(c.env, 'home')

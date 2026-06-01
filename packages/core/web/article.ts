@@ -6,7 +6,7 @@
 import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
 import type { ArticlePost, RelatedPost } from '../db/article'
-import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, estimateReadingTime, truncate, type PublicLayoutParams } from './layout'
+import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, estimateReadingTime, truncate, normalizePublicTheme, type PublicLayoutParams } from './layout'
 import { getPostUrl } from '../utils/post'
 import { renderAdSlot, findActiveSlotsByTemplate, generateAdsLoaderScript } from '../ads'
 import { generateArticleJsonLd, generateLiveBlogJsonLd, generateBreadcrumbJsonLd } from '../seo'
@@ -543,8 +543,9 @@ export async function renderArticlePage(
     ${adsScript}
   `
 
-  // Determine Theme (Minimalist Google Style is the only native theme)
-  const theme = 'minimal'
+  // Determine Theme
+  const themeSetting = await getSetting(c.env, 'public_theme')
+  const theme = normalizePublicTheme(themeSetting)
 
   // Fetch categories for mobile menu
   const categories = await getActiveCategories(c.env)

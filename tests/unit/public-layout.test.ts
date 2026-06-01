@@ -112,21 +112,60 @@ describe('renderPublicLayout', () => {
     const html = renderPublicLayout(params)
 
     expect(html).toContain('<link href="/static/minimal.css?v=')
-    expect(html).not.toContain('<link href="/static/styles.css?v=')
+    expect(html).toContain('class="theme-minimal"')
   })
 
-  it('should render minimal theme CSS even when theme is default or missing', () => {
+  it('should render alltype theme CSS when theme is alltype', () => {
     const params: PublicLayoutParams = {
       title: 'Test Page',
       canonicalUrl: 'https://example.com/test',
       siteName: 'Test Site',
       navItems: [],
-      bodyHtml: '<div>Test Content</div>'
+      bodyHtml: '<div>Test Content</div>',
+      theme: 'alltype'
+    }
+
+    const html = renderPublicLayout(params)
+
+    expect(html).toContain('<link href="/static/alltype.css?v=')
+    expect(html).toContain('class="theme-alltype"')
+  })
+
+  it('should fallback to minimal theme CSS when theme is invalid, default or missing', () => {
+    const params: PublicLayoutParams = {
+      title: 'Test Page',
+      canonicalUrl: 'https://example.com/test',
+      siteName: 'Test Site',
+      navItems: [],
+      bodyHtml: '<div>Test Content</div>',
+      theme: 'invalid-theme-name' as any
     }
 
     const html = renderPublicLayout(params)
 
     expect(html).toContain('<link href="/static/minimal.css?v=')
-    expect(html).not.toContain('<link href="/static/styles.css?v=')
+    expect(html).toContain('class="theme-minimal"')
+  })
+
+  it('should preserve critical layout IDs', () => {
+    const params: PublicLayoutParams = {
+      title: 'Test Page',
+      canonicalUrl: 'https://example.com/test',
+      siteName: 'Test Site',
+      navItems: [],
+      bodyHtml: '<div>Test Content</div>',
+      coverOfDay: {
+        r2Key: 'test-cover.jpg',
+        alt: 'Test Cover'
+      }
+    }
+
+    const html = renderPublicLayout(params)
+
+    expect(html).toContain('id="mainContent"')
+    expect(html).toContain('id="coverBtn"')
+    expect(html).toContain('id="coverOverlay"')
+    expect(html).toContain('id="coverPanel"')
+    expect(html).toContain('id="coverClose"')
   })
 })

@@ -6,7 +6,7 @@
 import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
 import type { CategoryPageData, CategoryPost } from '../db/category'
-import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, truncate, generateSrcSet, type PublicLayoutParams } from './layout'
+import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, truncate, generateSrcSet, normalizePublicTheme, type PublicLayoutParams } from './layout'
 import { getPostUrl } from '../utils/post'
 import { renderAdSlot, findActiveSlotsByTemplate, generateAdsLoaderScript } from '../ads'
 import { getSetting } from '../db'
@@ -221,8 +221,9 @@ export async function renderCategoryPage(
     </script>
   `
 
-  // Determine Theme (Minimalist Google Style is the only native theme)
-  const theme = 'minimal'
+  // Determine Theme
+  const themeSetting = await getSetting(c.env, 'public_theme')
+  const theme = normalizePublicTheme(themeSetting)
 
   return renderPublicLayout({
     title: `${category.name} - ${siteName}`,

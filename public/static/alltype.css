@@ -1,0 +1,195 @@
+/* ==========================================================================
+   Tema AllType - Public Stylesheet
+   ========================================================================== */
+
+@import url('minimal.css');
+
+:root {
+  --alltype-bg: #0B0B0B;
+  --alltype-surface: #131313;
+  --alltype-surface-low: #1C1B1B;
+  --alltype-surface-high: #2A2A2A;
+
+  --alltype-text: #E5E2E1;
+  --alltype-text-soft: #CDC6B9;
+  --alltype-muted: #969084;
+
+  --alltype-cream: #F2EFE7;
+  --alltype-cream-text: #111111;
+  --alltype-primary: #F5E7C3;
+  --alltype-accent: #D8CBA8;
+  --alltype-line: #2A2A2A;
+  --alltype-outline: #4A463D;
+
+  --alltype-font-headline: "Bodoni Moda", Georgia, "Times New Roman", serif;
+  --alltype-font-body: "Literata", Georgia, "Times New Roman", serif;
+  --alltype-font-ui: "Fira Sans", Arial, Helvetica, sans-serif;
+}
+
+/* Theme Wrapper overrides */
+.theme-alltype {
+  background-color: var(--alltype-bg) !important;
+  color: var(--alltype-text) !important;
+  font-family: var(--alltype-font-ui), sans-serif;
+}
+
+.theme-alltype body {
+  background-color: var(--alltype-bg) !important;
+  color: var(--alltype-text) !important;
+}
+
+/* Typography Hierarchy */
+.theme-alltype h1,
+.theme-alltype h2,
+.theme-alltype h3,
+.theme-alltype h4,
+.theme-alltype h5,
+.theme-alltype h6,
+.theme-alltype .gb-logo,
+.theme-alltype .article-title,
+.theme-alltype .gb-section__title {
+  font-family: var(--alltype-font-headline) !important;
+  color: var(--alltype-text) !important;
+}
+
+/* Header customization */
+.theme-alltype .gb-header {
+  background-color: var(--alltype-surface) !important;
+  border-bottom: 1px solid var(--alltype-line) !important;
+}
+
+.theme-alltype .gb-header.scrolled {
+  border-bottom-color: var(--alltype-outline) !important;
+}
+
+.theme-alltype .gb-logo {
+  color: var(--alltype-primary) !important;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.theme-alltype .gb-icon-btn svg {
+  stroke: var(--alltype-text-soft) !important;
+}
+
+/* Navigation & Buttons */
+.theme-alltype .gb-btn--text {
+  color: var(--alltype-text-soft) !important;
+}
+
+.theme-alltype .gb-btn--primary {
+  background-color: var(--alltype-primary) !important;
+  color: var(--alltype-cream-text) !important;
+  border-radius: 0px !important;
+  font-family: var(--alltype-font-ui);
+  font-weight: 600;
+}
+
+.theme-alltype .gb-btn--primary:hover {
+  background-color: var(--alltype-accent) !important;
+}
+
+/* Cards & Feeds (Dark Editorial Grid) */
+.theme-alltype .gb-card {
+  background-color: var(--alltype-surface) !important;
+  border: 1px solid var(--alltype-line) !important;
+  border-radius: 0px !important;
+}
+
+.theme-alltype .gb-card__title {
+  font-family: var(--alltype-font-headline);
+  color: var(--alltype-text) !important;
+}
+
+.theme-alltype .gb-card__excerpt,
+.theme-alltype .gb-card__meta {
+  font-family: var(--alltype-font-body);
+  color: var(--alltype-text-soft) !important;
+}
+
+/* Article Reading Pane - Crème Surface */
+.theme-alltype .article-detail {
+  background-color: var(--alltype-bg) !important;
+  color: var(--alltype-text) !important;
+  padding: 0 !important;
+}
+
+.theme-alltype .article-header,
+.theme-alltype .article-content {
+  background-color: var(--alltype-cream) !important;
+  color: var(--alltype-cream-text) !important;
+  max-width: 740px !important;
+  margin-inline: auto !important;
+  padding: 40px clamp(20px, 5vw, 60px) !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+.theme-alltype .article-header {
+  padding-bottom: 20px !important;
+  margin-top: 40px !important;
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+}
+
+.theme-alltype .article-content {
+  padding-top: 0px !important;
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+  font-family: var(--alltype-font-body) !important;
+  font-size: 20px !important;
+  line-height: 1.62 !important;
+}
+
+.theme-alltype .article-title {
+  color: var(--alltype-cream-text) !important;
+  font-family: var(--alltype-font-headline) !important;
+  font-size: clamp(32px, 5vw, 48px) !important;
+  line-height: 1.15 !important;
+  margin-bottom: 24px !important;
+}
+
+.theme-alltype .article-hat {
+  color: var(--alltype-muted) !important;
+  font-family: var(--alltype-font-ui) !important;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+.theme-alltype .article-excerpt {
+  color: #333333 !important;
+  font-family: var(--alltype-font-body) !important;
+  font-size: 21px !important;
+}
+
+.theme-alltype .article-meta {
+  color: var(--alltype-muted) !important;
+  border-top-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+.theme-alltype .article-content a {
+  color: #1a73e8 !important;
+}
+
+.theme-alltype .article-content p {
+  margin-bottom: 24px;
+  color: var(--alltype-cream-text) !important;
+}
+
+/* Footer style overrides */
+.theme-alltype .gblog-footer {
+  background-color: var(--alltype-surface-low) !important;
+  border-top: 1px solid var(--alltype-line) !important;
+}
+
+.theme-alltype .gblog-brand img {
+  filter: invert(1) grayscale(100%) !important;
+}
+
+.theme-alltype .gblog-link {
+  color: var(--alltype-text-soft) !important;
+}
+
+.theme-alltype .gblog-link:hover {
+  color: var(--alltype-primary) !important;
+}

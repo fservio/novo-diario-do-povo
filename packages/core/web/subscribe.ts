@@ -5,7 +5,7 @@
 
 import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
-import { renderPublicLayout, escapeHtml, escapeAttr, type PublicLayoutParams } from './layout'
+import { renderPublicLayout, escapeHtml, escapeAttr, normalizePublicTheme, type PublicLayoutParams } from './layout'
 import { getSetting } from '../db'
 import { getActiveCategories } from '../db/categories-cache'
 
@@ -311,8 +311,9 @@ export async function renderSubscribePage(
     </div>
   `
 
-  // Determine Theme (Minimalist Google Style is the only native theme)
-  const theme = 'minimal'
+  // Determine Theme
+  const themeSetting = await getSetting(c.env, 'public_theme')
+  const theme = normalizePublicTheme(themeSetting)
 
   // Fetch categories for mobile menu navigation
   const categories = await getActiveCategories(c.env)

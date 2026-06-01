@@ -23,7 +23,7 @@ export type PublicLayoutParams = {
   bodyHtml: string
   extraHeadHtml?: string  // JSON-LD scripts and OG tags
   googleAnalyticsId?: string
-  theme?: 'default' | 'minimal'
+  theme?: 'default' | 'minimal' | 'alltype'
   subscriber?: any
   lcpPreloadUrl?: string
   lcpSrcSet?: string
@@ -104,6 +104,27 @@ export function generateSrcSet(r2Key: string): string {
 }
 
 export { getPostUrl } from '../utils/post'
+
+// ============================================================================
+// Theme Whitelist & Registry
+// ============================================================================
+
+export const allowedPublicThemes = new Set(["minimal", "alltype"]);
+
+export function normalizePublicTheme(value: unknown): "minimal" | "alltype" {
+  return value === "alltype" ? "alltype" : "minimal";
+}
+
+export const PUBLIC_THEMES = {
+  minimal: {
+    label: "Minimalista (Google Style)",
+    cssHref: "/static/minimal.css"
+  },
+  alltype: {
+    label: "AllType",
+    cssHref: "/static/alltype.css"
+  }
+} as const;
 
 // ============================================================================
 // Public Layout
@@ -236,8 +257,9 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     });
   `, nonce).replace('<script', '<script data-script="header-scroll" defer')
 
-  // Theme Selection (Minimalist Google Style is the only native theme)
-  const cssFile = '/static/minimal.css'
+  // Theme Selection & Normalization
+  const normalizedTheme = normalizePublicTheme(theme)
+  const cssFile = PUBLIC_THEMES[normalizedTheme].cssHref
   const cssHref = `${cssFile}?v=${STATIC_ASSET_VERSION}`
 
   // Header Logic (Always Minimalist Google Style)
@@ -489,7 +511,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     </script>
   ` : ''}
 </head>
-<body style="padding: 0 !important;">
+<body class="theme-${normalizedTheme}" style="padding: 0 !important;">
   <div style="padding-inline: 16px; max-width: 100vw; overflow-x: hidden;">
   <!-- Header -->
   ${headerHtml}

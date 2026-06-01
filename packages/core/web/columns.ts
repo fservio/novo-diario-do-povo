@@ -5,7 +5,7 @@
 
 import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
-import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, type PublicLayoutParams } from './layout'
+import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, normalizePublicTheme, type PublicLayoutParams } from './layout'
 import { getPostUrl } from '../utils/post'
 import { listActiveAuthors, findAuthorBySlug, type Author } from '../db/authors'
 import { getSetting } from '../db'
@@ -188,8 +188,9 @@ export async function renderColumnsList(
     </div>
   `
 
-  // Determine Theme (Minimalist Google Style is the only native theme)
-  const theme = 'minimal'
+  // Determine Theme
+  const themeSetting = await getSetting(c.env, 'public_theme')
+  const theme = normalizePublicTheme(themeSetting)
 
   // Fetch categories for mobile menu
   const categories = await getActiveCategories(c.env)
@@ -301,8 +302,9 @@ export async function renderColumnPage(
     </div>
   `
 
-  // Determine Theme (Minimalist Google Style is the only native theme)
-  const theme = 'minimal'
+  // Determine Theme
+  const themeSetting = await getSetting(c.env, 'public_theme')
+  const theme = normalizePublicTheme(themeSetting)
 
   // Fetch categories for mobile menu
   const categories = await getActiveCategories(c.env)
