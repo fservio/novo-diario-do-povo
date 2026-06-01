@@ -83,8 +83,8 @@ app.get('/ultimas', async (c) => {
     ])
     const siteName = (settings['site_name'] as string) || 'Jornal Diário do Povo'
     const googleAnalyticsId = settings['google_analytics_id'] as string
-    const themeSetting = settings['public_theme']
-    const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
+    // Determine Theme (Minimalist Google Style is the only native theme)
+    const theme = 'minimal'
 
     const page = parseInt(c.req.query('page') || '1')
     const limit = 30
@@ -221,7 +221,7 @@ app.get('/tag/:slug', async (c) => {
             <title>${tag.name} | ${siteName}</title>
             <meta name="description" content="${tag.description || `Notícias sobre ${tag.name}`}">
             ${tag.seo_noindex ? '<meta name="robots" content="noindex, follow">' : ''}
-            <link href="/static/styles.css" rel="stylesheet">
+            <link href="/static/minimal.css" rel="stylesheet">
             ${googleAnalyticsId ? `
               <!-- Google Analytics (GA4) -->
               <script async src="https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}"></script>

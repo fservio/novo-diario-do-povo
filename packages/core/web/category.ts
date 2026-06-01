@@ -221,9 +221,8 @@ export async function renderCategoryPage(
     </script>
   `
 
-  // Determine Theme
-  const themeSetting = await getSetting(c.env, 'public_theme')
-  const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
+  // Determine Theme (Minimalist Google Style is the only native theme)
+  const theme = 'minimal'
 
   return renderPublicLayout({
     title: `${category.name} - ${siteName}`,

@@ -188,9 +188,8 @@ export async function renderColumnsList(
     </div>
   `
 
-  // Determine Theme
-  const themeSetting = await getSetting(c.env, 'public_theme')
-  const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
+  // Determine Theme (Minimalist Google Style is the only native theme)
+  const theme = 'minimal'
 
   // Fetch categories for mobile menu
   const categories = await getActiveCategories(c.env)
@@ -302,9 +301,8 @@ export async function renderColumnPage(
     </div>
   `
 
-  // Determine Theme
-  const themeSetting = await getSetting(c.env, 'public_theme')
-  const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
+  // Determine Theme (Minimalist Google Style is the only native theme)
+  const theme = 'minimal'
 
   // Fetch categories for mobile menu
   const categories = await getActiveCategories(c.env)

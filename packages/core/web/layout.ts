@@ -236,12 +236,12 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     });
   `, nonce).replace('<script', '<script data-script="header-scroll" defer')
 
-  // Theme Selection
-  const cssFile = theme === 'minimal' ? '/static/minimal.css' : '/static/styles.css'
+  // Theme Selection (Minimalist Google Style is the only native theme)
+  const cssFile = '/static/minimal.css'
   const cssHref = `${cssFile}?v=${STATIC_ASSET_VERSION}`
 
-  // Header Logic
-  const headerHtml = theme === 'minimal' ? `
+  // Header Logic (Always Minimalist Google Style)
+  const headerHtml = `
     <header class="gb-header">
       <div class="gb-container gb-header__inner">
         <!-- 1. Hamburger (Always Visible) -->
@@ -255,7 +255,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
 
         <!-- 2. Logo (Image Only, Larger) -->
         <a href="/" class="gb-logo" aria-label="${escapeAttr(siteName)}">
-          <img src="/i/static/logo-dp.png?w=200" alt="${escapeAttr(siteName)}" width="162" height="56" fetchpriority="high" style="max-height: 32px; max-width: 180px; height: auto; width: auto; object-fit: contain;">
+          <img src="/static/logo-dp.png" alt="${escapeAttr(siteName)}" width="162" height="56" fetchpriority="high" style="max-height: 32px; max-width: 180px; height: auto; width: auto; object-fit: contain;">
         </a>
 
         <!-- Spacer -->
@@ -263,6 +263,9 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
 
         <!-- 3. Actions (Modern Google Style) -->
         <div class="gb-actions" style="display: flex; gap: 8px; align-items: center;">
+          ${coverOfDay ? `
+            <button id="coverBtn" class="gb-btn gb-btn--text" style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">Capa do Dia</button>
+          ` : ''}
           ${subscriber ? `
             <a href="/portal" class="gb-btn gb-btn--text">Minha Conta</a>
           ` : `
@@ -272,46 +275,6 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
         </div>
       </div>
     </header>
-  ` : `
-    <header class="site-header">
-    <div class="container header-inner">
-      <div class="flex items-center gap-8">
-        <a href="/" class="logo">${escapeHtml(siteName)}</a>
-        
-        <!-- Desktop Nav -->
-        <nav class="nav-links desktop-only">
-          ${navItems.slice(0, 5).map(item => `
-            <a href="${escapeAttr(item.href)}" class="nav-link ${item.active ? 'active' : ''}">
-              ${escapeHtml(item.label)}
-            </a>
-          `).join('')}
-        </nav>
-      </div>
-
-      <div class="flex items-center gap-4">
-        <!-- Mobile Menu trigger -->
-        <button id="mobileMenuBtn" class="btn btn-outline mobile-only" aria-label="Menu">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="3" y1="12" x2="21" y2="12"></line>
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <line x1="3" y1="18" x2="21" y2="18"></line>
-          </svg>
-        </button>
-
-        ${coverOfDay ? `
-          <button id="coverBtn" class="btn btn-outline text-xs uppercase tracking-wide desktop-only">
-            Capa do Dia
-          </button>
-        ` : ''}
-        <a href="/assinar" class="btn btn-primary">Assine</a>
-        ${subscriber ? `
-          <a href="/portal" class="btn btn-outline desktop-only">Minha Conta</a>
-        ` : `
-          <a href="/portal/login" class="btn btn-outline desktop-only">Entrar</a>
-        `}
-      </div>
-    </div>
-  </header>
   `
 
   return `<!DOCTYPE html>
@@ -536,7 +499,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     <div class="mobile-menu-panel">
       <div class="gb-menu-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
         <span class="gb-logo" style="margin: 0; opacity: 1;">
-          <img src="/i/static/logo-dp.png?w=160" alt="Logo" width="120" height="42" loading="lazy" style="height: 24px; width: auto;">
+          <img src="/static/logo-dp.png" alt="Logo" width="120" height="42" loading="lazy" style="height: 24px; width: auto;">
         </span>
         <button id="mobileMenuClose" class="gb-icon-btn" aria-label="Fechar">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5f6368" stroke-width="2">
@@ -577,7 +540,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
       <!-- Top Section: Brand & Social -->
       <div class="gblog-footer__top">
         <div class="gblog-brand">
-          <img src="/i/static/logo-dp.png?w=200" alt="${escapeAttr(siteName)}" width="142" height="49" loading="lazy" style="height: 28px; width: auto; filter: grayscale(100%); opacity: 0.6;">
+          <img src="/static/logo-dp.png" alt="${escapeAttr(siteName)}" width="142" height="49" loading="lazy" style="height: 28px; width: auto; filter: grayscale(100%); opacity: 0.6;">
         </div>
 
         <div class="gblog-social">

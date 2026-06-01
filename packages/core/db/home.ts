@@ -373,7 +373,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
     hotRail: hotRailResult.results || [],
     explainers: explainersResult.results || [],
     categoryBlocks,
-    mostRead: [], // Analytics disabled
+    mostRead: [] as any[], // Analytics disabled
     topColumns: topColumnsResult.results || [],
     sections: enabledSections
   }

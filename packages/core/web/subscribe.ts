@@ -311,8 +311,8 @@ export async function renderSubscribePage(
     </div>
   `
 
-  const themeSetting = await getSetting(c.env, 'public_theme')
-  const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
+  // Determine Theme (Minimalist Google Style is the only native theme)
+  const theme = 'minimal'
 
   // Fetch categories for mobile menu navigation
   const categories = await getActiveCategories(c.env)

@@ -148,11 +148,11 @@ export async function renderSettingEditPage(
           ${scope === 'public' ? (key === 'public_theme' ? `
             <div class="form-group">
               <label>Tema do Site</label>
-              <select name="value" class="form-control">
-                <option value='"default"' ${value === 'default' ? 'selected' : ''}>Padrão (Magazine)</option>
-                <option value='"minimal"' ${value === 'minimal' ? 'selected' : ''}>Minimalista (Google Style)</option>
+              <select class="form-control" disabled>
+                <option value='"minimal"' selected>Minimalista (Google Style)</option>
               </select>
-              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500;">Selecione o tema visual do site público.</div>
+              <input type="hidden" name="value" value='"minimal"'>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500;">O tema nativo do site é fixado como Minimalista (Google Style).</div>
             </div>
           ` : `
             <div class="form-group">

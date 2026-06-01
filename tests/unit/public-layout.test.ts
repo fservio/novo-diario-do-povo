@@ -63,14 +63,15 @@ describe('renderPublicLayout', () => {
     expect(html).toContain('Test Content')
   })
 
-  it('should include navigation items', () => {
+  it('should include categories in navigation', () => {
     const params: PublicLayoutParams = {
       title: 'Test Page',
       canonicalUrl: 'https://example.com/test',
       siteName: 'Test Site',
-      navItems: [
-        { label: 'Brasil', href: '/categoria/brasil' },
-        { label: 'Economia', href: '/categoria/economia', active: true }
+      navItems: [],
+      categories: [
+        { id: 1, name: 'Brasil', slug: 'brasil' },
+        { id: 2, name: 'Economia', slug: 'economia' }
       ],
       bodyHtml: '<div>Test Content</div>'
     }
@@ -114,7 +115,7 @@ describe('renderPublicLayout', () => {
     expect(html).not.toContain('<link href="/static/styles.css?v=')
   })
 
-  it('should render default theme CSS when theme is default or missing', () => {
+  it('should render minimal theme CSS even when theme is default or missing', () => {
     const params: PublicLayoutParams = {
       title: 'Test Page',
       canonicalUrl: 'https://example.com/test',
@@ -125,7 +126,7 @@ describe('renderPublicLayout', () => {
 
     const html = renderPublicLayout(params)
 
-    expect(html).toContain('<link href="/static/styles.css?v=')
-    expect(html).not.toContain('<link href="/static/minimal.css?v=')
+    expect(html).toContain('<link href="/static/minimal.css?v=')
+    expect(html).not.toContain('<link href="/static/styles.css?v=')
   })
 })

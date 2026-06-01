@@ -505,9 +505,8 @@ export async function renderHomePage(
   const { renderAdSlot, generateAdsLoaderScript, findActiveSlotsByTemplate } = await import('../ads')
   const { baseUrl, siteName, coverR2Key, coverAlt, coverAspectRatio } = params
 
-  // Determine Theme FIRST
-  const themeSetting = await getSetting(c.env, 'public_theme')
-  const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
+  // Determine Theme FIRST (Minimalist Google Style is the only native theme)
+  const theme = 'minimal'
 
   // Ad Slots
   const adSlots = await findActiveSlotsByTemplate(c.env, 'home')
