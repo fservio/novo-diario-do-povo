@@ -27,13 +27,15 @@ function isRecentlyPublished(isoDate: string): boolean {
   }
 }
 
-function renderPostGB(post: CategoryPost, baseUrl: string, params?: { isLcp?: boolean }): string {
+function renderPostGB(post: CategoryPost, baseUrl: string, params?: { isLcp?: boolean; isAllType?: boolean }): string {
   const authorName = post.author_name || 'Redação'
   const isLive = isRecentlyPublished(post.published_at)
+  const isAllType = params?.isAllType || false
 
   return `
     <article class="gb-card">
       <a href="${getPostUrl(post, baseUrl)}" class="gb-card__link">
+        ${!isAllType ? `
         <div class="gb-card__media" style="aspect-ratio: 3/2; overflow: hidden; background: #f0f0f0;">
           <img 
             src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=600` : '/static/logo-dp.png'}" 
@@ -45,6 +47,7 @@ function renderPostGB(post: CategoryPost, baseUrl: string, params?: { isLcp?: bo
             ${params?.isLcp ? 'fetchpriority="high"' : ''}
           />
         </div>
+        ` : ''}
         <div class="gb-card__content">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
             ${post.hat ? `<span class="gb-hat" style="margin-bottom: 0;">${escapeHtml(post.hat)}</span>` : `<span class="gb-hat" style="margin-bottom: 0;">${escapeHtml(post.category_name)}</span>`}
@@ -62,14 +65,6 @@ function renderPostGB(post: CategoryPost, baseUrl: string, params?: { isLcp?: bo
         </div>
       </a>
     </article>
-
-    <style>
-      @keyframes gb-pulse {
-        0% { opacity: 1; }
-        50% { opacity: 0.6; }
-        100% { opacity: 1; }
-      }
-    </style>
   `
 }
 
@@ -92,6 +87,11 @@ export async function renderCategoryPage(
   const { category, posts, page, hasNextPage } = data
   const { baseUrl, siteName, navItems, coverOfDay } = options
   const nonce = c.get('cspNonce') || ''
+
+  // Determine Theme
+  const themeSetting = await getSetting(c.env, 'public_theme')
+  const theme = normalizePublicTheme(themeSetting)
+  const isAllType = theme === 'alltype'
 
   // Ads
   const adSlots = await findActiveSlotsByTemplate(c.env, 'category')
@@ -116,7 +116,7 @@ export async function renderCategoryPage(
     <div style="font-family: var(--font-sans); background: var(--gb-bg); color: var(--gb-text); min-height: 100vh;">
       
       <!-- Category Header -->
-      <header class="gb-container py-8 border-b border-gray-100 mb-8">
+      <header class="gb-container py-8 border-b border-gray-100 mb-8 ${isAllType ? 'editorial-heavy-divider' : ''}">
         <h1 id="categoryTitle" class="text-4xl font-black tracking-tight mb-2">${escapeHtml(category.name)}</h1>
         ${category.description ? `<p class="text-gray-500 text-lg">${escapeHtml(category.description)}</p>` : ''}
       </header>
@@ -128,7 +128,7 @@ export async function renderCategoryPage(
         <section class="gb-container gb-hero mb-12">
           <div class="gb-grid gb-hero__grid">
             <div class="gb-hero__content">
-              <span class="gb-hat">${escapeHtml(hero.category_name)}</span>
+              <span class="gb-hat ${isAllType ? 'category-chip' : ''}">${escapeHtml(hero.category_name)}</span>
               <h2 class="gb-title--hero">
                 <a href="${getPostUrl(hero, baseUrl)}">${escapeHtml(hero.title)}</a>
               </h2>
@@ -142,6 +142,7 @@ export async function renderCategoryPage(
                  </div>
               </div>
             </div>
+            ${!isAllType ? `
             <div class="gb-hero__media">
                <a href="${getPostUrl(hero, baseUrl)}">
                 <div class="gb-media-wrapper" style="aspect-ratio: 16 / 9; background: #f0f0f0;">
@@ -158,6 +159,7 @@ export async function renderCategoryPage(
                 </div>
                </a>
             </div>
+            ` : ''}
           </div>
         </section>
       ` : ''}
@@ -167,17 +169,17 @@ export async function renderCategoryPage(
       <!-- Carousel / List Section -->
       ${list.length > 0 ? `
          <section class="gb-container gb-section">
-           <div class="gb-section__header">
+            <div class="gb-section__header">
               <h2 class="gb-section__title">Mais em ${escapeHtml(category.name)}</h2>
               <div class="gb-carousel-controls">
                  <button class="gb-control-btn" data-carousel-target="carousel-cat" data-direction="prev" aria-label="Previous">←</button>
                  <button class="gb-control-btn" data-carousel-target="carousel-cat" data-direction="next" aria-label="Next">→</button>
               </div>
-           </div>
-           <div id="categoryList" class="gb-carousel">
-              ${list.map(p => renderPostGB(p, baseUrl)).join('')}
-           </div>
-        </section>
+            </div>
+            <div id="categoryList" class="gb-carousel">
+              ${list.map(p => renderPostGB(p, baseUrl, { isAllType })).join('')}
+            </div>
+         </section>
       ` : ''}
 
       ${(page > 1 || hasNextPage) ? `
@@ -220,10 +222,6 @@ export async function renderCategoryPage(
       });
     </script>
   `
-
-  // Determine Theme
-  const themeSetting = await getSetting(c.env, 'public_theme')
-  const theme = normalizePublicTheme(themeSetting)
 
   return renderPublicLayout({
     title: `${category.name} - ${siteName}`,
