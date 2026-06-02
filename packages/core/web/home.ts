@@ -16,13 +16,14 @@ import { getActiveCategories } from '../db/categories-cache'
 // Component Renderers
 // ============================================================================
 
-function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl: string): string {
+function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl: string, isAllType?: boolean): string {
   if (!hero) return ''
 
   // Left Column: Main Hero (Big)
   const heroHtml = `
     <article class="card card-hero h-full">
       <a href="${getPostUrl(hero, baseUrl)}" class="flex flex-col h-full relative group">
+        ${!isAllType ? `
         <div class="gb-media-wrapper" style="aspect-ratio: 16 / 9; overflow: hidden; background: #f0f0f0;">
            <img 
               src="${hero.featured_image_r2_key ? `/i/${escapeAttr(hero.featured_image_r2_key)}?w=1200` : '/placeholder-hero.jpg'}" 
@@ -39,6 +40,13 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
             ${escapeHtml(hero.category_name)}
           </span>
         </div>
+        ` : `
+          <div style="padding: 24px 24px 0 24px;">
+            <span class="category-chip">
+              ${escapeHtml(hero.category_name)}
+            </span>
+          </div>
+        `}
         <div class="card-body p-6 border border-gray-100 border-t-0 rounded-b-lg">
           ${hero.hat ? `
             <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">
@@ -65,6 +73,7 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
   const sideHtml = sidePosts.slice(0, 2).map(post => `
     <article class="card h-full">
       <a href="${getPostUrl(post, baseUrl)}" class="flex flex-col h-full group">
+        ${!isAllType ? `
         <div class="gb-media-wrapper" style="aspect-ratio: 16 / 9; overflow: hidden; background: #f0f0f0;">
           <img 
             src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=600` : '/placeholder.jpg'}" 
@@ -77,13 +86,18 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
             loading="lazy"
           />
         </div>
+        ` : `
+          <div style="padding: 20px 20px 0 20px;">
+            <span class="category-chip">${escapeHtml(post.category_name)}</span>
+          </div>
+        `}
         <div class="p-5 flex flex-col flex-1">
           ${post.hat ? `
             <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">
               ${escapeHtml(post.hat)}
             </div>
           ` : `
-            <span class="text-xs font-bold text-accent uppercase mb-2">${escapeHtml(post.category_name)}</span>
+            ${!isAllType ? `<span class="text-xs font-bold text-accent uppercase mb-2">${escapeHtml(post.category_name)}</span>` : ''}
           `}
           <h3 class="font-bold text-lg leading-tight mb-2 group-hover:text-accent transition-colors">
             ${escapeHtml(post.title)}
@@ -134,7 +148,7 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
   `
 }
 
-function renderRadarSection(posts: HomePost[], baseUrl: string): string {
+function renderRadarSection(posts: HomePost[], baseUrl: string, isAllType?: boolean): string {
   if (posts.length === 0) return ''
 
   return `
@@ -145,6 +159,7 @@ function renderRadarSection(posts: HomePost[], baseUrl: string): string {
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         ${posts.map(post => `
           <a href="${getPostUrl(post, baseUrl)}" class="group block">
+            ${!isAllType ? `
             <div class="gb-media-wrapper" style="aspect-ratio: 16 / 9; overflow: hidden; background: #f0f0f0;">
               <img 
                 src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=400` : '/placeholder.jpg'}" 
@@ -155,16 +170,19 @@ function renderRadarSection(posts: HomePost[], baseUrl: string): string {
                 loading="lazy"
               />
             </div>
-            ${post.hat ? `
-              <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">
-                ${escapeHtml(post.hat)}
-              </div>
-            ` : `
-              <span class="text-xs font-bold text-gray-400 uppercase">${escapeHtml(post.category_name)}</span>
-            `}
-            <h3 class="font-bold text-base leading-snug mt-1 group-hover:text-accent transition-colors">
-              ${escapeHtml(post.title)}
-            </h3>
+            ` : ''}
+            <div style="${isAllType ? 'padding-top: 8px;' : ''}">
+              ${post.hat ? `
+                <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">
+                  ${escapeHtml(post.hat)}
+                </div>
+              ` : `
+                <span class="text-xs font-bold text-gray-400 uppercase">${escapeHtml(post.category_name)}</span>
+              `}
+              <h3 class="font-bold text-base leading-snug mt-1 group-hover:text-accent transition-colors">
+                ${escapeHtml(post.title)}
+              </h3>
+            </div>
           </a>
         `).join('')}
       </div>
@@ -172,7 +190,7 @@ function renderRadarSection(posts: HomePost[], baseUrl: string): string {
   `
 }
 
-function renderCategorySection(block: CategoryBlock, baseUrl: string, index: number): string {
+function renderCategorySection(block: CategoryBlock, baseUrl: string, index: number, isAllType?: boolean): string {
   const isInverted = index % 2 !== 0 // Alternate layout
   const lead = block.lead
   const list = block.list
@@ -189,7 +207,8 @@ function renderCategorySection(block: CategoryBlock, baseUrl: string, index: num
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <!-- Lead Story -->
         <div class="lg:col-span-7 ${isInverted ? 'lg:order-2' : ''}">
-          <a href="${getPostUrl(lead, baseUrl)}" class="group block relative aspect-video rounded-xl overflow-hidden">
+          <a href="${getPostUrl(lead, baseUrl)}" class="group block relative ${!isAllType ? 'aspect-video rounded-xl overflow-hidden' : 'alltype-lead-box'}" style="${isAllType ? 'border: 1px solid var(--alltype-border); padding: 24px;' : ''}">
+            ${!isAllType ? `
             <div class="gb-media-wrapper" style="aspect-ratio: 16 / 9; background: #f0f0f0;">
               <img 
                 src="${leadImage}"
@@ -214,6 +233,21 @@ function renderCategorySection(block: CategoryBlock, baseUrl: string, index: num
                 ${escapeHtml(truncate(lead.excerpt, 120))}
               </p>
             </div>
+            ` : `
+              <div>
+                ${lead.hat ? `
+                  <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">
+                    ${escapeHtml(lead.hat)}
+                  </div>
+                ` : ''}
+                <h3 class="font-bold text-2xl leading-tight mb-2 group-hover:text-accent transition-colors">
+                  ${escapeHtml(lead.title)}
+                </h3>
+                <p class="text-gray-600 text-sm line-clamp-2 hidden md:block">
+                  ${escapeHtml(truncate(lead.excerpt, 120))}
+                </p>
+              </div>
+            `}
           </a>
         </div>
 
@@ -223,6 +257,7 @@ function renderCategorySection(block: CategoryBlock, baseUrl: string, index: num
             ${list.map(post => `
               <li class="group">
                 <a href="${getPostUrl(post, baseUrl)}" class="flex gap-4">
+                  ${!isAllType ? `
                   <div class="gb-media-wrapper" style="width: 96px; height: 64px; aspect-ratio: 3 / 2; background: #f0f0f0; overflow: hidden; flex-shrink: 0;">
                     <img 
                       src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=200` : '/placeholder.jpg'}"
@@ -232,6 +267,7 @@ function renderCategorySection(block: CategoryBlock, baseUrl: string, index: num
                       loading="lazy"
                     />
                   </div>
+                  ` : ''}
                   <div>
                     ${post.hat ? `
                       <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
@@ -541,18 +577,20 @@ export async function renderHomePage(
     // 1. Top Columns (Politica, Economia, Esporte)
     const topColumnsHtml = renderTopColumnsSection(data.topColumns || [], baseUrl)
 
+    const isAllType = theme === 'alltype'
+
     // 2. Hero Section (Manchete + 2 Destaques)
-    const heroHtml = renderHeroSection(data.hero, data.hotRail || [], baseUrl)
+    const heroHtml = renderHeroSection(data.hero, data.hotRail || [], baseUrl, isAllType)
 
     // 3. Radar Section (4 Featured Posts)
     const radarPosts = [...data.dualFeatures, ...data.explainers].slice(0, 4)
-    const radarHtml = renderRadarSection(radarPosts, baseUrl)
+    const radarHtml = renderRadarSection(radarPosts, baseUrl, isAllType)
 
     // 4. Categories
     const categoriesHtml = data.categoryBlocks.map((block, i) => {
-      let html = renderCategorySection(block, baseUrl, i)
+      let html = renderCategorySection(block, baseUrl, i, isAllType)
       if (i === 1 && adMid) { // Insert ad after 2nd category
-        html += `< div class="container my-8" > ${adMid} </div>`
+        html += `<div class="container my-8">${adMid}</div>`
       }
       return html
     }).join('')

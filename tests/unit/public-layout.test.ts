@@ -169,3 +169,26 @@ describe('renderPublicLayout', () => {
     expect(html).toContain('id="coverClose"')
   })
 })
+
+describe('Homepage AllType theme integration', () => {
+  it('should conditionalize homepage images based on isAllType', () => {
+    const fs = require('fs')
+    const path = require('path')
+    const homeCode = fs.readFileSync(path.join(__dirname, '../../packages/core/web/home.ts'), 'utf-8')
+    
+    expect(homeCode).toContain('!isAllType')
+    expect(homeCode).toContain('renderHeroSection(data.hero, data.hotRail || [], baseUrl, isAllType)')
+    expect(homeCode).toContain('renderRadarSection(radarPosts, baseUrl, isAllType)')
+    expect(homeCode).toContain('renderCategorySection(block, baseUrl, i, isAllType)')
+  })
+
+  it('should not contain any newsletter block or newsletter code', () => {
+    const fs = require('fs')
+    const path = require('path')
+    const homeCode = fs.readFileSync(path.join(__dirname, '../../packages/core/web/home.ts'), 'utf-8')
+    
+    expect(homeCode).not.toContain('newsletter')
+    expect(homeCode).not.toContain('inscrever')
+    expect(homeCode).not.toContain('inscreva')
+  })
+})
