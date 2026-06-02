@@ -322,8 +322,8 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
   <!-- Fonts - Faster Loading -->
   <link rel="preconnect" href="https://fonts.googleapis.com" media="(min-width: 769px)">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin media="(min-width: 769px)">
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=optional" media="(min-width: 769px)">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=optional" media="print" id="google-fonts-link" data-desktop-media="(min-width: 769px)">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=optional" media="(min-width: 769px)">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=optional" media="print" id="google-fonts-link" data-desktop-media="(min-width: 769px)">
   <script nonce="${nonce}">
     (function() {
       const fontsLink = document.getElementById('google-fonts-link');
@@ -336,7 +336,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     })();
   </script>
   <noscript>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=optional" media="(min-width: 769px)">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=optional" media="(min-width: 769px)">
   </noscript>
   
   <!-- Critical CSS - Inlined for FCP -->

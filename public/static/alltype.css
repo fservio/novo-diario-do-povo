@@ -1,195 +1,331 @@
 /* ==========================================================================
-   Tema AllType - Public Stylesheet
+   Tema AllType - Modern Editorial Brutalism (v1.3)
    ========================================================================== */
 
 @import url('minimal.css');
 
 :root {
-  --alltype-bg: #0B0B0B;
-  --alltype-surface: #131313;
-  --alltype-surface-low: #1C1B1B;
-  --alltype-surface-high: #2A2A2A;
+  /* Colors */
+  --alltype-surface: #FDF8F8;
+  --alltype-surface-dim: #DDD9D8;
+  --alltype-surface-bright: #FDF8F8;
 
-  --alltype-text: #E5E2E1;
-  --alltype-text-soft: #CDC6B9;
-  --alltype-muted: #969084;
+  --alltype-surface-container-lowest: #FFFFFF;
+  --alltype-surface-container-low: #F7F3F2;
+  --alltype-surface-container: #F1EDEC;
+  --alltype-surface-container-high: #EBE7E6;
+  --alltype-surface-container-highest: #E5E2E1;
 
-  --alltype-cream: #F2EFE7;
-  --alltype-cream-text: #111111;
-  --alltype-primary: #F5E7C3;
-  --alltype-accent: #D8CBA8;
-  --alltype-line: #2A2A2A;
-  --alltype-outline: #4A463D;
+  --alltype-background: #FDF8F8;
+  --alltype-on-background: #1C1B1B;
 
-  --alltype-font-headline: "Bodoni Moda", Georgia, "Times New Roman", serif;
-  --alltype-font-body: "Literata", Georgia, "Times New Roman", serif;
-  --alltype-font-ui: "Fira Sans", Arial, Helvetica, sans-serif;
+  --alltype-text: #1C1B1B;
+  --alltype-text-variant: #444748;
+
+  --alltype-black: #1A1A1A;
+  --alltype-deep-black: #000000;
+
+  --alltype-outline: #747878;
+  --alltype-outline-variant: #C4C7C7;
+
+  --alltype-primary: #000000;
+  --alltype-on-primary: #FFFFFF;
+
+  --alltype-primary-container: #1C1B1B;
+  --alltype-on-primary-container: #858383;
+
+  --alltype-brand-blue: #004A99;
+  --alltype-secondary: #255DAD;
+  --alltype-secondary-container: #79A9FD;
+  --alltype-on-secondary-container: #003C7E;
+
+  --alltype-error: #BA1A1A;
+  --alltype-on-error: #FFFFFF;
+
+  --alltype-border: #1A1A1A;
+  --alltype-border-muted: #C4C7C7;
+
+  --alltype-radius: 0px;
+  --alltype-line: 1px;
+  --alltype-heavy-line: 4px;
+
+  /* Typography */
+  --alltype-font-display: "Playfair Display", Georgia, "Times New Roman", serif;
+  --alltype-font-headline: "Playfair Display", Georgia, "Times New Roman", serif;
+  --alltype-font-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --alltype-font-ui: "Inter", Arial, Helvetica, sans-serif;
+
+  /* Typography Scale */
+  --alltype-display-xl-size: 72px;
+  --alltype-display-xl-line: 76px;
+  --alltype-display-xl-weight: 900;
+  --alltype-display-xl-tracking: -0.02em;
+
+  --alltype-display-lg-size: 48px;
+  --alltype-display-lg-line: 52px;
+  --alltype-display-lg-weight: 800;
+  --alltype-display-lg-tracking: -0.01em;
+
+  --alltype-display-mobile-size: 36px;
+  --alltype-display-mobile-line: 40px;
+
+  --alltype-headline-md-size: 32px;
+  --alltype-headline-md-line: 36px;
+  --alltype-headline-md-weight: 700;
+
+  --alltype-headline-sm-size: 24px;
+  --alltype-headline-sm-line: 28px;
+  --alltype-headline-sm-weight: 700;
+
+  --alltype-body-lg-size: 20px;
+  --alltype-body-lg-line: 32px;
+
+  --alltype-body-md-size: 17px;
+  --alltype-body-md-line: 26px;
+
+  --alltype-ui-label-size: 14px;
+  --alltype-ui-label-line: 16px;
+  --alltype-ui-label-weight: 700;
+
+  --alltype-ui-label-sm-size: 12px;
+  --alltype-ui-label-sm-line: 14px;
+  --alltype-ui-label-sm-tracking: 0.05em;
+
+  --alltype-metadata-size: 13px;
+  --alltype-metadata-line: 16px;
+
+  /* Spacing */
+  --alltype-grid-margin: 24px;
+  --alltype-grid-gutter: 1px;
+
+  --alltype-stack-xs: 4px;
+  --alltype-stack-sm: 8px;
+  --alltype-stack-md: 16px;
+  --alltype-stack-lg: 32px;
+  --alltype-stack-xl: 64px;
 }
 
-/* Theme Wrapper overrides */
+/* ==========================================================================
+   Structural Zero-Radius & Zero-Shadow Overrides
+   ========================================================================== */
+.theme-alltype *,
+.theme-alltype *::before,
+.theme-alltype *::after {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* ==========================================================================
+   Theme Wrapper & Body Level Customization
+   ========================================================================== */
 .theme-alltype {
-  background-color: var(--alltype-bg) !important;
+  background-color: var(--alltype-background) !important;
   color: var(--alltype-text) !important;
   font-family: var(--alltype-font-ui), sans-serif;
 }
 
 .theme-alltype body {
-  background-color: var(--alltype-bg) !important;
+  background-color: var(--alltype-background) !important;
   color: var(--alltype-text) !important;
 }
 
-/* Typography Hierarchy */
+/* ==========================================================================
+   Masthead & Header (Institutional Newspaper style)
+   ========================================================================== */
+.theme-alltype .gb-header {
+  background-color: var(--alltype-background) !important;
+  border-bottom: var(--alltype-heavy-line) solid var(--alltype-border) !important;
+}
+
+.theme-alltype .gb-logo img {
+  filter: grayscale(100%) contrast(1.2);
+}
+
+.theme-alltype .gb-icon-btn svg {
+  stroke: var(--alltype-text) !important;
+}
+
+/* ==========================================================================
+   Typography Overrides
+   ========================================================================== */
 .theme-alltype h1,
 .theme-alltype h2,
 .theme-alltype h3,
 .theme-alltype h4,
 .theme-alltype h5,
 .theme-alltype h6,
-.theme-alltype .gb-logo,
 .theme-alltype .article-title,
-.theme-alltype .gb-section__title {
+.theme-alltype .category-title,
+.theme-alltype .section-title {
   font-family: var(--alltype-font-headline) !important;
   color: var(--alltype-text) !important;
+  letter-spacing: var(--alltype-display-lg-tracking) !important;
 }
 
-/* Header customization */
-.theme-alltype .gb-header {
-  background-color: var(--alltype-surface) !important;
-  border-bottom: 1px solid var(--alltype-line) !important;
+/* Main Hero Typography override on Desktop */
+@media (min-width: 769px) {
+  .theme-alltype .hero-title {
+    font-size: var(--alltype-display-xl-size) !important;
+    line-height: var(--alltype-display-xl-line) !important;
+    font-weight: var(--alltype-display-xl-weight) !important;
+    letter-spacing: var(--alltype-display-xl-tracking) !important;
+  }
+}
+@media (max-width: 768px) {
+  .theme-alltype .hero-title {
+    font-size: var(--alltype-display-mobile-size) !important;
+    line-height: var(--alltype-display-mobile-line) !important;
+  }
 }
 
-.theme-alltype .gb-header.scrolled {
-  border-bottom-color: var(--alltype-outline) !important;
+/* ==========================================================================
+   Buttons and Forms
+   ========================================================================== */
+.theme-alltype .gb-btn--primary,
+.theme-alltype .btn-primary {
+  background: var(--alltype-black) !important;
+  color: var(--alltype-surface) !important;
+  border: var(--alltype-line) solid var(--alltype-black) !important;
+  font-family: var(--alltype-font-ui) !important;
+  font-weight: var(--alltype-ui-label-weight) !important;
+  text-transform: uppercase !important;
+  letter-spacing: var(--alltype-ui-label-sm-tracking) !important;
+  transition: background-color 50ms ease, color 50ms ease !important;
 }
 
-.theme-alltype .gb-logo {
-  color: var(--alltype-primary) !important;
-  text-transform: uppercase;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+.theme-alltype .gb-btn--primary:hover,
+.theme-alltype .btn-primary:hover {
+  background: var(--alltype-surface) !important;
+  color: var(--alltype-black) !important;
 }
 
-.theme-alltype .gb-icon-btn svg {
-  stroke: var(--alltype-text-soft) !important;
-}
-
-/* Navigation & Buttons */
 .theme-alltype .gb-btn--text {
-  color: var(--alltype-text-soft) !important;
-}
-
-.theme-alltype .gb-btn--primary {
-  background-color: var(--alltype-primary) !important;
-  color: var(--alltype-cream-text) !important;
-  border-radius: 0px !important;
-  font-family: var(--alltype-font-ui);
-  font-weight: 600;
-}
-
-.theme-alltype .gb-btn--primary:hover {
-  background-color: var(--alltype-accent) !important;
-}
-
-/* Cards & Feeds (Dark Editorial Grid) */
-.theme-alltype .gb-card {
-  background-color: var(--alltype-surface) !important;
-  border: 1px solid var(--alltype-line) !important;
-  border-radius: 0px !important;
-}
-
-.theme-alltype .gb-card__title {
-  font-family: var(--alltype-font-headline);
   color: var(--alltype-text) !important;
+  font-family: var(--alltype-font-ui) !important;
+  font-weight: var(--alltype-ui-label-weight) !important;
+  text-transform: uppercase !important;
 }
 
-.theme-alltype .gb-card__excerpt,
-.theme-alltype .gb-card__meta {
-  font-family: var(--alltype-font-body);
-  color: var(--alltype-text-soft) !important;
+.theme-alltype .gb-btn--text:hover {
+  color: var(--alltype-brand-blue) !important;
 }
 
-/* Article Reading Pane - Crème Surface */
+/* ==========================================================================
+   Bento Grid & Card Styling (1px Visible Newspaper Grid)
+   ========================================================================== */
+.theme-alltype .card {
+  background: var(--alltype-background) !important;
+  border: var(--alltype-line) solid var(--alltype-border) !important;
+  transition: transform 50ms ease !important;
+}
+
+.theme-alltype .card:hover {
+  transform: none !important;
+}
+
+.theme-alltype .card-body {
+  border: none !important;
+}
+
+/* Editorial separators */
+.theme-alltype .editorial-divider {
+  border-top: var(--alltype-line) solid var(--alltype-border) !important;
+}
+
+.theme-alltype .editorial-heavy-divider {
+  border-top: var(--alltype-heavy-line) solid var(--alltype-border) !important;
+}
+
+/* Editoria Category tags / chips */
+.theme-alltype .gb-card .btn-accent,
+.theme-alltype .category-chip {
+  background: var(--alltype-black) !important;
+  color: var(--alltype-surface) !important;
+  border: none !important;
+  font-family: var(--alltype-font-ui) !important;
+  font-size: var(--alltype-ui-label-sm-size) !important;
+  font-weight: var(--alltype-ui-label-weight) !important;
+  text-transform: uppercase !important;
+}
+
+/* ==========================================================================
+   Article Detail Page
+   ========================================================================== */
 .theme-alltype .article-detail {
-  background-color: var(--alltype-bg) !important;
-  color: var(--alltype-text) !important;
-  padding: 0 !important;
+  background-color: var(--alltype-background) !important;
 }
 
 .theme-alltype .article-header,
 .theme-alltype .article-content {
-  background-color: var(--alltype-cream) !important;
-  color: var(--alltype-cream-text) !important;
+  background-color: var(--alltype-background) !important;
+  color: var(--alltype-text) !important;
   max-width: 740px !important;
   margin-inline: auto !important;
-  padding: 40px clamp(20px, 5vw, 60px) !important;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  padding: 40px 16px !important;
 }
 
 .theme-alltype .article-header {
-  padding-bottom: 20px !important;
-  margin-top: 40px !important;
-  border-top-left-radius: 4px;
-  border-top-right-radius: 4px;
+  border-bottom: var(--alltype-line) solid var(--alltype-border) !important;
+  margin-top: 0 !important;
 }
 
 .theme-alltype .article-content {
-  padding-top: 0px !important;
-  border-bottom-left-radius: 4px;
-  border-bottom-right-radius: 4px;
   font-family: var(--alltype-font-body) !important;
-  font-size: 20px !important;
-  line-height: 1.62 !important;
+  font-size: var(--alltype-body-lg-size) !important;
+  line-height: var(--alltype-body-lg-line) !important;
 }
 
 .theme-alltype .article-title {
-  color: var(--alltype-cream-text) !important;
+  color: var(--alltype-text) !important;
   font-family: var(--alltype-font-headline) !important;
-  font-size: clamp(32px, 5vw, 48px) !important;
-  line-height: 1.15 !important;
-  margin-bottom: 24px !important;
 }
 
 .theme-alltype .article-hat {
-  color: var(--alltype-muted) !important;
+  color: var(--alltype-brand-blue) !important;
   font-family: var(--alltype-font-ui) !important;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-weight: var(--alltype-ui-label-weight) !important;
+  text-transform: uppercase !important;
 }
 
 .theme-alltype .article-excerpt {
-  color: #333333 !important;
+  color: var(--alltype-text-variant) !important;
   font-family: var(--alltype-font-body) !important;
-  font-size: 21px !important;
+  font-size: var(--alltype-body-md-size) !important;
+  line-height: var(--alltype-body-md-line) !important;
+  font-style: italic;
 }
 
 .theme-alltype .article-meta {
-  color: var(--alltype-muted) !important;
-  border-top-color: rgba(0, 0, 0, 0.08) !important;
+  border-top: var(--alltype-line) solid var(--alltype-border-muted) !important;
 }
 
 .theme-alltype .article-content a {
-  color: #1a73e8 !important;
+  color: var(--alltype-brand-blue) !important;
+  text-decoration: underline !important;
 }
 
-.theme-alltype .article-content p {
-  margin-bottom: 24px;
-  color: var(--alltype-cream-text) !important;
-}
-
-/* Footer style overrides */
+/* ==========================================================================
+   Footer Style
+   ========================================================================== */
 .theme-alltype .gblog-footer {
-  background-color: var(--alltype-surface-low) !important;
-  border-top: 1px solid var(--alltype-line) !important;
+  background-color: var(--alltype-black) !important;
+  color: var(--alltype-surface) !important;
+  border-top: var(--alltype-heavy-line) solid var(--alltype-black) !important;
+}
+
+.theme-alltype .gblog-footer__top,
+.theme-alltype .gblog-footer__bottom {
+  border-color: var(--alltype-primary-container) !important;
 }
 
 .theme-alltype .gblog-brand img {
-  filter: invert(1) grayscale(100%) !important;
+  filter: invert(1) brightness(2) grayscale(100%) !important;
 }
 
 .theme-alltype .gblog-link {
-  color: var(--alltype-text-soft) !important;
+  color: var(--alltype-surface-dim) !important;
 }
 
 .theme-alltype .gblog-link:hover {
-  color: var(--alltype-primary) !important;
+  color: var(--alltype-surface-container-lowest) !important;
 }
