@@ -6,6 +6,7 @@
 
 import type { Env, Post, PaywallRule, MeteringState } from '../types'
 import { getSetting } from '../db'
+import { getJwtSecret } from '../auth'
 
 // ============================================================================
 // Paywall Rules Engine
@@ -271,7 +272,7 @@ export async function signMeteringCookie(
   const encoder = new TextEncoder()
   const key = await crypto.subtle.importKey(
     'raw',
-    encoder.encode(env.JWT_SECRET || ''),
+    encoder.encode(getJwtSecret(env.JWT_SECRET)),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign']
@@ -297,7 +298,7 @@ export async function verifyMeteringCookie(
     const encoder = new TextEncoder()
     const key = await crypto.subtle.importKey(
       'raw',
-      encoder.encode(env.JWT_SECRET || ''),
+      encoder.encode(getJwtSecret(env.JWT_SECRET)),
       { name: 'HMAC', hash: 'SHA-256' },
       false,
       ['sign']

@@ -39,7 +39,7 @@ function base64UrlDecode(str: string): string {
   return atob(str)
 }
 
-function getJwtSecret(secret: string | undefined | null): string {
+export function getJwtSecret(secret: string | undefined | null): string {
   if (!secret || secret.trim() === '') {
     console.warn('[JWT] Warning: JWT_SECRET is empty or undefined. Using fallback secret for testing/preview.')
     return 'fallback-jwt-secret-please-configure-in-dashboard'
