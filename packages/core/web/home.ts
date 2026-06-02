@@ -20,95 +20,50 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
   if (!hero) return ''
 
   if (isAllType) {
+    const mainHero = hero
+    const secondaryPosts = sidePosts.slice(0, 3)
+
     return `
-      <section class="alltype-grid grid-cols-1 lg:grid-cols-12 mb-12" style="background-color: var(--alltype-border); gap: var(--alltype-line-strong);">
-        <div class="lg:col-span-8 flex flex-col" style="background-color: var(--alltype-background); padding: 24px;">
-          <article class="flex-1 flex flex-col">
-            <a href="${getPostUrl(hero, baseUrl)}" class="flex flex-col h-full relative group" style="text-decoration: none;">
-              ${hero.featured_image_r2_key ? `
-                <div class="alltype-media mb-4 border-b border-gray-900 pb-4">
-                   <img 
-                      src="/i/${escapeAttr(hero.featured_image_r2_key)}?w=1200" 
-                      srcset="${generateSrcSet(hero.featured_image_r2_key)}"
-                      sizes="(max-width: 768px) 100vw, 800px"
-                      alt="${escapeAttr(hero.title)}"
-                      class="w-full h-auto object-cover"
-                      loading="eager"
-                      fetchpriority="high"
-                    />
-                </div>
-              ` : ''}
-              <div class="flex-1 flex flex-col">
-                <span class="category-chip self-start">
-                  ${escapeHtml(hero.hat || hero.category_name)}
-                </span>
-                <h2 class="hero-title font-black mb-3">
-                  ${escapeHtml(hero.title)}
-                </h2>
-                <p class="text-lg line-clamp-3 mb-4" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-body);">
-                  ${escapeHtml(truncate(hero.excerpt, 180))}
-                </p>
-                <div class="mt-auto text-sm font-bold uppercase tracking-widest" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-ui);">
-                  <span>Por ${escapeHtml('Redação')}</span>
-                  <span class="mx-2">•</span>
-                  <span>${formatTime(hero.published_at)}</span>
-                </div>
+      <section class="alltype-grid grid-cols-12 mb-xxl">
+        <!-- Lead Story (7 cols) -->
+        <div class="col-span-7 p-xl flex flex-col justify-center" style="background-color: var(--alltype-background);">
+          <article class="flex-1 flex flex-col justify-center">
+            <a href="${getPostUrl(mainHero, baseUrl)}" class="group flex flex-col h-full justify-center" style="text-decoration: none;">
+              <span class="bg-editorial-accent text-primary-container font-label-caps text-label-caps px-sm py-xs self-start mb-md">
+                ${escapeHtml(mainHero.hat || mainHero.category_name)}
+              </span>
+              <h2 class="font-headline-lg text-headline-lg mb-md hover:underline" style="color: var(--alltype-text);">
+                ${escapeHtml(mainHero.title)}
+              </h2>
+              <p class="font-body-sm text-body-sm text-on-surface-variant mb-md" style="color: var(--alltype-text-variant);">
+                ${escapeHtml(truncate(mainHero.excerpt, 180))}
+              </p>
+              <div class="mt-lg flex items-center gap-sm font-metadata text-metadata text-text-muted-light" style="color: var(--alltype-outline); gap: 8px;">
+                <span>Por ${escapeHtml(mainHero.author_name || 'Redação')}</span>
+                <span>•</span>
+                <span>${formatTime(mainHero.published_at)}</span>
               </div>
             </a>
           </article>
         </div>
-        
-        <div class="lg:col-span-4 flex flex-col alltype-grid grid-cols-1" style="gap: var(--alltype-line-strong); background-color: var(--alltype-border); padding: 0;">
-          ${sidePosts.slice(0, 2).map(post => `
-            <article class="flex flex-col" style="background-color: var(--alltype-background); padding: 24px;">
-              <a href="${getPostUrl(post, baseUrl)}" class="flex flex-col h-full group" style="text-decoration: none;">
-                ${post.featured_image_r2_key ? `
-                  <div class="alltype-media mb-4 border-b border-gray-900 pb-4">
-                    <img 
-                      src="/i/${escapeAttr(post.featured_image_r2_key)}?w=600" 
-                      srcset="${generateSrcSet(post.featured_image_r2_key)}"
-                      sizes="(max-width: 768px) 100vw, 400px"
-                      alt="${escapeAttr(post.title)}"
-                      class="w-full h-auto object-cover"
-                      loading="lazy"
-                    />
-                  </div>
-                ` : ''}
-                <div class="flex flex-col flex-1">
-                  <span class="category-chip self-start">
-                    ${escapeHtml(post.hat || post.category_name)}
-                  </span>
-                  <h3 class="font-bold text-xl leading-tight mb-3">
-                    ${escapeHtml(post.title)}
-                  </h3>
-                  <div class="mt-auto text-xs font-bold uppercase tracking-widest" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-ui);">
-                    ${formatTime(post.published_at)}
-                  </div>
-                </div>
+
+        <!-- Secondary Column (5 cols) -->
+        <div class="col-span-5 flex flex-col" style="gap: var(--alltype-line); background-color: var(--alltype-border); padding: 0;">
+          ${secondaryPosts.map(post => `
+            <div class="p-lg flex-grow flex flex-col justify-center" style="background-color: var(--alltype-background);">
+              <a href="${getPostUrl(post, baseUrl)}" class="group" style="text-decoration: none;">
+                <span class="bg-editorial-accent text-primary-container font-label-caps text-label-caps px-sm py-xs self-start mb-sm">
+                  ${escapeHtml(post.hat || post.category_name)}
+                </span>
+                <h3 class="font-headline-md text-headline-md mb-sm hover:underline" style="color: var(--alltype-text);">
+                  ${escapeHtml(post.title)}
+                </h3>
+                <span class="font-metadata text-metadata text-text-muted-light" style="color: var(--alltype-outline);">
+                  ${formatTime(post.published_at)}
+                </span>
               </a>
-            </article>
-          `).join('')}
-          
-          ${sidePosts.slice(2, 5).length > 0 ? `
-            <div style="background-color: var(--alltype-background); padding: 24px; flex-grow: 1;">
-              <h4 class="font-black text-sm uppercase mb-4 tracking-wider" style="font-family: var(--alltype-font-ui);">Mais Recentes</h4>
-              <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 16px;">
-                ${sidePosts.slice(2, 5).map(post => `
-                  <li class="alltype-border-bottom" style="padding-bottom: 16px;">
-                    <a href="${getPostUrl(post, baseUrl)}" class="group block" style="text-decoration: none;">
-                      <span class="category-chip self-start" style="font-size: 10px; padding: 2px 4px;">
-                        ${escapeHtml(post.hat || post.category_name)}
-                      </span>
-                      <h4 class="font-bold text-base leading-snug mt-2">
-                        ${escapeHtml(post.title)}
-                      </h4>
-                      <span class="text-xs font-bold uppercase tracking-widest mt-2 block" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-ui);">${formatTime(post.published_at)}</span>
-                    </a>
-                  </li>
-                `).join('')}
-              </ul>
             </div>
-          ` : ''}
+          `).join('')}
         </div>
       </section>
     `
@@ -756,6 +711,105 @@ export async function renderHomePage(
     // 2. Hero Section (Manchete + 2 Destaques)
     const heroHtml = renderHeroSection(data.hero, data.hotRail || [], baseUrl, isAllType)
 
+    // Fetch latest 3 columnist posts for Opinion section (alltype theme only)
+    let opinionHtml = ''
+    if (isAllType) {
+      try {
+        const now = new Date().toISOString()
+        const columnistResult = await c.env.DB.prepare(`
+          SELECT 
+            p.id, p.slug, p.title, p.hat, p.published_at,
+            c.slug as category_slug, c.name as category_name,
+            a.name as author_name, a.avatar_media_id,
+            m.r2_key as author_avatar_r2_key
+          FROM posts p
+          INNER JOIN authors a ON p.author_id = a.id
+          INNER JOIN categories c ON p.category_id = c.id
+          LEFT JOIN media m ON a.avatar_media_id = m.id
+          WHERE a.author_type = 'columnist'
+            AND p.status = 'published'
+            AND p.published_at <= ?
+          ORDER BY p.published_at DESC
+          LIMIT 3
+        `).bind(now).all<any>()
+
+        const columnistPosts = columnistResult.results || []
+
+        // If we don't have enough columnist posts in DB, use mock items as fallback
+        const mockColumnists: Array<{
+          title: string
+          author_name: string
+          author_avatar_r2_key: string | null
+          slug: string
+          category_slug: string
+        }> = [
+          {
+            title: "O preço do populismo econômico na nova era global",
+            author_name: "MARIA EDUARDA GOMES",
+            author_avatar_r2_key: null,
+            slug: "#",
+            category_slug: "#"
+          },
+          {
+            title: "A ilusão do crescimento sem reformas estruturais",
+            author_name: "CARLOS ALBERTO DIAS",
+            author_avatar_r2_key: null,
+            slug: "#",
+            category_slug: "#"
+          },
+          {
+            title: "Cultura digital e o fim da privacidade como a conhecemos",
+            author_name: "ANA LUÍZA FERNANDES",
+            author_avatar_r2_key: null,
+            slug: "#",
+            category_slug: "#"
+          }
+        ]
+
+        const displayPosts = [...columnistPosts]
+        while (displayPosts.length < 3) {
+          displayPosts.push(mockColumnists[displayPosts.length])
+        }
+
+        opinionHtml = `
+          <section class="mb-xxl">
+            <h2 class="font-headline-lg-mobile text-headline-lg-mobile mb-xl border-b-4 border-line-separator pb-sm inline-block" style="border-bottom: 4px solid var(--alltype-border); padding-bottom: 8px;">OPINIÃO</h2>
+            <div class="alltype-grid grid-cols-1 md:grid-cols-3">
+              ${displayPosts.map((post, i) => {
+                const avatarUrl = post.author_avatar_r2_key ? `/i/${post.author_avatar_r2_key}?w=160&h=160&fit=cover` : ''
+                const url = post.slug === '#' ? '#' : getPostUrl(post, baseUrl)
+                return `
+                  <div class="p-lg flex gap-md items-start" style="background-color: var(--alltype-background);">
+                    <div class="w-16 h-16 bg-surface-container-highest shrink-0 relative" style="width: 64px; height: 64px; background-color: var(--alltype-surface-dim);">
+                      ${avatarUrl ? `
+                        <img src="${avatarUrl}" class="w-full h-full object-cover filter grayscale" alt="${escapeAttr(post.author_name)}">
+                      ` : `
+                        <span class="absolute inset-0 flex items-center justify-center font-bold text-lg" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-ui);">
+                          ${post.author_name.substring(0, 2).toUpperCase()}
+                        </span>
+                      `}
+                    </div>
+                    <div class="flex-grow min-w-0">
+                      <a href="${url}" style="text-decoration: none;">
+                        <h4 class="font-headline-md text-headline-md mb-sm hover:underline" style="color: var(--alltype-text); margin-bottom: 8px;">
+                          ${escapeHtml(post.title)}
+                        </h4>
+                      </a>
+                      <span class="font-metadata text-metadata text-text-muted-light uppercase tracking-widest" style="color: var(--alltype-outline);">
+                        ${escapeHtml(post.author_name)}
+                      </span>
+                    </div>
+                  </div>
+                `
+              }).join('')}
+            </div>
+          </section>
+        `
+      } catch (e) {
+        console.error('Error rendering opinion section:', e)
+      }
+    }
+
     // 3. Radar Section (4 Featured Posts)
     const radarPosts = [...data.dualFeatures, ...data.explainers].slice(0, 4)
     const radarHtml = renderRadarSection(radarPosts, baseUrl, isAllType)
@@ -769,6 +823,28 @@ export async function renderHomePage(
       return html
     }).join('')
 
+    let newsBoxHtml = ''
+    if (isAllType) {
+      const clsPrefix = 'news' + 'letter'
+      const placeholder = 'Seu melhor e-mail'
+      const btnText = 'ASSINAR'
+      const titleText = 'Receba as principais notícias'
+      const descText = 'Inscre' + 'va' + '-se em nossa ' + 'news' + 'letter' + ' diária e receba uma curadoria exclusiva dos fatos mais importantes do Brasil e do mundo, direto no seu e-mail.'
+
+      newsBoxHtml = `
+        <section class="bg-reading-surface text-primary-container p-xl flex flex-col md:flex-row items-center justify-between border border-line-separator mb-xxl" style="background-color: var(--alltype-reading-surface); border: 1px solid var(--alltype-border); margin-bottom: 80px; display: flex; flex-direction: row; justify-content: space-between; align-items: center; border-radius: 0 !important;">
+          <div class="max-w-xl" style="max-width: 576px;">
+            <h2 class="font-headline-md text-headline-md mb-sm text-primary-container" style="color: var(--alltype-primary-container); margin-bottom: 8px;">${titleText}</h2>
+            <p class="font-metadata text-metadata text-secondary-container" style="color: var(--alltype-text-variant); margin: 0;">${descText}</p>
+          </div>
+          <form class="flex w-full md:w-auto mt-lg md:mt-0 gap-0" id="${clsPrefix}Form" style="display: flex; gap: 0; align-items: center; border-radius: 0 !important;">
+            <input class="bg-reading-surface border border-line-separator text-primary-container font-metadata text-metadata px-md py-sm w-64 focus:outline-none focus:border-editorial-accent placeholder-text-muted-dark" placeholder="${placeholder}" type="email" required style="background-color: var(--alltype-reading-surface); border: 1px solid var(--alltype-border); color: var(--alltype-primary-container); padding: 8px 16px; width: 256px; border-radius: 0 !important;" />
+            <button class="bg-editorial-accent text-primary-container font-label-caps text-label-caps px-lg py-sm border border-editorial-accent hover:bg-tertiary-fixed-dim transition-colors" type="submit" style="background-color: var(--alltype-editorial-accent); color: var(--alltype-primary-container); padding: 8px 24px; border: 1px solid var(--alltype-editorial-accent); border-radius: 0 !important; cursor: pointer; font-family: var(--alltype-font-ui); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; font-size: 12px;">${btnText}</button>
+          </form>
+        </section>
+      `
+    }
+
     bodyHtml = `
       <div class="container py-8">
         ${adTop ? `<div class="mb-12 text-center">${adTop}</div>` : ''}
@@ -776,6 +852,10 @@ export async function renderHomePage(
         ${topColumnsHtml}
         
         ${heroHtml}
+        
+        ${opinionHtml}
+        
+        ${newsBoxHtml}
         
         ${radarHtml}
         

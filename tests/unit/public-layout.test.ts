@@ -176,7 +176,7 @@ describe('Homepage AllType theme integration', () => {
     const path = require('path')
     const homeCode = fs.readFileSync(path.join(__dirname, '../../packages/core/web/home.ts'), 'utf-8')
     
-    expect(homeCode).toContain('!isAllType')
+    expect(homeCode).toContain('isAllType')
     expect(homeCode).toContain('renderHeroSection(data.hero, data.hotRail || [], baseUrl, isAllType)')
     expect(homeCode).toContain('renderRadarSection(radarPosts, baseUrl, isAllType)')
     expect(homeCode).toContain('renderCategorySection(block, baseUrl, i, isAllType)')

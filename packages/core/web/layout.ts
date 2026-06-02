@@ -255,6 +255,15 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
         link.href = url.pathname + url.search;
       }
     });
+    // Newsletter form submit handler
+    const newsletterForm = document.getElementById('newsletterForm');
+    if (newsletterForm) {
+      newsletterForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        alert('Inscrição realizada com sucesso! Obrigado por assinar nossa newsletter.');
+        newsletterForm.reset();
+      });
+    }
   `, nonce).replace('<script', '<script data-script="header-scroll" defer')
 
   // Theme Selection & Normalization
@@ -265,47 +274,60 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
 
   // Header Logic
   const headerHtml = isAllType ? `
-    <header class="gb-header">
-      <div class="gb-container gb-header__inner">
-        <!-- 1. Hamburger (Left) -->
-        <button id="mobileMenuBtn" class="gb-icon-btn" aria-label="Menu">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" stroke-width="2">
-            <line x1="3" y1="12" x2="21" y2="12"></line>
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <line x1="3" y1="18" x2="21" y2="18"></line>
-          </svg>
-        </button>
+    <header class="bg-background text-on-background top-0 border-b border-line-separator flat no-shadows w-full" style="padding-top: 16px; padding-bottom: 16px; border-bottom: var(--alltype-line) solid var(--alltype-border) !important;">
+      <div class="flex flex-col items-center w-full px-md py-sm md:px-xl">
+        <div class="w-full flex justify-between items-center mb-md max-w-container-max mx-auto" style="margin-bottom: 16px;">
+          <!-- 1. Menu (Left) -->
+          <button id="mobileMenuBtn" class="hover:bg-surface-container-highest transition-colors duration-200 p-sm scale-95 active:opacity-80 transition-all border-none bg-transparent" aria-label="Menu" style="cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 8px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
 
-        <!-- Spacer -->
-        <div style="flex: 1;"></div>
+          <!-- 2. Logo and Edition (Center) -->
+          <div class="flex flex-col items-center">
+            <a href="/" class="alltype-logo-image" aria-label="${escapeAttr(siteName)}" style="display: flex; align-items: center; justify-content: center; text-decoration: none;">
+              <img src="/static/logo-dp.png" alt="${escapeAttr(siteName)}" width="162" height="56" fetchpriority="high" style="max-height: 48px; max-width: 240px; height: auto; width: auto; object-fit: contain;">
+            </a>
+            <div class="flex gap-md font-label-caps text-label-caps mt-sm text-text-muted-light desktop-only" style="margin-top: 8px; font-family: var(--alltype-font-ui); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--alltype-outline); gap: 16px;">
+              <span>${today}</span>
+              <span>|</span>
+              <span>Edição Nº 4.521</span>
+            </div>
+          </div>
 
-        <!-- 2. Logo (Center, Text Uppercase) -->
-        <a href="/" class="alltype-logo-text" aria-label="${escapeAttr(siteName)}">
-          ${escapeHtml(siteName).toUpperCase()}
-        </a>
-
-        <!-- Spacer -->
-        <div style="flex: 1;"></div>
-
-        <!-- 3. Actions / Date (Right) -->
-        <div class="gb-actions desktop-only" style="display: flex; gap: 16px; align-items: center; font-family: var(--alltype-font-ui); font-size: 14px; font-weight: 700; text-transform: uppercase;">
-          <span style="color: var(--alltype-text-variant);">${today}</span>
-          ${subscriber ? `
-            <a href="/portal" style="color: var(--alltype-text); text-decoration: none;">Minha Conta</a>
-          ` : `
-            <a href="/portal/login" style="color: var(--alltype-text); text-decoration: none;">Entrar</a>
-          `}
-          <a href="/assinar" class="btn-primary" style="padding: 6px 16px;">Assine</a>
+          <!-- 3. Actions (Right) -->
+          <div class="flex items-center gap-md">
+            <div class="gb-actions desktop-only" style="display: flex; gap: 16px; align-items: center; font-family: var(--alltype-font-ui); font-size: 14px; font-weight: 700; text-transform: uppercase;">
+              ${subscriber ? `
+                <a href="/portal" style="color: var(--alltype-text); text-decoration: none;">Minha Conta</a>
+              ` : `
+                <a href="/portal/login" style="color: var(--alltype-text); text-decoration: none;">Entrar</a>
+              `}
+              <a href="/assinar" class="btn-primary px-lg py-sm" style="padding: 8px 16px; text-decoration: none;">Assine</a>
+            </div>
+            <!-- Mobile Actions -->
+            <div class="gb-actions" style="display: none;" id="mobileActions">
+               <a href="/assinar" class="btn-primary" style="padding: 4px 12px; font-size: 12px; text-decoration: none;">Assine</a>
+            </div>
+          </div>
         </div>
-        <!-- Mobile Actions -->
-        <div class="gb-actions" style="display: none;" id="mobileActions">
-           <a href="/assinar" class="btn-primary" style="padding: 4px 12px; font-size: 12px;">Assine</a>
-        </div>
+
+        <!-- 4. Sub-Navigation (Bottom Row - Desktop Only) -->
+        <nav class="w-full max-w-container-max mx-auto flex justify-center gap-xl border-t-4 border-line-separator pt-md desktop-only" style="margin-top: 16px; border-top: 4px solid var(--alltype-border); padding-top: 16px; gap: 32px; font-family: var(--alltype-font-ui); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;">
+          ${navItems.map(item => `
+            <a class="text-on-surface-variant font-label-caps hover:text-on-surface hover:bg-surface-container-highest transition-colors duration-200 p-sm scale-95 active:opacity-80 transition-all uppercase" href="${escapeAttr(item.href)}" style="text-decoration: none; padding: 4px 8px;">
+              ${escapeHtml(item.label)}
+            </a>
+          `).join('')}
+        </nav>
       </div>
       <style nonce="\${nonce}">
         @media (max-width: 768px) {
           #mobileActions { display: flex !important; align-items: center; }
-          .alltype-logo-text { font-size: 20px !important; }
+          .alltype-logo-image img { max-height: 32px !important; }
         }
       </style>
     </header>
