@@ -112,11 +112,77 @@ export async function renderCategoryPage(
   const hero = posts.length > 0 ? posts[0] : null
   const list = posts.length > 1 ? posts.slice(1) : []
 
-  const bodyHtml = `
+  const bodyHtml = isAllType ? `
+    <div style="background-color: var(--alltype-background); min-height: 100vh;">
+      
+      <!-- Category Header -->
+      <header class="gb-container py-8 border-b-4 border-gray-900 mb-8 editorial-heavy-divider">
+        <h1 id="categoryTitle" class="text-6xl font-black tracking-tight mb-2 uppercase" style="font-family: var(--alltype-font-ui); letter-spacing: -0.02em;">${escapeHtml(category.name)}</h1>
+        ${category.description ? `<p class="text-xl" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-body);">${escapeHtml(category.description)}</p>` : ''}
+      </header>
+
+      ${adTopHtml ? `<div class="gb-container mb-8 text-center">${adTopHtml}</div>` : ''}
+
+      <!-- List Section -->
+      <section class="gb-container mb-12">
+        <div class="alltype-grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          ${[hero, ...list].filter((p): p is CategoryPost => p !== null).map(post => `
+            <article class="flex flex-col" style="background-color: var(--alltype-background); padding: 24px;">
+              <a href="${getPostUrl(post, baseUrl)}" class="group block h-full flex flex-col" style="text-decoration: none;">
+                ${post.featured_image_r2_key ? `
+                  <div class="alltype-media mb-4 border-b border-gray-900 pb-4">
+                    <img 
+                      src="/i/${escapeAttr(post.featured_image_r2_key)}?w=600" 
+                      alt="${escapeAttr(post.title)}"
+                      class="w-full h-auto object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                ` : ''}
+                <div class="flex flex-col flex-1">
+                  <span class="category-chip self-start">
+                    ${escapeHtml(post.hat || post.category_name)}
+                  </span>
+                  <h3 class="font-bold text-2xl leading-tight mt-2 mb-3" style="font-family: var(--alltype-font-headline);">
+                    ${escapeHtml(post.title)}
+                  </h3>
+                  <p class="text-lg line-clamp-3 mb-4" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-body);">
+                    ${escapeHtml(truncate(post.excerpt, 120))}
+                  </p>
+                  <div class="mt-auto text-xs font-bold uppercase tracking-widest mt-4 block" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-ui);">
+                    ${formatDate(post.published_at)}
+                  </div>
+                </div>
+              </a>
+            </article>
+          `).join('')}
+        </div>
+      </section>
+
+      ${adMidHtml ? `<div class="gb-container mb-12 text-center">${adMidHtml}</div>` : ''}
+
+      ${(page > 1 || hasNextPage) ? `
+        <nav id="pagination" class="gb-container" style="display: flex; justify-content: center; gap: 12px; margin: 32px auto;" aria-label="Paginacao">
+          ${page > 1 ? `<a class="btn-primary" href="/categoria/${escapeAttr(category.slug)}?page=${page - 1}" style="padding: 8px 16px;">Anterior</a>` : ''}
+          <span style="align-self: center; font-weight: bold; font-family: var(--alltype-font-ui);">Página ${page}</span>
+          ${hasNextPage ? `<a class="btn-primary" href="/categoria/${escapeAttr(category.slug)}?page=${page + 1}" style="padding: 8px 16px;">Próxima</a>` : ''}
+        </nav>
+      ` : ''}
+
+      ${posts.length === 0 ? `
+        <div class="gb-container py-12 text-center text-gray-500 font-bold" style="font-family: var(--alltype-font-ui);">
+          Nenhum artigo encontrado nesta categoria.
+        </div>
+      ` : ''}
+
+    </div>
+    
+    ${adsScript}
+  ` : `
     <div style="font-family: var(--font-sans); background: var(--gb-bg); color: var(--gb-text); min-height: 100vh;">
       
       <!-- Category Header -->
-      <header class="gb-container py-8 border-b border-gray-100 mb-8 ${isAllType ? 'editorial-heavy-divider' : ''}">
+      <header class="gb-container py-8 border-b border-gray-100 mb-8">
         <h1 id="categoryTitle" class="text-4xl font-black tracking-tight mb-2">${escapeHtml(category.name)}</h1>
         ${category.description ? `<p class="text-gray-500 text-lg">${escapeHtml(category.description)}</p>` : ''}
       </header>
@@ -128,7 +194,7 @@ export async function renderCategoryPage(
         <section class="gb-container gb-hero mb-12">
           <div class="gb-grid gb-hero__grid">
             <div class="gb-hero__content">
-              <span class="gb-hat ${isAllType ? 'category-chip' : ''}">${escapeHtml(hero.category_name)}</span>
+              <span class="gb-hat">${escapeHtml(hero.category_name)}</span>
               <h2 class="gb-title--hero">
                 <a href="${getPostUrl(hero, baseUrl)}">${escapeHtml(hero.title)}</a>
               </h2>
@@ -142,7 +208,6 @@ export async function renderCategoryPage(
                  </div>
               </div>
             </div>
-            ${!isAllType ? `
             <div class="gb-hero__media">
                <a href="${getPostUrl(hero, baseUrl)}">
                 <div class="gb-media-wrapper" style="aspect-ratio: 16 / 9; background: #f0f0f0;">
@@ -159,7 +224,6 @@ export async function renderCategoryPage(
                 </div>
                </a>
             </div>
-            ` : ''}
           </div>
         </section>
       ` : ''}

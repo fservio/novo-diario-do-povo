@@ -40,21 +40,47 @@ function looksLikeMarkdown(value: string | null | undefined): boolean {
 // Component Renderers
 // ============================================================================
 
-function renderArticleCard(post: RelatedPost, baseUrl: string, options?: { isLarge?: boolean }): string {
+function renderArticleCard(post: RelatedPost, baseUrl: string, options?: { isLarge?: boolean; isAllType?: boolean }): string {
   const authorName = post.author_name || 'Redação'
   const isLarge = options?.isLarge
+  const isAllType = options?.isAllType
 
-  // For "Next Post" (Large), we might want a different layout, 
-  // but for consistency with Home "gb-card", we'll stick to the aesthetic but maybe wider.
-  // Actually, let's make the Large one a horizontal card if possible, or just a big vertical one.
-  // Let's us the standard gb-card but ensure image quality.
+  if (isAllType) {
+    return `
+      <article class="flex flex-col h-full" style="background-color: var(--alltype-background); padding: 24px;">
+        <a href="${getPostUrl(post, baseUrl)}" class="group block h-full flex flex-col" style="text-decoration: none;">
+          ${post.featured_image_r2_key ? `
+            <div class="alltype-media mb-4 border-b border-gray-900 pb-4">
+              <img 
+                src="/i/${escapeAttr(post.featured_image_r2_key)}?w=${isLarge ? '1200' : '600'}" 
+                alt="${escapeAttr(post.title)}"
+                class="w-full h-auto object-cover"
+                loading="lazy"
+              />
+            </div>
+          ` : ''}
+          <div class="flex flex-col flex-1">
+            <span class="category-chip self-start">
+              ${escapeHtml(post.hat || post.category_name)}
+            </span>
+            <h3 class="font-bold leading-tight mt-2 mb-3" style="font-family: var(--alltype-font-headline); font-size: ${isLarge ? '32px' : '24px'};">
+              ${escapeHtml(post.title)}
+            </h3>
+            <div class="mt-auto text-xs font-bold uppercase tracking-widest mt-4 block" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-ui);">
+              ${escapeHtml(authorName)} • ${formatDate(post.published_at)}
+            </div>
+          </div>
+        </a>
+      </article>
+    `
+  }
 
   return `
     <article class="gb-card ${isLarge ? 'gb-card--large' : ''}">
       <a href="${getPostUrl(post, baseUrl)}" class="gb-card__link">
         <div class="gb-card__media">
           <img 
-            src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=${isLarge ? '1200' : '600'}` : '/static/logo-dp.png'}" 
+            src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=${isLarge ? '1200' : '600'}` : '/static/logo-dp.png'}"
             alt="${escapeAttr(post.title)}"
             class="img-aesthetic"
             loading="lazy"
@@ -396,6 +422,11 @@ export async function renderArticlePage(
 ): Promise<string> {
   const { baseUrl, siteName, navItems, coverOfDay, relatedPosts, mostRead, isBlocked, accessCheck, googleAnalyticsId } = options
 
+  // Determine Theme early to pass down
+  const themeSetting = await getSetting(c.env, 'public_theme')
+  const theme = normalizePublicTheme(themeSetting)
+  const isAllType = theme === 'alltype'
+
   const nonce = c.get('cspNonce') || ''
   const canonicalUrl = post.seo_canonical || getPostUrl(post, baseUrl)
 
@@ -508,17 +539,17 @@ export async function renderArticlePage(
           <!-- 1. Next Post (Prominent) -->
           ${relatedPosts.length > 0 ? `
             <div class="mb-16">
-              <h3 class="gb-section__title mb-6">A seguir</h3>
-              ${renderArticleCard(relatedPosts[0], baseUrl, { isLarge: true })}
+              <h3 class="gb-section__title mb-6 ${isAllType ? 'font-black uppercase' : ''}" style="${isAllType ? 'font-family: var(--alltype-font-ui);' : ''}">A seguir</h3>
+              ${renderArticleCard(relatedPosts[0], baseUrl, { isLarge: true, isAllType })}
             </div>
           ` : ''}
 
           <!-- 2. Related Posts (Grid) -->
           ${relatedPosts.length > 1 ? `
             <div class="mb-16">
-              <h3 class="gb-section__title mb-6">Relacionadas</h3>
-              <div class="gb-grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
-                ${relatedPosts.slice(1, 4).map(p => renderArticleCard(p, baseUrl)).join('')}
+              <h3 class="gb-section__title mb-6 ${isAllType ? 'font-black uppercase' : ''}" style="${isAllType ? 'font-family: var(--alltype-font-ui);' : ''}">Relacionadas</h3>
+              <div class="${isAllType ? 'alltype-grid grid-cols-1 md:grid-cols-3' : 'gb-grid'}" ${!isAllType ? 'style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));"' : ''}>
+                ${relatedPosts.slice(1, 4).map(p => renderArticleCard(p, baseUrl, { isAllType })).join('')}
               </div>
             </div>
           ` : ''}
@@ -526,9 +557,9 @@ export async function renderArticlePage(
           <!-- 3. Most Read (Grid) -->
           ${mostRead && mostRead.length > 0 ? `
              <div class="mb-12">
-              <h3 class="gb-section__title mb-6">Mais Lidas</h3>
-              <div class="gb-grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
-                ${mostRead.slice(0, 4).map(p => renderArticleCard(p, baseUrl)).join('')}
+              <h3 class="gb-section__title mb-6 ${isAllType ? 'font-black uppercase' : ''}" style="${isAllType ? 'font-family: var(--alltype-font-ui);' : ''}">Mais Lidas</h3>
+              <div class="${isAllType ? 'alltype-grid grid-cols-1 md:grid-cols-4' : 'gb-grid'}" ${!isAllType ? 'style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));"' : ''}>
+                ${mostRead.slice(0, 4).map(p => renderArticleCard(p, baseUrl, { isAllType })).join('')}
               </div>
             </div>
           ` : ''}
@@ -542,10 +573,6 @@ export async function renderArticlePage(
     
     ${adsScript}
   `
-
-  // Determine Theme
-  const themeSetting = await getSetting(c.env, 'public_theme')
-  const theme = normalizePublicTheme(themeSetting)
 
   // Fetch categories for mobile menu
   const categories = await getActiveCategories(c.env)

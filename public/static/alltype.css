@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Tema AllType - Modern Editorial Brutalism (v1.3)
+   Tema AllType - Modern Editorial Brutalism (v1.4)
    ========================================================================== */
 
 @import url('minimal.css');
@@ -9,45 +9,13 @@
   --alltype-surface: #FDF8F8;
   --alltype-surface-dim: #DDD9D8;
   --alltype-surface-bright: #FDF8F8;
-
-  --alltype-surface-container-lowest: #FFFFFF;
-  --alltype-surface-container-low: #F7F3F2;
-  --alltype-surface-container: #F1EDEC;
-  --alltype-surface-container-high: #EBE7E6;
-  --alltype-surface-container-highest: #E5E2E1;
-
   --alltype-background: #FDF8F8;
-  --alltype-on-background: #1C1B1B;
-
-  --alltype-text: #1C1B1B;
+  --alltype-text: #1A1A1A;
   --alltype-text-variant: #444748;
-
   --alltype-black: #1A1A1A;
   --alltype-deep-black: #000000;
-
-  --alltype-outline: #747878;
-  --alltype-outline-variant: #C4C7C7;
-
-  --alltype-primary: #000000;
-  --alltype-on-primary: #FFFFFF;
-
-  --alltype-primary-container: #1C1B1B;
-  --alltype-on-primary-container: #858383;
-
-  --alltype-brand-blue: #004A99;
-  --alltype-secondary: #255DAD;
-  --alltype-secondary-container: #79A9FD;
-  --alltype-on-secondary-container: #003C7E;
-
-  --alltype-error: #BA1A1A;
-  --alltype-on-error: #FFFFFF;
-
   --alltype-border: #1A1A1A;
-  --alltype-border-muted: #C4C7C7;
-
-  --alltype-radius: 0px;
-  --alltype-line: 1px;
-  --alltype-heavy-line: 4px;
+  --alltype-brand-blue: #004A99;
 
   /* Typography */
   --alltype-font-display: "Playfair Display", Georgia, "Times New Roman", serif;
@@ -63,7 +31,7 @@
 
   --alltype-display-lg-size: 48px;
   --alltype-display-lg-line: 52px;
-  --alltype-display-lg-weight: 800;
+  --alltype-display-lg-weight: 900;
   --alltype-display-lg-tracking: -0.01em;
 
   --alltype-display-mobile-size: 36px;
@@ -71,11 +39,11 @@
 
   --alltype-headline-md-size: 32px;
   --alltype-headline-md-line: 36px;
-  --alltype-headline-md-weight: 700;
+  --alltype-headline-md-weight: 900;
 
   --alltype-headline-sm-size: 24px;
   --alltype-headline-sm-line: 28px;
-  --alltype-headline-sm-weight: 700;
+  --alltype-headline-sm-weight: 800;
 
   --alltype-body-lg-size: 20px;
   --alltype-body-lg-line: 32px;
@@ -98,11 +66,10 @@
   --alltype-grid-margin: 24px;
   --alltype-grid-gutter: 1px;
 
-  --alltype-stack-xs: 4px;
-  --alltype-stack-sm: 8px;
-  --alltype-stack-md: 16px;
-  --alltype-stack-lg: 32px;
-  --alltype-stack-xl: 64px;
+  /* Lines */
+  --alltype-line: 1px;
+  --alltype-line-strong: 2px;
+  --alltype-line-heavy: 4px;
 }
 
 /* ==========================================================================
@@ -134,11 +101,25 @@
    ========================================================================== */
 .theme-alltype .gb-header {
   background-color: var(--alltype-background) !important;
-  border-bottom: var(--alltype-heavy-line) solid var(--alltype-border) !important;
+  border-bottom: var(--alltype-line-heavy) solid var(--alltype-border) !important;
+  height: auto;
+  padding: 16px 0;
 }
 
-.theme-alltype .gb-logo img {
-  filter: grayscale(100%) contrast(1.2);
+.theme-alltype .gb-header__inner {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+.theme-alltype .alltype-logo-text {
+  font-family: var(--alltype-font-headline);
+  font-weight: 900;
+  font-size: 32px;
+  letter-spacing: -0.02em;
+  color: var(--alltype-black);
+  text-transform: uppercase;
+  text-decoration: none;
 }
 
 .theme-alltype .gb-icon-btn svg {
@@ -159,7 +140,8 @@
 .theme-alltype .section-title {
   font-family: var(--alltype-font-headline) !important;
   color: var(--alltype-text) !important;
-  letter-spacing: var(--alltype-display-lg-tracking) !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.01em !important;
 }
 
 /* Main Hero Typography override on Desktop */
@@ -183,48 +165,49 @@
    ========================================================================== */
 .theme-alltype .gb-btn--primary,
 .theme-alltype .btn-primary {
-  background: var(--alltype-black) !important;
+  background: var(--alltype-brand-blue) !important;
   color: var(--alltype-surface) !important;
-  border: var(--alltype-line) solid var(--alltype-black) !important;
+  border: var(--alltype-line) solid var(--alltype-brand-blue) !important;
   font-family: var(--alltype-font-ui) !important;
   font-weight: var(--alltype-ui-label-weight) !important;
   text-transform: uppercase !important;
   letter-spacing: var(--alltype-ui-label-sm-tracking) !important;
-  transition: background-color 50ms ease, color 50ms ease !important;
+  transition: none !important;
 }
 
 .theme-alltype .gb-btn--primary:hover,
 .theme-alltype .btn-primary:hover {
   background: var(--alltype-surface) !important;
-  color: var(--alltype-black) !important;
-}
-
-.theme-alltype .gb-btn--text {
-  color: var(--alltype-text) !important;
-  font-family: var(--alltype-font-ui) !important;
-  font-weight: var(--alltype-ui-label-weight) !important;
-  text-transform: uppercase !important;
-}
-
-.theme-alltype .gb-btn--text:hover {
   color: var(--alltype-brand-blue) !important;
 }
 
 /* ==========================================================================
-   Bento Grid & Card Styling (1px Visible Newspaper Grid)
+   Bento Grid & Card Styling (Editorial Brutalism)
    ========================================================================== */
-.theme-alltype .card {
-  background: var(--alltype-background) !important;
-  border: var(--alltype-line) solid var(--alltype-border) !important;
-  transition: transform 50ms ease !important;
+/* The newspaper grid parent */
+.theme-alltype .alltype-grid {
+  display: grid;
+  gap: var(--alltype-line);
+  background-color: var(--alltype-border);
+  border: var(--alltype-line) solid var(--alltype-border);
 }
 
-.theme-alltype .card:hover {
-  transform: none !important;
+.theme-alltype .alltype-grid > * {
+  background-color: var(--alltype-background);
+  padding: 16px;
 }
 
-.theme-alltype .card-body {
+/* Hide Minimalist theme gaps when in alltype */
+.theme-alltype .gap-8, .theme-alltype .gap-6, .theme-alltype .gap-4 {
+  gap: var(--alltype-line) !important;
+}
+
+/* Minimalist card reset */
+.theme-alltype .card, .theme-alltype .gb-card {
+  background: transparent !important;
   border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 /* Editorial separators */
@@ -233,19 +216,36 @@
 }
 
 .theme-alltype .editorial-heavy-divider {
-  border-top: var(--alltype-heavy-line) solid var(--alltype-border) !important;
+  border-top: var(--alltype-line-heavy) solid var(--alltype-border) !important;
 }
 
-/* Editoria Category tags / chips */
-.theme-alltype .gb-card .btn-accent,
+.theme-alltype .alltype-border-left {
+  border-left: var(--alltype-line) solid var(--alltype-border) !important;
+}
+.theme-alltype .alltype-border-right {
+  border-right: var(--alltype-line) solid var(--alltype-border) !important;
+}
+.theme-alltype .alltype-border-top {
+  border-top: var(--alltype-line) solid var(--alltype-border) !important;
+}
+.theme-alltype .alltype-border-bottom {
+  border-bottom: var(--alltype-line) solid var(--alltype-border) !important;
+}
+
+/* Editoria Category tags / hats */
+.theme-alltype .gb-hat,
 .theme-alltype .category-chip {
+  display: inline-block !important;
   background: var(--alltype-black) !important;
   color: var(--alltype-surface) !important;
   border: none !important;
+  padding: 4px 6px !important;
   font-family: var(--alltype-font-ui) !important;
   font-size: var(--alltype-ui-label-sm-size) !important;
   font-weight: var(--alltype-ui-label-weight) !important;
   text-transform: uppercase !important;
+  letter-spacing: var(--alltype-ui-label-sm-tracking) !important;
+  margin-bottom: 8px !important;
 }
 
 /* ==========================================================================
@@ -265,7 +265,7 @@
 }
 
 .theme-alltype .article-header {
-  border-bottom: var(--alltype-line) solid var(--alltype-border) !important;
+  border-bottom: var(--alltype-line-heavy) solid var(--alltype-border) !important;
   margin-top: 0 !important;
 }
 
@@ -280,23 +280,18 @@
   font-family: var(--alltype-font-headline) !important;
 }
 
-.theme-alltype .article-hat {
-  color: var(--alltype-brand-blue) !important;
-  font-family: var(--alltype-font-ui) !important;
-  font-weight: var(--alltype-ui-label-weight) !important;
-  text-transform: uppercase !important;
-}
-
 .theme-alltype .article-excerpt {
   color: var(--alltype-text-variant) !important;
   font-family: var(--alltype-font-body) !important;
   font-size: var(--alltype-body-md-size) !important;
   line-height: var(--alltype-body-md-line) !important;
-  font-style: italic;
+  font-style: normal;
+  font-weight: 600;
 }
 
 .theme-alltype .article-meta {
-  border-top: var(--alltype-line) solid var(--alltype-border-muted) !important;
+  border-top: var(--alltype-line) solid var(--alltype-border) !important;
+  border-bottom: var(--alltype-line) solid var(--alltype-border) !important;
 }
 
 .theme-alltype .article-content a {
@@ -310,16 +305,23 @@
 .theme-alltype .gblog-footer {
   background-color: var(--alltype-black) !important;
   color: var(--alltype-surface) !important;
-  border-top: var(--alltype-heavy-line) solid var(--alltype-black) !important;
+  border-top: var(--alltype-line-heavy) solid var(--alltype-black) !important;
 }
 
 .theme-alltype .gblog-footer__top,
 .theme-alltype .gblog-footer__bottom {
-  border-color: var(--alltype-primary-container) !important;
+  border-color: #333 !important;
 }
 
 .theme-alltype .gblog-brand img {
-  filter: invert(1) brightness(2) grayscale(100%) !important;
+  display: none !important; /* Hide image logo in footer for alltype */
+}
+.theme-alltype .gblog-brand::after {
+  content: "DIÁRIO DO POVO";
+  font-family: var(--alltype-font-headline);
+  font-weight: 900;
+  font-size: 24px;
+  color: white;
 }
 
 .theme-alltype .gblog-link {

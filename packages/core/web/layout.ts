@@ -261,9 +261,55 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
   const normalizedTheme = normalizePublicTheme(theme)
   const cssFile = PUBLIC_THEMES[normalizedTheme].cssHref
   const cssHref = `${cssFile}?v=${STATIC_ASSET_VERSION}`
+  const isAllType = normalizedTheme === 'alltype'
 
-  // Header Logic (Always Minimalist Google Style)
-  const headerHtml = `
+  // Header Logic
+  const headerHtml = isAllType ? `
+    <header class="gb-header">
+      <div class="gb-container gb-header__inner">
+        <!-- 1. Hamburger (Left) -->
+        <button id="mobileMenuBtn" class="gb-icon-btn" aria-label="Menu">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" stroke-width="2">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+
+        <!-- Spacer -->
+        <div style="flex: 1;"></div>
+
+        <!-- 2. Logo (Center, Text Uppercase) -->
+        <a href="/" class="alltype-logo-text" aria-label="${escapeAttr(siteName)}">
+          ${escapeHtml(siteName).toUpperCase()}
+        </a>
+
+        <!-- Spacer -->
+        <div style="flex: 1;"></div>
+
+        <!-- 3. Actions / Date (Right) -->
+        <div class="gb-actions desktop-only" style="display: flex; gap: 16px; align-items: center; font-family: var(--alltype-font-ui); font-size: 14px; font-weight: 700; text-transform: uppercase;">
+          <span style="color: var(--alltype-text-variant);">${today}</span>
+          ${subscriber ? `
+            <a href="/portal" style="color: var(--alltype-text); text-decoration: none;">Minha Conta</a>
+          ` : `
+            <a href="/portal/login" style="color: var(--alltype-text); text-decoration: none;">Entrar</a>
+          `}
+          <a href="/assinar" class="btn-primary" style="padding: 6px 16px;">Assine</a>
+        </div>
+        <!-- Mobile Actions -->
+        <div class="gb-actions" style="display: none;" id="mobileActions">
+           <a href="/assinar" class="btn-primary" style="padding: 4px 12px; font-size: 12px;">Assine</a>
+        </div>
+      </div>
+      <style nonce="\${nonce}">
+        @media (max-width: 768px) {
+          #mobileActions { display: flex !important; align-items: center; }
+          .alltype-logo-text { font-size: 20px !important; }
+        }
+      </style>
+    </header>
+  ` : `
     <header class="gb-header">
       <div class="gb-container gb-header__inner">
         <!-- 1. Hamburger (Always Visible) -->

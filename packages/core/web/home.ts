@@ -19,11 +19,105 @@ import { getActiveCategories } from '../db/categories-cache'
 function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl: string, isAllType?: boolean): string {
   if (!hero) return ''
 
-  // Left Column: Main Hero (Big)
+  if (isAllType) {
+    return `
+      <section class="alltype-grid grid-cols-1 lg:grid-cols-12 mb-12" style="background-color: var(--alltype-border); gap: var(--alltype-line-strong);">
+        <div class="lg:col-span-8 flex flex-col" style="background-color: var(--alltype-background); padding: 24px;">
+          <article class="flex-1 flex flex-col">
+            <a href="${getPostUrl(hero, baseUrl)}" class="flex flex-col h-full relative group" style="text-decoration: none;">
+              ${hero.featured_image_r2_key ? `
+                <div class="alltype-media mb-4 border-b border-gray-900 pb-4">
+                   <img 
+                      src="/i/${escapeAttr(hero.featured_image_r2_key)}?w=1200" 
+                      srcset="${generateSrcSet(hero.featured_image_r2_key)}"
+                      sizes="(max-width: 768px) 100vw, 800px"
+                      alt="${escapeAttr(hero.title)}"
+                      class="w-full h-auto object-cover"
+                      loading="eager"
+                      fetchpriority="high"
+                    />
+                </div>
+              ` : ''}
+              <div class="flex-1 flex flex-col">
+                <span class="category-chip self-start">
+                  ${escapeHtml(hero.hat || hero.category_name)}
+                </span>
+                <h2 class="hero-title font-black mb-3">
+                  ${escapeHtml(hero.title)}
+                </h2>
+                <p class="text-lg line-clamp-3 mb-4" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-body);">
+                  ${escapeHtml(truncate(hero.excerpt, 180))}
+                </p>
+                <div class="mt-auto text-sm font-bold uppercase tracking-widest" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-ui);">
+                  <span>Por ${escapeHtml('Redação')}</span>
+                  <span class="mx-2">•</span>
+                  <span>${formatTime(hero.published_at)}</span>
+                </div>
+              </div>
+            </a>
+          </article>
+        </div>
+        
+        <div class="lg:col-span-4 flex flex-col alltype-grid grid-cols-1" style="gap: var(--alltype-line-strong); background-color: var(--alltype-border); padding: 0;">
+          ${sidePosts.slice(0, 2).map(post => `
+            <article class="flex flex-col" style="background-color: var(--alltype-background); padding: 24px;">
+              <a href="${getPostUrl(post, baseUrl)}" class="flex flex-col h-full group" style="text-decoration: none;">
+                ${post.featured_image_r2_key ? `
+                  <div class="alltype-media mb-4 border-b border-gray-900 pb-4">
+                    <img 
+                      src="/i/${escapeAttr(post.featured_image_r2_key)}?w=600" 
+                      srcset="${generateSrcSet(post.featured_image_r2_key)}"
+                      sizes="(max-width: 768px) 100vw, 400px"
+                      alt="${escapeAttr(post.title)}"
+                      class="w-full h-auto object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                ` : ''}
+                <div class="flex flex-col flex-1">
+                  <span class="category-chip self-start">
+                    ${escapeHtml(post.hat || post.category_name)}
+                  </span>
+                  <h3 class="font-bold text-xl leading-tight mb-3">
+                    ${escapeHtml(post.title)}
+                  </h3>
+                  <div class="mt-auto text-xs font-bold uppercase tracking-widest" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-ui);">
+                    ${formatTime(post.published_at)}
+                  </div>
+                </div>
+              </a>
+            </article>
+          `).join('')}
+          
+          ${sidePosts.slice(2, 5).length > 0 ? `
+            <div style="background-color: var(--alltype-background); padding: 24px; flex-grow: 1;">
+              <h4 class="font-black text-sm uppercase mb-4 tracking-wider" style="font-family: var(--alltype-font-ui);">Mais Recentes</h4>
+              <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 16px;">
+                ${sidePosts.slice(2, 5).map(post => `
+                  <li class="alltype-border-bottom" style="padding-bottom: 16px;">
+                    <a href="${getPostUrl(post, baseUrl)}" class="group block" style="text-decoration: none;">
+                      <span class="category-chip self-start" style="font-size: 10px; padding: 2px 4px;">
+                        ${escapeHtml(post.hat || post.category_name)}
+                      </span>
+                      <h4 class="font-bold text-base leading-snug mt-2">
+                        ${escapeHtml(post.title)}
+                      </h4>
+                      <span class="text-xs font-bold uppercase tracking-widest mt-2 block" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-ui);">${formatTime(post.published_at)}</span>
+                    </a>
+                  </li>
+                `).join('')}
+              </ul>
+            </div>
+          ` : ''}
+        </div>
+      </section>
+    `
+  }
+
+  // --- MINIMALIST (Google Blog) BEHAVIOR ---
   const heroHtml = `
     <article class="card card-hero h-full">
       <a href="${getPostUrl(hero, baseUrl)}" class="flex flex-col h-full relative group">
-        ${!isAllType ? `
         <div class="gb-media-wrapper" style="aspect-ratio: 16 / 9; overflow: hidden; background: #f0f0f0;">
            <img 
               src="${hero.featured_image_r2_key ? `/i/${escapeAttr(hero.featured_image_r2_key)}?w=1200` : '/placeholder-hero.jpg'}" 
@@ -40,13 +134,6 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
             ${escapeHtml(hero.category_name)}
           </span>
         </div>
-        ` : `
-          <div style="padding: 24px 24px 0 24px;">
-            <span class="category-chip">
-              ${escapeHtml(hero.category_name)}
-            </span>
-          </div>
-        `}
         <div class="card-body p-6 border border-gray-100 border-t-0 rounded-b-lg">
           ${hero.hat ? `
             <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">
@@ -69,11 +156,9 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
     </article>
   `
 
-  // Right Column: 2 Stacked Cards (Visual Hot Rail)
   const sideHtml = sidePosts.slice(0, 2).map(post => `
     <article class="card h-full">
       <a href="${getPostUrl(post, baseUrl)}" class="flex flex-col h-full group">
-        ${!isAllType ? `
         <div class="gb-media-wrapper" style="aspect-ratio: 16 / 9; overflow: hidden; background: #f0f0f0;">
           <img 
             src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=600` : '/placeholder.jpg'}" 
@@ -86,18 +171,13 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
             loading="lazy"
           />
         </div>
-        ` : `
-          <div style="padding: 20px 20px 0 20px;">
-            <span class="category-chip">${escapeHtml(post.category_name)}</span>
-          </div>
-        `}
         <div class="p-5 flex flex-col flex-1">
           ${post.hat ? `
             <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">
               ${escapeHtml(post.hat)}
             </div>
           ` : `
-            ${!isAllType ? `<span class="text-xs font-bold text-accent uppercase mb-2">${escapeHtml(post.category_name)}</span>` : ''}
+            <span class="text-xs font-bold text-accent uppercase mb-2">${escapeHtml(post.category_name)}</span>
           `}
           <h3 class="font-bold text-lg leading-tight mb-2 group-hover:text-accent transition-colors">
             ${escapeHtml(post.title)}
@@ -110,7 +190,6 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
     </article>
   `).join('')
 
-  // Remaining Hot Rail as List
   const listPosts = sidePosts.slice(2, 5)
   const listHtml = listPosts.length > 0 ? `
     <div class="card p-5 mt-6 bg-gray-50 border-none">
@@ -151,6 +230,46 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
 function renderRadarSection(posts: HomePost[], baseUrl: string, isAllType?: boolean): string {
   if (posts.length === 0) return ''
 
+  if (isAllType) {
+    return `
+      <section class="mb-12 editorial-heavy-divider pt-4">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-2xl font-black tracking-tight uppercase" style="font-family: var(--alltype-font-ui); font-size: 20px;">Em Alta</h2>
+        </div>
+        <div class="alltype-grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+          ${posts.map(post => `
+            <article class="flex flex-col">
+              <a href="${getPostUrl(post, baseUrl)}" class="group block h-full flex flex-col" style="text-decoration: none;">
+                ${post.featured_image_r2_key ? `
+                  <div class="alltype-media mb-3 border-b border-gray-900 pb-3">
+                    <img 
+                      src="/i/${escapeAttr(post.featured_image_r2_key)}?w=400" 
+                      alt="${escapeAttr(post.title)}"
+                      class="w-full h-auto object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                ` : ''}
+                <div class="flex flex-col flex-1" style="padding-top: 8px;">
+                  <span class="category-chip self-start" style="font-size: 10px; padding: 2px 4px;">
+                    ${escapeHtml(post.hat || post.category_name)}
+                  </span>
+                  <h3 class="font-bold text-base leading-snug mt-2">
+                    ${escapeHtml(post.title)}
+                  </h3>
+                  <div class="mt-auto text-xs font-bold uppercase tracking-widest mt-4 block" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-ui);">
+                    ${formatTime(post.published_at)}
+                  </div>
+                </div>
+              </a>
+            </article>
+          `).join('')}
+        </div>
+      </section>
+    `
+  }
+
+  // MINIMALIST
   return `
     <section class="mb-12">
       <div class="flex items-center justify-between mb-6 border-b border-gray-200 pb-2">
@@ -159,7 +278,6 @@ function renderRadarSection(posts: HomePost[], baseUrl: string, isAllType?: bool
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         ${posts.map(post => `
           <a href="${getPostUrl(post, baseUrl)}" class="group block">
-            ${!isAllType ? `
             <div class="gb-media-wrapper" style="aspect-ratio: 16 / 9; overflow: hidden; background: #f0f0f0;">
               <img 
                 src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=400` : '/placeholder.jpg'}" 
@@ -170,14 +288,13 @@ function renderRadarSection(posts: HomePost[], baseUrl: string, isAllType?: bool
                 loading="lazy"
               />
             </div>
-            ` : ''}
-            <div style="${isAllType ? 'padding-top: 8px;' : ''}">
+            <div>
               ${post.hat ? `
-                <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">
+                <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 mt-3">
                   ${escapeHtml(post.hat)}
                 </div>
               ` : `
-                <span class="text-xs font-bold text-gray-400 uppercase">${escapeHtml(post.category_name)}</span>
+                <span class="text-xs font-bold text-gray-400 uppercase mt-3 block">${escapeHtml(post.category_name)}</span>
               `}
               <h3 class="font-bold text-base leading-snug mt-1 group-hover:text-accent transition-colors">
                 ${escapeHtml(post.title)}
@@ -195,6 +312,81 @@ function renderCategorySection(block: CategoryBlock, baseUrl: string, index: num
   const lead = block.lead
   const list = block.list
 
+  if (isAllType) {
+    return `
+      <section class="py-8 editorial-divider">
+        <h2 class="text-3xl font-black mb-6 uppercase" style="font-family: var(--alltype-font-ui); letter-spacing: -0.02em;">
+          ${escapeHtml(block.name)}
+        </h2>
+        
+        <div class="alltype-grid grid-cols-1 lg:grid-cols-12">
+          <!-- Lead Story -->
+          <div class="lg:col-span-7 flex flex-col ${isInverted ? 'lg:order-2' : ''}">
+            <article class="flex-1 flex flex-col">
+              <a href="${getPostUrl(lead, baseUrl)}" class="group block relative flex flex-col h-full" style="text-decoration: none;">
+                ${lead.featured_image_r2_key ? `
+                  <div class="alltype-media mb-4 border-b border-gray-900 pb-4">
+                    <img 
+                      src="/i/${escapeAttr(lead.featured_image_r2_key)}?w=800"
+                      alt="${escapeAttr(lead.title)}"
+                      class="w-full h-auto object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                ` : ''}
+                <div class="flex-1 flex flex-col pt-2">
+                  <span class="category-chip self-start">
+                    ${escapeHtml(lead.hat || block.name)}
+                  </span>
+                  <h3 class="font-bold text-3xl leading-tight mt-2 mb-3">
+                    ${escapeHtml(lead.title)}
+                  </h3>
+                  <p class="text-lg line-clamp-2 mb-4" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-body);">
+                    ${escapeHtml(truncate(lead.excerpt, 120))}
+                  </p>
+                  <div class="mt-auto text-xs font-bold uppercase tracking-widest mt-4 block" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-ui);">
+                    ${formatTime(lead.published_at)}
+                  </div>
+                </div>
+              </a>
+            </article>
+          </div>
+
+          <!-- Sidebar List -->
+          <div class="lg:col-span-5 flex flex-col ${isInverted ? 'lg:order-1' : ''}">
+            <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0;" class="alltype-grid">
+              ${list.map(post => `
+                <li class="group" style="background-color: var(--alltype-background); padding: 16px;">
+                  <a href="${getPostUrl(post, baseUrl)}" class="flex gap-4" style="text-decoration: none;">
+                    ${post.featured_image_r2_key ? `
+                    <div class="alltype-media flex-shrink-0" style="width: 120px;">
+                      <img 
+                        src="/i/${escapeAttr(post.featured_image_r2_key)}?w=300"
+                        class="w-full h-auto object-cover border border-gray-900"
+                        loading="lazy"
+                      />
+                    </div>
+                    ` : ''}
+                    <div class="flex flex-col">
+                      <span class="category-chip self-start" style="font-size: 10px; padding: 2px 4px;">
+                        ${escapeHtml(post.hat || block.name)}
+                      </span>
+                      <h4 class="font-bold text-base leading-snug mt-2">
+                        ${escapeHtml(post.title)}
+                      </h4>
+                      <span class="text-xs font-bold uppercase tracking-widest mt-2 block" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-ui);">${formatTime(post.published_at)}</span>
+                    </div>
+                  </a>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+        </div>
+      </section>
+    `
+  }
+
+  // MINIMALIST
   const leadImage = lead.featured_image_r2_key ? `/i/${escapeAttr(lead.featured_image_r2_key)}` : '/placeholder.jpg'
 
   return `
@@ -207,8 +399,7 @@ function renderCategorySection(block: CategoryBlock, baseUrl: string, index: num
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <!-- Lead Story -->
         <div class="lg:col-span-7 ${isInverted ? 'lg:order-2' : ''}">
-          <a href="${getPostUrl(lead, baseUrl)}" class="group block relative ${!isAllType ? 'aspect-video rounded-xl overflow-hidden' : 'alltype-lead-box'}" style="${isAllType ? 'border: 1px solid var(--alltype-border); padding: 24px;' : ''}">
-            ${!isAllType ? `
+          <a href="${getPostUrl(lead, baseUrl)}" class="group block relative aspect-video rounded-xl overflow-hidden">
             <div class="gb-media-wrapper" style="aspect-ratio: 16 / 9; background: #f0f0f0;">
               <img 
                 src="${leadImage}"
@@ -233,21 +424,6 @@ function renderCategorySection(block: CategoryBlock, baseUrl: string, index: num
                 ${escapeHtml(truncate(lead.excerpt, 120))}
               </p>
             </div>
-            ` : `
-              <div>
-                ${lead.hat ? `
-                  <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">
-                    ${escapeHtml(lead.hat)}
-                  </div>
-                ` : ''}
-                <h3 class="font-bold text-2xl leading-tight mb-2 group-hover:text-accent transition-colors">
-                  ${escapeHtml(lead.title)}
-                </h3>
-                <p class="text-gray-600 text-sm line-clamp-2 hidden md:block">
-                  ${escapeHtml(truncate(lead.excerpt, 120))}
-                </p>
-              </div>
-            `}
           </a>
         </div>
 
@@ -257,7 +433,6 @@ function renderCategorySection(block: CategoryBlock, baseUrl: string, index: num
             ${list.map(post => `
               <li class="group">
                 <a href="${getPostUrl(post, baseUrl)}" class="flex gap-4">
-                  ${!isAllType ? `
                   <div class="gb-media-wrapper" style="width: 96px; height: 64px; aspect-ratio: 3 / 2; background: #f0f0f0; overflow: hidden; flex-shrink: 0;">
                     <img 
                       src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=200` : '/placeholder.jpg'}"
@@ -267,7 +442,6 @@ function renderCategorySection(block: CategoryBlock, baseUrl: string, index: num
                       loading="lazy"
                     />
                   </div>
-                  ` : ''}
                   <div>
                     ${post.hat ? `
                       <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
