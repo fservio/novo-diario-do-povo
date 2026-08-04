@@ -1,10 +1,183 @@
-
 import type { Context } from 'hono'
 import { getSetting } from '../../db'
+import { renderEditorialLayout } from '../layout-editorial'
+import { getHomeSections } from '../../db/home'
 
 export async function renderAccountPage(c: Context) {
     const siteName = await getSetting(c.env, 'site_name', 'public') || 'Diário do Povo'
     const nonce = c.get('cspNonce')
+
+    const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
+    const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2'
+
+    if (isEditorial) {
+        const sections = await getHomeSections(c.env)
+        const navItems = sections
+          .filter(s => s.enabled)
+          .map(s => ({
+            label: s.title,
+            href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
+            active: false
+          }))
+
+        const baseUrl = c.env.PUBLIC_BASE_URL || new URL(c.req.url).origin
+
+        const bodyHtml = `
+          <div class="ed-account">
+            <header class="ed-page-header">
+              <p class="ed-kicker">Área do assinante</p>
+              <h1 class="ed-page-title">Minha conta</h1>
+              <p class="ed-page-description">Consulte e atualize seus dados de cadastro.</p>
+            </header>
+
+            <div id="loading" class="loading-state" style="text-align: center; padding: 48px;">
+                <div class="spinner" style="width:32px;height:32px;border:3px solid var(--ed-line);border-top-color:var(--ed-navy);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px"></div>
+                <p style="color:var(--ed-muted);font-weight:700;font-size:14px">Buscando seus dados...</p>
+            </div>
+
+            <div id="accountContent" class="hidden">
+                <div class="ed-panel">
+                    <h2>Informações pessoais</h2>
+                    <form id="accountForm">
+                        <div class="ed-field">
+                            <label for="name">Nome Completo</label>
+                            <input type="text" id="name" name="name" placeholder="Seu nome">
+                        </div>
+                        <div class="ed-field">
+                            <label for="email">E-mail (exclusivo para acesso)</label>
+                            <input type="email" id="email" name="email" disabled>
+                        </div>
+                        <div class="ed-field">
+                            <label for="phone">Telefone (WhatsApp)</label>
+                            <input type="text" id="phone" name="phone" placeholder="(00) 00000-0000">
+                        </div>
+                        <div class="ed-field">
+                            <label for="cpf">CPF</label>
+                            <input type="text" id="cpf" name="cpf" maxlength="14" placeholder="000.000.000-00">
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; padding-top: 16px;">
+                            <button type="submit" id="saveBtn" class="ed-button" style="width:100%">Salvar alterações</button>
+                        </div>
+
+                        <div id="successAlert" style="display:none;margin-top:16px;padding:12px;background:#edf6ef;color:#285b35">
+                            ✓ Alterações salvas com sucesso!
+                        </div>
+                    </form>
+                </div>
+
+                <div class="ed-panel">
+                    <h2>Segurança e acesso</h2>
+                    <p style="font-size:14px;color:var(--ed-muted);margin-bottom:24px">Gerencie o acesso à sua conta de assinante.</p>
+                    <button type="button" id="logoutBtn" class="ed-button ed-button--secondary" style="width:100%">Sair da conta</button>
+                </div>
+            </div>
+
+            <style nonce="${nonce}">
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+                .hidden { display: none !important; }
+            </style>
+          </div>
+
+          <script nonce="${nonce}">
+            async function loadAccount() {
+                try {
+                    const res = await fetch('/api/portal/me');
+                    if (res.status === 401) {
+                        window.location.href = '/portal/login?next=' + encodeURIComponent(window.location.pathname);
+                        return;
+                    }
+                    const data = await res.json();
+                    if (data.success) {
+                        const { subscriber } = data;
+                        document.getElementById('name').value = subscriber.name || '';
+                        document.getElementById('email').value = subscriber.email || '';
+                        document.getElementById('phone').value = subscriber.phone || '';
+                        document.getElementById('cpf').value = subscriber.cpf || '';
+
+                        document.getElementById('loading').classList.add('hidden');
+                        document.getElementById('accountContent').classList.remove('hidden');
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+
+            document.getElementById('accountForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('saveBtn');
+                const sAlert = document.getElementById('successAlert');
+                btn.disabled = true;
+                btn.textContent = 'Salvando...';
+                sAlert.style.display = 'none';
+
+                const formData = {
+                    name: document.getElementById('name').value,
+                    phone: document.getElementById('phone').value,
+                    cpf: document.getElementById('cpf').value
+                };
+
+                try {
+                    const res = await fetch('/api/portal/account', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        sAlert.style.display = 'block';
+                        setTimeout(() => { sAlert.style.display = 'none'; }, 4000);
+                    } else {
+                        alert('Erro ao salvar: ' + (data.error || 'Desconhecido'));
+                    }
+                } catch (err) {
+                    alert('Erro de conexão');
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Salvar Alterações';
+                }
+            });
+
+            // Masks
+            document.getElementById('cpf').addEventListener('input', function (e) {
+                let v = e.target.value.replace(/\\D/g, '');
+                if (v.length > 11) v = v.substring(0, 11);
+                v = v.replace(/(\\d{3})(\\d)/, '$1.$2');
+                v = v.replace(/(\\d{3})(\\d)/, '$1.$2');
+                v = v.replace(/(\\d{3})(\\d{1,2})$/, '$1-$2');
+                e.target.value = v;
+            });
+
+            document.getElementById('phone').addEventListener('input', function (e) {
+                let v = e.target.value.replace(/\\D/g, '');
+                if (v.length > 11) v = v.substring(0, 11);
+                v = v.replace(/^(\\d{2})(\\d)/g, '($1) $2');
+                v = v.replace(/(\\d)(\\d{4})$/, '$1-$2');
+                e.target.value = v;
+            });
+
+            document.getElementById('logoutBtn').addEventListener('click', async () => {
+                await fetch('/api/portal/auth/logout', { method: 'POST' });
+                window.location.href = '/portal/login';
+            });
+
+            loadAccount();
+          </script>
+        `
+
+        return renderEditorialLayout({
+          title: `Meus Dados | ${siteName}`,
+          description: 'Suas informações de cadastro e segurança.',
+          canonicalUrl: `${baseUrl}/conta`,
+          nonce: nonce || '',
+          siteName,
+          navItems,
+          bodyHtml,
+          baseUrl
+        })
+    }
 
     return `
     <!DOCTYPE html>

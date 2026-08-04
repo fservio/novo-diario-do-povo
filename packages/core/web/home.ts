@@ -11,13 +11,50 @@ import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, formatTime, tru
 import { getPostUrl } from '../utils/post'
 import { getSetting } from '../db'
 import { getActiveCategories } from '../db/categories-cache'
+import { renderEditorialLayout } from './layout-editorial'
+import { renderEditorialAd } from './components/editorial-ad'
+import { renderEditorialArticleCard } from './components/editorial-card'
 
 // ============================================================================
 // Component Renderers
 // ============================================================================
 
-function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl: string, isAllType?: boolean): string {
+function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl: string, isAllType?: boolean, isEditorial?: boolean): string {
   if (!hero) return ''
+
+  if (isEditorial) {
+    const mainHero = hero
+    const secondaryPosts = sidePosts.slice(0, 3)
+
+    return `
+      <section class="ed-lead-grid${secondaryPosts.length === 0 ? ' ed-lead-grid--solo' : ''}" aria-label="Principais notícias">
+        <div class="ed-lead-main">
+          ${renderEditorialArticleCard({
+            title: mainHero.title,
+            hat: mainHero.hat || mainHero.category_name,
+            excerpt: truncate(mainHero.excerpt, 210),
+            published_at: mainHero.published_at,
+            author_name: mainHero.author_name || 'Redação',
+            featured_image_r2_key: mainHero.featured_image_r2_key,
+            url: getPostUrl(mainHero, baseUrl),
+            size: 'lead',
+            isLcp: true
+          })}
+        </div>
+        <div class="ed-lead-side">
+          ${secondaryPosts.map((post, index) => renderEditorialArticleCard({
+            title: post.title,
+            hat: post.hat || post.category_name,
+            excerpt: truncate(post.excerpt, 105),
+            published_at: post.published_at,
+            featured_image_r2_key: post.featured_image_r2_key,
+            url: getPostUrl(post, baseUrl),
+            size: index === 0 ? 'standard' : 'compact'
+          })).join('')}
+        </div>
+      </section>
+    `
+  }
 
   if (isAllType) {
     const mainHero = hero
@@ -182,8 +219,25 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
   `
 }
 
-function renderRadarSection(posts: HomePost[], baseUrl: string, isAllType?: boolean): string {
+function renderRadarSection(posts: HomePost[], baseUrl: string, isAllType?: boolean, isEditorial?: boolean): string {
   if (posts.length === 0) return ''
+
+  if (isEditorial) {
+    return `
+      <section class="ed-section">
+        <div class="ed-section__header"><h2 class="ed-section__title">Em destaque</h2></div>
+        <div class="ed-trending-grid">
+          ${posts.map(post => renderEditorialArticleCard({
+            title: post.title,
+            hat: post.hat || post.category_name,
+            featured_image_r2_key: post.featured_image_r2_key,
+            url: getPostUrl(post, baseUrl),
+            size: 'standard'
+          })).join('')}
+        </div>
+      </section>
+    `
+  }
 
   if (isAllType) {
     return `
@@ -262,10 +316,44 @@ function renderRadarSection(posts: HomePost[], baseUrl: string, isAllType?: bool
   `
 }
 
-function renderCategorySection(block: CategoryBlock, baseUrl: string, index: number, isAllType?: boolean): string {
+function renderCategorySection(block: CategoryBlock, baseUrl: string, index: number, isAllType?: boolean, isEditorial?: boolean): string {
   const isInverted = index % 2 !== 0 // Alternate layout
   const lead = block.lead
   const list = block.list
+
+  if (isEditorial) {
+    return `
+      <section class="ed-section">
+        <div class="ed-section__header">
+          <h2 class="ed-section__title"><a href="/categoria/${escapeAttr(block.slug)}">${escapeHtml(block.name)}</a></h2>
+          <a class="ed-section__more" href="/categoria/${escapeAttr(block.slug)}">Ver editoria</a>
+        </div>
+        <div class="ed-category-grid">
+          <div class="ed-category-lead">
+            ${renderEditorialArticleCard({
+              title: lead.title,
+              hat: lead.hat || block.name,
+              excerpt: truncate(lead.excerpt, 170),
+              author_name: lead.author_name || 'Redação',
+              published_at: lead.published_at,
+              featured_image_r2_key: lead.featured_image_r2_key,
+              url: getPostUrl(lead, baseUrl),
+              size: 'lead'
+            })}
+          </div>
+          <div class="ed-category-list">
+            ${list.map(post => renderEditorialArticleCard({
+              title: post.title,
+              hat: post.hat || block.name,
+              featured_image_r2_key: post.featured_image_r2_key,
+              url: getPostUrl(post, baseUrl),
+              size: 'compact'
+            })).join('')}
+          </div>
+        </div>
+      </section>
+    `
+  }
 
   if (isAllType) {
     return `
@@ -613,7 +701,7 @@ function renderHomePageMinimal(data: HomeData, baseUrl: string, adTop: string, a
 
 // ============================================================================
 
-function renderTopColumnsSection(posts: HomePost[], baseUrl: string): string {
+function renderTopColumnsSection(posts: HomePost[], baseUrl: string, isEditorial?: boolean): string {
   if (posts.length === 0) return ''
 
   // Desired order: Politica, Economia, Esporte
@@ -624,6 +712,24 @@ function renderTopColumnsSection(posts: HomePost[], baseUrl: string): string {
   ].filter(Boolean) as HomePost[]
 
   if (orderedPosts.length === 0) return ''
+
+  if (isEditorial) {
+    return `
+      <section class="ed-columns" aria-label="Análises em destaque">
+        <div class="ed-columns__grid">
+        ${orderedPosts.map(post => `
+          <article class="ed-column-card">
+            <a href="${getPostUrl(post, baseUrl)}">
+              <p>${escapeHtml(post.hat || post.category_name)}</p>
+              <h3>${escapeHtml(post.title)}</h3>
+              <p>${escapeHtml(post.author_name || 'Redação')}</p>
+            </a>
+          </article>
+        `).join('')}
+        </div>
+      </section>
+    `
+  }
 
   return `
     <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 border-b border-gray-100 pb-8">
@@ -671,7 +777,8 @@ export async function renderHomePage(
   const { baseUrl, siteName, coverR2Key, coverAlt, coverAspectRatio } = params
 
   // Determine Theme
-  const themeSetting = await getSetting(c.env, 'public_theme')
+  const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
+  const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2'
   const theme = normalizePublicTheme(themeSetting)
 
   // Ad Slots
@@ -696,6 +803,99 @@ export async function renderHomePage(
   const categories = await getActiveCategories(c.env)
 
   let bodyHtml = ''
+
+  if (isEditorial) {
+    const topColumnsHtml = renderTopColumnsSection(data.topColumns || [], baseUrl, true)
+    const heroHtml = renderHeroSection(data.hero, data.hotRail || [], baseUrl, false, true)
+
+    let opinionHtml = ''
+    try {
+      const now = new Date().toISOString()
+      const columnistResult = await c.env.DB.prepare(`
+        SELECT
+          p.id, p.slug, p.title, p.hat, p.published_at,
+          c.slug as category_slug, c.name as category_name,
+          a.name as author_name, a.avatar_media_id,
+          m.r2_key as author_avatar_r2_key
+        FROM posts p
+        INNER JOIN authors a ON p.author_id = a.id
+        INNER JOIN categories c ON p.category_id = c.id
+        LEFT JOIN media m ON a.avatar_media_id = m.id
+        WHERE a.author_type = 'columnist'
+          AND p.status = 'published'
+          AND p.published_at <= ?
+        ORDER BY p.published_at DESC
+        LIMIT 3
+      `).bind(now).all<any>()
+
+      const columnistPosts = columnistResult.results || []
+
+      if (columnistPosts.length > 0) {
+        opinionHtml = `
+          <section class="ed-opinion-rail" aria-label="Opinião e análise">
+            <div class="ed-opinion-rail__header">
+              <h2>Opinião e análise</h2>
+              <a class="ed-section__more" href="/colunas">Todos os colunistas</a>
+            </div>
+            <div class="ed-opinion-rail__grid">
+              ${columnistPosts.map(post => `
+                <article class="ed-opinion-card">
+                  <a href="${getPostUrl(post, baseUrl)}">
+                    <span class="ed-opinion-card__avatar" aria-hidden="true">
+                      ${post.author_avatar_r2_key
+                        ? `<img src="/i/${escapeAttr(post.author_avatar_r2_key)}?w=160" alt="" width="80" height="80" loading="lazy">`
+                        : escapeHtml(String(post.author_name || 'DP').split(/\s+/).slice(0, 2).map((part: string) => part[0]).join('').toUpperCase())}
+                    </span>
+                    <span class="ed-opinion-card__copy">
+                      <strong>${escapeHtml(post.author_name)}</strong>
+                      <span>${escapeHtml(post.title)}</span>
+                    </span>
+                  </a>
+                </article>
+              `).join('')}
+            </div>
+          </section>
+        `
+      }
+    } catch (e) {
+      console.error('Error rendering opinion section:', e)
+    }
+
+    const radarPosts = [...data.dualFeatures, ...data.explainers].slice(0, 4)
+    const radarHtml = renderRadarSection(radarPosts, baseUrl, false, true)
+
+    const categoriesHtml = data.categoryBlocks.map((block, i) => {
+      let html = renderCategorySection(block, baseUrl, i, false, true)
+      if (i === 1 && adMid) {
+        html += renderEditorialAd(adMid)
+      }
+      return html
+    }).join('')
+
+    bodyHtml = `
+      ${adTop ? renderEditorialAd(adTop) : ''}
+      ${opinionHtml}
+      ${heroHtml}
+      ${topColumnsHtml}
+      ${radarHtml}
+      ${categoriesHtml}
+      ${adsScript}
+    `
+
+    return renderEditorialLayout({
+      title: `${siteName} — Notícias de Fortaleza, Ceará e Brasil`,
+      description: 'Notícias, análises e serviço público com independência editorial e compromisso com a comunidade.',
+      baseUrl,
+      siteName,
+      navItems,
+      nonce,
+      bodyHtml,
+      canonicalUrl: baseUrl,
+      googleAnalyticsId: params.googleAnalyticsId,
+      lcpPreloadUrl: data.hero?.featured_image_r2_key ? `/i/${escapeAttr(data.hero.featured_image_r2_key)}?w=1200` : undefined,
+      lcpSrcSet: data.hero?.featured_image_r2_key ? generateSrcSet(data.hero.featured_image_r2_key) : undefined
+    })
+  }
 
   if (theme === 'minimal') {
     // --- Minimalist Renderer (Google Blog) ---

@@ -1,7 +1,9 @@
 import { Hono } from 'hono'
 import type { Env, AppContext } from '../types'
 import { getPostUrl } from '../utils/post'
-import { normalizePublicTheme } from './layout'
+import { normalizePublicTheme, escapeHtml, escapeAttr } from './layout'
+import { renderEditorialLayout } from './layout-editorial'
+import { renderEditorialArticleCard } from './components/editorial-card'
 
 // Static Imports for performance
 import { findArticleBySlug, findRelatedPosts } from '../db/article'
@@ -84,7 +86,8 @@ app.get('/ultimas', async (c) => {
     ])
     const siteName = (settings['site_name'] as string) || 'Jornal Diário do Povo'
     const googleAnalyticsId = settings['google_analytics_id'] as string
-    const themeSetting = settings['public_theme']
+    const themeSetting = (await getSetting(c.env, 'site.public_theme')) || settings['public_theme']
+    const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2'
     const theme = normalizePublicTheme(themeSetting)
 
     const page = parseInt(c.req.query('page') || '1')
@@ -113,7 +116,7 @@ app.get('/ultimas', async (c) => {
         page,
         limit,
         subscriber: readerContext.subscriber,
-        theme: theme as 'default' | 'minimal',
+        theme: isEditorial ? 'editorial' : theme as 'default' | 'minimal',
         googleAnalyticsId
     })
 
@@ -212,6 +215,54 @@ app.get('/tag/:slug', async (c) => {
         if (baseUrl.includes('.pages.dev')) baseUrl = 'https://diario.dopovo.com.br'
 
         const nonce = c.get('cspNonce') || ''
+
+        const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
+        const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2'
+
+        if (isEditorial) {
+            const sections = await getHomeSections(c.env)
+            const navItems = sections
+                .filter(s => s.enabled)
+                .map(s => ({
+                    label: s.title,
+                    href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
+                    active: s.type === 'tag' && s.tagSlug === slug
+                }))
+
+            const bodyHtml = `
+              <header class="ed-page-header">
+                <p class="ed-kicker">Assunto</p>
+                <h1 class="ed-page-title">${escapeHtml(tag.name)}</h1>
+                ${tag.description ? `<p class="ed-page-description">${escapeHtml(tag.description)}</p>` : ''}
+              </header>
+
+              <section class="ed-listing">
+                    ${(posts.results || []).map((post: any) => renderEditorialArticleCard({
+                      title: post.title,
+                      hat: post.hat || tag.name,
+                      excerpt: post.excerpt,
+                      published_at: post.published_at,
+                      featured_image_r2_key: post.featured_image_r2_key,
+                      url: getPostUrl(post, baseUrl),
+                      size: 'standard'
+                    })).join('')}
+              </section>
+
+              ${(posts.results || []).length === 0 ? `<div class="ed-empty">Nenhum artigo encontrado com este assunto.</div>` : ''}
+            `
+
+            const html = renderEditorialLayout({
+                title: `${tag.name} | ${siteName}`,
+                description: tag.description || `Notícias sobre ${tag.name}`,
+                canonicalUrl: `${baseUrl}/tag/${tag.slug}`,
+                nonce,
+                siteName,
+                navItems,
+                bodyHtml,
+                baseUrl
+            })
+            return c.html(html)
+        }
 
         return c.html(`
         <!DOCTYPE html>

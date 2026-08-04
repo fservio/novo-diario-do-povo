@@ -11,6 +11,8 @@ import { listActiveAuthors, findAuthorBySlug, type Author } from '../db/authors'
 import { getSetting } from '../db'
 import { listPosts, type Post } from '../db/posts'
 import { getActiveCategories } from '../db/categories-cache'
+import { renderEditorialLayout } from './layout-editorial'
+import { renderEditorialArticleCard } from './components/editorial-card'
 
 // ============================================================================
 // Types
@@ -134,6 +136,55 @@ export async function renderColumnsList(
     return dateB - dateA
   })
 
+  const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
+  const isEditorialTheme = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2'
+
+  if (isEditorialTheme) {
+    const bodyHtml = `
+      <header class="ed-page-header">
+        <p class="ed-kicker">Análise e opinião</p>
+        <h1 class="ed-page-title">Colunistas</h1>
+        <p class="ed-page-description">Diferentes perspectivas para compreender os fatos e seus impactos.</p>
+      </header>
+      <section class="ed-columnists-grid">
+        ${columnistsWithLatestPost.map(author => `
+          <article class="ed-columnist-profile">
+            <a class="ed-columnist-profile__header" href="/coluna/${escapeAttr(author.slug)}">
+              <div class="ed-columnist-profile__avatar">
+                ${author.avatar_r2_key
+                  ? `<img src="/i/${author.avatar_r2_key}?w=160&h=160&fit=cover" alt="${escapeAttr(author.name)}">`
+                  : `<span>${escapeHtml(author.name.substring(0, 2).toUpperCase())}</span>`}
+              </div>
+              <div>
+                <p class="ed-kicker">${escapeHtml(author.column_name || 'Coluna')}</p>
+                <h2>${escapeHtml(author.name)}</h2>
+              </div>
+            </a>
+            ${author.column_description ? `<p>${escapeHtml(author.column_description)}</p>` : ''}
+            ${author.latestPost ? `
+              <a class="ed-columnist-profile__latest" href="${getPostUrl(author.latestPost)}">
+                <span>Publicação mais recente</span>
+                <strong>${escapeHtml(author.latestPost.title)}</strong>
+              </a>
+            ` : '<p class="ed-columnist-profile__empty">Sem publicações recentes.</p>'}
+          </article>
+        `).join('')}
+      </section>
+    `
+
+    return renderEditorialLayout({
+      title: `Colunistas — ${siteName}`,
+      description: 'Opinião e análise dos colunistas do Diário do Povo.',
+      canonicalUrl: `${baseUrl}/colunas`,
+      nonce: c.get('cspNonce') || '',
+      siteName,
+      navItems,
+      bodyHtml,
+      baseUrl,
+      googleAnalyticsId
+    })
+  }
+
   const bodyHtml = `
     <div class="container py-8">
       <div class="border-b border-gray-200 mb-8 pb-4 flex justify-between items-end">
@@ -189,7 +240,6 @@ export async function renderColumnsList(
   `
 
   // Determine Theme
-  const themeSetting = await getSetting(c.env, 'public_theme')
   const theme = normalizePublicTheme(themeSetting)
 
   // Fetch categories for mobile menu
@@ -247,6 +297,62 @@ export async function renderColumnPage(
 
   const totalPages = Math.ceil(total / limit)
 
+  const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
+  const isEditorialTheme = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2'
+
+  if (isEditorialTheme) {
+    const bodyHtml = `
+      <header class="ed-column-header">
+        <div class="ed-column-header__avatar">
+          ${author.avatar_r2_key
+            ? `<img src="/i/${author.avatar_r2_key}?w=260&h=260&fit=cover" alt="${escapeAttr(author.name)}">`
+            : `<span>${escapeHtml(author.name.substring(0, 2).toUpperCase())}</span>`}
+        </div>
+        <div>
+          <p class="ed-kicker">${escapeHtml(author.column_name || 'Coluna')}</p>
+          <h1 class="ed-page-title">${escapeHtml(author.name)}</h1>
+          ${author.bio ? `<p class="ed-page-description">${escapeHtml(author.bio)}</p>` : ''}
+        </div>
+      </header>
+
+      <section class="ed-section">
+        <div class="ed-section__header"><h2 class="ed-section__title">Publicações</h2></div>
+        ${posts.length > 0 ? `
+          <div class="ed-listing">
+            ${posts.map(post => renderEditorialArticleCard({
+              title: post.title,
+              hat: author.column_name || 'Coluna',
+              excerpt: post.excerpt,
+              published_at: post.published_at || post.created_at,
+              url: getPostUrl(post),
+              size: 'standard'
+            })).join('')}
+          </div>
+        ` : '<div class="ed-empty">Nenhuma publicação encontrada.</div>'}
+      </section>
+
+      ${totalPages > 1 ? `
+        <nav class="ed-pagination" aria-label="Paginação" style="display:flex;justify-content:center;align-items:center;gap:16px;margin-top:42px">
+          ${page > 1 ? `<a class="ed-button ed-button--secondary" href="?page=${page - 1}">Anterior</a>` : ''}
+          <span>Página ${page} de ${totalPages}</span>
+          ${page < totalPages ? `<a class="ed-button ed-button--secondary" href="?page=${page + 1}">Próxima</a>` : ''}
+        </nav>
+      ` : ''}
+    `
+
+    return renderEditorialLayout({
+      title: `${author.column_name || author.name} — ${siteName}`,
+      description: author.column_description || author.bio || `Coluna de ${author.name}`,
+      canonicalUrl: `${baseUrl}/coluna/${author.slug}`,
+      nonce: c.get('cspNonce') || '',
+      siteName,
+      navItems,
+      bodyHtml,
+      baseUrl,
+      googleAnalyticsId
+    })
+  }
+
   const bodyHtml = `
     <div class="bg-gray-50 py-12 border-b border-gray-200">
       <div class="container max-w-4xl text-left">
@@ -303,7 +409,6 @@ export async function renderColumnPage(
   `
 
   // Determine Theme
-  const themeSetting = await getSetting(c.env, 'public_theme')
   const theme = normalizePublicTheme(themeSetting)
 
   // Fetch categories for mobile menu

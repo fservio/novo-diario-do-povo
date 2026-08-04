@@ -11,6 +11,9 @@ import { getPostUrl } from '../utils/post'
 import { renderAdSlot, findActiveSlotsByTemplate, generateAdsLoaderScript } from '../ads'
 import { getSetting } from '../db'
 import { getActiveCategories } from '../db/categories-cache'
+import { renderEditorialLayout } from './layout-editorial'
+import { renderEditorialArticleCard } from './components/editorial-card'
+import { renderEditorialAd } from './components/editorial-ad'
 
 // ============================================================================
 // Shared Renderers (Ported from Home)
@@ -89,7 +92,8 @@ export async function renderCategoryPage(
   const nonce = c.get('cspNonce') || ''
 
   // Determine Theme
-  const themeSetting = await getSetting(c.env, 'public_theme')
+  const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
+  const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2'
   const theme = normalizePublicTheme(themeSetting)
   const isAllType = theme === 'alltype'
 
@@ -111,6 +115,59 @@ export async function renderCategoryPage(
   // Layout Logic: Hero + Carousel
   const hero = posts.length > 0 ? posts[0] : null
   const list = posts.length > 1 ? posts.slice(1) : []
+
+  if (isEditorial) {
+    const bodyHtml = `
+      <header class="ed-page-header">
+        <p class="ed-kicker">Editoria</p>
+        <h1 id="categoryTitle" class="ed-page-title">${escapeHtml(category.name)}</h1>
+        ${category.description ? `<p class="ed-page-description">${escapeHtml(category.description)}</p>` : ''}
+      </header>
+
+      ${adTopHtml ? renderEditorialAd(adTopHtml) : ''}
+
+      <section class="ed-listing" id="categoryList" aria-label="Notícias de ${escapeAttr(category.name)}">
+            ${posts.map((post, idx) => renderEditorialArticleCard({
+              title: post.title,
+              hat: post.hat || post.category_name,
+              excerpt: truncate(post.excerpt, 180),
+              published_at: post.published_at,
+              author_name: post.author_name,
+              featured_image_r2_key: post.featured_image_r2_key,
+              url: getPostUrl(post, baseUrl),
+              isLcp: idx === 0,
+              size: 'standard'
+            })).join('')}
+      </section>
+
+      ${adMidHtml ? renderEditorialAd(adMidHtml) : ''}
+
+      ${(page > 1 || hasNextPage) ? `
+        <nav id="pagination" class="ed-pagination" style="display:flex;justify-content:center;align-items:center;gap:16px;margin-top:42px" aria-label="Paginação">
+          ${page > 1 ? `<a class="ed-button ed-button--secondary" href="/categoria/${escapeAttr(category.slug)}?page=${page - 1}">Anterior</a>` : ''}
+          <span>Página ${page}</span>
+          ${hasNextPage ? `<a class="ed-button ed-button--secondary" href="/categoria/${escapeAttr(category.slug)}?page=${page + 1}">Próxima</a>` : ''}
+        </nav>
+      ` : ''}
+
+      ${posts.length === 0 ? `<div class="ed-empty">Nenhum artigo encontrado nesta editoria.</div>` : ''}
+      ${adsScript}
+    `
+
+    return renderEditorialLayout({
+      title: `${category.name} — ${siteName}`,
+      description: category.description || `Notícias sobre ${category.name}`,
+      canonicalUrl: `${baseUrl}/categoria/${category.slug}`,
+      nonce,
+      siteName,
+      navItems,
+      bodyHtml,
+      baseUrl,
+      googleAnalyticsId: options.googleAnalyticsId,
+      lcpPreloadUrl: hero?.featured_image_r2_key ? `/i/${escapeAttr(hero.featured_image_r2_key)}?w=1200` : undefined,
+      lcpSrcSet: hero?.featured_image_r2_key ? generateSrcSet(hero.featured_image_r2_key) : undefined
+    })
+  }
 
   const bodyHtml = isAllType ? `
     <div style="background-color: var(--alltype-background); min-height: 100vh;">

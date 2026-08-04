@@ -2079,6 +2079,61 @@ app.get('/autor/:slug', async (c) => {
   const posts = await findPublishedPosts(c.env, { authorId: author.id, limit: 30 })
   const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
 
+  const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
+  const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2'
+
+  if (isEditorial) {
+    const { getHomeSections } = await import('../packages/core/db/home')
+    const { renderEditorialLayout } = await import('../packages/core/web/layout-editorial')
+    const { renderEditorialArticleCard } = await import('../packages/core/web/components/editorial-card')
+    const { escapeHtml } = await import('../packages/core/web/layout')
+
+    const sections = await getHomeSections(c.env)
+    const navItems = sections
+      .filter(s => s.enabled)
+      .map(s => ({
+        label: s.title,
+        href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
+        active: false
+      }))
+
+    const baseUrl = c.env.PUBLIC_BASE_URL || new URL(c.req.url).origin
+
+    const bodyHtml = `
+      <header class="ed-page-header">
+        <p class="ed-kicker">Autor</p>
+        <h1 class="ed-page-title">${escapeHtml(author.name)}</h1>
+        ${author.bio ? `<p class="ed-page-description">${escapeHtml(author.bio)}</p>` : ''}
+      </header>
+
+      <section class="ed-listing">
+            ${posts.map((post: any) => renderEditorialArticleCard({
+              title: post.title,
+              hat: post.hat || author.name,
+              excerpt: post.excerpt,
+              published_at: post.published_at,
+              featured_image_r2_key: post.featured_image_r2_key,
+              url: getPostUrl(post, baseUrl),
+              size: 'standard'
+            })).join('')}
+      </section>
+
+      ${posts.length === 0 ? `<div class="ed-empty">Nenhum artigo encontrado para este autor.</div>` : ''}
+    `
+
+    const html = renderEditorialLayout({
+      title: `${author.name} | ${siteName}`,
+      description: author.bio || `Artigos de ${author.name}`,
+      canonicalUrl: `${baseUrl}/autor/${author.slug}`,
+      nonce: c.get('cspNonce') || '',
+      siteName,
+      navItems,
+      bodyHtml,
+      baseUrl
+    })
+    return c.html(html)
+  }
+
   return c.html(`
     <!DOCTYPE html>
     <html lang="pt-BR">
@@ -2161,12 +2216,12 @@ app.get('/assinar', async (c) => {
   return c.html(html)
 })
 
-app.get('/portal/account', async (c) => {
+app.get('/conta', async (c) => {
   const { renderAccountPage } = await import('../packages/core/web/portal/account')
   return c.html(await renderAccountPage(c))
 })
 
-app.get('/conta', (c) => c.redirect('/portal/account', 301))
+app.get('/portal/account', (c) => c.redirect('/conta', 301))
 
 // ============================================================================
 // Subscriber Portal UI

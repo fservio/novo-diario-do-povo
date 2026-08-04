@@ -145,12 +145,13 @@ export async function renderSettingEditPage(
             </div>
           </div>
 
-          ${scope === 'public' ? (key === 'public_theme' ? `
+          ${scope === 'public' ? (key === 'public_theme' || key === 'site.public_theme' ? `
             <div class="form-group">
               <label>Tema do Site</label>
               <select name="value" class="form-control">
                 <option value='"minimal"' ${value === 'minimal' ? 'selected' : ''}>Minimalista (Google Style)</option>
                 <option value='"alltype"' ${value === 'alltype' ? 'selected' : ''}>AllType</option>
+                <option value='"editorial"' ${value === 'editorial' || value === 'alltype_v2' ? 'selected' : ''}>Editorial 2026 (recomendado)</option>
               </select>
               <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500;">Selecione o tema visual do site público.</div>
             </div>

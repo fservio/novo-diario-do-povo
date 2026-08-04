@@ -6,7 +6,7 @@
 import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
 import type { ArticlePost, RelatedPost } from '../db/article'
-import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, estimateReadingTime, truncate, normalizePublicTheme, type PublicLayoutParams } from './layout'
+import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, formatTime, estimateReadingTime, truncate, normalizePublicTheme, type PublicLayoutParams } from './layout'
 import { getPostUrl } from '../utils/post'
 import { renderAdSlot, findActiveSlotsByTemplate, generateAdsLoaderScript } from '../ads'
 import { generateArticleJsonLd, generateLiveBlogJsonLd, generateBreadcrumbJsonLd } from '../seo'
@@ -14,6 +14,9 @@ import { renderMarkdownToHtml, sanitizeHtml } from '../render/sanitize'
 import { renderLiveBlogTimeline, renderLiveBlogScript } from './liveblog'
 import { findLiveUpdates, getSetting } from '../db'
 import { getActiveCategories } from '../db/categories-cache'
+import { renderEditorialLayout } from './layout-editorial'
+import { renderEditorialArticleCard } from './components/editorial-card'
+import { renderEditorialAd } from './components/editorial-ad'
 
 // ============================================================================
 // Helpers
@@ -280,7 +283,6 @@ function renderPaywallGate(access: AccessCheckResult, baseUrl: string, nonce: st
   return `
     <div class="paywall-gate">
       <div class="paywall-content">
-        <div class="paywall-icon">🔒</div>
         <h3>${escapeHtml(title)}</h3>
         <p>${escapeHtml(description)}</p>
         <div id="paywallCta" class="paywall-actions">
@@ -319,6 +321,55 @@ function renderPaywallGate(access: AccessCheckResult, baseUrl: string, nonce: st
          margin-bottom: 0;
       }
     </style>
+  `
+}
+
+function renderEditorialPaywallGate(access: AccessCheckResult): string {
+  const reason = access.reason
+  let title = 'Conteúdo Exclusivo'
+  let description = 'Este artigo é exclusivo para assinantes. Continue lendo e tenha acesso a análises profundas.'
+  let buttons = ''
+
+  if (reason === 'not_logged_in') {
+    title = 'Faça login para continuar'
+    description = 'Já é assinante? Entre na sua conta. Ou assine agora por apenas R$ 9,90/mês.'
+    buttons = `
+      <a href="/portal/login?next=${encodeURIComponent(access.subscriber?.returnUrl || 'back')}" class="ed-button">Entrar</a>
+      <form method="POST" action="/api/portal/assinatura/start" style="width: 100%;">
+        <input type="hidden" name="plan" value="mensal">
+        <button type="submit" class="ed-button ed-button--secondary">Assinar (R$ 9,90)</button>
+      </form>
+    `
+  } else if (reason === 'not_subscribed' || reason === 'metering_limit_reached') {
+    title = 'Assine para ler tudo'
+    description = 'Tenha acesso ilimitado a todas as notícias e colunas exclusivos.'
+    buttons = `
+      <form method="POST" action="/api/portal/assinatura/start" style="width: 100%; margin-bottom: 12px;">
+        <input type="hidden" name="plan" value="mensal">
+        <button type="submit" class="ed-button">Assinar mensal (R$ 9,90)</button>
+      </form>
+       <form method="POST" action="/api/portal/assinatura/start" style="width: 100%;">
+        <input type="hidden" name="plan" value="anual">
+        <button type="submit" class="ed-button ed-button--secondary">Assinar anual (R$ 89,90)</button>
+      </form>
+    `
+  } else if (reason === 'past_due') {
+    title = 'Assinatura Pendente'
+    description = 'Sua assinatura está com pagamento em aberto. Regularize para continuar lendo.'
+    buttons = `
+      <a href="/portal" class="ed-button">Regularizar agora</a>
+    `
+  }
+
+  return `
+    <section class="ed-paywall" aria-labelledby="paywallTitle">
+      <p class="ed-kicker">Conteúdo para assinantes</p>
+      <h3 id="paywallTitle">${escapeHtml(title)}</h3>
+      <p>${escapeHtml(description)}</p>
+      <div id="paywallCta" class="ed-paywall__actions">
+         ${buttons}
+      </div>
+    </section>
   `
 }
 
@@ -423,7 +474,8 @@ export async function renderArticlePage(
   const { baseUrl, siteName, navItems, coverOfDay, relatedPosts, mostRead, isBlocked, accessCheck, googleAnalyticsId } = options
 
   // Determine Theme early to pass down
-  const themeSetting = await getSetting(c.env, 'public_theme')
+  const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
+  const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2'
   const theme = normalizePublicTheme(themeSetting)
   const isAllType = theme === 'alltype'
 
@@ -471,11 +523,14 @@ export async function renderArticlePage(
   let contentWithAds = contentHtml
   if (!isBlocked) {
     const paragraphs = contentHtml.split('</p>')
+    const wrapInreadAd = (html: string) => isEditorial
+      ? renderEditorialAd(html)
+      : `<div class="container my-8">${html}</div>`
     if (paragraphs.length > 4 && adInread1Html) {
-      paragraphs.splice(3, 0, '</p><div class="container my-8">' + adInread1Html + '</div>')
+      paragraphs.splice(3, 0, `</p>${wrapInreadAd(adInread1Html)}`)
     }
     if (paragraphs.length > 8 && adInread2Html) {
-      paragraphs.splice(7, 0, '</p><div class="container my-8">' + adInread2Html + '</div>')
+      paragraphs.splice(7, 0, `</p>${wrapInreadAd(adInread2Html)}`)
     }
     contentWithAds = paragraphs.join('</p>')
   }
@@ -522,6 +577,101 @@ export async function renderArticlePage(
   `
 
   // Build body HTML
+  if (isEditorial) {
+    const bodyHtml = `
+      ${adTopHtml ? renderEditorialAd(adTopHtml) : ''}
+
+      <article class="ed-article">
+      <header class="ed-article__header">
+        <p class="ed-kicker">${escapeHtml(post.hat || post.category_name)}</p>
+        <h1 id="articleTitle" class="ed-article__title">${escapeHtml(post.title)}</h1>
+        ${post.excerpt ? `<p class="ed-article__deck">${escapeHtml(post.excerpt)}</p>` : ''}
+        <div class="ed-article__byline">
+          <span>Por <strong>${escapeHtml(post.author_name || 'Redação')}</strong></span>
+          <span>Publicado em ${escapeHtml(formatDate(post.published_at))}, às ${escapeHtml(formatTime(post.published_at))}</span>
+          <span>${readingTime} min de leitura</span>
+        </div>
+      </header>
+
+      ${post.featured_image_r2_key ? `
+        <figure class="ed-article__hero">
+          <img
+            src="/i/${escapeAttr(post.featured_image_r2_key)}?w=1200"
+            srcset="/i/${escapeAttr(post.featured_image_r2_key)}?w=400 400w, /i/${escapeAttr(post.featured_image_r2_key)}?w=800 800w, /i/${escapeAttr(post.featured_image_r2_key)}?w=1200 1200w"
+            sizes="(max-width: 768px) 100vw, 1080px"
+            alt="${escapeAttr(post.featured_image_alt || post.title)}"
+            loading="eager"
+            fetchpriority="high"
+            width="${post.featured_image_width || 1200}"
+            height="${post.featured_image_height || 675}"
+          >
+          ${post.featured_image_credits ? `
+            <figcaption>
+              Crédito: ${escapeHtml(post.featured_image_credits)}
+            </figcaption>
+          ` : ''}
+        </figure>
+      ` : ''}
+
+      <div class="ed-article__layout">
+        <div class="ed-article__content">
+          ${isLiveBlog ? renderLiveBlogTimeline(liveUpdates, post.is_live === 1) : `
+            <div id="articleBody" class="${isBlocked ? 'article-content teaser-mode' : 'article-content'}">
+              ${contentWithAds}
+            </div>
+            ${isBlocked && accessCheck ? renderEditorialPaywallGate(accessCheck) : ''}
+            ${post.author_type === 'contributor' ? `
+              <div class="contributor-disclaimer" style="margin-top:3rem;padding:1.5rem;background:var(--ed-soft);border-left:4px solid var(--ed-red);font-family:var(--ed-sans);font-size:14px;color:var(--ed-muted)">
+                <strong>Nota da Redação:</strong> Este é um artigo de opinião e reflete a visão de seu autor, não necessariamente a opinião do ${escapeHtml(siteName)}.
+              </div>
+            ` : ''}
+          `}
+        </div>
+
+        <aside class="ed-article__rail" aria-label="Mais lidas">
+          <h2>Mais lidas</h2>
+          <div class="ed-share">
+            ${mostRead.slice(0, 5).map((item, index) => `<a href="${getPostUrl(item, baseUrl)}"><strong>${index + 1}.</strong> ${escapeHtml(item.title)}</a>`).join('')}
+          </div>
+        </aside>
+      </div>
+
+      ${relatedPosts.length > 0 ? `
+        <section class="ed-section">
+          <div class="ed-section__header"><h2 class="ed-section__title">Leia também</h2></div>
+          <div class="ed-related-grid">
+            ${relatedPosts.slice(0, 3).map(p => renderEditorialArticleCard({
+              title: p.title,
+              hat: p.hat || p.category_name,
+              url: getPostUrl(p, baseUrl),
+              published_at: p.published_at,
+              author_name: p.author_name,
+              featured_image_r2_key: p.featured_image_r2_key,
+              size: 'standard'
+            })).join('')}
+          </div>
+        </section>
+      ` : ''}
+      </article>
+
+      ${adFooterHtml ? renderEditorialAd(adFooterHtml) : ''}
+      ${adsScript}
+    `
+
+    return renderEditorialLayout({
+      title: post.seo_title ? `${post.seo_title} | ${siteName}` : `${post.title} | ${siteName}`,
+      description: post.seo_description || post.excerpt || post.title,
+      canonicalUrl,
+      nonce,
+      siteName,
+      navItems,
+      bodyHtml,
+      extraHeadHtml,
+      baseUrl,
+      googleAnalyticsId
+    })
+  }
+
   const bodyHtml = `
     <article class="article-detail" style="padding-bottom: 4rem;">
       <!-- Ad: Top -->

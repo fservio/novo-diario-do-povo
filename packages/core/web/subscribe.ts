@@ -8,6 +8,7 @@ import type { Env, AppContext } from '../types'
 import { renderPublicLayout, escapeHtml, escapeAttr, normalizePublicTheme, type PublicLayoutParams } from './layout'
 import { getSetting } from '../db'
 import { getActiveCategories } from '../db/categories-cache'
+import { renderEditorialLayout } from './layout-editorial'
 
 export async function renderSubscribePage(
   c: Context<{ Bindings: Env; Variables: AppContext }>,
@@ -312,8 +313,61 @@ export async function renderSubscribePage(
   `
 
   // Determine Theme
-  const themeSetting = await getSetting(c.env, 'public_theme')
+  const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
+  const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2'
   const theme = normalizePublicTheme(themeSetting)
+
+  if (isEditorial) {
+    const bodyHtml = `
+      <header class="ed-commercial-header">
+        <p class="ed-kicker">Jornalismo apoiado por leitores</p>
+        <h1 class="ed-page-title">Informação que faz diferença</h1>
+        <p class="ed-page-description">Assine para ter acesso ilimitado e ajudar a manter uma cobertura local independente, responsável e próxima da comunidade.</p>
+      </header>
+
+        <div class="ed-plans">
+          <article class="ed-plan">
+            <div>
+              <p class="ed-kicker">Flexível</p>
+              <h2>Assinatura mensal</h2>
+              <p class="ed-plan__price"><small>R$</small> 9,90 <small>por mês</small></p>
+              <ul>
+                <li>Acesso ilimitado ao portal</li>
+                <li>Conteúdo exclusivo para assinantes</li>
+                <li>Newsletter diária da redação</li>
+              </ul>
+            </div>
+            <a href="/portal?intent=subscribe&plan=mensal" class="ed-button ed-button--secondary">Assinar mensal</a>
+          </article>
+
+          <article class="ed-plan ed-plan--featured">
+            <div>
+              <p class="ed-kicker">Melhor escolha</p>
+              <h2>Assinatura anual</h2>
+              <p class="ed-plan__price"><small>R$</small> 94,90 <small>por ano</small></p>
+              <ul>
+                <li>Economia em relação ao plano mensal</li>
+                <li>Todos os benefícios da assinatura</li>
+                <li>Apoio contínuo ao jornalismo local</li>
+              </ul>
+            </div>
+            <a href="/portal?intent=subscribe&plan=anual" class="ed-button">Assinar anual</a>
+          </article>
+        </div>
+    `
+
+    return renderEditorialLayout({
+      title: `Assine | ${siteName}`,
+      description: 'Escolha o plano ideal para você e tenha acesso ilimitado a todo o conteúdo.',
+      canonicalUrl: `${baseUrl}/assinar`,
+      nonce,
+      siteName,
+      navItems,
+      bodyHtml,
+      baseUrl,
+      googleAnalyticsId: options.googleAnalyticsId
+    })
+  }
 
   // Fetch categories for mobile menu navigation
   const categories = await getActiveCategories(c.env)

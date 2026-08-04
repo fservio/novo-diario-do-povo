@@ -4,6 +4,44 @@
 
 import { describe, it, expect } from 'vitest'
 import { renderPublicLayout, type PublicLayoutParams } from '../../packages/core/web/layout'
+import { renderEditorialLayout } from '../../packages/core/web/layout-editorial'
+import { renderEditorialArticleCard } from '../../packages/core/web/components/editorial-card'
+
+describe('Editorial 2026 public system', () => {
+  it('renders an institutional masthead, navigation and accessible main landmark', () => {
+    const html = renderEditorialLayout({
+      title: 'Notícias — Diário do Povo',
+      description: 'Cobertura local independente.',
+      canonicalUrl: 'https://example.com/',
+      baseUrl: 'https://example.com',
+      siteName: 'Diário do Povo',
+      nonce: 'nonce-123',
+      navItems: [{ label: 'Política', href: '/categoria/politica', active: true }],
+      bodyHtml: '<article>Conteúdo</article>'
+    })
+
+    expect(html).toContain('/static/editorial.css')
+    expect(html).toContain('class="ed-container ed-masthead"')
+    expect(html).toContain('aria-current="page"')
+    expect(html).toContain('id="conteudo"')
+    expect(html).toContain('nonce="nonce-123"')
+  })
+
+  it('renders responsive editorial cards without inventing image placeholders', () => {
+    const html = renderEditorialArticleCard({
+      title: 'Câmara aprova novo plano para a cidade',
+      hat: 'Política',
+      excerpt: 'A proposta segue agora para sanção.',
+      url: '/noticia/plano-da-cidade',
+      size: 'lead'
+    })
+
+    expect(html).toContain('ed-story--lead')
+    expect(html).toContain('Câmara aprova novo plano')
+    expect(html).not.toContain('<img')
+    expect(html).not.toContain('placeholder')
+  })
+})
 
 describe('renderPublicLayout', () => {
   it('should include cover drawer elements when coverOfDay is provided', () => {
@@ -170,7 +208,7 @@ describe('renderPublicLayout', () => {
   })
 })
 
-describe('Homepage AllType theme integration', () => {
+describe('Homepage theme integrations', () => {
   it('should conditionalize homepage images based on isAllType', () => {
     const fs = require('fs')
     const path = require('path')
@@ -182,13 +220,13 @@ describe('Homepage AllType theme integration', () => {
     expect(homeCode).toContain('renderCategorySection(block, baseUrl, i, isAllType)')
   })
 
-  it('should not contain any newsletter block or newsletter code', () => {
+  it('should route the rejected AllType V2 setting to the editorial theme', () => {
     const fs = require('fs')
     const path = require('path')
     const homeCode = fs.readFileSync(path.join(__dirname, '../../packages/core/web/home.ts'), 'utf-8')
     
-    expect(homeCode).not.toContain('newsletter')
-    expect(homeCode).not.toContain('inscrever')
-    expect(homeCode).not.toContain('inscreva')
+    expect(homeCode).toContain("themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2'")
+    expect(homeCode).toContain('renderEditorialLayout')
+    expect(homeCode).toContain('renderEditorialArticleCard')
   })
 })
