@@ -8,7 +8,7 @@ describe('category page D1 cost controls', () => {
     expect(source).not.toContain('COUNT(*) as count')
     expect(source).toContain('limit: normalizedPageSize + 1')
     expect(source).toContain('hasNextPage')
-    expect(source).toContain('category-page:v3')
+    expect(source).toContain('category-page:v4')
   })
 
   it('renders pagination from hasNextPage instead of total pages', () => {

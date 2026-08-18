@@ -786,7 +786,7 @@ app.get('/admin', async (c) => {
     c.set('adminUser', user)
     c.set('csrfToken', getCookie(c, 'admin_csrf'))
 
-    const { renderAdminLayout } = await import('../packages/core/admin/ui')
+    const { renderAdminLayout, renderAdminIcon, escapeHtml } = await import('../packages/core/admin/ui')
     const { getSetting } = await import('../packages/core/db')
     const csrfToken = getCookie(c, 'admin_csrf')
 
@@ -803,80 +803,87 @@ app.get('/admin', async (c) => {
 
     const asaasConfigured = await getSetting(c.env, 'asaas.api_key', 'private')
 
+    const dashboardIcon = (name: string) => `<span class="admin-icon">${renderAdminIcon(name)}</span>`
     const bodyHtml = `
-    <div style="margin-bottom: var(--space-10); padding-top: var(--space-4);">
-      <h1 class="section-title" style="margin: 0; font-size: 2.5rem; letter-spacing: -0.04em; font-weight: 800; line-height: 1.1;">Visão Geral</h1>
-      <p style="color: var(--text-muted); margin-top: var(--space-3); font-size: 1.125rem; font-weight: 500;">O pulso da sua redação em tempo real.</p>
-    </div>
-
-    <!-- Stats Matrix -->
-    <div class="grid grid-4" style="margin-bottom: var(--space-12); gap: var(--space-6);">
-      <div class="card" style="position: relative; overflow: hidden; border: none; box-shadow: var(--shadow-md);">
-        <div style="position: absolute; top: -1rem; right: -1rem; font-size: 5rem; opacity: 0.05; transform: rotate(15deg); pointer-events: none;">📝</div>
-        <div style="font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); font-weight: 800; margin-bottom: var(--space-2);">Posts Publicados</div>
-        <div style="font-size: 2.5rem; font-weight: 900; color: var(--text-main); line-height: 1;">${postsCount?.count || 0}</div>
+      <div class="page-intro">
+        <div>
+          <p class="page-kicker">Painel editorial</p>
+          <h1 class="page-title">Bom trabalho, ${escapeHtml(user.name?.split(/\s+/)[0] || 'Editor')}.</h1>
+          <p class="page-description">Acompanhe a operação do jornal e acesse as tarefas mais frequentes da redação.</p>
+        </div>
+        <a href="/admin/posts/new" class="btn">${dashboardIcon('posts')} Nova matéria</a>
       </div>
 
-      <div class="card" style="position: relative; overflow: hidden; border: none; box-shadow: var(--shadow-md);">
-        <div style="position: absolute; top: -1rem; right: -1rem; font-size: 5rem; opacity: 0.05; transform: rotate(15deg); pointer-events: none;">💎</div>
-        <div style="font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); font-weight: 800; margin-bottom: var(--space-2);">Planos de Assinatura</div>
-        <div style="font-size: 2.5rem; font-weight: 900; color: var(--text-main); line-height: 1;">${plansCount?.count || 0}</div>
-      </div>
+      <section aria-labelledby="dashboard-overview-title">
+        <h2 id="dashboard-overview-title" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Indicadores gerais</h2>
+        <div class="stats-grid">
+          <article class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Matérias publicadas</span>
+              <span class="stat-icon">${dashboardIcon('posts')}</span>
+            </div>
+            <strong class="stat-value">${postsCount?.count || 0}</strong>
+          </article>
 
-      <div class="card" style="position: relative; overflow: hidden; border: none; box-shadow: var(--shadow-md);">
-        <div style="position: absolute; top: -1rem; right: -1rem; font-size: 5rem; opacity: 0.05; transform: rotate(15deg); pointer-events: none;">📢</div>
-        <div style="font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); font-weight: 800; margin-bottom: var(--space-2);">Publicidade</div>
-        <div style="font-size: 2.5rem; font-weight: 900; color: var(--text-main); line-height: 1;">${adsCount?.count || 0}</div>
-      </div>
+          <article class="stat-card is-accent">
+            <div class="stat-top">
+              <span class="stat-label">Planos ativos</span>
+              <span class="stat-icon">${dashboardIcon('users')}</span>
+            </div>
+            <strong class="stat-value">${plansCount?.count || 0}</strong>
+          </article>
 
-      <div class="card" style="position: relative; overflow: hidden; border: none; box-shadow: var(--shadow-md); border-left: 6px solid ${asaasConfigured ? 'var(--success)' : 'var(--danger)'};">
-        <div style="position: absolute; top: -1rem; right: -1rem; font-size: 5rem; opacity: 0.05; transform: rotate(15deg); pointer-events: none;">💳</div>
-        <div style="font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); font-weight: 800; margin-bottom: var(--space-2);">Pagamentos / Asaas</div>
-        <div style="font-size: 1.25rem; font-weight: 800; color: ${asaasConfigured ? 'var(--success)' : 'var(--danger)'}; margin-top: var(--space-4);">
-          ${asaasConfigured ? '✓ Conexão Ativa' : '✗ Configuração Pendente'}
-        </div>
-      </div>
-    </div>
+          <article class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Espaços publicitários</span>
+              <span class="stat-icon">${dashboardIcon('ads')}</span>
+            </div>
+            <strong class="stat-value">${adsCount?.count || 0}</strong>
+          </article>
 
-    <!-- Quick Actions Redesign -->
-    <div style="margin-bottom: var(--space-8);">
-        <h2 style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; margin: 0;">Ações Rápidas</h2>
-    </div>
-    
-    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-6);">
-      <a href="/admin/posts/new" class="card" style="text-decoration: none; padding: var(--space-8); display: flex; align-items: center; gap: var(--space-6);">
-        <div style="width: 64px; height: 64px; background: var(--accent-soft); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 2rem; flex-shrink: 0;">✍️</div>
-        <div>
-          <h3 style="color: var(--text-main); font-size: 1.25rem; font-weight: 800; margin: 0 0 var(--space-1) 0;">Escrever Post</h3>
-          <p style="color: var(--text-muted); font-size: 0.9375rem; line-height: 1.5; margin: 0;">Publique novos conteúdos e notícias.</p>
+          <article class="stat-card ${asaasConfigured ? 'is-success' : 'is-danger'}">
+            <div class="stat-top">
+              <span class="stat-label">Pagamentos</span>
+              <span class="stat-icon">${dashboardIcon('billing')}</span>
+            </div>
+            <strong class="stat-value is-status" style="color:${asaasConfigured ? 'var(--success)' : 'var(--danger)'}">
+              <span class="status-inline"><span class="status-dot"></span>${asaasConfigured ? 'Conexão ativa' : 'Configuração pendente'}</span>
+            </strong>
+          </article>
         </div>
-      </a>
+      </section>
 
-      <a href="/admin/settings" class="card" style="text-decoration: none; padding: var(--space-8); display: flex; align-items: center; gap: var(--space-6);">
-        <div style="width: 64px; height: 64px; background: var(--bg-main); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 2rem; flex-shrink: 0; border: 1px solid var(--border-color);">⚙️</div>
-        <div>
-          <h3 style="color: var(--text-main); font-size: 1.25rem; font-weight: 800; margin: 0 0 var(--space-1) 0;">Configurações</h3>
-          <p style="color: var(--text-muted); font-size: 0.9375rem; line-height: 1.5; margin: 0;">Nome do site, seções e SEO.</p>
+      <section aria-labelledby="quick-actions-title">
+        <div class="dashboard-section-heading">
+          <div>
+            <h2 id="quick-actions-title">Ações rápidas</h2>
+            <p>Atalhos para o fluxo diário de publicação.</p>
+          </div>
         </div>
-      </a>
 
-      <a href="/admin/media/upload" class="card" style="text-decoration: none; padding: var(--space-8); display: flex; align-items: center; gap: var(--space-6);">
-        <div style="width: 64px; height: 64px; background: var(--bg-main); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 2rem; flex-shrink: 0; border: 1px solid var(--border-color);">🖼️</div>
-        <div>
-          <h3 style="color: var(--text-main); font-size: 1.25rem; font-weight: 800; margin: 0 0 var(--space-1) 0;">Subir Mídias</h3>
-          <p style="color: var(--text-muted); font-size: 0.9375rem; line-height: 1.5; margin: 0;">Adicione fotos para sua galeria.</p>
+        <div class="quick-actions">
+          <a href="/admin/posts/new" class="quick-action">
+            <div class="quick-action-top"><span class="quick-action-icon">${dashboardIcon('posts')}</span><span class="admin-icon quick-action-arrow">${renderAdminIcon('arrow')}</span></div>
+            <div><h3>Escrever matéria</h3><p>Crie, revise e publique um novo conteúdo.</p></div>
+          </a>
+
+          <a href="/admin/daily-cover" class="quick-action">
+            <div class="quick-action-top"><span class="quick-action-icon">${dashboardIcon('cover')}</span><span class="admin-icon quick-action-arrow">${renderAdminIcon('arrow')}</span></div>
+            <div><h3>Organizar a capa</h3><p>Defina as principais chamadas do jornal.</p></div>
+          </a>
+
+          <a href="/admin/media/upload" class="quick-action">
+            <div class="quick-action-top"><span class="quick-action-icon">${dashboardIcon('media')}</span><span class="admin-icon quick-action-arrow">${renderAdminIcon('arrow')}</span></div>
+            <div><h3>Adicionar mídia</h3><p>Envie fotografias para a biblioteca editorial.</p></div>
+          </a>
+
+          <a href="/admin/users" class="quick-action">
+            <div class="quick-action-top"><span class="quick-action-icon">${dashboardIcon('shield')}</span><span class="admin-icon quick-action-arrow">${renderAdminIcon('arrow')}</span></div>
+            <div><h3>Gerenciar equipe</h3><p>Administre colaboradores e permissões.</p></div>
+          </a>
         </div>
-      </a>
-      
-      <a href="/admin/users" class="card" style="text-decoration: none; padding: var(--space-8); display: flex; align-items: center; gap: var(--space-6);">
-        <div style="width: 64px; height: 64px; background: var(--bg-main); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 2rem; flex-shrink: 0; border: 1px solid var(--border-color);">👥</div>
-        <div>
-          <h3 style="color: var(--text-main); font-size: 1.25rem; font-weight: 800; margin: 0 0 var(--space-1) 0;">Gerenciar Equipe</h3>
-          <p style="color: var(--text-muted); font-size: 0.9375rem; line-height: 1.5; margin: 0;">Administre autores e permissões.</p>
-        </div>
-      </a>
-    </div>
-  `
+      </section>
+    `
 
     return c.html(renderAdminLayout({
       title: 'Dashboard',
@@ -2080,7 +2087,7 @@ app.get('/autor/:slug', async (c) => {
   const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
 
   const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
-  const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2'
+  const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2' || themeSetting === 'minimal'
 
   if (isEditorial) {
     const { getHomeSections } = await import('../packages/core/db/home')

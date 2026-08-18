@@ -62,9 +62,11 @@ export async function findPublishedPostsByCategory(
   const result = await env.DB.prepare(`
     SELECT 
       p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at,
-      m.r2_key as featured_image_r2_key
+      m.r2_key as featured_image_r2_key,
+      a.name as author_name
     FROM posts p
     LEFT JOIN media m ON p.cover_media_id = m.id
+    LEFT JOIN authors a ON p.author_id = a.id
     WHERE p.category_id = ?
       AND p.status = 'published'
       AND p.published_at <= ?
@@ -76,8 +78,7 @@ export async function findPublishedPostsByCategory(
   return (result.results || []).map(post => ({
     ...post,
     category_name: category.name,
-    category_slug: category.slug,
-    author_name: null as string | null
+    category_slug: category.slug
   }))
 }
 
@@ -118,7 +119,7 @@ export async function getCategoryPageData(
 ): Promise<CategoryPageData | null> {
   const validRequestedPage = Math.max(1, page)
   const normalizedPageSize = Math.min(Math.max(pageSize, 1), 30)
-  const cacheKey = `category-page:v3:${slug}:${validRequestedPage}:${normalizedPageSize}`
+  const cacheKey = `category-page:v4:${slug}:${validRequestedPage}:${normalizedPageSize}`
 
   if (env.KV) {
     const cached = await env.KV.get(cacheKey)

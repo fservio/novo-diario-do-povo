@@ -5,7 +5,7 @@
 
 import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
-import { escapeHtml, renderAdminLayout, type AdminUser } from './ui'
+import { escapeHtml, renderAdminIcon, renderAdminLayout, type AdminUser } from './ui'
 import { renderMarkdownEditor } from './editor'
 import { z } from 'zod'
 import {
@@ -103,6 +103,7 @@ function renderPostsListPage(params: {
   const limit = filters.limit || 20
   const currentPage = filters.page || 1
   const totalPages = Math.ceil(total / limit)
+  const adminIcon = (name: string) => `<span class="admin-icon">${renderAdminIcon(name)}</span>`
 
   const buildQuery = (newFilters: any) => {
     const q = new URLSearchParams()
@@ -114,18 +115,19 @@ function renderPostsListPage(params: {
   }
 
   const bodyHtml = `
-    <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+    <div class="page-intro">
       <div>
-         <h1 class="section-title" style="margin: 0;">Matérias</h1>
-         <p style="color: var(--text-muted); font-size: 0.875rem;">Gerencie as publicações do jornal</p>
+         <p class="page-kicker">Conteúdo editorial</p>
+         <h1 class="page-title">Matérias</h1>
+         <p class="page-description">Pesquise, revise e acompanhe todas as publicações do jornal.</p>
       </div>
-      <a href="/admin/posts/new" class="btn"><span>+</span> Nova Matéria</a>
+      <a href="/admin/posts/new" class="btn">${adminIcon('posts')} Nova matéria</a>
     </div>
     
     <!-- Filtros Superiores -->
-    <div class="card" style="margin-bottom: 2rem; padding: 1.5rem;">
+    <div class="card filter-card">
       <form method="get" action="/admin/posts" id="filterForm">
-        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+        <div class="filter-grid">
           <div class="form-group" style="margin: 0;">
             <label>Busca livre</label>
             <input type="text" name="search" class="form-control" value="${escapeHtml(filters.search || '')}" placeholder="Título ou conteúdo...">
@@ -139,7 +141,7 @@ function renderPostsListPage(params: {
           </div>
           
           <div class="form-group" style="margin: 0;">
-            <label>Categoria</label>
+            <label>Editoria</label>
             <select name="category_id" class="form-control" onchange="this.form.submit()">
               <option value="">Todas</option>
               ${categories.map(cat => `<option value="${cat.id}" ${filters.category_id === cat.id ? 'selected' : ''}>${escapeHtml(cat.name)}</option>`).join('')}
@@ -157,8 +159,8 @@ function renderPostsListPage(params: {
         </div>
 
         <!-- Filtro de Calendário -->
-        <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
-            <span style="font-size: 0.875rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">📅 Calendário:</span>
+        <div class="filter-calendar">
+            <span class="filter-calendar-label">${adminIcon('cover')} Período</span>
             
             <select name="year" class="form-control" style="width: auto;" onchange="this.form.submit()">
               <option value="">Ano</option>
@@ -178,8 +180,10 @@ function renderPostsListPage(params: {
   }).join('')}
             </select>
 
-            <button type="submit" class="btn" style="margin-left: auto;">Aplicar Filtros</button>
-            <a href="/admin/posts" class="btn btn-outline">Limpar</a>
+            <div class="filter-actions">
+              <button type="submit" class="btn">Aplicar filtros</button>
+              <a href="/admin/posts" class="btn btn-outline">Limpar</a>
+            </div>
         </div>
       </form>
     </div>
@@ -200,40 +204,40 @@ function renderPostsListPage(params: {
         <tbody>
           ${posts.length === 0 ? `
             <tr>
-              <td colspan="6" style="padding: 4rem; text-align: center; color: var(--text-muted);">
-                <div style="font-size: 2rem; margin-bottom: 1rem;">🔍</div>
+              <td colspan="6" class="empty-state">
+                <div class="empty-state-icon">${adminIcon('posts')}</div>
                 Nenhuma matéria encontrada com estes filtros.
               </td>
             </tr>
           ` : posts.map(post => `
             <tr>
               <td>
-                <div style="display: flex; flex-direction: column;">
-                    ${post.hat ? `<span style="font-size: 0.65rem; font-weight: 800; color: var(--primary); text-transform: uppercase; margin-bottom: 2px;">${escapeHtml(post.hat)}</span>` : ''}
-                    <a href="/admin/posts/${post.id}" style="text-decoration: none; color: var(--text-main); font-weight: 600; font-size: 0.9375rem; line-height: 1.3;">
+                <div class="content-title-cell">
+                    ${post.hat ? `<span class="content-kicker">${escapeHtml(post.hat)}</span>` : ''}
+                    <a href="/admin/posts/${post.id}" class="content-title-link">
                       ${escapeHtml(post.title)}
                     </a>
                 </div>
               </td>
-              <td><span class="badge" style="background: #f1f5f9; color: #475569;">${escapeHtml(post.category_name || 'Geral')}</span></td>
+              <td><span class="badge badge-neutral">${escapeHtml(post.category_name || 'Geral')}</span></td>
               <td>
                 ${post.status === 'published' ? '<span class="badge badge-success">Publicado</span>' :
-      post.status === 'draft' ? '<span class="badge" style="background: #e2e8f0; color: #475569;">Rascunho</span>' :
+      post.status === 'draft' ? '<span class="badge badge-neutral">Rascunho</span>' :
         post.status === 'review' ? '<span class="badge badge-warning">Revisão</span>' :
           '<span class="badge badge-danger">Arquivado</span>'
     }
               </td>
-              <td>${post.is_premium ? '💎 <span style="font-size: 0.75rem; font-weight: 600;">Premium</span>' : '✅ <span style="font-size: 0.75rem; font-weight: 600;">Livre</span>'}</td>
+              <td><span class="access-label"><span class="access-mark ${post.is_premium ? 'is-premium' : ''}">${adminIcon(post.is_premium ? 'shield' : 'external')}</span>${post.is_premium ? 'Premium' : 'Livre'}</span></td>
               <td style="white-space: nowrap; color: var(--text-muted); font-size: 0.8125rem;">
                 ${new Date(post.created_at).toLocaleDateString('pt-BR')}
               </td>
               <td style="text-align: right;">
-                <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-                  <a href="/admin/posts/${post.id}" class="btn btn-outline" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">Editar</a>
-                  <a href="/admin/posts/${post.id}/preview" target="_blank" class="btn btn-outline" style="padding: 0.35rem 0.5rem; font-size: 0.75rem;" title="Ver Preview">👁️</a>
-                  <form method="post" action="/admin/posts/${post.id}/delete" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir esta matéria permanentemente?')">
+                <div class="row-actions">
+                  <a href="/admin/posts/${post.id}" class="btn btn-outline btn-compact">Editar</a>
+                  <a href="/admin/posts/${post.id}/preview" target="_blank" rel="noopener" class="btn btn-outline btn-compact" title="Visualizar matéria">${adminIcon('external')}<span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Visualizar</span></a>
+                  <form method="post" action="/admin/posts/${post.id}/delete" onsubmit="return confirm('Tem certeza que deseja excluir esta matéria permanentemente?')">
                     ${renderCsrfInput(csrfToken)}
-                    <button type="submit" class="btn" style="padding: 0.35rem 0.75rem; font-size: 0.75rem; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca;">
+                    <button type="submit" class="btn btn-danger btn-compact">
                       Excluir
                     </button>
                   </form>
@@ -247,31 +251,30 @@ function renderPostsListPage(params: {
 
     <!-- Paginação -->
     ${totalPages > 1 ? `
-    <div style="margin-top: 2rem; display: flex; justify-content: center; align-items: center; gap: 0.5rem;">
+    <nav class="pagination" aria-label="Paginação de matérias">
         ${currentPage > 1 ? `
             <a href="/admin/posts?${buildQuery({ page: 1 })}" class="btn btn-outline" style="padding: 0.5rem 0.75rem;">«</a>
             <a href="/admin/posts?${buildQuery({ page: currentPage - 1 })}" class="btn btn-outline" style="padding: 0.5rem 0.75rem;">‹ Anterior</a>
         ` : ''}
 
-        <div style="display: flex; gap: 0.25rem; align-items: center; padding: 0 1rem;">
-            <span style="font-weight: 700; color: var(--primary);">Página ${currentPage}</span>
-            <span style="color: var(--text-muted);"> de ${totalPages}</span>
+        <div class="pagination-status">
+            <strong>Página ${currentPage}</strong> de ${totalPages}
         </div>
 
         ${currentPage < totalPages ? `
             <a href="/admin/posts?${buildQuery({ page: currentPage + 1 })}" class="btn btn-outline" style="padding: 0.5rem 0.75rem;">Próxima ›</a>
             <a href="/admin/posts?${buildQuery({ page: totalPages })}" class="btn btn-outline" style="padding: 0.5rem 0.75rem;">»</a>
         ` : ''}
-    </div>
+    </nav>
     ` : ''}
     
-    <div style="margin-top: 1rem; text-align: center; font-size: 0.75rem; color: var(--text-muted);">
-        Total de ${total} matérias encontradas
+    <div class="results-count">
+        ${total} ${total === 1 ? 'matéria encontrada' : 'matérias encontradas'}
     </div>
   `
 
   return renderAdminLayout({
-    title: 'Posts',
+    title: 'Matérias',
     user,
     bodyHtml,
     activeTab: 'posts',
@@ -296,6 +299,7 @@ function renderPostFormPage(params: {
 }): string {
   const { post, categories, authors, tags, user, csrfToken, cspNonce, error, defaultAuthorId } = params
   const isNew = !post
+  const adminIcon = (name: string) => `<span class="admin-icon">${renderAdminIcon(name)}</span>`
 
   const statusBadge = (status?: string) => {
     const palette: Record<string, string> = {
@@ -342,11 +346,11 @@ function renderPostFormPage(params: {
           </form>
         ` : `
           <span style="color: #10b981; font-weight: 700; display: flex; align-items: center; gap: 0.25rem;">
-             ✅ Post Publicado
+             ${adminIcon('posts')} Matéria publicada
           </span>
         `}
-        <a href="/admin/posts/${post.id}/preview" target="_blank" class="btn" style="background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color);">
-          Ver Preview 👁️
+        <a href="/admin/posts/${post.id}/preview" target="_blank" rel="noopener" class="btn btn-outline">
+          ${adminIcon('external')} Visualizar
         </a>
       </div>
     </div>
@@ -357,7 +361,7 @@ function renderPostFormPage(params: {
       <a href="/admin/posts" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem; font-weight: 600; display: flex; align-items: center; gap: 0.25rem;">
         ← Voltar para a lista
       </a>
-      <h1 class="section-title" style="margin-top: 0.5rem;">${isNew ? 'Criar Novo Post' : 'Editar Publicação'}</h1>
+      <h1 class="section-title" style="margin-top: 0.5rem;">${isNew ? 'Criar nova matéria' : 'Editar matéria'}</h1>
     </div>
     
     ${error ? `
@@ -779,7 +783,7 @@ function renderPostFormPage(params: {
             style="background: #ef4444; border: none; margin-left: auto;"
             onclick="return confirm('Tem certeza que deseja excluir este post permanentemente?')"
           >
-            Excluir Post
+            Excluir matéria
           </button>
         ` : ''}
       </div>
@@ -793,7 +797,7 @@ function renderPostFormPage(params: {
   `
 
   return renderAdminLayout({
-    title: isNew ? 'Novo Post' : `Editar: ${post.title}`,
+    title: isNew ? 'Nova matéria' : `Editar: ${post.title}`,
     user,
     bodyHtml,
     activeTab: 'posts',

@@ -93,7 +93,7 @@ export async function renderCategoryPage(
 
   // Determine Theme
   const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
-  const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2'
+  const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2' || themeSetting === 'minimal'
   const theme = normalizePublicTheme(themeSetting)
   const isAllType = theme === 'alltype'
 
@@ -117,33 +117,91 @@ export async function renderCategoryPage(
   const list = posts.length > 1 ? posts.slice(1) : []
 
   if (isEditorial) {
+    const coverPosts = page === 1 ? posts.slice(0, 4) : []
+    const coverLead = coverPosts[0] || null
+    const coverSecondary = coverPosts.slice(1)
+    const latestPosts = page === 1 ? posts.slice(4) : posts
+
+    const coverHtml = coverLead ? `
+      <section class="ed-category-cover${coverSecondary.length === 0 ? ' ed-category-cover--solo' : ''}" aria-label="Destaques de ${escapeAttr(category.name)}">
+        <div class="ed-category-cover__lead">
+          ${renderEditorialArticleCard({
+            title: coverLead.title,
+            hat: coverLead.hat || coverLead.category_name,
+            excerpt: truncate(coverLead.excerpt, 220),
+            published_at: coverLead.published_at,
+            author_name: coverLead.author_name || 'Redação',
+            featured_image_r2_key: coverLead.featured_image_r2_key,
+            url: getPostUrl(coverLead, baseUrl),
+            isLcp: true,
+            size: 'lead'
+          })}
+        </div>
+        ${coverSecondary.length > 0 ? `
+          <div class="ed-category-cover__secondary">
+            ${coverSecondary.map((post, index) => renderEditorialArticleCard({
+              title: post.title,
+              hat: post.hat || post.category_name,
+              published_at: post.published_at,
+              featured_image_r2_key: post.featured_image_r2_key,
+              url: getPostUrl(post, baseUrl),
+              size: index === 0 ? 'standard' : 'compact'
+            })).join('')}
+          </div>
+        ` : ''}
+      </section>
+    ` : ''
+
+    const latestHtml = latestPosts.length > 0 ? `
+      <section class="ed-category-latest" aria-labelledby="categoryLatestTitle">
+        <div class="ed-category-latest__header">
+          <div>
+            <p class="ed-kicker">Em ordem cronológica</p>
+            <h2 id="categoryLatestTitle">${page === 1 ? `Últimas de ${escapeHtml(category.name)}` : `Arquivo de ${escapeHtml(category.name)}`}</h2>
+          </div>
+          ${page > 1 ? `<p>Página ${page}</p>` : ''}
+        </div>
+        <div class="ed-listing">
+          ${latestPosts.map((post, idx) => renderEditorialArticleCard({
+            title: post.title,
+            hat: post.hat || post.category_name,
+            excerpt: truncate(post.excerpt, 180),
+            published_at: post.published_at,
+            author_name: post.author_name || 'Redação',
+            featured_image_r2_key: post.featured_image_r2_key,
+            url: getPostUrl(post, baseUrl),
+            isLcp: page > 1 && idx === 0,
+            size: 'standard'
+          })).join('')}
+        </div>
+      </section>
+    ` : ''
+
     const bodyHtml = `
-      <header class="ed-page-header">
-        <p class="ed-kicker">Editoria</p>
-        <h1 id="categoryTitle" class="ed-page-title">${escapeHtml(category.name)}</h1>
-        ${category.description ? `<p class="ed-page-description">${escapeHtml(category.description)}</p>` : ''}
+      <header class="ed-category-heading">
+        <div>
+          <p class="ed-kicker">Editoria</p>
+          <h1 id="categoryTitle" class="ed-page-title">${escapeHtml(category.name)}</h1>
+        </div>
+        ${hero ? `
+          <p class="ed-category-heading__updated">
+            <span>Última atualização</span>
+            <time datetime="${escapeAttr(hero.published_at)}">${escapeHtml(formatDate(hero.published_at))}</time>
+          </p>
+        ` : ''}
       </header>
 
       ${adTopHtml ? renderEditorialAd(adTopHtml) : ''}
 
-      <section class="ed-listing" id="categoryList" aria-label="Notícias de ${escapeAttr(category.name)}">
-            ${posts.map((post, idx) => renderEditorialArticleCard({
-              title: post.title,
-              hat: post.hat || post.category_name,
-              excerpt: truncate(post.excerpt, 180),
-              published_at: post.published_at,
-              author_name: post.author_name,
-              featured_image_r2_key: post.featured_image_r2_key,
-              url: getPostUrl(post, baseUrl),
-              isLcp: idx === 0,
-              size: 'standard'
-            })).join('')}
-      </section>
-
-      ${adMidHtml ? renderEditorialAd(adMidHtml) : ''}
+      <div id="categoryList">
+        ${coverHtml}
+        ${coverHtml && adMidHtml ? renderEditorialAd(adMidHtml) : ''}
+        ${latestHtml}
+        ${!coverHtml && adMidHtml ? renderEditorialAd(adMidHtml) : ''}
+      </div>
 
       ${(page > 1 || hasNextPage) ? `
-        <nav id="pagination" class="ed-pagination" style="display:flex;justify-content:center;align-items:center;gap:16px;margin-top:42px" aria-label="Paginação">
+        <nav id="pagination" class="ed-pagination" aria-label="Paginação">
           ${page > 1 ? `<a class="ed-button ed-button--secondary" href="/categoria/${escapeAttr(category.slug)}?page=${page - 1}">Anterior</a>` : ''}
           <span>Página ${page}</span>
           ${hasNextPage ? `<a class="ed-button ed-button--secondary" href="/categoria/${escapeAttr(category.slug)}?page=${page + 1}">Próxima</a>` : ''}

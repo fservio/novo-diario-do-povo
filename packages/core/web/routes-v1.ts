@@ -87,7 +87,7 @@ app.get('/ultimas', async (c) => {
     const siteName = (settings['site_name'] as string) || 'Jornal Diário do Povo'
     const googleAnalyticsId = settings['google_analytics_id'] as string
     const themeSetting = (await getSetting(c.env, 'site.public_theme')) || settings['public_theme']
-    const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2'
+    const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2' || themeSetting === 'minimal'
     const theme = normalizePublicTheme(themeSetting)
 
     const page = parseInt(c.req.query('page') || '1')
@@ -217,7 +217,7 @@ app.get('/tag/:slug', async (c) => {
         const nonce = c.get('cspNonce') || ''
 
         const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
-        const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2'
+        const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2' || themeSetting === 'minimal'
 
         if (isEditorial) {
             const sections = await getHomeSections(c.env)

@@ -219,7 +219,7 @@ export function renderEditorialLayout(params: {
   <meta name="twitter:card" content="summary_large_image">
   <meta name="theme-color" content="#123d5a">
   ${params.lcpPreloadUrl ? `<link rel="preload" as="image" href="${escapeAttr(params.lcpPreloadUrl)}"${params.lcpSrcSet ? ` imagesrcset="${escapeAttr(params.lcpSrcSet)}" imagesizes="(max-width: 760px) 100vw, 760px"` : ''} fetchpriority="high">` : ''}
-  <link rel="stylesheet" href="/static/editorial.css?v=20260804-menu1">
+  <link rel="stylesheet" href="/static/editorial.css?v=20260818-category-cover1">
   ${params.extraHeadHtml || ''}
   ${params.googleAnalyticsId ? `
     <script async src="https://www.googletagmanager.com/gtag/js?id=${escapeAttr(params.googleAnalyticsId)}"></script>

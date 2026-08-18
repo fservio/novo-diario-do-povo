@@ -475,7 +475,7 @@ export async function renderArticlePage(
 
   // Determine Theme early to pass down
   const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
-  const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2'
+  const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2' || themeSetting === 'minimal'
   const theme = normalizePublicTheme(themeSetting)
   const isAllType = theme === 'alltype'
 

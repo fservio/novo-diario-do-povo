@@ -225,7 +225,7 @@ describe('Homepage theme integrations', () => {
     const path = require('path')
     const homeCode = fs.readFileSync(path.join(__dirname, '../../packages/core/web/home.ts'), 'utf-8')
     
-    expect(homeCode).toContain("themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2'")
+    expect(homeCode).toContain("themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2' || themeSetting === 'minimal'")
     expect(homeCode).toContain('renderEditorialLayout')
     expect(homeCode).toContain('renderEditorialArticleCard')
   })

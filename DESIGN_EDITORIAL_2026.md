@@ -20,7 +20,8 @@ O desenho não compete com a notícia. Hierarquia, fotografia, títulos e contex
 
 - **Cabeçalho:** faixa de edição, masthead azul de alta presença, marca central, assinatura e navegação de editorias.
 - **Home:** manchete com foto, destaques secundários, análises, opinião real e blocos de editoria.
-- **Editorias e tags:** lista vertical que permite comparar títulos, imagens e resumos com rapidez.
+- **Editorias:** capas dinâmicas com manchete, destaques secundários e uma área cronológica de últimas notícias; a descrição editorial permanece apenas nos metadados de SEO.
+- **Tags:** lista vertical que permite comparar títulos, imagens e resumos com rapidez.
 - **Artigo:** título amplo, linha fina de metadados, foto principal e coluna de leitura de 720 px.
 - **Colunistas:** identidade do autor e publicação mais recente sem estética de rede social.
 - **Assinatura e conta:** superfícies comerciais sóbrias, coerentes com a confiança da marca.
@@ -37,7 +38,7 @@ O desenho não compete com a notícia. Hierarquia, fotografia, títulos e contex
 
 ## Compatibilidade
 
-O identificador recomendado no CMS é `editorial`. Durante a transição, instalações configuradas como `alltype_v2` também são direcionadas ao novo sistema, impedindo que o design rejeitado permaneça ativo em produção.
+O identificador recomendado no CMS é `editorial`. Durante a transição, instalações configuradas como `alltype_v2` ou `minimal` também são direcionadas ao novo sistema, impedindo que um valor legado do banco mantenha o design anterior ativo em produção.
 
 ## Refinamento premium
 

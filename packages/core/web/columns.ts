@@ -137,7 +137,7 @@ export async function renderColumnsList(
   })
 
   const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
-  const isEditorialTheme = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2'
+  const isEditorialTheme = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2' || themeSetting === 'minimal'
 
   if (isEditorialTheme) {
     const bodyHtml = `
@@ -298,7 +298,7 @@ export async function renderColumnPage(
   const totalPages = Math.ceil(total / limit)
 
   const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
-  const isEditorialTheme = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2'
+  const isEditorialTheme = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2' || themeSetting === 'minimal'
 
   if (isEditorialTheme) {
     const bodyHtml = `
