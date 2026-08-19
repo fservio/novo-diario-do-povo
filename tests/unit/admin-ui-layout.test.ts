@@ -18,9 +18,10 @@ describe('Admin UI layout', () => {
       csrfToken: 'csrf-test'
     })
 
-    expect(html).toContain('/static/admin.css?v=20260818-cms1')
+    expect(html).toContain('/static/admin.css?v=20260819-ai-newsroom1')
     expect(html).toContain('aria-label="Navegação administrativa"')
     expect(html).toContain('id="admin-nav-toggle"')
+    expect(html).toContain('href="/admin/redacao-ia"')
     expect(html).toContain('href="/admin/posts" aria-current="page"')
     expect(html).toContain('Editorias')
     expect(html).toContain('Biblioteca de mídia')

@@ -593,6 +593,55 @@ app.use('/api/admin/*', async (c, next) => {
   return requireAdmin(c, next)
 })
 
+// Newsletter forms always validate the session-bound CSRF token.
+app.use('/admin/newsletters', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/admin/newsletters/*', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+
+// Social publishing forms use the same session-bound CSRF protection.
+app.use('/admin/instagram', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/admin/instagram/*', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+
+// Editorial AI forms change source, dossier and review state.
+app.use('/admin/redacao-ia', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/admin/redacao-ia/*', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+
+app.use('/admin/integrations', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/admin/integrations/*', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+
+// Settings forms change operational data and must use the session-bound token.
+app.use('/admin/settings', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/admin/settings/*', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+
 // GET /admin/login (public)
 app.get('/admin/login', async (c) => {
   const { renderLoginPage } = await import('../packages/core/admin/ui')
@@ -940,6 +989,16 @@ app.get('/admin/integrations', async (c) => {
 app.post('/admin/integrations/n8n/generate', async (c) => {
   const { handleGenerateKey } = await import('../packages/core/admin/integrations')
   return handleGenerateKey(c)
+})
+
+app.post('/admin/integrations/instagram', async (c) => {
+  const { handleInstagramIntegrationSave } = await import('../packages/core/admin/integrations')
+  return handleInstagramIntegrationSave(c)
+})
+
+app.post('/admin/integrations/openai', async (c) => {
+  const { handleEditorialAiIntegrationSave } = await import('../packages/core/admin/integrations')
+  return handleEditorialAiIntegrationSave(c)
 })
 
 // ============================================================================
@@ -1696,6 +1755,12 @@ app.get('/admin/settings/:scope/:key', async (c) => {
   const key = c.req.param('key')
   const error = c.req.query('error')
   return renderSettingEditPage(c, scope, key, error)
+})
+
+// POST /admin/settings/newsletter
+app.post('/admin/settings/newsletter', async (c) => {
+  const { handleNewsletterSettingsUpdate } = await import('../packages/core/admin/settings')
+  return handleNewsletterSettingsUpdate(c)
 })
 
 // POST /admin/settings/:scope/:key
@@ -2710,6 +2775,261 @@ app.post('/admin/users/:id{[0-9]+}/enable', async (c) => {
 // ============================================================================
 // Admin Subscribers Routes (RBAC: Director only)
 // ============================================================================
+
+// ============================================================================
+// Admin Redação IA Routes
+// ============================================================================
+
+app.get('/admin/redacao-ia', async (c) => {
+  const { renderEditorialAiDashboard } = await import('../packages/core/admin/editorial-ai')
+  return renderEditorialAiDashboard(c)
+})
+
+app.get('/admin/redacao-ia/fontes', async (c) => {
+  const { renderEditorialSourcesPage } = await import('../packages/core/admin/editorial-ai')
+  return renderEditorialSourcesPage(c)
+})
+
+app.post('/admin/redacao-ia/fontes', async (c) => {
+  const { handleEditorialSourceCreate } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialSourceCreate(c)
+})
+
+app.post('/admin/redacao-ia/fontes/sincronizar', async (c) => {
+  const { handleEditorialSourcesSync } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialSourcesSync(c)
+})
+
+app.post('/admin/redacao-ia/fontes/:id{[0-9]+}/sincronizar', async (c) => {
+  const { handleEditorialSourceSync } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialSourceSync(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/fontes/:id{[0-9]+}/estado', async (c) => {
+  const { handleEditorialSourceState } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialSourceState(c, Number(c.req.param('id')))
+})
+
+app.get('/admin/redacao-ia/radar', async (c) => {
+  const { renderEditorialRadarPage } = await import('../packages/core/admin/editorial-ai')
+  return renderEditorialRadarPage(c)
+})
+
+app.post('/admin/redacao-ia/radar/:id{[0-9]+}/pauta', async (c) => {
+  const { handleEditorialFeedItemWorkspace } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialFeedItemWorkspace(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/radar/:id{[0-9]+}/estado', async (c) => {
+  const { handleEditorialFeedItemState } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialFeedItemState(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/pautas/post/:postId{[0-9]+}', async (c) => {
+  const { handleEditorialPostWorkspace } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialPostWorkspace(c, Number(c.req.param('postId')))
+})
+
+app.get('/admin/redacao-ia/pautas/:id{[0-9]+}', async (c) => {
+  const { renderEditorialWorkspacePage } = await import('../packages/core/admin/editorial-ai')
+  return renderEditorialWorkspacePage(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/briefing', async (c) => {
+  const { handleEditorialWorkspaceBrief } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialWorkspaceBrief(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/materiais', async (c) => {
+  const { handleEditorialMaterialCreate } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialMaterialCreate(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/triagem', async (c) => {
+  const { handleEditorialTriage } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialTriage(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/rascunho', async (c) => {
+  const { handleEditorialDraft } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialDraft(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/checagem', async (c) => {
+  const { handleEditorialFactCheck } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialFactCheck(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/afirmacoes/:claimId{[0-9]+}', async (c) => {
+  const { handleEditorialClaimReview } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialClaimReview(c, Number(c.req.param('id')), Number(c.req.param('claimId')))
+})
+
+app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/aplicar', async (c) => {
+  const { handleEditorialRevisionApply } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialRevisionApply(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/aprovar', async (c) => {
+  const { handleEditorialWorkspaceApprove } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialWorkspaceApprove(c, Number(c.req.param('id')))
+})
+
+app.post('/api/n8n/editorial/rss/sync', async (c) => {
+  const { handleN8nEditorialRssSync } = await import('../packages/core/admin/editorial-ai')
+  return handleN8nEditorialRssSync(c)
+})
+
+// ============================================================================
+// Admin Newsletters Routes
+// ============================================================================
+
+app.get('/admin/newsletters', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  await requireEditor(c, async () => { })
+  const { handleNewslettersList } = await import('../packages/core/admin/newsletters')
+  return handleNewslettersList(c)
+})
+
+app.get('/admin/newsletters/new', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  await requireEditor(c, async () => { })
+  const { handleNewsletterNew } = await import('../packages/core/admin/newsletters')
+  return handleNewsletterNew(c)
+})
+
+app.post('/admin/newsletters', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  await requireEditor(c, async () => { })
+  const { handleNewsletterCreate } = await import('../packages/core/admin/newsletters')
+  return handleNewsletterCreate(c)
+})
+
+app.post('/admin/newsletters/audience', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => { })
+  const { handleNewsletterAudienceAdd } = await import('../packages/core/admin/newsletters')
+  return handleNewsletterAudienceAdd(c)
+})
+
+app.get('/admin/newsletters/:id{[0-9]+}', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  await requireEditor(c, async () => { })
+  const { handleNewsletterDetail } = await import('../packages/core/admin/newsletters')
+  return handleNewsletterDetail(c)
+})
+
+app.get('/admin/newsletters/:id{[0-9]+}/edit', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  await requireEditor(c, async () => { })
+  const { handleNewsletterEdit } = await import('../packages/core/admin/newsletters')
+  return handleNewsletterEdit(c)
+})
+
+app.post('/admin/newsletters/:id{[0-9]+}/edit', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  await requireEditor(c, async () => { })
+  const { handleNewsletterUpdate } = await import('../packages/core/admin/newsletters')
+  return handleNewsletterUpdate(c)
+})
+
+app.get('/admin/newsletters/:id{[0-9]+}/preview', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  await requireEditor(c, async () => { })
+  const { handleNewsletterPreview } = await import('../packages/core/admin/newsletters')
+  return handleNewsletterPreview(c)
+})
+
+app.post('/admin/newsletters/:id{[0-9]+}/test', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  await requireEditor(c, async () => { })
+  const { handleNewsletterTest } = await import('../packages/core/admin/newsletters')
+  return handleNewsletterTest(c)
+})
+
+app.post('/admin/newsletters/:id{[0-9]+}/send', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  await requireDirector(c, async () => { })
+  const { handleNewsletterSend } = await import('../packages/core/admin/newsletters')
+  return handleNewsletterSend(c)
+})
+
+// ============================================================================
+// Admin Instagram Routes
+// ============================================================================
+
+app.get('/admin/instagram', async (c) => {
+  const { handleInstagramList } = await import('../packages/core/admin/instagram')
+  return handleInstagramList(c)
+})
+
+app.get('/admin/instagram/new', async (c) => {
+  const { handleInstagramNew } = await import('../packages/core/admin/instagram')
+  return handleInstagramNew(c)
+})
+
+app.post('/admin/instagram', async (c) => {
+  const { handleInstagramCreate } = await import('../packages/core/admin/instagram')
+  return handleInstagramCreate(c)
+})
+
+app.get('/admin/instagram/:id{[0-9]+}', async (c) => {
+  const { handleInstagramDetail } = await import('../packages/core/admin/instagram')
+  return handleInstagramDetail(c)
+})
+
+app.post('/admin/instagram/:id{[0-9]+}/edit', async (c) => {
+  const { handleInstagramUpdate } = await import('../packages/core/admin/instagram')
+  return handleInstagramUpdate(c)
+})
+
+app.post('/admin/instagram/:id{[0-9]+}/caption', async (c) => {
+  const { handleInstagramCaption } = await import('../packages/core/admin/instagram')
+  return handleInstagramCaption(c)
+})
+
+app.post('/admin/instagram/:id{[0-9]+}/approve', async (c) => {
+  const { handleInstagramApprove } = await import('../packages/core/admin/instagram')
+  return handleInstagramApprove(c)
+})
+
+app.post('/admin/instagram/:id{[0-9]+}/publish', async (c) => {
+  const { handleInstagramPublish } = await import('../packages/core/admin/instagram')
+  return handleInstagramPublish(c)
+})
+
+// Public tokenized artwork URL consumed by the n8n rasterization step.
+app.get('/artes/editoriais/:token', async (c) => {
+  const { handleInstagramArtwork } = await import('../packages/core/web/instagram')
+  return handleInstagramArtwork(c)
+})
+
+// Authenticated n8n callback for caption and Meta publication status.
+app.patch('/api/n8n/instagram/:id{[0-9]+}', async (c) => {
+  const { handleInstagramN8nCallback } = await import('../packages/core/web/instagram')
+  return handleInstagramN8nCallback(c)
+})
+
+app.post('/api/n8n/instagram/:id{[0-9]+}', async (c) => {
+  const { handleInstagramN8nCallback } = await import('../packages/core/web/instagram')
+  return handleInstagramN8nCallback(c)
+})
+
+// Public, tokenized newsletter preference routes.
+app.get('/newsletter/unsubscribe/:token', async (c) => {
+  const { handleNewsletterUnsubscribePage } = await import('../packages/core/web/newsletter')
+  return handleNewsletterUnsubscribePage(c)
+})
+
+app.post('/newsletter/unsubscribe/:token', async (c) => {
+  const { handleNewsletterUnsubscribe } = await import('../packages/core/web/newsletter')
+  return handleNewsletterUnsubscribe(c)
+})
+
+app.post('/api/newsletter/unsubscribe/:token', async (c) => {
+  const { handleNewsletterOneClickUnsubscribe } = await import('../packages/core/web/newsletter')
+  return handleNewsletterOneClickUnsubscribe(c)
+})
 
 // GET /admin/subscribers - List subscribers
 app.get('/admin/subscribers', async (c) => {

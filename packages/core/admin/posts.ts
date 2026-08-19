@@ -352,6 +352,12 @@ function renderPostFormPage(params: {
         <a href="/admin/posts/${post.id}/preview" target="_blank" rel="noopener" class="btn btn-outline">
           ${adminIcon('external')} Visualizar
         </a>
+        <form method="post" action="/admin/redacao-ia/pautas/post/${post.id}" style="display: inline-flex;">
+          ${renderCsrfInput(csrfToken)}
+          <button type="submit" class="btn btn-outline">
+            ${adminIcon('ai')} Abrir na Redação IA
+          </button>
+        </form>
       </div>
     </div>
   ` : ''

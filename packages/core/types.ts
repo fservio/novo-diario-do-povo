@@ -41,8 +41,17 @@ export interface Env {
   // Opcionais (controláveis via CMS)
   ADSENSE_CLIENT_ID?: string
   GAM_NETWORK_CODE?: string
-  NEWSLETTER_PROVIDER?: 'mailchimp' | 'sendgrid' | 'internal'
+  NEWSLETTER_PROVIDER?: 'mailchimp' | 'sendgrid' | 'internal' | 'smtp'
   NEWSLETTER_API_KEY?: string
+  SMTP_HOST?: string
+  SMTP_PORT?: string
+  SMTP_USERNAME?: string
+  SMTP_PASSWORD?: string
+  SMTP_FROM_EMAIL?: string
+  SMTP_FROM_NAME?: string
+  NEWSLETTER_DAILY_LIMIT?: string
+  OPENAI_API_KEY?: string
+  OPENAI_MODEL?: string
   STRIPE_SECRET_KEY?: string
   STRIPE_WEBHOOK_SECRET?: string
 }
@@ -67,8 +76,17 @@ export const envSchema = z.object({
   ASAAS_BOOTSTRAP_ENVIRONMENT: z.enum(['sandbox', 'production']).optional(),
   ADSENSE_CLIENT_ID: z.string().optional(),
   GAM_NETWORK_CODE: z.string().optional(),
-  NEWSLETTER_PROVIDER: z.enum(['mailchimp', 'sendgrid', 'internal']).optional(),
+  NEWSLETTER_PROVIDER: z.enum(['mailchimp', 'sendgrid', 'internal', 'smtp']).optional(),
   NEWSLETTER_API_KEY: z.string().optional(),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.string().optional(),
+  SMTP_USERNAME: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  SMTP_FROM_EMAIL: z.string().email().optional(),
+  SMTP_FROM_NAME: z.string().optional(),
+  NEWSLETTER_DAILY_LIMIT: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
+  OPENAI_MODEL: z.string().optional(),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
 })

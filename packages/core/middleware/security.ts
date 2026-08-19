@@ -139,7 +139,9 @@ export async function securityHeaders(c: Context<{ Bindings: Env; Variables: App
 
   // Cache-Control for specific paths
   const path = c.req.path
-  if (path.startsWith('/static/') || path.startsWith('/i/')) {
+  if (path.startsWith('/admin') || path.startsWith('/api/admin/') || path.startsWith('/portal') || path.startsWith('/conta') || path.startsWith('/newsletter/unsubscribe/')) {
+    c.header('Cache-Control', 'private, no-store, max-age=0')
+  } else if (path.startsWith('/static/') || path.startsWith('/i/')) {
     c.header('Cache-Control', 'public, max-age=31536000, immutable')
   } else if (path === '/robots.txt' || path === '/ads.txt' || path.endsWith('.xml')) {
     c.header('Cache-Control', 'public, max-age=3600, stale-while-revalidate=600') // 1 hour for SEO/Ads files

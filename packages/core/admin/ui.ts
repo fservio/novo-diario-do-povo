@@ -46,6 +46,11 @@ export function renderAdminIcon(name: string): string {
     tags: '<path d="M20 13 11 22l-9-9V3h10z"/><circle cx="7.5" cy="8.5" r="1.2"/>',
     authors: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/>',
     media: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>',
+    newsletter: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/><path d="M7 17h4"/>',
+    instagram: '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>',
+    ai: '<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/><path d="m10.4 12 1.1 1.1 2.3-2.5"/>',
+    radar: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 4v8l5.7-5.7"/>',
+    source: '<path d="M4 19a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"/><path d="M4 13a7 7 0 0 1 7 7M4 7a13 13 0 0 1 13 13"/>',
     users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
     billing: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h2"/>',
     integrations: '<path d="M8 12h8M12 8v8M7 3h3v4H7a5 5 0 0 0 0 10h3v4H7A9 9 0 0 1 7 3ZM17 3h-3v4h3a5 5 0 0 1 0 10h-3v4h3a9 9 0 0 0 0-18Z"/>',
@@ -53,6 +58,7 @@ export function renderAdminIcon(name: string): string {
     shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>',
     settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/>',
     external: '<path d="M14 3h7v7M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>',
+    download: '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2"/>',
     logout: '<path d="M10 17l5-5-5-5M15 12H3M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>',
     menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
     close: '<path d="m6 6 12 12M18 6 6 18"/>',
@@ -117,7 +123,7 @@ export function renderAdminLayout(
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/admin.css?v=20260818-cms1">
+  <link rel="stylesheet" href="/static/admin.css?v=20260819-ai-newsroom1">
 </head>
 <body>
   <a class="skip-link" href="#admin-content">Ir para o conteúdo</a>
@@ -138,12 +144,15 @@ export function renderAdminLayout(
 
         <div class="nav-label">Publicação</div>
         <a class="${isActive('posts')}" href="/admin/posts"${current('posts')}>${icon('posts')}Matérias</a>
+        <a class="${isActive('redacao-ia')}" href="/admin/redacao-ia"${current('redacao-ia')}>${icon('ai')}Redação IA</a>
         <a class="${isActive('daily-cover')}" href="/admin/daily-cover"${current('daily-cover')}>${icon('cover')}Capa do dia</a>
         <a class="${isActive('live')}" href="/admin/live"${current('live')}>${icon('live')}Central ao vivo</a>
         <a class="${isActive('categories')}" href="/admin/categories"${current('categories')}>${icon('categories')}Editorias</a>
         <a class="${isActive('tags')}" href="/admin/tags"${current('tags')}>${icon('tags')}Tags</a>
         <a class="${isActive('authors')}" href="/admin/authors"${current('authors')}>${icon('authors')}Autores</a>
         <a class="${isActive('media')}" href="/admin/media"${current('media')}>${icon('media')}Biblioteca de mídia</a>
+        <a class="${isActive('newsletters')}" href="/admin/newsletters"${current('newsletters')}>${icon('newsletter')}Newsletters</a>
+        <a class="${isActive('instagram')}" href="/admin/instagram"${current('instagram')}>${icon('instagram')}Instagram</a>
 
         <div class="nav-label">Negócio</div>
         <a class="${isActive('subscribers')}" href="/admin/subscribers"${current('subscribers')}>${icon('users')}Assinantes</a>
@@ -212,7 +221,7 @@ export function renderLoginPage(error?: string): string {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/admin.css?v=20260818-cms1">
+  <link rel="stylesheet" href="/static/admin.css?v=20260819-ai-newsroom1">
 </head>
 <body class="login-page">
   <main class="login-shell">

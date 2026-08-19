@@ -12,7 +12,7 @@ export default defineConfig({
     emptyOutDir: true,
     target: 'es2022',
     rollupOptions: {
-      external: ['__STATIC_CONTENT_MANIFEST'],
+      external: ['__STATIC_CONTENT_MANIFEST', 'cloudflare:sockets'],
       output: {
         format: 'es'
       }
