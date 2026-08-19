@@ -472,7 +472,12 @@ app.get('/noticia/:slug/', async (c) => {
 })
 
 // GET /:year/:month/:day/:slug - Date-based URL
-app.get('/:year/:month/:day/:slug', handleArticleRequest)
-app.get('/:year/:month/:day/:slug/', handleArticleRequest)
+// Keep every date segment numeric so this public catch-all cannot shadow
+// four-segment application routes such as /admin/redacao-ia/pautas/:id.
+export const ARTICLE_DATE_ROUTE =
+    '/:year{[0-9][0-9][0-9][0-9]}/:month{[0-9][0-9]}/:day{[0-9][0-9]}/:slug'
+
+app.get(ARTICLE_DATE_ROUTE, handleArticleRequest)
+app.get(`${ARTICLE_DATE_ROUTE}/`, handleArticleRequest)
 
 export default app
