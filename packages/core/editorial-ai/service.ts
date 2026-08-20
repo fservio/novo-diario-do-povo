@@ -23,13 +23,106 @@ import {
 } from './repository'
 import {
   getEditorialAiRuntimeConfig,
+  requestEditorialCopydesk,
   requestEditorialDraft,
   requestEditorialFactCheck,
   requestEditorialTriage
 } from './openai'
-import type { EditorialAiSource, EditorialMaterial, EditorialWorkspace } from './types'
+import type {
+  EditorialAiRun,
+  EditorialAiSource,
+  EditorialDepth,
+  EditorialDraftFormat,
+  EditorialMaterial,
+  EditorialWorkspace
+} from './types'
 
-const PROMPT_VERSION = 'editorial-v1.0'
+const PROMPT_VERSION = 'editorial-v2.0'
+
+export const EDITORIAL_FORMAT_PROFILES: Record<EditorialDraftFormat, {
+  label: string
+  ranges: Record<EditorialDepth, [number, number]>
+  structure: string
+}> = {
+  note: {
+    label: 'nota factual',
+    ranges: { brief: [200, 300], standard: [250, 400], deep: [350, 500] },
+    structure: 'Apresente o fato, a consequência imediata e a informação de serviço ou próximo passo.'
+  },
+  news: {
+    label: 'notícia factual',
+    ranges: { brief: [350, 550], standard: [550, 900], deep: [800, 1200] },
+    structure: 'Abra com lide informativo; desenvolva em ordem de importância; acrescente contexto, impacto para o leitor e próximo passo concreto.'
+  },
+  report: {
+    label: 'reportagem contextualizada',
+    ranges: { brief: [650, 900], standard: [900, 1500], deep: [1200, 1800] },
+    structure: 'Construa abertura forte e factual, núcleo da notícia, antecedentes, diferentes perspectivas sustentadas, impacto e desdobramentos.'
+  },
+  explainer: {
+    label: 'explicador de serviço',
+    ranges: { brief: [550, 800], standard: [800, 1300], deep: [1100, 1600] },
+    structure: 'Responda primeiro à dúvida central; depois explique antecedentes, funcionamento, pessoas afetadas, consequências e dúvidas práticas.'
+  },
+  rewrite: {
+    label: 'reescrita editorial original',
+    ranges: { brief: [350, 550], standard: [500, 900], deep: [750, 1200] },
+    structure: 'Produza síntese com arquitetura própria, atribuição explícita, contexto adicional sustentado e valor editorial distinto da fonte de origem.'
+  }
+}
+
+export function resolveEditorialWordRange(
+  format: EditorialDraftFormat,
+  depth: EditorialDepth,
+  targetWordCount?: number | null
+): [number, number] {
+  const profile = EDITORIAL_FORMAT_PROFILES[format] || EDITORIAL_FORMAT_PROFILES.news
+  if (targetWordCount && targetWordCount >= 200 && targetWordCount <= 2500) {
+    return [Math.max(200, Math.round(targetWordCount * 0.85)), Math.min(2500, Math.round(targetWordCount * 1.15))]
+  }
+  return profile.ranges[depth] || profile.ranges.standard
+}
+
+export function buildEditorialDraftPrompt(workspace: EditorialWorkspace, sourcePrompt: string): string {
+  const format = EDITORIAL_FORMAT_PROFILES[workspace.editorial_format] ? workspace.editorial_format : 'news'
+  const depth = ['brief', 'standard', 'deep'].includes(workspace.editorial_depth) ? workspace.editorial_depth : 'standard'
+  const profile = EDITORIAL_FORMAT_PROFILES[format]
+  const [minimumWords, maximumWords] = resolveEditorialWordRange(format, depth, workspace.target_word_count)
+  const rightsRule = workspace.usage_policy === 'licensed'
+    ? 'Há indicação de conteúdo licenciado; ainda assim preserve atribuição e não invente permissões.'
+    : 'A fonte não está marcada como licença integral. Não faça paráfrase cosmética: produza uma síntese original, explicite a origem e indique o que ainda exige apuração própria.'
+  const direction = [
+    `PAUTA: ${cleanPromptValue(workspace.title, 220)}`,
+    `ORIENTAÇÃO DO JORNALISTA: ${cleanPromptValue(workspace.brief || 'Sem orientação adicional.', 10000)}`,
+    `FORMATO: ${profile.label}`,
+    `PROFUNDIDADE: ${depth === 'brief' ? 'breve' : depth === 'deep' ? 'aprofundada' : 'padrão'}`,
+    `FAIXA DE EXTENSÃO: ${minimumWords} a ${maximumWords} palavras, desde que as fontes sustentem essa densidade. Não preencha lacunas para atingir a faixa.`,
+    `ENFOQUE PRINCIPAL: ${cleanPromptValue(workspace.primary_angle || 'Identifique o enfoque mais relevante a partir da pauta e das fontes.', 2000)}`,
+    `PÚBLICO PRIORITÁRIO: ${cleanPromptValue(workspace.target_audience || 'Leitores do Diário do Povo.', 1000)}`,
+    `ABRANGÊNCIA GEOGRÁFICA: ${cleanPromptValue(workspace.geographic_scope || 'Destaque a dimensão local ou regional somente quando sustentada.', 1000)}`,
+    `INFORMAÇÕES OBRIGATÓRIAS: ${cleanPromptValue(workspace.required_information || 'Nenhuma além das indicadas na orientação e nas fontes.', 5000)}`,
+    `PERGUNTAS QUE O TEXTO DEVE RESPONDER: ${cleanPromptValue(workspace.key_questions || 'Responda às perguntas jornalisticamente necessárias para compreender o fato.', 5000)}`,
+    `SENSIBILIDADE: ${workspace.sensitivity}`
+  ].join('\n')
+  const successCriteria = [
+    `ESTRUTURA DO FORMATO: ${profile.structure}`,
+    'CRITÉRIOS DE SUCESSO:',
+    '- O primeiro parágrafo entrega o fato mais relevante com sujeito e consequência claros.',
+    '- A progressão acrescenta informação nova; contexto e antecedentes aparecem no momento em que ajudam a compreensão.',
+    '- Números, datas, cargos, declarações e avaliações estão atribuídos com precisão.',
+    '- O texto explica por que o acontecimento importa e quem é afetado, somente quando houver base nas fontes.',
+    '- O encerramento apresenta consequência, próximo passo ou serviço concreto; não use conclusão genérica.',
+    '- Intertítulos são usados apenas quando melhoram a leitura de textos longos.',
+    '- O corpo não contém título, chapéu, subtítulo, notas sobre o processo de IA nem chamadas à publicação automática.',
+    '- editorial_plan resume a arquitetura adotada; reporting_gaps lista apenas lacunas reais; quality_assessment aponta forças e limites sem autopromoção.'
+  ].join('\n')
+  return [
+    '<DIRECAO_EDITORIAL>', direction, '</DIRECAO_EDITORIAL>',
+    rightsRule,
+    '<CRITERIOS_DE_REDAÇÃO>', successCriteria, '</CRITERIOS_DE_REDAÇÃO>',
+    '<FONTES_NAO_CONFIAVEIS>', sourcePrompt, '</FONTES_NAO_CONFIAVEIS>'
+  ].join('\n\n')
+}
 
 function assertWorkspaceMutable(workspace: EditorialWorkspace): void {
   if (workspace.status === 'approved' || workspace.status === 'archived') {
@@ -97,7 +190,7 @@ async function buildSourcePackage(env: Env, workspace: EditorialWorkspace): Prom
 
 async function recordRun<T>(env: Env, input: {
   workspace: EditorialWorkspace
-  action: 'triage' | 'draft' | 'fact_check'
+  action: EditorialAiRun['action']
   userId: number
   inputSummary: string
   execute: () => Promise<{
@@ -214,35 +307,17 @@ export async function runEditorialTriage(env: Env, workspaceId: number, userId: 
   })
 }
 
-export async function runEditorialDraft(env: Env, workspaceId: number, userId: number, format: string): Promise<number> {
+export async function runEditorialDraft(env: Env, workspaceId: number, userId: number): Promise<number> {
   const workspace = await getEditorialWorkspace(env, workspaceId)
   if (!workspace) throw new Error('Pauta não encontrada.')
   assertWorkspaceMutable(workspace)
   const sources = await buildSourcePackage(env, workspace)
-  const allowedFormats: Record<string, string> = {
-    news: 'notícia factual objetiva',
-    report: 'reportagem contextualizada',
-    explainer: 'explicador de serviço',
-    rewrite: 'reescrita editorial com estrutura original e atribuição explícita'
-  }
-  const requestedFormat = allowedFormats[format] || allowedFormats.news
-  const rightsRule = workspace.usage_policy === 'licensed'
-    ? 'Há indicação de conteúdo licenciado; ainda assim preserve atribuição e não invente permissões.'
-    : 'A fonte não está marcada como licença integral. Não faça paráfrase cosmética: produza uma síntese original, explicite a origem e indique o que ainda exige apuração própria.'
-  const prompt = [
-    `PAUTA: ${workspace.title}`,
-    `ORIENTAÇÃO DO JORNALISTA: ${workspace.brief || 'Sem orientação adicional.'}`,
-    `FORMATO: ${requestedFormat}`,
-    `SENSIBILIDADE: ${workspace.sensitivity}`,
-    rightsRule,
-    'O corpo deve começar pelo fato mais relevante, preservar atribuições e não conter chamadas à publicação automática.',
-    sources.prompt
-  ].join('\n\n')
+  const prompt = buildEditorialDraftPrompt(workspace, sources.prompt)
   const run = await recordRun(env, {
     workspace,
     action: 'draft',
     userId,
-    inputSummary: `${sources.included} fontes; formato ${format}; ${sources.excludedConfidential} confidenciais excluídas`,
+    inputSummary: `${sources.included} fontes; formato ${workspace.editorial_format}; profundidade ${workspace.editorial_depth}; ${sources.excludedConfidential} confidenciais excluídas`,
     execute: () => requestEditorialDraft(env, prompt)
   })
   const revisionId = await saveEditorialRevision(env, {
@@ -255,14 +330,74 @@ export async function runEditorialDraft(env: Env, workspaceId: number, userId: n
     seoTitle: run.output.seo_title,
     seoDescription: run.output.seo_description,
     originalityNote: run.output.originality_note,
+    revisionKind: 'draft',
+    editorialPlan: run.output.editorial_plan,
+    reportingGaps: run.output.reporting_gaps,
+    qualityAssessment: run.output.quality_assessment,
     claims: run.output.claims,
     userId
   })
   await logAudit(env, {
     entityType: 'editorial_ai_workspace', entityId: workspace.id, action: 'ai_draft',
-    actorType: 'user', actorId: userId, details: { runId: run.runId, revisionId, format }
+    actorType: 'user', actorId: userId,
+    details: { runId: run.runId, revisionId, format: workspace.editorial_format, depth: workspace.editorial_depth }
   })
   return revisionId
+}
+
+export async function runEditorialCopydesk(env: Env, workspaceId: number, userId: number, revisionId?: number): Promise<number> {
+  const workspace = await getEditorialWorkspace(env, workspaceId)
+  if (!workspace) throw new Error('Pauta não encontrada.')
+  assertWorkspaceMutable(workspace)
+  const revisions = await listEditorialRevisions(env, workspaceId)
+  const selectedId = revisionId || revisions[0]?.id
+  if (!selectedId) throw new Error('Gere uma primeira versão antes do copidesque.')
+  const revision = await getEditorialRevision(env, selectedId, workspaceId)
+  if (!revision) throw new Error('Versão editorial não encontrada.')
+  const sources = await buildSourcePackage(env, workspace)
+  const direction = buildEditorialDraftPrompt(workspace, sources.prompt)
+  const prompt = [
+    direction,
+    '<RASCUNHO_PARA_COPIDESQUE>',
+    cleanPromptValue([
+      revision.hat,
+      revision.title,
+      revision.excerpt,
+      revision.content_markdown
+    ].filter(Boolean).join('\n\n'), 70000),
+    '</RASCUNHO_PARA_COPIDESQUE>',
+    'Entregue a versão integral revisada. Preserve os fatos sustentados e não comprima o texto sem motivo editorial.'
+  ].join('\n\n')
+  const run = await recordRun(env, {
+    workspace,
+    action: 'rewrite',
+    userId,
+    inputSummary: `copidesque da revisão ${revision.id}; ${sources.included} fontes; formato ${workspace.editorial_format}`,
+    execute: () => requestEditorialCopydesk(env, prompt)
+  })
+  const newRevisionId = await saveEditorialRevision(env, {
+    workspaceId,
+    runId: run.runId,
+    title: run.output.title,
+    hat: run.output.hat,
+    excerpt: run.output.excerpt,
+    contentMarkdown: run.output.content_markdown,
+    seoTitle: run.output.seo_title,
+    seoDescription: run.output.seo_description,
+    originalityNote: run.output.originality_note,
+    revisionKind: 'copydesk',
+    editorialPlan: run.output.editorial_plan,
+    reportingGaps: run.output.reporting_gaps,
+    qualityAssessment: run.output.quality_assessment,
+    claims: run.output.claims,
+    userId
+  })
+  await logAudit(env, {
+    entityType: 'editorial_ai_workspace', entityId: workspace.id, action: 'ai_copydesk',
+    actorType: 'user', actorId: userId,
+    details: { runId: run.runId, sourceRevisionId: revision.id, revisionId: newRevisionId }
+  })
+  return newRevisionId
 }
 
 export async function runEditorialFactCheck(env: Env, workspaceId: number, userId: number, revisionId?: number): Promise<void> {

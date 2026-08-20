@@ -381,10 +381,36 @@ export async function updateEditorialWorkspaceBrief(env: Env, id: number, input:
   title: string
   brief: string
   sensitivity: EditorialSensitivity
+  editorialFormat: EditorialWorkspace['editorial_format']
+  editorialDepth: EditorialWorkspace['editorial_depth']
+  primaryAngle: string
+  targetAudience: string
+  geographicScope: string
+  requiredInformation: string
+  keyQuestions: string
+  targetWordCount: number | null
 }): Promise<void> {
   await env.DB.prepare(`
-    UPDATE editorial_ai_workspaces SET title = ?, brief = ?, sensitivity = ?, updated_at = ? WHERE id = ?
-  `).bind(input.title.trim(), input.brief.trim() || null, input.sensitivity, new Date().toISOString(), id).run()
+    UPDATE editorial_ai_workspaces
+    SET title = ?, brief = ?, sensitivity = ?, editorial_format = ?, editorial_depth = ?,
+        primary_angle = ?, target_audience = ?, geographic_scope = ?, required_information = ?,
+        key_questions = ?, target_word_count = ?, updated_at = ?
+    WHERE id = ?
+  `).bind(
+    input.title.trim(),
+    input.brief.trim() || null,
+    input.sensitivity,
+    input.editorialFormat,
+    input.editorialDepth,
+    input.primaryAngle.trim() || null,
+    input.targetAudience.trim() || null,
+    input.geographicScope.trim() || null,
+    input.requiredInformation.trim() || null,
+    input.keyQuestions.trim() || null,
+    input.targetWordCount,
+    new Date().toISOString(),
+    id
+  ).run()
 }
 
 export async function setEditorialWorkspaceStatus(env: Env, id: number, status: EditorialWorkspaceStatus, userId?: number): Promise<void> {
@@ -505,6 +531,10 @@ export async function saveEditorialRevision(env: Env, input: {
   seoTitle: string
   seoDescription: string
   originalityNote: string
+  revisionKind: EditorialRevision['revision_kind']
+  editorialPlan: string
+  reportingGaps: string[]
+  qualityAssessment: string
   claims: EditorialClaimOutput[]
   userId: number
 }): Promise<number> {
@@ -512,8 +542,9 @@ export async function saveEditorialRevision(env: Env, input: {
   const result = await env.DB.prepare(`
     INSERT INTO editorial_ai_revisions (
       workspace_id, run_id, title, hat, excerpt, content_markdown,
-      seo_title, seo_description, originality_note, created_by_user_id, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      seo_title, seo_description, originality_note, revision_kind, editorial_plan,
+      reporting_gaps_json, quality_assessment, created_by_user_id, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     input.workspaceId,
     input.runId,
@@ -524,6 +555,10 @@ export async function saveEditorialRevision(env: Env, input: {
     input.seoTitle || null,
     input.seoDescription || null,
     input.originalityNote || null,
+    input.revisionKind,
+    input.editorialPlan || null,
+    JSON.stringify(input.reportingGaps || []),
+    input.qualityAssessment || null,
     input.userId,
     now
   ).run()

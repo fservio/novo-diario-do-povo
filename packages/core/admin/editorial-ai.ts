@@ -26,6 +26,7 @@ import {
   listEditorialSources,
   listEditorialWorkspaces,
   reviewEditorialClaim,
+  runEditorialCopydesk,
   runEditorialDraft,
   runEditorialFactCheck,
   runEditorialTriage,
@@ -38,6 +39,8 @@ import {
 } from '../editorial-ai'
 import type {
   EditorialClaimStatus,
+  EditorialDepth,
+  EditorialDraftFormat,
   EditorialFeedItemStatus,
   EditorialMaterial,
   EditorialUsagePolicy
@@ -67,6 +70,16 @@ function formatDate(value?: string | null): string {
 function truncate(value: string | null | undefined, length = 180): string {
   const text = String(value || '').trim()
   return text.length > length ? `${text.slice(0, length - 1)}…` : text
+}
+
+function parseStringArray(value: string | null | undefined): string[] {
+  if (!value) return []
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed.map(item => String(item).trim()).filter(Boolean) : []
+  } catch {
+    return []
+  }
 }
 
 function roleCanEdit(user: AdminUser): boolean {
@@ -346,6 +359,7 @@ export async function renderEditorialWorkspacePage(c: AdminContext, workspaceId:
     workspace.feed_item_id ? getEditorialFeedItem(c.env, workspace.feed_item_id) : Promise.resolve(null)
   ])
   const latestRevision = revisions[0]
+  const reportingGaps = parseStringArray(latestRevision?.reporting_gaps_json)
   const claims = latestRevision ? await listEditorialClaims(c.env, workspace.id, latestRevision.id) : []
   const unresolved = claims.filter(claim => !claim.reviewer_user_id || ['needs_review', 'divergent', 'unsupported'].includes(claim.status)).length
   const canApprove = roleCanApprove(user)
@@ -360,6 +374,13 @@ export async function renderEditorialWorkspacePage(c: AdminContext, workspaceId:
   }
   const locked = workspace.status === 'approved' || workspace.status === 'archived'
   const aiReady = config.enabled && config.apiKeyConfigured
+  const formatLabels: Record<EditorialDraftFormat, string> = {
+    note: 'Nota factual', news: 'Notícia factual', report: 'Reportagem',
+    explainer: 'Explicador', rewrite: 'Reescrita editorial'
+  }
+  const depthLabels: Record<EditorialDepth, string> = {
+    brief: 'Breve', standard: 'Padrão', deep: 'Aprofundada'
+  }
   const bodyHtml = `
     <div class="page-intro ai-page-intro">
       <div><a class="newsletter-back" href="/admin/redacao-ia">← Redação IA</a><p class="page-kicker">Pauta #${workspace.id}</p><h1 class="page-title">${escapeHtml(workspace.title)}</h1><p class="page-description">${escapeHtml(workspace.source_name || (workspace.post_id ? 'Vinculada a uma matéria existente' : 'Pauta editorial interna'))}</p></div>
@@ -384,9 +405,26 @@ export async function renderEditorialWorkspacePage(c: AdminContext, workspaceId:
           <form method="post" action="/admin/redacao-ia/pautas/${workspace.id}/briefing">
             ${renderCsrfInput(csrfToken)}
             <div class="form-group"><label for="workspace-title">Título de trabalho</label><input class="form-control" id="workspace-title" name="title" maxlength="220" required value="${escapeHtml(workspace.title)}"></div>
-            <div class="form-group"><label for="workspace-brief">Orientação, hipótese e perguntas</label><textarea class="form-control" id="workspace-brief" name="brief" rows="5" maxlength="10000" placeholder="O que precisa ser explicado, confirmado e contextualizado?">${escapeHtml(workspace.brief || '')}</textarea></div>
+            <div class="form-group"><label for="workspace-brief">Orientação editorial</label><textarea class="form-control" id="workspace-brief" name="brief" rows="4" maxlength="10000" placeholder="Qual é a hipótese da pauta e o que precisa ser explicado, confirmado ou contextualizado?">${escapeHtml(workspace.brief || '')}</textarea></div>
+            <div class="ai-editorial-direction">
+              <div class="ai-direction-heading"><div><p class="page-kicker">Contrato de produção</p><h3>Formato e profundidade</h3></div><p>Estes parâmetros orientam extensão, estrutura e densidade do rascunho.</p></div>
+              <div class="ai-direction-grid ai-direction-grid--three">
+                <div class="form-group"><label for="workspace-format">Formato</label><select class="form-control" id="workspace-format" name="editorial_format">${(Object.entries(formatLabels) as Array<[EditorialDraftFormat, string]>).map(([value, label]) => `<option value="${value}" ${workspace.editorial_format === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></div>
+                <div class="form-group"><label for="workspace-depth">Profundidade</label><select class="form-control" id="workspace-depth" name="editorial_depth">${(Object.entries(depthLabels) as Array<[EditorialDepth, string]>).map(([value, label]) => `<option value="${value}" ${workspace.editorial_depth === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></div>
+                <div class="form-group"><label for="workspace-word-count">Extensão desejada <span>opcional</span></label><input class="form-control" id="workspace-word-count" name="target_word_count" type="number" min="200" max="2500" step="50" value="${workspace.target_word_count || ''}" placeholder="Automática pelo formato"></div>
+              </div>
+              <div class="form-group"><label for="workspace-angle">Enfoque principal</label><input class="form-control" id="workspace-angle" name="primary_angle" maxlength="2000" value="${escapeHtml(workspace.primary_angle || '')}" placeholder="Qual é o recorte central desta matéria?"></div>
+              <div class="ai-direction-grid">
+                <div class="form-group"><label for="workspace-audience">Público prioritário</label><input class="form-control" id="workspace-audience" name="target_audience" maxlength="1000" value="${escapeHtml(workspace.target_audience || '')}" placeholder="Ex.: moradores do Piauí afetados pela medida"></div>
+                <div class="form-group"><label for="workspace-scope">Abrangência geográfica</label><input class="form-control" id="workspace-scope" name="geographic_scope" maxlength="1000" value="${escapeHtml(workspace.geographic_scope || '')}" placeholder="Ex.: Teresina e região metropolitana"></div>
+              </div>
+              <div class="ai-direction-grid">
+                <div class="form-group"><label for="workspace-required">Informações obrigatórias</label><textarea class="form-control" id="workspace-required" name="required_information" rows="3" maxlength="5000" placeholder="Dados, personagens, explicações ou contrapontos que não podem faltar.">${escapeHtml(workspace.required_information || '')}</textarea></div>
+                <div class="form-group"><label for="workspace-questions">Perguntas que o texto deve responder</label><textarea class="form-control" id="workspace-questions" name="key_questions" rows="3" maxlength="5000" placeholder="Uma pergunta por linha, quando possível.">${escapeHtml(workspace.key_questions || '')}</textarea></div>
+              </div>
+            </div>
             <label class="ai-sensitive-toggle"><input type="checkbox" name="sensitivity" value="sensitive" ${workspace.sensitivity === 'sensitive' ? 'checked' : ''}><span><strong>Matéria sensível</strong><small>Política, eleições, acusações, saúde, segurança ou menores.</small></span></label>
-            <button class="btn btn-outline" type="submit" ${locked ? 'disabled' : ''}>Salvar orientação</button>
+            <button class="btn btn-outline" type="submit" ${locked ? 'disabled' : ''}>Salvar direção editorial</button>
           </form>
         </section>
 
@@ -421,18 +459,24 @@ export async function renderEditorialWorkspacePage(c: AdminContext, workspaceId:
           <div class="ai-section-head"><div><p class="page-kicker">Copiloto editorial</p><h2>Produção assistida</h2></div><span class="newsletter-provider ${aiReady ? 'is-ready' : ''}"><i></i>${aiReady ? escapeHtml(config.model) : 'API não configurada'}</span></div>
           <div class="ai-generation-options">
             <form method="post" action="/admin/redacao-ia/pautas/${workspace.id}/triagem">${renderCsrfInput(csrfToken)}<span class="admin-icon">${renderAdminIcon('radar')}</span><div><strong>Analisar pauta</strong><p>Resume, classifica relevância e aponta riscos.</p></div><button class="btn btn-outline" type="submit" ${!aiReady || locked ? 'disabled' : ''}>Executar</button></form>
-            <form method="post" action="/admin/redacao-ia/pautas/${workspace.id}/rascunho">${renderCsrfInput(csrfToken)}<span class="admin-icon">${renderAdminIcon('ai')}</span><div><strong>Preparar primeira versão</strong><p>Produz texto original e matriz inicial de afirmações.</p><select class="form-control" name="format"><option value="news">Notícia factual</option><option value="report">Reportagem</option><option value="explainer">Explicador</option><option value="rewrite">Reescrita editorial</option></select></div><button class="btn" type="submit" ${!aiReady || locked ? 'disabled' : ''}>Gerar rascunho</button></form>
+            <form method="post" action="/admin/redacao-ia/pautas/${workspace.id}/rascunho">${renderCsrfInput(csrfToken)}<span class="admin-icon">${renderAdminIcon('ai')}</span><div><strong>Preparar primeira versão</strong><p>${escapeHtml(formatLabels[workspace.editorial_format] || formatLabels.news)} · ${escapeHtml(depthLabels[workspace.editorial_depth] || depthLabels.standard)}${workspace.target_word_count ? ` · cerca de ${workspace.target_word_count} palavras` : ''}. Produz plano, texto e matriz de afirmações.</p></div><button class="btn" type="submit" ${!aiReady || locked ? 'disabled' : ''}>Gerar rascunho</button></form>
+            <form method="post" action="/admin/redacao-ia/pautas/${workspace.id}/copidesque">${renderCsrfInput(csrfToken)}${latestRevision ? `<input type="hidden" name="revision_id" value="${latestRevision.id}">` : ''}<span class="admin-icon">${renderAdminIcon('posts')}</span><div><strong>Copidesque profissional</strong><p>Refina lide, hierarquia, ritmo, coesão e precisão sem alterar os fatos.</p></div><button class="btn btn-outline" type="submit" ${!aiReady || !latestRevision || locked ? 'disabled' : ''}>Criar versão refinada</button></form>
             <form method="post" action="/admin/redacao-ia/pautas/${workspace.id}/checagem">${renderCsrfInput(csrfToken)}${latestRevision ? `<input type="hidden" name="revision_id" value="${latestRevision.id}">` : ''}<span class="admin-icon">${renderAdminIcon('shield')}</span><div><strong>Checar afirmações</strong><p>Compara o rascunho com os materiais disponíveis.</p></div><button class="btn btn-outline" type="submit" ${!aiReady || !latestRevision || locked ? 'disabled' : ''}>Checar versão</button></form>
           </div>
           <footer><span class="admin-icon">${renderAdminIcon('shield')}</span><p>A OpenAI recebe apenas materiais não confidenciais. Nenhuma ação publica conteúdo no site.</p></footer>
         </section>
 
         ${latestRevision ? `<section class="card ai-revision-card">
-          <div class="ai-section-head"><div><p class="page-kicker">Versão ${revisions.length}</p><h2>Rascunho mais recente</h2></div><span>${escapeHtml(formatDate(latestRevision.created_at))}</span></div>
+          <div class="ai-section-head"><div><p class="page-kicker">Versão ${revisions.length}</p><h2>${latestRevision.revision_kind === 'copydesk' ? 'Versão de copidesque' : 'Rascunho mais recente'}</h2></div><span>${escapeHtml(formatDate(latestRevision.created_at))}</span></div>
           <div class="ai-revision-headline"><small>${escapeHtml(latestRevision.hat || '')}</small><h2>${escapeHtml(latestRevision.title)}</h2><p>${escapeHtml(latestRevision.excerpt || '')}</p></div>
           <textarea class="form-control ai-revision-content" rows="18" readonly>${escapeHtml(latestRevision.content_markdown)}</textarea>
+          <div class="ai-revision-diagnostics">
+            <details open><summary>Plano editorial</summary><p>${escapeHtml(latestRevision.editorial_plan || 'Plano não registrado nesta versão.')}</p></details>
+            <details><summary>Avaliação de qualidade</summary><p>${escapeHtml(latestRevision.quality_assessment || 'Avaliação não registrada nesta versão.')}</p></details>
+            <details class="${reportingGaps.length ? 'has-gaps' : ''}"><summary>Lacunas de apuração · ${reportingGaps.length}</summary>${reportingGaps.length ? `<ul>${reportingGaps.map(gap => `<li>${escapeHtml(gap)}</li>`).join('')}</ul>` : '<p>Nenhuma lacuna adicional foi indicada pela IA. A revisão humana continua obrigatória.</p>'}</details>
+          </div>
           <div class="ai-originality"><strong>Valor editorial indicado pela IA</strong><p>${escapeHtml(latestRevision.originality_note || 'Não informado.')}</p></div>
-          ${revisions.length > 1 ? `<details class="ai-version-history"><summary>Ver ${revisions.length - 1} versões anteriores</summary><ol>${revisions.slice(1).map(revision => `<li><span>Versão ${revision.id}</span><strong>${escapeHtml(revision.title)}</strong><time>${escapeHtml(formatDate(revision.created_at))}</time></li>`).join('')}</ol></details>` : ''}
+          ${revisions.length > 1 ? `<details class="ai-version-history"><summary>Ver ${revisions.length - 1} versões anteriores</summary><ol>${revisions.slice(1).map(revision => `<li><span>${revision.revision_kind === 'copydesk' ? 'Copidesque' : `Versão ${revision.id}`}</span><strong>${escapeHtml(revision.title)}</strong><time>${escapeHtml(formatDate(revision.created_at))}</time></li>`).join('')}</ol></details>` : ''}
         </section>
 
         <section class="card ai-claims-card">
@@ -474,7 +518,7 @@ export async function renderEditorialWorkspacePage(c: AdminContext, workspaceId:
 
         <section class="card ai-run-history">
           <div class="ai-section-head"><div><p class="page-kicker">Auditoria</p><h2>Histórico da IA</h2></div></div>
-          ${runs.length ? `<ol>${runs.map(run => `<li><i class="${run.status === 'failed' ? 'is-error' : ''}"></i><div><strong>${escapeHtml(run.action === 'fact_check' ? 'Checagem' : run.action === 'draft' ? 'Rascunho' : 'Triagem')}</strong><p>${escapeHtml(run.model)} · ${Number(run.total_tokens || 0).toLocaleString('pt-BR')} tokens${run.error_message ? ` · ${escapeHtml(truncate(run.error_message, 100))}` : ''}</p></div><time>${escapeHtml(formatDate(run.created_at))}</time></li>`).join('')}</ol>` : '<p class="ai-muted">Nenhuma operação executada.</p>'}
+          ${runs.length ? `<ol>${runs.map(run => `<li><i class="${run.status === 'failed' ? 'is-error' : ''}"></i><div><strong>${escapeHtml(run.action === 'fact_check' ? 'Checagem' : run.action === 'draft' ? 'Rascunho' : run.action === 'rewrite' ? 'Copidesque' : 'Triagem')}</strong><p>${escapeHtml(run.model)} · ${escapeHtml(run.prompt_version)} · ${Number(run.total_tokens || 0).toLocaleString('pt-BR')} tokens${run.error_message ? ` · ${escapeHtml(truncate(run.error_message, 100))}` : ''}</p></div><time>${escapeHtml(formatDate(run.created_at))}</time></li>`).join('')}</ol>` : '<p class="ai-muted">Nenhuma operação executada.</p>'}
         </section>
       </aside>
     </div>
@@ -599,12 +643,32 @@ export async function handleEditorialWorkspaceBrief(c: AdminContext, workspaceId
     await assertWorkspaceOpen(c, workspaceId)
     const title = String(body.title || '').trim()
     if (!title || title.length > 220) throw new Error('Título de trabalho inválido.')
+    const formats = new Set<EditorialDraftFormat>(['note', 'news', 'report', 'explainer', 'rewrite'])
+    const editorialFormat = String(body.editorial_format || 'news') as EditorialDraftFormat
+    if (!formats.has(editorialFormat)) throw new Error('Formato editorial inválido.')
+    const depths = new Set<EditorialDepth>(['brief', 'standard', 'deep'])
+    const editorialDepth = String(body.editorial_depth || 'standard') as EditorialDepth
+    if (!depths.has(editorialDepth)) throw new Error('Profundidade editorial inválida.')
+    const targetWordCount = String(body.target_word_count || '').trim()
+      ? Number.parseInt(String(body.target_word_count), 10)
+      : null
+    if (targetWordCount !== null && (!Number.isInteger(targetWordCount) || targetWordCount < 200 || targetWordCount > 2500)) {
+      throw new Error('A extensão desejada deve ficar entre 200 e 2.500 palavras.')
+    }
     await updateEditorialWorkspaceBrief(c.env, workspaceId, {
       title,
       brief: String(body.brief || '').slice(0, 10000),
-      sensitivity: body.sensitivity === 'sensitive' ? 'sensitive' : 'normal'
+      sensitivity: body.sensitivity === 'sensitive' ? 'sensitive' : 'normal',
+      editorialFormat,
+      editorialDepth,
+      primaryAngle: String(body.primary_angle || '').slice(0, 2000),
+      targetAudience: String(body.target_audience || '').slice(0, 1000),
+      geographicScope: String(body.geographic_scope || '').slice(0, 1000),
+      requiredInformation: String(body.required_information || '').slice(0, 5000),
+      keyQuestions: String(body.key_questions || '').slice(0, 5000),
+      targetWordCount
     })
-    return c.redirect(`/admin/redacao-ia/pautas/${workspaceId}?message=Orientação+salva.`, 303)
+    return c.redirect(`/admin/redacao-ia/pautas/${workspaceId}?message=Direção+editorial+salva.`, 303)
   } catch (error) {
     return c.redirect(`/admin/redacao-ia/pautas/${workspaceId}?error=${encodeURIComponent(error instanceof Error ? error.message : 'Não foi possível salvar a orientação.')}`, 303)
   }
@@ -653,13 +717,26 @@ export async function handleEditorialTriage(c: AdminContext, workspaceId: number
 export async function handleEditorialDraft(c: AdminContext, workspaceId: number): Promise<Response> {
   const user = c.get('adminUser') as AdminUser
   if (!roleCanEdit(user)) return c.html('<h1>Acesso negado</h1>', 403)
-  const body = (c.get('parsedBody') || await c.req.parseBody()) as Record<string, string>
   try {
     await assertWorkspaceOpen(c, workspaceId)
-    await runEditorialDraft(c.env, workspaceId, user.id, String(body.format || 'news'))
+    await runEditorialDraft(c.env, workspaceId, user.id)
     return c.redirect(`/admin/redacao-ia/pautas/${workspaceId}?message=Primeira+versão+gerada.+Revise+cada+informação.`, 303)
   } catch (error) {
     return c.redirect(`/admin/redacao-ia/pautas/${workspaceId}?error=${encodeURIComponent(error instanceof Error ? error.message : 'Falha na geração.')}`, 303)
+  }
+}
+
+export async function handleEditorialCopydesk(c: AdminContext, workspaceId: number): Promise<Response> {
+  const user = c.get('adminUser') as AdminUser
+  if (!roleCanEdit(user)) return c.html('<h1>Acesso negado</h1>', 403)
+  const body = (c.get('parsedBody') || await c.req.parseBody()) as Record<string, string>
+  try {
+    await assertWorkspaceOpen(c, workspaceId)
+    const revisionId = body.revision_id ? assertPositiveInt(body.revision_id, 'Versão') : undefined
+    await runEditorialCopydesk(c.env, workspaceId, user.id, revisionId)
+    return c.redirect(`/admin/redacao-ia/pautas/${workspaceId}?message=Copidesque+concluído.+Compare+a+nova+versão+antes+da+checagem.`, 303)
+  } catch (error) {
+    return c.redirect(`/admin/redacao-ia/pautas/${workspaceId}?error=${encodeURIComponent(error instanceof Error ? error.message : 'Falha no copidesque.')}`, 303)
   }
 }
 

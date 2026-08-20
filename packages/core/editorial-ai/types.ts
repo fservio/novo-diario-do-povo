@@ -5,6 +5,8 @@ export type EditorialFeedItemStatus = 'new' | 'shortlisted' | 'in_progress' | 'd
 export type EditorialWorkspaceStatus = 'briefing' | 'draft' | 'fact_check' | 'review' | 'approved' | 'archived'
 export type EditorialSensitivity = 'normal' | 'sensitive'
 export type EditorialClaimStatus = 'confirmed' | 'divergent' | 'unsupported' | 'needs_review' | 'reviewed'
+export type EditorialDraftFormat = 'note' | 'news' | 'report' | 'explainer' | 'rewrite'
+export type EditorialDepth = 'brief' | 'standard' | 'deep'
 
 export interface EditorialAiSource {
   id: number
@@ -65,6 +67,14 @@ export interface EditorialWorkspace {
   brief: string | null
   status: EditorialWorkspaceStatus
   sensitivity: EditorialSensitivity
+  editorial_format: EditorialDraftFormat
+  editorial_depth: EditorialDepth
+  primary_angle: string | null
+  target_audience: string | null
+  geographic_scope: string | null
+  required_information: string | null
+  key_questions: string | null
+  target_word_count: number | null
   human_approval_required: number
   created_by_user_id: number
   assigned_editor_user_id: number | null
@@ -132,6 +142,10 @@ export interface EditorialRevision {
   seo_title: string | null
   seo_description: string | null
   originality_note: string | null
+  revision_kind: 'draft' | 'copydesk'
+  editorial_plan: string | null
+  reporting_gaps_json: string | null
+  quality_assessment: string | null
   created_by_user_id: number
   applied_to_post_at: string | null
   created_at: string
@@ -202,6 +216,9 @@ export interface EditorialDraftOutput {
   seo_title: string
   seo_description: string
   originality_note: string
+  editorial_plan: string
+  reporting_gaps: string[]
+  quality_assessment: string
   claims: EditorialClaimOutput[]
 }
 

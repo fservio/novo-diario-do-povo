@@ -5,8 +5,13 @@ import {
   editorialTriageZod,
   extractOpenAiResponseText
 } from '../../packages/core/editorial-ai/openai'
-import { describeSourcePolicy, materialCanBeSentToAi } from '../../packages/core/editorial-ai/service'
-import type { EditorialMaterial } from '../../packages/core/editorial-ai/types'
+import {
+  buildEditorialDraftPrompt,
+  describeSourcePolicy,
+  materialCanBeSentToAi,
+  resolveEditorialWordRange
+} from '../../packages/core/editorial-ai/service'
+import type { EditorialMaterial, EditorialWorkspace } from '../../packages/core/editorial-ai/types'
 
 describe('Redação IA', () => {
   it('extrai a saída textual da Responses API', () => {
@@ -30,6 +35,51 @@ describe('Redação IA', () => {
       risks: ['Confirmar o número de beneficiários.']
     })
     expect(triage.relevance_score).toBe(82)
+
+    const draft = editorialDraftZod.parse({
+      hat: 'SERVIÇO',
+      title: 'Nova medida passa a valer nesta semana',
+      excerpt: 'Mudança alcança moradores da capital.',
+      content_markdown: 'A nova medida entra em vigor nesta semana, segundo o documento oficial.',
+      seo_title: 'Nova medida passa a valer nesta semana',
+      seo_description: 'Entenda a mudança e quem será afetado.',
+      originality_note: 'O texto organiza os fatos e destaca o impacto local.',
+      editorial_plan: 'Lide, explicação da medida, impacto e próximo passo.',
+      reporting_gaps: ['Confirmar o número total de beneficiários.'],
+      quality_assessment: 'A versão está sustentada, mas ainda depende do dado de alcance.',
+      claims: []
+    })
+    expect(draft.reporting_gaps).toHaveLength(1)
+  })
+
+  it('define extensão por gênero e respeita uma meta editorial explícita', () => {
+    expect(resolveEditorialWordRange('report', 'deep')).toEqual([1200, 1800])
+    expect(resolveEditorialWordRange('news', 'standard', 1000)).toEqual([850, 1150])
+  })
+
+  it('monta um contrato editorial completo para a geração', () => {
+    const workspace = {
+      title: 'Governo anuncia nova medida',
+      brief: 'Explique o impacto para os municípios.',
+      editorial_format: 'report',
+      editorial_depth: 'deep',
+      target_word_count: null,
+      primary_angle: 'Efeito sobre os serviços municipais',
+      target_audience: 'Moradores do Piauí',
+      geographic_scope: 'Piauí',
+      required_information: 'Cronograma de implantação',
+      key_questions: 'Quando começa?\nQuem será afetado?',
+      sensitivity: 'normal',
+      usage_policy: 'summary'
+    } as EditorialWorkspace
+    const prompt = buildEditorialDraftPrompt(workspace, '[FONTE 1]\nConteúdo apurado')
+
+    expect(prompt).toContain('FORMATO: reportagem contextualizada')
+    expect(prompt).toContain('FAIXA DE EXTENSÃO: 1200 a 1800 palavras')
+    expect(prompt).toContain('Efeito sobre os serviços municipais')
+    expect(prompt).toContain('O primeiro parágrafo entrega o fato mais relevante')
+    expect(prompt).toContain('<FONTES_NAO_CONFIAVEIS>')
+    expect(prompt).toContain('Não preencha lacunas para atingir a faixa')
   })
 
   it('mantém materiais confidenciais fora do envio à IA', () => {

@@ -2855,6 +2855,11 @@ app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/rascunho', async (c) => {
   return handleEditorialDraft(c, Number(c.req.param('id')))
 })
 
+app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/copidesque', async (c) => {
+  const { handleEditorialCopydesk } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialCopydesk(c, Number(c.req.param('id')))
+})
+
 app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/checagem', async (c) => {
   const { handleEditorialFactCheck } = await import('../packages/core/admin/editorial-ai')
   return handleEditorialFactCheck(c, Number(c.req.param('id')))
