@@ -1,10 +1,10 @@
 import { escapeHtml } from '../admin/ui'
 import type { InstagramPublication } from './types'
 
-function imageUrl(baseUrl: string, key: string | null): string {
+function imageUrl(baseUrl: string, key: string | null, focalX: number, focalY: number): string {
   if (!key) return ''
   if (/^https?:\/\//i.test(key)) return key
-  return `${baseUrl.replace(/\/$/, '')}/i/${key.replace(/^\//, '')}?w=1080&h=1350&q=92`
+  return `${baseUrl.replace(/\/$/, '')}/i/${key.replace(/^\//, '')}?w=1080&h=1350&q=92&fp-x=${focalX / 100}&fp-y=${focalY / 100}`
 }
 
 function titleSize(title: string): number {
@@ -15,7 +15,7 @@ function titleSize(title: string): number {
 }
 
 export function renderInstagramArtwork(publication: InstagramPublication, baseUrl: string): string {
-  const cover = imageUrl(baseUrl, publication.cover_media_url)
+  const cover = imageUrl(baseUrl, publication.cover_media_url, publication.image_position_x, publication.image_position_y)
   const hat = publication.hat || publication.category_name || 'Notícia'
   const subtitle = publication.subtitle || ''
   const credit = publication.photo_credit || ''

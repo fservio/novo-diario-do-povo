@@ -120,6 +120,18 @@
       loadImage('/static/logo-dp.png')
     ])
 
+    const cropHint = document.querySelector('[data-instagram-crop-hint]')
+    assets.then(([cover]) => {
+      if (!cropHint) return
+      const sourceRatio = cover.naturalWidth / cover.naturalHeight
+      const targetRatio = 1080 / 1350
+      cropHint.textContent = Math.abs(sourceRatio - targetRatio) < .015
+        ? 'A foto já tem praticamente o formato 4:5; o deslocamento será mínimo.'
+        : sourceRatio > targetRatio
+          ? 'Nesta foto, o recorte atua no eixo horizontal.'
+          : 'Nesta foto, o recorte atua no eixo vertical.'
+    }).catch(() => {})
+
     const artworkValues = () => ({
       title: document.querySelector('#instagram-title')?.value.trim() || '',
       hat: document.querySelector('#instagram-hat')?.value.trim() || 'Notícia',

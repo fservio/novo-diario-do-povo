@@ -37,7 +37,9 @@ export function renderSocialSharingPanel(params: {
     siteName: SOCIAL_SITE_NAME,
     template: shareTemplate
   })
-  const coverUrl = post?.cover_media_url ? `/i/${post.cover_media_url}?w=1200&h=630&fit=cover&q=92` : ''
+  // A prévia e o canvas precisam receber uma fonte sem recorte prévio.
+  // O enquadramento é aplicado no navegador e, na entrega pública, pelo gravity do Cloudflare.
+  const coverUrl = post?.cover_media_url ? `/i/${post.cover_media_url}?w=1800&q=92` : ''
   const generatedUrl = post?.social_image_url ? `/i/${post.social_image_url}` : ''
   const previewImage = generatedUrl || coverUrl
   const positionX = post?.social_image_position_x ?? 50
@@ -77,6 +79,7 @@ export function renderSocialSharingPanel(params: {
         <div class="post-social-panel__crop">
           <label>Enquadramento horizontal <output id="socialPositionXOutput">${positionX}%</output><input id="socialPositionX" name="social_image_position_x" type="range" min="0" max="100" value="${positionX}"></label>
           <label>Enquadramento vertical <output id="socialPositionYOutput">${positionY}%</output><input id="socialPositionY" name="social_image_position_y" type="range" min="0" max="100" value="${positionY}"></label>
+          <p id="socialCropHint">Mova o eixo que contém sobra de imagem no recorte.</p>
         </div>
 
         <div class="post-social-card ${previewImage ? 'has-image' : ''} ${generatedUrl ? 'is-generated' : ''}" id="socialCardPreview" data-cover-url="${escapeHtml(coverUrl)}" data-generated-url="${escapeHtml(generatedUrl)}" style="--social-x:${positionX}%;--social-y:${positionY}%;${previewImage ? `background-image:url('${escapeHtml(previewImage)}')` : ''}">
@@ -124,6 +127,7 @@ export function renderSocialSharingPanel(params: {
         const positionY = document.getElementById('socialPositionY');
         const positionXOutput = document.getElementById('socialPositionXOutput');
         const positionYOutput = document.getElementById('socialPositionYOutput');
+        const cropHint = document.getElementById('socialCropHint');
         const coverUrl = ${safeJson(coverUrl)};
         const coverCredit = ${safeJson(coverCredit)};
         const previewUrl = ${safeJson(previewUrl)};
@@ -167,8 +171,23 @@ export function renderSocialSharingPanel(params: {
           if (thumb) thumb.style.backgroundPosition = positionX.value + '% ' + positionY.value + '%';
         }
 
+        function invalidateGeneratedArtwork() {
+          if (!card.classList.contains('is-generated')) return;
+          socialImageMediaId.value = '';
+          card.dataset.generatedUrl = '';
+          card.classList.remove('is-generated');
+          card.style.backgroundImage = coverUrl ? "url('" + coverUrl + "')" : '';
+          card.classList.toggle('has-image', Boolean(coverUrl));
+          if (thumb) thumb.style.backgroundImage = coverUrl ? "url('" + coverUrl + "')" : '';
+          removeButton.hidden = true;
+          status.textContent = 'O enquadramento ou o texto mudou. Gere uma nova arte ou salve para usar a capa.';
+        }
+
         [socialTitle, socialDescription, socialShareText, mainTitle, mainExcerpt, mainHat, positionX, positionY].forEach((field) => {
           if (field) field.addEventListener('input', refresh);
+        });
+        [socialTitle, mainTitle, mainHat, positionX, positionY].forEach((field) => {
+          if (field) field.addEventListener('input', invalidateGeneratedArtwork);
         });
 
         const loadImage = (url) => new Promise((resolve, reject) => {
@@ -178,6 +197,18 @@ export function renderSocialSharingPanel(params: {
           image.onerror = () => reject(new Error('Não foi possível carregar a imagem.'));
           image.src = url;
         });
+
+        if (coverUrl && cropHint) {
+          loadImage(coverUrl).then((image) => {
+            const sourceRatio = image.naturalWidth / image.naturalHeight;
+            const targetRatio = 1200 / 630;
+            cropHint.textContent = Math.abs(sourceRatio - targetRatio) < .015
+              ? 'A foto já tem praticamente o formato 1,91:1; o deslocamento será mínimo.'
+              : sourceRatio > targetRatio
+                ? 'Nesta foto, o recorte atua no eixo horizontal.'
+                : 'Nesta foto, o recorte atua no eixo vertical.';
+          }).catch(() => {});
+        }
 
         function drawCover(context, image, x, y, width, height) {
           const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);

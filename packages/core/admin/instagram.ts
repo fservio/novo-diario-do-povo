@@ -59,12 +59,12 @@ function safeExternalUrl(value: string | null | undefined): string {
 function downloadImageUrl(key: string | null): string {
   if (!key) return ''
   if (/^https?:\/\//i.test(key)) return key
-  return `/i/${key.replace(/^\//, '')}?w=1080&h=1350&q=92`
+  return `/i/${key.replace(/^\//, '')}?w=2400&q=94`
 }
 
 function previewCard(publication: InstagramPublication, baseUrl: string): string {
   const image = publication.cover_media_url
-    ? `${baseUrl.replace(/\/$/, '')}/i/${publication.cover_media_url}?w=720&h=900&q=88`
+    ? `${baseUrl.replace(/\/$/, '')}/i/${publication.cover_media_url}?w=1200&q=88`
     : ''
   return `<div class="instagram-art-preview" data-instagram-preview>
     ${image ? `<img src="${escapeHtml(image)}" alt="" loading="eager" style="object-position:${publication.image_position_x}% ${publication.image_position_y}%" data-preview-image>` : '<div class="instagram-art-fallback"></div>'}
@@ -146,7 +146,7 @@ export async function handleInstagramNew(c: Context) {
         </article>`
       }).join('')}
     </div>
-    <script src="/static/admin-instagram.js?v=20260819-8" defer></script>`
+    <script src="/static/admin-instagram.js?v=20260821-focal1" defer></script>`
   return c.html(renderAdminLayout({ title: 'Nova publicação no Instagram', user: c.get('adminUser'), bodyHtml, activeTab: 'instagram', csrfToken }))
 }
 
@@ -205,7 +205,7 @@ export async function handleInstagramDetail(c: Context) {
             <div class="form-group"><label for="instagram-title">Título</label><textarea class="form-control" id="instagram-title" name="title" maxlength="120" rows="3" required data-preview-input="title" ${locked ? 'disabled' : ''}>${escapeHtml(publication.title)}</textarea><small><span data-count-for="instagram-title">${publication.title.length}</span>/120 · Ideal: até quatro linhas na arte.</small></div>
             <div class="form-group"><label for="instagram-subtitle">Bigode <span>opcional</span></label><textarea class="form-control" id="instagram-subtitle" name="subtitle" maxlength="180" rows="3" data-preview-input="subtitle" ${locked ? 'disabled' : ''}>${escapeHtml(publication.subtitle || '')}</textarea><small><span data-count-for="instagram-subtitle">${(publication.subtitle || '').length}</span>/180 · Complemente sem repetir o título.</small></div>
             <div class="form-group"><label for="instagram-photo-credit">Crédito da foto</label><input class="form-control" id="instagram-photo-credit" name="photo_credit" maxlength="160" value="${escapeHtml(publication.photo_credit || '')}" placeholder="Ex.: Nome do fotógrafo / Agência" required data-preview-input="credit" ${locked ? 'disabled' : ''}><small><span data-count-for="instagram-photo-credit">${(publication.photo_credit || '').length}</span>/160 · Obrigatório e específico para esta publicação.</small></div>
-            <div class="form-group instagram-focal-controls"><label>Ponto focal da fotografia</label><div><label for="instagram-position-x">Horizontal <output data-position-output="x">${publication.image_position_x}%</output></label><input id="instagram-position-x" name="image_position_x" type="range" min="0" max="100" value="${publication.image_position_x}" data-position-axis="x" ${locked ? 'disabled' : ''}></div><div><label for="instagram-position-y">Vertical <output data-position-output="y">${publication.image_position_y}%</output></label><input id="instagram-position-y" name="image_position_y" type="range" min="0" max="100" value="${publication.image_position_y}" data-position-axis="y" ${locked ? 'disabled' : ''}></div><small>Reposicione o recorte para preservar o assunto principal.</small></div>
+            <div class="form-group instagram-focal-controls"><label>Ponto focal da fotografia</label><div><label for="instagram-position-x">Horizontal <output data-position-output="x">${publication.image_position_x}%</output></label><input id="instagram-position-x" name="image_position_x" type="range" min="0" max="100" value="${publication.image_position_x}" data-position-axis="x" ${locked ? 'disabled' : ''}></div><div><label for="instagram-position-y">Vertical <output data-position-output="y">${publication.image_position_y}%</output></label><input id="instagram-position-y" name="image_position_y" type="range" min="0" max="100" value="${publication.image_position_y}" data-position-axis="y" ${locked ? 'disabled' : ''}></div><small data-instagram-crop-hint>Reposicione o recorte para preservar o assunto principal.</small></div>
           </div>
 
           <div class="instagram-caption-heading"><div><p class="page-kicker">Texto da publicação</p><h2>Legenda e acessibilidade</h2></div>${config.captionReady && !locked ? `<button class="btn btn-secondary" type="submit" formaction="/admin/instagram/${publication.id}/caption" formmethod="post">Gerar legenda com IA</button>` : ''}</div>
@@ -240,7 +240,7 @@ export async function handleInstagramDetail(c: Context) {
         </section>
       </aside>
     </div>
-    <script src="/static/admin-instagram.js?v=20260819-8" defer></script>`
+    <script src="/static/admin-instagram.js?v=20260821-focal1" defer></script>`
 
   return c.html(renderAdminLayout({ title: 'Instagram · Revisão', user, bodyHtml, activeTab: 'instagram', csrfToken }))
 }

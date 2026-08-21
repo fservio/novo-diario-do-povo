@@ -459,10 +459,14 @@ export function buildArticleSocialMeta(
   const socialDescription = post.social_description || post.seo_description || post.excerpt || post.title
   const customImage = Boolean(post.social_image_r2_key)
   const coverImage = Boolean(post.featured_image_r2_key)
+  const rawFocalX = Number(post.social_image_position_x ?? 50)
+  const rawFocalY = Number(post.social_image_position_y ?? 50)
+  const focalX = Math.max(0, Math.min(100, Number.isFinite(rawFocalX) ? rawFocalX : 50)) / 100
+  const focalY = Math.max(0, Math.min(100, Number.isFinite(rawFocalY) ? rawFocalY : 50)) / 100
   const imageUrl = customImage
     ? `${baseUrl}/i/${post.social_image_r2_key}`
     : coverImage
-      ? `${baseUrl}/i/${post.featured_image_r2_key}?w=1200&h=630&fit=cover&q=90`
+      ? `${baseUrl}/i/${post.featured_image_r2_key}?w=1200&h=630&fit=cover&q=90&fp-x=${focalX}&fp-y=${focalY}`
       : `${baseUrl}/static/logo-dp.png`
 
   return {

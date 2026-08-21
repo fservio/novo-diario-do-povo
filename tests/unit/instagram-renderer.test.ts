@@ -58,9 +58,14 @@ describe('Instagram editorial artwork', () => {
     expect(html).toContain('/static/logo-dp.png')
     expect(html).toContain('alt="Diário do Povo"')
     expect(html).toContain('Uma manchete importante')
-    expect(html).toContain('/i/media/capa.jpg?w=1080&amp;h=1350&amp;q=92')
+    expect(html).toContain('/i/media/capa.jpg?w=1080&amp;h=1350&amp;q=92&amp;fp-x=0.5&amp;fp-y=0.5')
     expect(html).toContain('Foto: Agência Teste')
     expect(html).toContain('JORNALDIARIODOPOVO.COM.BR')
+  })
+
+  it('aplica o ponto focal salvo ao recorte entregue pelo Cloudflare', () => {
+    const html = renderInstagramArtwork(publication({ image_position_x: 20, image_position_y: 80 }), 'https://diario.dopovo.com.br')
+    expect(html).toContain('fp-x=0.2&amp;fp-y=0.8')
   })
 
   it('escapes editorial input instead of injecting markup', () => {

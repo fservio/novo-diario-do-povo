@@ -61,12 +61,23 @@ describe('Open Graph editorial', () => {
 
     expect(meta.title).toBe('Cidade anuncia novo programa de mobilidade | Diário do Povo')
     expect(meta.siteName).toBe('Diário do Povo')
-    expect(meta.image?.url).toContain('?w=1200&h=630&fit=cover&q=90')
+    expect(meta.image?.url).toContain('?w=1200&h=630&fit=cover&q=90&fp-x=0.5&fp-y=0.5')
     expect(html.match(/property="og:title"/g)).toHaveLength(1)
     expect(html).toContain('property="og:image:width" content="1200"')
     expect(html).toContain('property="og:image:height" content="630"')
     expect(html).toContain('property="article:modified_time"')
     expect(html).toContain('name="twitter:image"')
+  })
+
+  it('leva o ponto focal do CMS até o recorte Open Graph', () => {
+    const meta = buildArticleSocialMeta(
+      article({ social_image_position_x: 15, social_image_position_y: 85 }),
+      'https://diario.dopovo.com.br',
+      'Diário do Povo',
+      'https://diario.dopovo.com.br/materia'
+    )
+
+    expect(meta.image?.url).toContain('fp-x=0.15&fp-y=0.85')
   })
 
   it('prioriza a arte social gerada no CMS', () => {
@@ -153,6 +164,8 @@ describe('Compartilhamento editorial', () => {
     expect(html).toContain('name="social_title"')
     expect(html).toContain('name="social_share_text"')
     expect(html).toContain('Gerar arte 1200 × 630')
+    expect(html).toContain('/i/media/capa.jpg?w=1800&amp;q=92')
+    expect(html).toContain('id="socialCropHint"')
     expect(html).toContain('/api/admin/posts/\' + postId + \'/social-card')
     expect(html).toContain('Foto: \' + coverCredit')
   })
