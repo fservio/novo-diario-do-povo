@@ -677,6 +677,13 @@ app.use('/admin/users/*', requireDirectorForTeam, protectTeamCsrf)
 app.use('/admin/authors', requireDirectorForTeam, protectTeamCsrf)
 app.use('/admin/authors/*', requireDirectorForTeam, protectTeamCsrf)
 
+const requireEditorForTags = async (c: any, next: any) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  return requireEditor(c, next)
+}
+app.use('/admin/tags', requireEditorForTags, protectTeamCsrf)
+app.use('/admin/tags/*', requireEditorForTags, protectTeamCsrf)
+
 // GET /admin/login (public)
 app.get('/admin/login', async (c) => {
   const { renderLoginPage } = await import('../packages/core/admin/ui')
@@ -1024,6 +1031,40 @@ app.post('/admin/authors/:id{[0-9]+}/enable', async (c) => {
 app.post('/admin/authors/:id{[0-9]+}/delete', async (c) => {
   const { handleAuthorsDelete } = await import('../packages/core/admin/authors')
   return handleAuthorsDelete(c)
+})
+
+// ============================================================================
+// Admin Tags Routes (RBAC: Editor or Director)
+// ============================================================================
+
+app.get('/admin/tags', async (c) => {
+  const { handleTagsList } = await import('../packages/core/admin/tags')
+  return handleTagsList(c)
+})
+
+app.get('/admin/tags/new', async (c) => {
+  const { handleTagsNew } = await import('../packages/core/admin/tags')
+  return handleTagsNew(c)
+})
+
+app.post('/admin/tags', async (c) => {
+  const { handleTagsCreate } = await import('../packages/core/admin/tags')
+  return handleTagsCreate(c)
+})
+
+app.get('/admin/tags/:id{[0-9]+}', async (c) => {
+  const { handleTagsEdit } = await import('../packages/core/admin/tags')
+  return handleTagsEdit(c)
+})
+
+app.post('/admin/tags/:id{[0-9]+}', async (c) => {
+  const { handleTagsUpdate } = await import('../packages/core/admin/tags')
+  return handleTagsUpdate(c)
+})
+
+app.post('/admin/tags/:id{[0-9]+}/delete', async (c) => {
+  const { handleTagsDelete } = await import('../packages/core/admin/tags')
+  return handleTagsDelete(c)
 })
 
 // ============================================================================
