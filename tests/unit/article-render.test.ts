@@ -61,6 +61,13 @@ describe('Article Page Rendering', () => {
     
     expect(articleCode).toContain('renderPublicLayout')
   })
+
+  it('preserves the featured image proportion on mobile', () => {
+    const editorialCss = readFileSync('public/static/editorial.css', 'utf-8')
+
+    expect(editorialCss).toMatch(/\.ed-article__hero img \{[^}]*height: auto;[^}]*object-fit: contain;/)
+    expect(editorialCss).toMatch(/\.ed-article__hero img \{ max-height: none; \}/)
+  })
 })
 
 describe('Article Route Integration', () => {
