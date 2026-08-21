@@ -663,6 +663,20 @@ app.use('/admin/settings/*', async (c, next) => {
   return csrfProtection(c, next)
 })
 
+// Team governance is director-only and every mutation is CSRF protected.
+const requireDirectorForTeam = async (c: any, next: any) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  return requireDirector(c, next)
+}
+const protectTeamCsrf = async (c: any, next: any) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+}
+app.use('/admin/users', requireDirectorForTeam, protectTeamCsrf)
+app.use('/admin/users/*', requireDirectorForTeam, protectTeamCsrf)
+app.use('/admin/authors', requireDirectorForTeam, protectTeamCsrf)
+app.use('/admin/authors/*', requireDirectorForTeam, protectTeamCsrf)
+
 // GET /admin/login (public)
 app.get('/admin/login', async (c) => {
   const { renderLoginPage } = await import('../packages/core/admin/ui')
@@ -947,10 +961,10 @@ app.get('/admin', async (c) => {
             <div><h3>Adicionar mídia</h3><p>Envie fotografias para a biblioteca editorial.</p></div>
           </a>
 
-          <a href="/admin/users" class="quick-action">
+          ${user.role === 'admin' || user.role === 'director' ? `<a href="/admin/users" class="quick-action">
             <div class="quick-action-top"><span class="quick-action-icon">${dashboardIcon('shield')}</span><span class="admin-icon quick-action-arrow">${renderAdminIcon('arrow')}</span></div>
             <div><h3>Gerenciar equipe</h3><p>Administre colaboradores e permissões.</p></div>
-          </a>
+          </a>` : ''}
         </div>
       </section>
     `
@@ -995,6 +1009,21 @@ app.get('/admin/authors/:id{[0-9]+}', async (c) => {
 app.post('/admin/authors/:id{[0-9]+}', async (c) => {
   const { handleAuthorsUpdate } = await import('../packages/core/admin/authors')
   return handleAuthorsUpdate(c)
+})
+
+app.post('/admin/authors/:id{[0-9]+}/disable', async (c) => {
+  const { handleAuthorsDisable } = await import('../packages/core/admin/authors')
+  return handleAuthorsDisable(c)
+})
+
+app.post('/admin/authors/:id{[0-9]+}/enable', async (c) => {
+  const { handleAuthorsEnable } = await import('../packages/core/admin/authors')
+  return handleAuthorsEnable(c)
+})
+
+app.post('/admin/authors/:id{[0-9]+}/delete', async (c) => {
+  const { handleAuthorsDelete } = await import('../packages/core/admin/authors')
+  return handleAuthorsDelete(c)
 })
 
 // ============================================================================
@@ -2861,74 +2890,60 @@ app.notFound((c) => {
 
 // GET /admin/users - List users
 app.get('/admin/users', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
   const { handleUsersList } = await import('../packages/core/admin/users')
   return handleUsersList(c)
 })
 
 // GET /admin/users/new - New user form
 app.get('/admin/users/new', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
   const { handleUsersNew } = await import('../packages/core/admin/users')
   return handleUsersNew(c)
 })
 
 // POST /admin/users - Create user
 app.post('/admin/users', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
   const { handleUsersCreate } = await import('../packages/core/admin/users')
   return handleUsersCreate(c)
 })
 
 // GET /admin/users/:id - Edit user form
 app.get('/admin/users/:id{[0-9]+}', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
   const { handleUsersEdit } = await import('../packages/core/admin/users')
   return handleUsersEdit(c)
 })
 
 // POST /admin/users/:id - Update user
 app.post('/admin/users/:id{[0-9]+}', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
   const { handleUsersUpdate } = await import('../packages/core/admin/users')
   return handleUsersUpdate(c)
 })
 
 // POST /admin/users/:id/reset-password - Reset password
 app.post('/admin/users/:id{[0-9]+}/reset-password', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
   const { handleUsersResetPassword } = await import('../packages/core/admin/users')
   return handleUsersResetPassword(c)
 })
 
 // POST /admin/users/:id/disable - Disable user
 app.post('/admin/users/:id{[0-9]+}/disable', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
   const { handleUsersDisable } = await import('../packages/core/admin/users')
   return handleUsersDisable(c)
 })
 
 // POST /admin/users/:id/enable - Enable user
 app.post('/admin/users/:id{[0-9]+}/enable', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
   const { handleUsersEnable } = await import('../packages/core/admin/users')
   return handleUsersEnable(c)
+})
+
+app.post('/admin/users/:id{[0-9]+}/ensure-author', async (c) => {
+  const { handleUsersEnsureAuthor } = await import('../packages/core/admin/users')
+  return handleUsersEnsureAuthor(c)
+})
+
+app.post('/admin/users/:id{[0-9]+}/delete', async (c) => {
+  const { handleUsersDelete } = await import('../packages/core/admin/users')
+  return handleUsersDelete(c)
 })
 
 // ============================================================================
@@ -3050,70 +3065,80 @@ app.post('/api/n8n/editorial/rss/sync', async (c) => {
 
 app.get('/admin/newsletters', async (c) => {
   const { requireEditor } = await import('../packages/core/middleware/rbac')
-  await requireEditor(c, async () => { })
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
   const { handleNewslettersList } = await import('../packages/core/admin/newsletters')
   return handleNewslettersList(c)
 })
 
 app.get('/admin/newsletters/new', async (c) => {
   const { requireEditor } = await import('../packages/core/middleware/rbac')
-  await requireEditor(c, async () => { })
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
   const { handleNewsletterNew } = await import('../packages/core/admin/newsletters')
   return handleNewsletterNew(c)
 })
 
 app.post('/admin/newsletters', async (c) => {
   const { requireEditor } = await import('../packages/core/middleware/rbac')
-  await requireEditor(c, async () => { })
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
   const { handleNewsletterCreate } = await import('../packages/core/admin/newsletters')
   return handleNewsletterCreate(c)
 })
 
 app.post('/admin/newsletters/audience', async (c) => {
   const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
+  const accessResponse = await requireDirector(c, async () => { })
+  if (accessResponse) return accessResponse
   const { handleNewsletterAudienceAdd } = await import('../packages/core/admin/newsletters')
   return handleNewsletterAudienceAdd(c)
 })
 
 app.get('/admin/newsletters/:id{[0-9]+}', async (c) => {
   const { requireEditor } = await import('../packages/core/middleware/rbac')
-  await requireEditor(c, async () => { })
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
   const { handleNewsletterDetail } = await import('../packages/core/admin/newsletters')
   return handleNewsletterDetail(c)
 })
 
 app.get('/admin/newsletters/:id{[0-9]+}/edit', async (c) => {
   const { requireEditor } = await import('../packages/core/middleware/rbac')
-  await requireEditor(c, async () => { })
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
   const { handleNewsletterEdit } = await import('../packages/core/admin/newsletters')
   return handleNewsletterEdit(c)
 })
 
 app.post('/admin/newsletters/:id{[0-9]+}/edit', async (c) => {
   const { requireEditor } = await import('../packages/core/middleware/rbac')
-  await requireEditor(c, async () => { })
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
   const { handleNewsletterUpdate } = await import('../packages/core/admin/newsletters')
   return handleNewsletterUpdate(c)
 })
 
 app.get('/admin/newsletters/:id{[0-9]+}/preview', async (c) => {
   const { requireEditor } = await import('../packages/core/middleware/rbac')
-  await requireEditor(c, async () => { })
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
   const { handleNewsletterPreview } = await import('../packages/core/admin/newsletters')
   return handleNewsletterPreview(c)
 })
 
 app.post('/admin/newsletters/:id{[0-9]+}/test', async (c) => {
   const { requireEditor } = await import('../packages/core/middleware/rbac')
-  await requireEditor(c, async () => { })
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
   const { handleNewsletterTest } = await import('../packages/core/admin/newsletters')
   return handleNewsletterTest(c)
 })
 
 app.post('/admin/newsletters/:id{[0-9]+}/send', async (c) => {
   const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
+  const accessResponse = await requireDirector(c, async () => { })
+  if (accessResponse) return accessResponse
   const { handleNewsletterSend } = await import('../packages/core/admin/newsletters')
   return handleNewsletterSend(c)
 })
@@ -3208,7 +3233,8 @@ app.post('/api/newsletter/unsubscribe/:token', async (c) => {
 // GET /admin/subscribers - List subscribers
 app.get('/admin/subscribers', async (c) => {
   const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
+  const accessResponse = await requireDirector(c, async () => { })
+  if (accessResponse) return accessResponse
   const { handleSubscribersList } = await import('../packages/core/admin/subscribers')
   return handleSubscribersList(c)
 })
@@ -3216,7 +3242,8 @@ app.get('/admin/subscribers', async (c) => {
 // GET /admin/subscribers/:id - Subscriber detail
 app.get('/admin/subscribers/:id{[0-9]+}', async (c) => {
   const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
+  const accessResponse = await requireDirector(c, async () => { })
+  if (accessResponse) return accessResponse
   const { handleSubscriberDetail } = await import('../packages/core/admin/subscribers')
   return handleSubscriberDetail(c)
 })
@@ -3224,7 +3251,8 @@ app.get('/admin/subscribers/:id{[0-9]+}', async (c) => {
 // POST /admin/subscribers/:id/status - Update account status
 app.post('/admin/subscribers/:id{[0-9]+}/status', async (c) => {
   const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
+  const accessResponse = await requireDirector(c, async () => { })
+  if (accessResponse) return accessResponse
   const { handleUpdateStatus } = await import('../packages/core/admin/subscribers')
   return handleUpdateStatus(c)
 })
@@ -3232,7 +3260,8 @@ app.post('/admin/subscribers/:id{[0-9]+}/status', async (c) => {
 // POST /admin/subscribers/:id/grant-complimentary - Grant manual subscription
 app.post('/admin/subscribers/:id{[0-9]+}/grant-complimentary', async (c) => {
   const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
+  const accessResponse = await requireDirector(c, async () => { })
+  if (accessResponse) return accessResponse
   const { handleGrantComplimentary } = await import('../packages/core/admin/subscribers')
   return handleGrantComplimentary(c)
 })

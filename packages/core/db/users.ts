@@ -5,6 +5,7 @@
 
 import type { Env } from '../types'
 import { hashPassword } from '../auth/password'
+import { ensureAuthorForAdminUser } from './authors'
 
 // ============================================================================
 // Types
@@ -20,6 +21,14 @@ export interface StaffUser {
   last_login_at: string | null
   created_at: string
   updated_at: string
+  author_id?: number | null
+  author_name?: string | null
+  author_is_active?: number | null
+}
+
+export interface StaffUserReferenceSummary {
+  total: number
+  resources: Array<{ label: string; count: number }>
 }
 
 export interface CreateStaffUserPayload {
@@ -88,30 +97,39 @@ export async function listStaffUsers(
   env: Env,
   filters: ListStaffUsersFilters = {}
 ): Promise<StaffUser[]> {
-  let query = 'SELECT * FROM users WHERE 1=1'
+  let query = `
+    SELECT u.*, a.id AS author_id, a.name AS author_name, a.is_active AS author_is_active
+    FROM users u
+    LEFT JOIN authors a ON a.user_id = u.id
+    WHERE 1=1
+  `
   const bindings: any[] = []
 
   // Filter by search query
   if (filters.q) {
-    query += ' AND (email LIKE ? OR name LIKE ?)'
+    query += ' AND (u.email LIKE ? OR u.name LIKE ?)'
     const searchPattern = `%${filters.q}%`
     bindings.push(searchPattern, searchPattern)
   }
 
   // Filter by role
   if (filters.role) {
-    query += ' AND role = ?'
-    bindings.push(filters.role)
+    if (normalizeRole(filters.role) === 'director') {
+      query += " AND u.role IN ('director', 'admin')"
+    } else {
+      query += ' AND u.role = ?'
+      bindings.push(filters.role)
+    }
   }
 
   // Filter by active status
   if (filters.active !== undefined) {
-    query += ' AND is_active = ?'
+    query += ' AND u.is_active = ?'
     bindings.push(filters.active ? 1 : 0)
   }
 
   // Order by created_at DESC
-  query += ' ORDER BY created_at DESC'
+  query += ' ORDER BY u.is_active DESC, u.name COLLATE NOCASE ASC'
 
   // Pagination
   if (filters.limit) {
@@ -133,7 +151,13 @@ export async function listStaffUsers(
  * Get staff user by ID
  */
 export async function getStaffUserById(env: Env, id: number): Promise<StaffUser | null> {
-  const stmt = env.DB.prepare('SELECT * FROM users WHERE id = ?')
+  const stmt = env.DB.prepare(`
+    SELECT u.*, a.id AS author_id, a.name AS author_name, a.is_active AS author_is_active
+    FROM users u
+    LEFT JOIN authors a ON a.user_id = u.id
+    WHERE u.id = ?
+    LIMIT 1
+  `)
   return await stmt.bind(id).first<StaffUser>()
 }
 
@@ -182,6 +206,14 @@ export async function createStaffUser(
 
   const userId = result.meta.last_row_id
 
+  await ensureAuthorForAdminUser(env, {
+    id: userId,
+    email: payload.email.toLowerCase().trim(),
+    name: payload.name.trim(),
+    role: payload.role,
+    is_active: 1,
+  })
+
   // Log audit
   await logAudit(env, {
     user_id: createdByUserId,
@@ -207,6 +239,18 @@ export async function updateStaffUser(
   patch: UpdateStaffUserPayload,
   updatedByUserId: number
 ): Promise<void> {
+  const currentUser = await getStaffUserById(env, id)
+  if (!currentUser) throw new Error('Usuário não encontrado.')
+
+  if (
+    patch.role !== undefined &&
+    normalizeRole(currentUser.role) === 'director' &&
+    normalizeRole(patch.role) !== 'director' &&
+    currentUser.is_active === 1
+  ) {
+    await assertAnotherActiveDirector(env, id, 'Não é possível rebaixar o último diretor ativo.')
+  }
+
   const updates: string[] = []
   const bindings: any[] = []
 
@@ -238,6 +282,23 @@ export async function updateStaffUser(
   `)
 
   await stmt.bind(...bindings).run()
+
+  if (patch.email !== undefined || patch.name !== undefined) {
+    const authorUpdates: string[] = []
+    const authorBindings: unknown[] = []
+    if (patch.email !== undefined) {
+      authorUpdates.push('email = ?')
+      authorBindings.push(patch.email.toLowerCase().trim())
+    }
+    if (patch.name !== undefined) {
+      authorUpdates.push('name = ?')
+      authorBindings.push(patch.name.trim())
+    }
+    if (authorUpdates.length > 0) {
+      await env.DB.prepare(`UPDATE authors SET ${authorUpdates.join(', ')}, updated_at = datetime('now') WHERE user_id = ?`)
+        .bind(...authorBindings, id).run()
+    }
+  }
 
   // Log audit
   await logAudit(env, {
@@ -287,16 +348,17 @@ export async function setStaffActive(
   active: boolean,
   changedByUserId: number
 ): Promise<void> {
+  const user = await getStaffUserById(env, id)
+  if (!user) throw new Error('Usuário não encontrado.')
+
+  if (!active && id === changedByUserId) {
+    throw new Error('Você não pode desativar o próprio acesso.')
+  }
+
   // Check: Don't allow disabling the last director
   if (!active) {
-    const user = await getStaffUserById(env, id)
-    if (user && normalizeRole(user.role) === 'director') {
-      const directors = await listStaffUsers(env, { role: 'director', active: true })
-      const activeDirectorCount = directors.filter(d => d.id !== id && d.is_active === 1).length
-      
-      if (activeDirectorCount === 0) {
-        throw new Error('Cannot disable the last active director')
-      }
+    if (normalizeRole(user.role) === 'director') {
+      await assertAnotherActiveDirector(env, id, 'Não é possível desativar o último diretor ativo.')
     }
   }
 
@@ -316,6 +378,81 @@ export async function setStaffActive(
     resource_id: id,
     details: JSON.stringify({ active }),
   })
+}
+
+const STAFF_USER_REFERENCE_TABLES = [
+  { table: 'post_revisions', column: 'changed_by_user_id', label: 'revisões de matérias' },
+  { table: 'settings', column: 'updated_by_user_id', label: 'configurações' },
+  { table: 'media', column: 'uploaded_by_user_id', label: 'arquivos de mídia' },
+  { table: 'newsletter_campaigns', column: 'created_by_user_id', label: 'newsletters' },
+  { table: 'instagram_publications', column: 'created_by_user_id', label: 'publicações sociais' },
+  { table: 'editorial_ai_sources', column: 'created_by_user_id', label: 'fontes da Redação IA' },
+  { table: 'editorial_ai_workspaces', column: 'created_by_user_id', label: 'pautas da Redação IA' },
+  { table: 'editorial_ai_workspaces', column: 'assigned_editor_user_id', label: 'pautas atribuídas' },
+  { table: 'editorial_ai_workspaces', column: 'approved_by_user_id', label: 'aprovações editoriais' },
+  { table: 'editorial_ai_materials', column: 'created_by_user_id', label: 'materiais editoriais' },
+  { table: 'editorial_ai_runs', column: 'requested_by_user_id', label: 'execuções de IA' },
+  { table: 'editorial_ai_revisions', column: 'created_by_user_id', label: 'revisões de IA' },
+  { table: 'editorial_ai_claims', column: 'reviewer_user_id', label: 'checagens editoriais' },
+] as const
+
+/** Retorna os vínculos que exigem preservar a conta para auditoria. */
+export async function getStaffUserReferenceSummary(env: Env, id: number): Promise<StaffUserReferenceSummary> {
+  const existing = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all<{ name: string }>()
+  const existingNames = new Set((existing.results || []).map(row => row.name))
+  const applicable = STAFF_USER_REFERENCE_TABLES.filter(item => existingNames.has(item.table))
+  const resources: Array<{ label: string; count: number }> = []
+
+  for (const item of applicable) {
+    const row = await env.DB.prepare(`SELECT COUNT(*) AS count FROM ${item.table} WHERE ${item.column} = ?`)
+      .bind(id).first<{ count: number }>()
+    const count = Number(row?.count || 0)
+    if (count > 0) resources.push({ label: item.label, count })
+  }
+
+  return {
+    total: resources.reduce((sum, item) => sum + item.count, 0),
+    resources,
+  }
+}
+
+/** Exclui somente contas sem histórico; autoria e conteúdo permanecem intactos. */
+export async function deleteStaffUser(env: Env, id: number, deletedByUserId: number): Promise<void> {
+  if (id === deletedByUserId) throw new Error('Você não pode excluir a própria conta.')
+
+  const user = await getStaffUserById(env, id)
+  if (!user) throw new Error('Usuário não encontrado.')
+  if (normalizeRole(user.role) === 'director' && user.is_active === 1) {
+    await assertAnotherActiveDirector(env, id, 'Não é possível excluir o último diretor ativo.')
+  }
+
+  const references = await getStaffUserReferenceSummary(env, id)
+  if (references.total > 0) {
+    const details = references.resources.map(item => `${item.count} ${item.label}`).join(', ')
+    throw new Error(`Esta conta possui histórico editorial (${details}). Desative o acesso para preservar a auditoria.`)
+  }
+
+  await env.DB.batch([
+    env.DB.prepare("UPDATE authors SET user_id = NULL, updated_at = datetime('now') WHERE user_id = ?").bind(id),
+    env.DB.prepare('DELETE FROM users WHERE id = ?').bind(id),
+  ])
+
+  await logAudit(env, {
+    user_id: deletedByUserId,
+    action: 'staff.delete',
+    resource_type: 'user',
+    resource_id: id,
+    details: JSON.stringify({ email: user.email, name: user.name }),
+  })
+}
+
+async function assertAnotherActiveDirector(env: Env, excludedId: number, message: string): Promise<void> {
+  const row = await env.DB.prepare(`
+    SELECT COUNT(*) AS count
+    FROM users
+    WHERE role IN ('director', 'admin') AND is_active = 1 AND id <> ?
+  `).bind(excludedId).first<{ count: number }>()
+  if (Number(row?.count || 0) === 0) throw new Error(message)
 }
 
 /**
@@ -374,31 +511,27 @@ interface AuditLogEntry {
 
 async function logAudit(env: Env, entry: AuditLogEntry): Promise<void> {
   try {
-    // Check if audit_logs table exists
-    const checkStmt = env.DB.prepare(`
-      SELECT name FROM sqlite_master 
-      WHERE type='table' AND name='audit_logs'
-    `)
-    const tableExists = await checkStmt.first()
-    
-    if (!tableExists) {
-      console.warn('[Audit] audit_logs table does not exist, skipping log')
+    const tables = await env.DB.prepare(`
+      SELECT name FROM sqlite_master
+      WHERE type = 'table' AND name IN ('audit_log', 'audit_logs')
+    `).all<{ name: string }>()
+    const names = new Set((tables.results || []).map(row => row.name))
+    const now = new Date().toISOString()
+
+    if (names.has('audit_log')) {
+      await env.DB.prepare(`
+        INSERT INTO audit_log (entity_type, entity_id, action, actor_type, actor_id, details_json, created_at)
+        VALUES (?, ?, ?, 'user', ?, ?, ?)
+      `).bind(entry.resource_type, String(entry.resource_id), entry.action, String(entry.user_id), entry.details, now).run()
       return
     }
 
-    const stmt = env.DB.prepare(`
-      INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `)
-
-    await stmt.bind(
-      entry.user_id,
-      entry.action,
-      entry.resource_type,
-      entry.resource_id,
-      entry.details,
-      new Date().toISOString()
-    ).run()
+    if (names.has('audit_logs')) {
+      await env.DB.prepare(`
+        INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind(entry.user_id, entry.action, entry.resource_type, entry.resource_id, entry.details, now).run()
+    }
   } catch (error) {
     console.error('[Audit] Failed to log:', error)
     // Don't throw - audit failures shouldn't block operations

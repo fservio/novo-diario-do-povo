@@ -109,8 +109,9 @@ export function renderAdminLayout(
   const displayName = actualUser.name || actualUser.email || 'Admin'
   const initials = displayName.split(/\s+/).filter(Boolean).slice(0, 2)
     .map(part => part.charAt(0).toUpperCase()).join('') || 'DP'
-  const roleLabels: Record<string, string> = { admin: 'Administrador', editor: 'Editor', author: 'Autor' }
+  const roleLabels: Record<string, string> = { admin: 'Administrador', director: 'Administrador', editor: 'Editor', writer: 'Redator', author: 'Autor' }
   const roleLabel = roleLabels[actualUser.role] || actualUser.role
+  const canManageTeam = actualUser.role === 'admin' || actualUser.role === 'director'
 
   return `<!doctype html>
 <html lang="pt-BR">
@@ -123,7 +124,7 @@ export function renderAdminLayout(
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/admin.css?v=20260821-social1">
+  <link rel="stylesheet" href="/static/admin.css?v=20260821-team1">
 </head>
 <body>
   <a class="skip-link" href="#admin-content">Ir para o conteúdo</a>
@@ -149,7 +150,7 @@ export function renderAdminLayout(
         <a class="${isActive('live')}" href="/admin/live"${current('live')}>${icon('live')}Central ao vivo</a>
         <a class="${isActive('categories')}" href="/admin/categories"${current('categories')}>${icon('categories')}Editorias</a>
         <a class="${isActive('tags')}" href="/admin/tags"${current('tags')}>${icon('tags')}Tags</a>
-        <a class="${isActive('authors')}" href="/admin/authors"${current('authors')}>${icon('authors')}Autores</a>
+        ${canManageTeam ? `<a class="${isActive('authors')}" href="/admin/authors"${current('authors')}>${icon('authors')}Autores</a>` : ''}
         <a class="${isActive('media')}" href="/admin/media"${current('media')}>${icon('media')}Biblioteca de mídia</a>
         <a class="${isActive('newsletters')}" href="/admin/newsletters"${current('newsletters')}>${icon('newsletter')}Newsletters</a>
         <a class="${isActive('instagram')}" href="/admin/instagram"${current('instagram')}>${icon('instagram')}Instagram</a>
@@ -161,7 +162,7 @@ export function renderAdminLayout(
 
         <div class="nav-label">Administração</div>
         <a class="${isActive('integrations')}" href="/admin/integrations"${current('integrations')}>${icon('integrations')}Integrações</a>
-        <a class="${isActive('users')}" href="/admin/users"${current('users')}>${icon('shield')}Equipe e acessos</a>
+        ${canManageTeam ? `<a class="${isActive('users')}" href="/admin/users"${current('users')}>${icon('shield')}Equipe e acessos</a>` : ''}
         <a class="${isActive('settings')}" href="/admin/settings"${current('settings')}>${icon('settings')}Configurações</a>
       </nav>
 
@@ -221,7 +222,7 @@ export function renderLoginPage(error?: string): string {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/admin.css?v=20260821-social1">
+  <link rel="stylesheet" href="/static/admin.css?v=20260821-team1">
 </head>
 <body class="login-page">
   <main class="login-shell">
