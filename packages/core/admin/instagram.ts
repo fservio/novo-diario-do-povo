@@ -308,7 +308,7 @@ export async function handleInstagramDetail(c: Context) {
         </section>
       </aside>
     </div>
-    <script src="/static/admin-instagram.js?v=20260821-focal2" defer></script>`
+    <script src="/static/admin-instagram.js?v=20260821-focal3" defer></script>`
 
   return c.html(renderAdminLayout({ title: 'Instagram · Revisão', user, bodyHtml, activeTab: 'instagram', csrfToken }))
 }
