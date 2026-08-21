@@ -835,7 +835,7 @@ export async function renderHomePage(
           <section class="ed-opinion-rail" aria-label="Opinião e análise">
             <div class="ed-opinion-rail__header">
               <h2>Opinião e análise</h2>
-              <a class="ed-section__more" href="/colunas">Todos os colunistas</a>
+              <a class="ed-section__more" href="/opiniao">Acesse Opinião</a>
             </div>
             <div class="ed-opinion-rail__grid">
               ${columnistPosts.map(post => `

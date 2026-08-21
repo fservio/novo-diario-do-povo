@@ -208,6 +208,8 @@ export interface Post {
   cover_media_id?: number
   status: 'draft' | 'review' | 'published' | 'archived'
   template: 'article' | 'liveblog' | 'hub' | 'story'
+  opinion_type?: 'news' | 'editorial' | 'article' | 'column'
+  opinion_featured?: number
   seo_title?: string
   seo_description?: string
   seo_canonical?: string
@@ -305,6 +307,8 @@ export const createPostSchema = z.object({
   author_type: z.enum(['staff', 'columnist', 'editorial', 'contributor']).default('staff'),
   status: z.enum(['draft', 'review', 'published', 'archived']).default('draft'),
   template: z.enum(['article', 'liveblog', 'hub', 'story']).default('article'),
+  opinion_type: z.enum(['news', 'editorial', 'article', 'column']).default('news'),
+  opinion_featured: z.number().int().min(0).max(1).default(0),
   seo_title: z.string().max(70).optional(),
   seo_description: z.string().max(160).optional(),
   is_premium: z.number().int().min(0).max(1).default(0),

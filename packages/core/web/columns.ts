@@ -281,6 +281,10 @@ export async function renderColumnPage(
     return null
   }
 
+  if (author.author_type !== 'columnist' && author.is_columnist !== 1) {
+    return null
+  }
+
   // Pagination
   const page = parseInt(c.req.query('page') || '1')
   const limit = 12
@@ -290,6 +294,7 @@ export async function renderColumnPage(
   const { posts, total } = await listPosts(c.env.DB, {
     author_id: author.id,
     status: 'published',
+    opinion_type: 'column',
     limit,
     offset,
     includeCount: true
@@ -301,38 +306,91 @@ export async function renderColumnPage(
   const isEditorialTheme = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2' || themeSetting === 'minimal'
 
   if (isEditorialTheme) {
+    const leadPost = page === 1 ? posts[0] : null
+    const archivePosts = leadPost ? posts.slice(1) : posts
+    const canonicalUrl = `${baseUrl}/coluna/${author.slug}${page > 1 ? `?page=${page}` : ''}`
+    const jsonLd = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'ProfilePage',
+      name: author.column_name || `Coluna de ${author.name}`,
+      url: canonicalUrl,
+      mainEntity: {
+        '@type': 'Person',
+        name: author.name,
+        description: author.bio || author.column_description || undefined,
+        url: `${baseUrl}/coluna/${author.slug}`,
+        image: author.avatar_r2_key ? `${baseUrl}/i/${author.avatar_r2_key}?w=600` : undefined
+      }
+    }).replace(/</g, '\\u003c')
     const bodyHtml = `
-      <header class="ed-column-header">
-        <div class="ed-column-header__avatar">
+      <nav class="ed-opinion-breadcrumb" aria-label="Navegação estrutural">
+        <a href="/">Início</a><span>/</span><a href="/opiniao">Opinião</a><span>/</span><strong>${escapeHtml(author.column_name || author.name)}</strong>
+      </nav>
+
+      <header class="ed-column-masthead">
+        <div class="ed-column-masthead__portrait">
           ${author.avatar_r2_key
-            ? `<img src="/i/${author.avatar_r2_key}?w=260&h=260&fit=cover" alt="${escapeAttr(author.name)}">`
+            ? `<img src="/i/${escapeAttr(author.avatar_r2_key)}?w=420&h=520&fit=cover" alt="${escapeAttr(author.name)}" width="420" height="520">`
             : `<span>${escapeHtml(author.name.substring(0, 2).toUpperCase())}</span>`}
         </div>
-        <div>
-          <p class="ed-kicker">${escapeHtml(author.column_name || 'Coluna')}</p>
-          <h1 class="ed-page-title">${escapeHtml(author.name)}</h1>
-          ${author.bio ? `<p class="ed-page-description">${escapeHtml(author.bio)}</p>` : ''}
+        <div class="ed-column-masthead__copy">
+          <p class="ed-kicker">Coluna</p>
+          <h1>${escapeHtml(author.column_name || `Coluna de ${author.name}`)}</h1>
+          <p class="ed-column-masthead__author">Por <strong>${escapeHtml(author.name)}</strong></p>
+          ${author.column_description ? `<p class="ed-column-masthead__deck">${escapeHtml(author.column_description)}</p>` : ''}
+          <div class="ed-column-masthead__links">
+            ${author.social_instagram ? `<a href="https://instagram.com/${escapeAttr(author.social_instagram)}" target="_blank" rel="noopener">Instagram</a>` : ''}
+            ${author.social_twitter ? `<a href="https://twitter.com/${escapeAttr(author.social_twitter)}" target="_blank" rel="noopener">X/Twitter</a>` : ''}
+            ${author.social_linkedin ? `<a href="${escapeAttr(author.social_linkedin)}" target="_blank" rel="noopener">LinkedIn</a>` : ''}
+          </div>
         </div>
       </header>
 
-      <section class="ed-section">
-        <div class="ed-section__header"><h2 class="ed-section__title">Publicações</h2></div>
-        ${posts.length > 0 ? `
+      ${leadPost ? `
+        <section class="ed-column-latest">
+          <div class="ed-opinion-section__header"><div><p class="ed-kicker">Publicação mais recente</p><h2>Em destaque</h2></div></div>
+          ${renderEditorialArticleCard({
+            title: leadPost.title,
+            hat: author.column_name || 'Coluna',
+            excerpt: leadPost.excerpt,
+            published_at: leadPost.published_at || leadPost.created_at,
+            author_name: author.name,
+            featured_image_r2_key: leadPost.cover_media_url,
+            url: getPostUrl(leadPost),
+            size: 'lead',
+            isLcp: true
+          })}
+        </section>
+      ` : ''}
+
+      <section class="ed-opinion-section ed-column-archive">
+        <div class="ed-opinion-section__header"><div><p class="ed-kicker">Arquivo da coluna</p><h2>${page > 1 ? `Publicações — página ${page}` : 'Publicações anteriores'}</h2></div></div>
+        ${archivePosts.length > 0 ? `
           <div class="ed-listing">
-            ${posts.map(post => renderEditorialArticleCard({
+            ${archivePosts.map(post => renderEditorialArticleCard({
               title: post.title,
               hat: author.column_name || 'Coluna',
               excerpt: post.excerpt,
               published_at: post.published_at || post.created_at,
+              author_name: author.name,
+              featured_image_r2_key: post.cover_media_url,
               url: getPostUrl(post),
               size: 'standard'
             })).join('')}
           </div>
-        ` : '<div class="ed-empty">Nenhuma publicação encontrada.</div>'}
+        ` : `<div class="ed-empty">${leadPost ? 'Esta é a primeira publicação desta coluna.' : 'Nenhuma publicação encontrada nesta página.'}</div>`}
       </section>
 
+      ${author.bio ? `
+        <aside class="ed-column-about">
+          <p class="ed-kicker">Sobre o colunista</p>
+          <h2>${escapeHtml(author.name)}</h2>
+          <p>${escapeHtml(author.bio)}</p>
+        </aside>
+      ` : ''}
+
       ${totalPages > 1 ? `
-        <nav class="ed-pagination" aria-label="Paginação" style="display:flex;justify-content:center;align-items:center;gap:16px;margin-top:42px">
+        <nav class="ed-pagination" aria-label="Paginação">
           ${page > 1 ? `<a class="ed-button ed-button--secondary" href="?page=${page - 1}">Anterior</a>` : ''}
           <span>Página ${page} de ${totalPages}</span>
           ${page < totalPages ? `<a class="ed-button ed-button--secondary" href="?page=${page + 1}">Próxima</a>` : ''}
@@ -343,13 +401,15 @@ export async function renderColumnPage(
     return renderEditorialLayout({
       title: `${author.column_name || author.name} — ${siteName}`,
       description: author.column_description || author.bio || `Coluna de ${author.name}`,
-      canonicalUrl: `${baseUrl}/coluna/${author.slug}`,
+      canonicalUrl,
       nonce: c.get('cspNonce') || '',
       siteName,
       navItems,
       bodyHtml,
       baseUrl,
-      googleAnalyticsId
+      googleAnalyticsId,
+      ogImage: author.avatar_r2_key ? `${baseUrl}/i/${author.avatar_r2_key}?w=1200` : undefined,
+      extraHeadHtml: `${posts.length === 0 ? '<meta name="robots" content="noindex, follow">' : ''}<script type="application/ld+json" nonce="${escapeAttr(c.get('cspNonce') || '')}">${jsonLd}</script>`
     })
   }
 

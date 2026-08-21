@@ -31,6 +31,8 @@ export interface ArticlePost {
   author_bio?: string | null
   author_avatar_r2_key?: string | null
   author_type?: 'staff' | 'columnist' | 'editorial' | 'contributor'
+  opinion_type?: 'news' | 'editorial' | 'article' | 'column'
+  opinion_featured?: number
   author_social_instagram?: string | null
   author_social_twitter?: string | null
   author_social_linkedin?: string | null
@@ -63,7 +65,7 @@ export async function findArticleBySlug(env: Env, slug: string): Promise<Article
   const result = await env.DB.prepare(`
     SELECT 
       p.id, p.slug, p.title, p.hat, p.excerpt, p.content, p.content_markdown, p.published_at,
-      p.template,
+      p.template, p.opinion_type, p.opinion_featured,
       m.r2_key as featured_image_r2_key,
       m.credits as featured_image_credits,
       m.alt as featured_image_alt,

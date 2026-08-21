@@ -27,7 +27,7 @@ function renderEditorialHeader(params: {
           <p>${escapeHtml(editionDate)}</p>
           <p class="ed-utility__mission">Jornalismo local, independente e responsável</p>
           <div class="ed-utility__links">
-            <a href="/colunas">Colunistas</a>
+            <a href="/opiniao">Opinião</a>
             <a href="/conta">Minha conta</a>
           </div>
         </div>
@@ -88,7 +88,7 @@ function renderEditorialHeader(params: {
           <div class="ed-menu-drawer__services">
             <p class="ed-menu-drawer__eyebrow">O jornal</p>
             <div>
-              <a href="/colunas">Colunistas</a>
+              <a href="/opiniao">Opinião</a>
               <a href="/conta">Minha conta</a>
             </div>
             <a class="ed-menu-drawer__subscribe" href="/assinar">Assine o Diário</a>
@@ -162,7 +162,7 @@ function renderEditorialFooter(siteName: string): string {
           <div class="ed-footer__column">
             <h2>O jornal</h2>
             <a href="/ultimas">Últimas notícias</a>
-            <a href="/colunas">Colunistas</a>
+            <a href="/opiniao">Opinião</a>
             <a href="/assinar">Assine</a>
           </div>
           <div class="ed-footer__column">
@@ -219,7 +219,7 @@ export function renderEditorialLayout(params: {
   <meta name="twitter:card" content="summary_large_image">
   <meta name="theme-color" content="#123d5a">
   ${params.lcpPreloadUrl ? `<link rel="preload" as="image" href="${escapeAttr(params.lcpPreloadUrl)}"${params.lcpSrcSet ? ` imagesrcset="${escapeAttr(params.lcpSrcSet)}" imagesizes="(max-width: 760px) 100vw, 760px"` : ''} fetchpriority="high">` : ''}
-  <link rel="stylesheet" href="/static/editorial.css?v=20260821-visual-editor1">
+  <link rel="stylesheet" href="/static/editorial.css?v=20260821-opinion1">
   ${params.extraHeadHtml || ''}
   ${params.googleAnalyticsId ? `
     <script async src="https://www.googletagmanager.com/gtag/js?id=${escapeAttr(params.googleAnalyticsId)}"></script>

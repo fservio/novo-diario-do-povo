@@ -18,7 +18,7 @@ describe('Admin UI layout', () => {
       csrfToken: 'csrf-test'
     })
 
-    expect(html).toContain('/static/admin.css?v=20260821-visual-editor1')
+    expect(html).toContain('/static/admin.css?v=20260821-opinion1')
     expect(html).toContain('aria-label="Navegação administrativa"')
     expect(html).toContain('id="admin-nav-toggle"')
     expect(html).toContain('href="/admin/redacao-ia"')

@@ -28,6 +28,8 @@ export interface Post {
   cover_media_id: number | null
   status: 'draft' | 'review' | 'published' | 'archived'
   template: string
+  opinion_type: 'news' | 'editorial' | 'article' | 'column'
+  opinion_featured: number
 
   // SEO
   seo_title: string | null
@@ -69,6 +71,7 @@ export interface PostFilters {
   offset?: number
   missing_cover?: boolean
   is_headline?: number
+  opinion_type?: 'news' | 'editorial' | 'article' | 'column'
   slug?: string
   original_link?: string
   year?: number
@@ -89,6 +92,8 @@ export interface CreatePostInput {
   author_id: number
   cover_media_id?: number
   template?: string
+  opinion_type?: 'news' | 'editorial' | 'article' | 'column'
+  opinion_featured?: number
   seo_title?: string
   seo_description?: string
   seo_canonical?: string
@@ -115,6 +120,8 @@ export interface UpdatePostInput {
   author_id?: number
   cover_media_id?: number
   template?: string
+  opinion_type?: 'news' | 'editorial' | 'article' | 'column'
+  opinion_featured?: number
   seo_title?: string
   seo_description?: string
   seo_canonical?: string
@@ -182,6 +189,7 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
     author_id,
     is_premium,
     is_headline,
+    opinion_type,
     search,
     missing_cover,
     slug,
@@ -220,6 +228,11 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
   if (is_headline !== undefined) {
     whereConditions.push('p.is_headline = ?')
     params.push(is_headline)
+  }
+
+  if (opinion_type !== undefined) {
+    whereConditions.push('p.opinion_type = ?')
+    params.push(opinion_type)
   }
 
   if (missing_cover) {
@@ -419,6 +432,8 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
     input.template || 'article', // template defaults to article
     'draft', // status defaults to draft
     0, // views
+    input.opinion_type || 'news',
+    input.opinion_featured || 0,
     input.seo_title || null,
     input.seo_description || null,
     input.seo_canonical || null,
@@ -437,10 +452,11 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
     INSERT INTO posts (
       title, hat, slug, excerpt, content, content_markdown, content_json, content_format, content_version,
       category_id, author_id, cover_media_id, template, status, views,
+      opinion_type, opinion_featured,
       seo_title, seo_description, seo_canonical, seo_noindex,
       is_premium, paywall_tier, metering_exempt, is_live, is_headline, original_link,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(...bindValues).run()
 
   const postId = result.meta.last_row_id
@@ -546,6 +562,16 @@ export async function updatePost(db: D1Database, id: number, input: UpdatePostIn
   if (input.template !== undefined) {
     fields.push('template = ?')
     values.push(input.template)
+  }
+
+  if (input.opinion_type !== undefined) {
+    fields.push('opinion_type = ?')
+    values.push(input.opinion_type)
+  }
+
+  if (input.opinion_featured !== undefined) {
+    fields.push('opinion_featured = ?')
+    values.push(input.opinion_featured)
   }
 
   if (input.seo_title !== undefined) {

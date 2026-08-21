@@ -41,6 +41,8 @@ const postSchemaShape = {
   author_id: z.coerce.number().int().positive(),
   cover_media_id: z.union([z.coerce.number().int().positive(), z.null()]).optional(),
   template: z.enum(['article', 'liveblog', 'hub', 'story']).optional().or(z.literal('').transform((): string | undefined => undefined)),
+  opinion_type: z.enum(['news', 'editorial', 'article', 'column']).default('news'),
+  opinion_featured: z.coerce.number().int().min(0).max(1).optional(),
   seo_title: z.string().max(200).optional(),
   seo_description: z.string().max(500).optional(),
   seo_canonical: z.string().url().optional().or(z.literal('')),
@@ -113,6 +115,11 @@ function renderPostsListPage(params: {
   const currentPage = filters.page || 1
   const totalPages = Math.ceil(total / limit)
   const adminIcon = (name: string) => `<span class="admin-icon">${renderAdminIcon(name)}</span>`
+  const opinionLabel = (type?: string) => ({
+    editorial: 'Editorial',
+    article: 'Artigo',
+    column: 'Coluna'
+  }[type || ''] || '')
 
   const buildQuery = (newFilters: any) => {
     const q = new URLSearchParams()
@@ -223,6 +230,7 @@ function renderPostsListPage(params: {
               <td>
                 <div class="content-title-cell">
                     ${post.hat ? `<span class="content-kicker">${escapeHtml(post.hat)}</span>` : ''}
+                    ${opinionLabel(post.opinion_type) ? `<span class="content-format">${escapeHtml(opinionLabel(post.opinion_type))}</span>` : ''}
                     <a href="/admin/posts/${post.id}" class="content-title-link">
                       ${escapeHtml(post.title)}
                     </a>
@@ -509,6 +517,49 @@ function renderPostFormPage(params: {
               </div>
             </details>
           ` : ''}
+
+      <section class="post-opinion-panel" aria-labelledby="opinionFormatTitle">
+        <div class="post-opinion-panel__intro">
+          <span class="post-opinion-panel__kicker">Identidade editorial</span>
+          <strong id="opinionFormatTitle">Formato da publicação</strong>
+          <p>Define a apresentação da matéria e sua presença na página de Opinião.</p>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label for="opinionType">Formato editorial</label>
+          <select name="opinion_type" id="opinionType" class="form-control">
+            <option value="news" ${(post?.opinion_type || 'news') === 'news' ? 'selected' : ''}>Notícia ou reportagem</option>
+            <option value="editorial" ${post?.opinion_type === 'editorial' ? 'selected' : ''}>Editorial do Jornal</option>
+            <option value="article" ${post?.opinion_type === 'article' ? 'selected' : ''}>Artigo de opinião</option>
+            <option value="column" ${post?.opinion_type === 'column' ? 'selected' : ''}>Coluna</option>
+          </select>
+          <p class="post-opinion-panel__hint" id="opinionFormatHint"></p>
+        </div>
+        <label class="post-opinion-panel__featured" id="opinionFeaturedControl">
+          <input type="checkbox" name="opinion_featured" value="1" ${post?.opinion_featured ? 'checked' : ''}>
+          <span><strong>Destacar em Opinião</strong><small>Coloca esta publicação na abertura editorial da página.</small></span>
+        </label>
+      </section>
+      <script nonce="${cspNonce}">
+        (() => {
+          const select = document.getElementById('opinionType');
+          const hint = document.getElementById('opinionFormatHint');
+          const featured = document.getElementById('opinionFeaturedControl');
+          const descriptions = {
+            news: 'Conteúdo informativo. Não será exibido como opinião.',
+            editorial: 'Posicionamento institucional do Diário do Povo, sem autoria pessoal em destaque.',
+            article: 'Contribuição pontual assinada por articulista ou especialista.',
+            column: 'Publicação recorrente ligada à página de um colunista.'
+          };
+          const refresh = () => {
+            const isOpinion = select.value !== 'news';
+            hint.textContent = descriptions[select.value] || '';
+            featured.hidden = !isOpinion;
+            if (!isOpinion) featured.querySelector('input').checked = false;
+          };
+          select.addEventListener('change', refresh);
+          refresh();
+        })();
+      </script>
       
       <!-- Categoria + Autor -->
       <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">

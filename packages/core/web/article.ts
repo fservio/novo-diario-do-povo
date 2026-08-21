@@ -478,6 +478,12 @@ export async function renderArticlePage(
   const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2' || themeSetting === 'minimal'
   const theme = normalizePublicTheme(themeSetting)
   const isAllType = theme === 'alltype'
+  const opinionType = post.opinion_type !== undefined
+    ? post.opinion_type
+    : post.author_type === 'columnist' ? 'column'
+      : post.author_type === 'contributor' ? 'article'
+        : post.author_type === 'editorial' ? 'editorial' : 'news'
+  const isOpinion = opinionType !== 'news'
 
   const nonce = c.get('cspNonce') || ''
   const canonicalUrl = post.seo_canonical || getPostUrl(post, baseUrl)
@@ -542,7 +548,7 @@ export async function renderArticlePage(
     slug: post.slug,
     published_at: post.published_at,
     updated_at: post.published_at,
-    author: { name: post.author_name || 'Redação' },
+    author: { name: opinionType === 'editorial' ? siteName : post.author_name || 'Redação' },
     coverMedia: post.featured_image_r2_key ? {
       r2_key: post.featured_image_r2_key,
       width: 1200,
@@ -559,7 +565,9 @@ export async function renderArticlePage(
 
   const breadcrumbJsonLd = generateBreadcrumbJsonLd([
     { name: 'Home', url: baseUrl },
-    { name: post.category_name, url: `${baseUrl}/categoria/${post.category_slug}` },
+    isOpinion
+      ? { name: 'Opinião', url: `${baseUrl}/opiniao` }
+      : { name: post.category_name, url: `${baseUrl}/categoria/${post.category_slug}` },
     { name: post.title, url: canonicalUrl }
   ], baseUrl)
 
@@ -578,19 +586,42 @@ export async function renderArticlePage(
 
   // Build body HTML
   if (isEditorial) {
+    const opinionKicker = opinionType === 'editorial'
+      ? 'Editorial do Jornal'
+      : opinionType === 'article'
+        ? 'Artigo'
+        : opinionType === 'column'
+          ? post.column_name || 'Coluna'
+          : post.hat || post.category_name
+    const bylineName = opinionType === 'editorial' ? 'Editorial do Diário do Povo' : post.author_name || 'Redação'
     const bodyHtml = `
       ${adTopHtml ? renderEditorialAd(adTopHtml) : ''}
 
       <article class="ed-article">
       <header class="ed-article__header">
-        <p class="ed-kicker">${escapeHtml(post.hat || post.category_name)}</p>
+        <nav class="ed-opinion-breadcrumb" aria-label="Navegação estrutural">
+          <a href="/">Início</a><span>/</span>${isOpinion ? '<a href="/opiniao">Opinião</a>' : `<a href="/categoria/${escapeAttr(post.category_slug)}">${escapeHtml(post.category_name)}</a>`}
+        </nav>
+        <p class="ed-kicker">${escapeHtml(opinionKicker)}</p>
         <h1 id="articleTitle" class="ed-article__title">${escapeHtml(post.title)}</h1>
         ${post.excerpt ? `<p class="ed-article__deck">${escapeHtml(post.excerpt)}</p>` : ''}
         <div class="ed-article__byline">
-          <span>Por <strong>${escapeHtml(post.author_name || 'Redação')}</strong></span>
+          <span>Por <strong>${escapeHtml(bylineName)}</strong></span>
           <span>Publicado em ${escapeHtml(formatDate(post.published_at))}, às ${escapeHtml(formatTime(post.published_at))}</span>
           <span>${readingTime} min de leitura</span>
         </div>
+        ${opinionType === 'column' ? `
+          <a class="ed-article-column-signature" href="/coluna/${escapeAttr(post.author_slug || '')}">
+            <span class="ed-article-column-signature__portrait">
+              ${post.author_avatar_r2_key
+                ? `<img src="/i/${escapeAttr(post.author_avatar_r2_key)}?w=160&h=190&fit=cover" alt="${escapeAttr(post.author_name || '')}" width="160" height="190">`
+                : escapeHtml((post.author_name || 'DP').substring(0, 2).toUpperCase())}
+            </span>
+            <span><small>${escapeHtml(post.column_name || 'Coluna')}</small><strong>${escapeHtml(post.author_name || '')}</strong><em>Veja todas as publicações →</em></span>
+          </a>
+        ` : opinionType === 'editorial' ? `
+          <div class="ed-article-editorial-signature"><span aria-hidden="true">DP</span><p><strong>Posição institucional</strong>Este texto expressa a opinião editorial do Diário do Povo.</p></div>
+        ` : ''}
       </header>
 
       ${post.featured_image_r2_key ? `
@@ -620,7 +651,7 @@ export async function renderArticlePage(
               ${contentWithAds}
             </div>
             ${isBlocked && accessCheck ? renderEditorialPaywallGate(accessCheck) : ''}
-            ${post.author_type === 'contributor' ? `
+            ${opinionType === 'article' ? `
               <div class="contributor-disclaimer" style="margin-top:3rem;padding:1.5rem;background:var(--ed-soft);border-left:4px solid var(--ed-red);font-family:var(--ed-sans);font-size:14px;color:var(--ed-muted)">
                 <strong>Nota da Redação:</strong> Este é um artigo de opinião e reflete a visão de seu autor, não necessariamente a opinião do ${escapeHtml(siteName)}.
               </div>

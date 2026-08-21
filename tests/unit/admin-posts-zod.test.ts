@@ -96,6 +96,26 @@ describe('Admin Posts Zod Validation', () => {
       expect(result.success).toBe(false)
     })
 
+    it('classifica formatos da editoria de Opinião', () => {
+      const formats = ['editorial', 'article', 'column'] as const
+
+      formats.forEach(opinion_type => {
+        const result = createPostSchema.safeParse({ ...basePost(), opinion_type, opinion_featured: 1 })
+        expect(result.success).toBe(true)
+      })
+    })
+
+    it('usa notícia como formato editorial padrão', () => {
+      const result = createPostSchema.safeParse(basePost())
+      expect(result.success).toBe(true)
+      if (result.success) expect(result.data.opinion_type).toBe('news')
+    })
+
+    it('rejeita formato editorial desconhecido', () => {
+      const result = createPostSchema.safeParse({ ...basePost(), opinion_type: 'release' })
+      expect(result.success).toBe(false)
+    })
+
     it('valida paywall_tier enum', () => {
       const tiers = ['free', 'metered', 'hard'] as const
       

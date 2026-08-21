@@ -1236,6 +1236,7 @@ app.post('/admin/posts', async (c) => {
         ...formData,
         author_id: authorId,
         tags,
+        opinion_featured: formData.opinion_featured ? 1 : 0,
         cover_media_id: formData.cover_media_id ? parseInt(String(formData.cover_media_id)) : undefined
       })
       console.log('[POST /admin/posts] Zod validation passed')
@@ -1381,6 +1382,7 @@ app.post('/admin/posts/:id', async (c) => {
       ...formData,
       author_id: authorId,
       tags,
+      opinion_featured: formData.opinion_featured ? 1 : 0,
       cover_media_id: coverMediaId
     })
 
@@ -2101,50 +2103,32 @@ app.get('/v2/categoria/:slug', async (c) => {
 // Public Columns Routes
 // ============================================================================
 
-app.get('/colunas', async (c) => {
-  const { renderColumnsList } = await import('../packages/core/web/columns')
+app.get('/colunas', (c) => c.redirect('/opiniao', 301))
+
+app.get('/opiniao', async (c) => {
+  const { renderOpinionPage } = await import('../packages/core/web/opinion')
   const { getSetting } = await import('../packages/core/db')
   const { getHomeSections } = await import('../packages/core/db/home')
 
   const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
   const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
 
-  // Daily Cover
-  const { getMediaById } = await import('../packages/core/db')
-  const dailyCover = await getSetting(c.env, 'daily_cover') as { media_id: number } | null
-  let coverR2Key = ''
-  let coverAlt = 'Capa do Dia'
-  let coverAspectRatio = '3/4'
-
-  if (dailyCover?.media_id) {
-    const media = await getMediaById(c.env, dailyCover.media_id)
-    if (media) {
-      coverR2Key = media.r2_key
-      coverAlt = media.alt || media.filename
-      if (media.width && media.height) {
-        coverAspectRatio = `${media.width}/${media.height}`
-      }
-    }
-  }
-
   // Get nav sections
   const sections = await getHomeSections(c.env)
   const navItems = sections
-    .filter(s => s.enabled)
+    .filter(s => s.enabled && s.slug !== 'colunas' && s.slug !== 'opiniao')
     .map(s => ({
       label: s.title,
       href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
-      active: false // We could check, but 'colunas' isn't in dynamic sections usually
+      active: false
     }))
 
-  // Add Colunas to nav if not present (optional hardcoded fallback)
-  navItems.push({ label: 'Colunas', href: '/colunas', active: true })
+  navItems.push({ label: 'Opinião', href: '/opiniao', active: true })
 
-  const html = await renderColumnsList(c, {
+  const html = await renderOpinionPage(c, {
     baseUrl,
     siteName,
-    navItems,
-    coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null
+    navItems
   })
 
   return c.html(html)
@@ -2180,14 +2164,14 @@ app.get('/coluna/:slug', async (c) => {
   // Get nav sections
   const sections = await getHomeSections(c.env)
   const navItems = sections
-    .filter(s => s.enabled)
+    .filter(s => s.enabled && s.slug !== 'colunas' && s.slug !== 'opiniao')
     .map(s => ({
       label: s.title,
       href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
       active: false
     }))
 
-  navItems.push({ label: 'Colunas', href: '/colunas', active: false })
+  navItems.push({ label: 'Opinião', href: '/opiniao', active: true })
 
   const html = await renderColumnPage(c, slug, {
     baseUrl,
