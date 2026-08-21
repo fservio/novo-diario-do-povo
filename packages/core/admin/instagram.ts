@@ -7,15 +7,18 @@ import {
   createInstagramPublication,
   dispatchInstagramPublication,
   getInstagramPublication,
+  getInstagramStoryVariant,
   getInstagramRuntimeConfig,
   getInstagramStats,
   listInstagramAttempts,
   listInstagramPublications,
   listInstagramSourcePosts,
   requestInstagramCaption,
-  updateInstagramEditorial
+  updateInstagramEditorial,
+  updateInstagramStoryVariant
 } from '../instagram'
-import type { InstagramPublication, InstagramPublicationAttempt, InstagramSourcePost } from '../instagram'
+import type { InstagramPublication, InstagramPublicationAttempt, InstagramSourcePost, InstagramStoryVariant } from '../instagram'
+import { getPostUrl } from '../utils/post'
 import { escapeHtml, renderAdminIcon, renderAdminLayout, renderCsrfInput } from './ui'
 
 function formatDate(value: string | null | undefined): string {
@@ -67,7 +70,7 @@ function previewCard(publication: InstagramPublication, baseUrl: string): string
     ? `${baseUrl.replace(/\/$/, '')}/i/${publication.cover_media_url}?w=1200&q=88`
     : ''
   return `<div class="instagram-art-preview" data-instagram-preview>
-    ${image ? `<img src="${escapeHtml(image)}" alt="" loading="eager" style="object-position:${publication.image_position_x}% ${publication.image_position_y}%" data-preview-image>` : '<div class="instagram-art-fallback"></div>'}
+    ${image ? `<img src="${escapeHtml(image)}" alt="" loading="eager" style="object-position:${publication.image_position_x}% ${publication.image_position_y}%;transform:scale(1.12);transform-origin:${publication.image_position_x}% ${publication.image_position_y}%" data-preview-image>` : '<div class="instagram-art-fallback"></div>'}
     <div class="instagram-art-wash"></div>
     <div class="instagram-art-brand"><img src="/static/logo-dp.png" alt="Diário do Povo"></div>
     <div class="instagram-art-copy">
@@ -77,6 +80,39 @@ function previewCard(publication: InstagramPublication, baseUrl: string): string
       <div data-preview-subtitle>${escapeHtml(publication.subtitle || '')}</div>
       <footer><strong>JORNALDIARIODOPOVO.COM.BR</strong><span data-preview-credit data-preview-prefix="Foto: " data-preview-empty="Crédito obrigatório">${publication.photo_credit ? `Foto: ${escapeHtml(publication.photo_credit)}` : 'Crédito obrigatório'}</span></footer>
     </div>
+  </div>`
+}
+
+function storyShareUrl(publication: InstagramPublication, baseUrl: string): string {
+  const url = new URL(getPostUrl({
+    slug: publication.slug,
+    published_at: publication.article_published_at,
+    created_at: publication.article_created_at
+  }, baseUrl))
+  url.searchParams.set('utm_source', 'instagram')
+  url.searchParams.set('utm_medium', 'story')
+  url.searchParams.set('utm_campaign', 'article_share')
+  return url.toString()
+}
+
+function storyPreviewCard(publication: InstagramPublication, story: InstagramStoryVariant, baseUrl: string): string {
+  const image = publication.cover_media_url
+    ? `${baseUrl.replace(/\/$/, '')}/i/${publication.cover_media_url}?w=1200&q=88`
+    : ''
+  return `<div class="instagram-art-preview instagram-story-preview" data-instagram-story-preview>
+    ${image ? `<img src="${escapeHtml(image)}" alt="" loading="eager" style="object-position:${story.image_position_x}% ${story.image_position_y}%;transform:scale(1.12);transform-origin:${story.image_position_x}% ${story.image_position_y}%" data-story-preview-image>` : '<div class="instagram-art-fallback"></div>'}
+    <div class="instagram-art-wash"></div>
+    <div class="instagram-story-brand"><img src="/static/logo-dp.png" alt="Diário do Povo"></div>
+    <div class="instagram-story-copy">
+      <i></i>
+      <p data-story-preview-hat>${escapeHtml(story.hat || publication.category_name || 'Notícia')}</p>
+      <h2 data-story-preview-title>${escapeHtml(story.title)}</h2>
+      <div data-story-preview-subtitle>${escapeHtml(story.subtitle || '')}</div>
+      <strong data-story-preview-cta>${escapeHtml(story.cta_text || 'Leia a matéria completa')}</strong>
+      <footer><b>JORNALDIARIODOPOVO.COM.BR</b><span data-story-preview-credit data-preview-prefix="Foto: " data-preview-empty="Crédito obrigatório">${story.photo_credit ? `Foto: ${escapeHtml(story.photo_credit)}` : 'Crédito obrigatório'}</span></footer>
+    </div>
+    <div class="instagram-story-safe-zone instagram-story-safe-zone--top"><span>Zona protegida</span></div>
+    <div class="instagram-story-safe-zone instagram-story-safe-zone--bottom"><span>Área reservada ao link</span></div>
   </div>`
 }
 
@@ -159,7 +195,8 @@ export async function handleInstagramCreate(c: Context) {
     const id = await createInstagramPublication(c.env as Env, {
       postId,
       userId: c.get('adminUser').id,
-      renderToken: randomHex(24)
+      renderToken: randomHex(24),
+      storyRenderToken: randomHex(24)
     })
     return c.redirect(`/admin/instagram/${id}?message=${encodeURIComponent('Arte criada. Ajuste a chamada e prepare a legenda.')}`, 303)
   } catch (error) {
@@ -175,29 +212,40 @@ function renderAttempt(attempt: InstagramPublicationAttempt): string {
 export async function handleInstagramDetail(c: Context) {
   const env = c.env as Env
   const id = Number.parseInt(c.req.param('id'), 10)
-  const [publication, attempts, config] = await Promise.all([
+  const [publication, story, attempts, config] = await Promise.all([
     getInstagramPublication(env, id),
+    getInstagramStoryVariant(env, id),
     listInstagramAttempts(env, id),
     getInstagramRuntimeConfig(env)
   ])
-  if (!publication) return c.notFound()
+  if (!publication || !story) return c.notFound()
   const csrfToken = c.get('csrfToken') || ''
   const user = c.get('adminUser')
   const isDirector = normalizeRole(user.role) === 'director'
   const locked = ['scheduled', 'publishing', 'published'].includes(publication.status)
   const canApprove = !locked && Boolean(publication.caption?.trim()) && Boolean(publication.photo_credit?.trim())
   const canDispatch = isDirector && Boolean(publication.approved_at) && ['approved', 'failed'].includes(publication.status) && config.publishReady
+  const trackedStoryUrl = storyShareUrl(publication, env.PUBLIC_BASE_URL)
 
   const bodyHtml = `
     <div class="page-intro instagram-detail-intro">
-      <div><a class="newsletter-back" href="/admin/instagram">← Voltar à mesa social</a><p class="page-kicker">Publicação #${publication.id}</p><h1 class="page-title">Preparação editorial</h1><p class="page-description">Revise a arte para baixar o arquivo ou liberar a distribuição.</p></div>
-      <div class="instagram-detail-actions">${statusBadge(publication.status)}<button class="btn" type="button" data-instagram-download data-download-image="${escapeHtml(downloadImageUrl(publication.cover_media_url))}">Baixar post (JPG) <span class="admin-icon">${renderAdminIcon('download')}</span></button><a class="btn btn-outline" href="/artes/editoriais/${publication.render_token}" target="_blank" rel="noopener">Arte em tamanho real <span class="admin-icon">${renderAdminIcon('external')}</span></a><span class="instagram-download-status" data-instagram-download-status aria-live="polite"></span></div>
+      <div><a class="newsletter-back" href="/admin/instagram">← Voltar à mesa social</a><p class="page-kicker">Publicação #${publication.id}</p><h1 class="page-title">Preparação editorial</h1><p class="page-description">Produza o feed e o Story da mesma matéria com composições independentes.</p></div>
+      <div class="instagram-detail-actions">
+        ${statusBadge(publication.status)}
+        <span class="instagram-format-actions" data-instagram-format-actions="feed"><button class="btn" type="button" data-instagram-download data-download-image="${escapeHtml(downloadImageUrl(publication.cover_media_url))}">Baixar feed (JPG) <span class="admin-icon">${renderAdminIcon('download')}</span></button><a class="btn btn-outline" href="/artes/editoriais/${publication.render_token}" target="_blank" rel="noopener">Arte 4:5 <span class="admin-icon">${renderAdminIcon('external')}</span></a><span class="instagram-download-status" data-instagram-download-status aria-live="polite"></span></span>
+        <span class="instagram-format-actions" data-instagram-format-actions="story" hidden><button class="btn" type="button" data-instagram-story-download data-download-image="${escapeHtml(downloadImageUrl(publication.cover_media_url))}">Baixar Story (JPG) <span class="admin-icon">${renderAdminIcon('download')}</span></button><a class="btn btn-outline" href="/artes/stories/${story.render_token}" target="_blank" rel="noopener">Arte 9:16 <span class="admin-icon">${renderAdminIcon('external')}</span></a><button class="btn btn-outline" type="button" data-story-copy-link data-story-url="${escapeHtml(trackedStoryUrl)}">Copiar link</button><span class="instagram-download-status" data-instagram-story-download-status aria-live="polite"></span></span>
+      </div>
     </div>
     ${notice(c.req.query('message'), c.req.query('error'))}
 
+    <div class="instagram-format-tabs" role="tablist" aria-label="Formato da publicação">
+      <button type="button" role="tab" aria-selected="true" data-instagram-format-tab="feed"><strong>Feed</strong><span>1080 × 1350 · 4:5</span></button>
+      <button type="button" role="tab" aria-selected="false" data-instagram-format-tab="story"><strong>Story</strong><span>1080 × 1920 · 9:16</span></button>
+    </div>
+
     <div class="instagram-workspace">
       <main>
-        <form class="card instagram-editor-card" method="post" action="/admin/instagram/${publication.id}/edit" data-instagram-editor>
+        <form class="card instagram-editor-card" method="post" action="/admin/instagram/${publication.id}/edit" data-instagram-editor data-instagram-format-panel="feed">
           ${renderCsrfInput(csrfToken)}
           <div class="newsletter-section-head"><div><p class="page-kicker">Composição</p><h2>Texto da arte</h2></div><span class="instagram-format-chip">1080 × 1350 · 4:5</span></div>
           <div class="instagram-editor-fields">
@@ -217,30 +265,50 @@ export async function handleInstagramDetail(c: Context) {
           ${!locked ? `<div class="instagram-editor-save"><span>Qualquer alteração após a aprovação exige uma nova revisão.</span><button class="btn" type="submit">Salvar alterações</button></div>` : ''}
         </form>
 
+        <form class="card instagram-editor-card instagram-story-editor" method="post" action="/admin/instagram/${publication.id}/story/edit" data-instagram-story-editor data-instagram-format-panel="story" hidden>
+          ${renderCsrfInput(csrfToken)}
+          <div class="newsletter-section-head"><div><p class="page-kicker">Composição</p><h2>Texto do Story</h2></div><div class="instagram-story-head-actions"><button class="btn btn-outline btn-compact" type="button" data-story-safe-toggle aria-pressed="true">Ocultar zonas seguras</button><span class="instagram-format-chip">1080 × 1920 · 9:16</span></div></div>
+          <div class="instagram-editor-fields">
+            <div class="form-group"><label for="instagram-story-hat">Chapéu</label><input class="form-control" id="instagram-story-hat" name="hat" maxlength="40" value="${escapeHtml(story.hat || '')}" data-story-preview-input="hat"><small><span data-count-for="instagram-story-hat">${(story.hat || '').length}</span>/40 · Identificação curta da editoria.</small></div>
+            <div class="form-group"><label for="instagram-story-title">Título</label><textarea class="form-control" id="instagram-story-title" name="title" maxlength="120" rows="3" required data-story-preview-input="title">${escapeHtml(story.title)}</textarea><small><span data-count-for="instagram-story-title">${story.title.length}</span>/120 · Ideal: até quatro linhas.</small></div>
+            <div class="form-group"><label for="instagram-story-subtitle">Bigode <span>opcional</span></label><textarea class="form-control" id="instagram-story-subtitle" name="subtitle" maxlength="160" rows="3" data-story-preview-input="subtitle">${escapeHtml(story.subtitle || '')}</textarea><small><span data-count-for="instagram-story-subtitle">${(story.subtitle || '').length}</span>/160 · Use apenas o contexto indispensável.</small></div>
+            <div class="form-group"><label for="instagram-story-photo-credit">Crédito da foto</label><input class="form-control" id="instagram-story-photo-credit" name="photo_credit" maxlength="160" value="${escapeHtml(story.photo_credit || publication.photo_credit || '')}" placeholder="Ex.: Nome do fotógrafo / Agência" required data-story-preview-input="credit"><small><span data-count-for="instagram-story-photo-credit">${(story.photo_credit || publication.photo_credit || '').length}</span>/160 · Obrigatório no arquivo final.</small></div>
+            <div class="form-group"><label for="instagram-story-cta">Chamada para leitura</label><input class="form-control" id="instagram-story-cta" name="cta_text" maxlength="60" value="${escapeHtml(story.cta_text || 'Leia a matéria completa')}" data-story-preview-input="cta"><small><span data-count-for="instagram-story-cta">${(story.cta_text || 'Leia a matéria completa').length}</span>/60 · O adesivo de link será inserido no Instagram.</small></div>
+            <div class="form-group instagram-focal-controls"><label>Ponto focal da fotografia</label><div><label for="instagram-story-position-x">Horizontal <output data-story-position-output="x">${story.image_position_x}%</output></label><input id="instagram-story-position-x" name="image_position_x" type="range" min="0" max="100" value="${story.image_position_x}" data-story-position-axis="x"></div><div><label for="instagram-story-position-y">Vertical <output data-story-position-output="y">${story.image_position_y}%</output></label><input id="instagram-story-position-y" name="image_position_y" type="range" min="0" max="100" value="${story.image_position_y}" data-story-position-axis="y"></div><small data-instagram-story-crop-hint>Reposicione o recorte vertical para preservar o assunto principal.</small></div>
+          </div>
+          <div class="instagram-editor-save"><span>O Story é salvo separadamente e não altera a arte do feed.</span><button class="btn" type="submit">Salvar Story</button></div>
+        </form>
+
         <section class="card instagram-source-summary"><div><p class="page-kicker">Matéria de origem</p><h2>${escapeHtml(publication.article_title)}</h2><p>${escapeHtml(publication.article_excerpt || 'Sem linha de apoio cadastrada.')}</p></div><a class="btn btn-outline" href="/admin/posts/${publication.post_id}" target="_blank" rel="noopener">Abrir matéria</a></section>
 
         ${attempts.length ? `<section class="card instagram-history"><div class="newsletter-section-head"><div><p class="page-kicker">Auditoria</p><h2>Histórico da automação</h2></div></div><ol>${attempts.map(renderAttempt).join('')}</ol></section>` : ''}
       </main>
 
       <aside class="instagram-review-column">
-        <section class="card instagram-preview-card"><div class="instagram-preview-head"><div><p class="page-kicker">Prévia</p><h2>Feed vertical</h2></div><span>4:5</span></div>${previewCard(publication, env.PUBLIC_BASE_URL)}</section>
+        <section class="card instagram-preview-card" data-instagram-format-panel="feed"><div class="instagram-preview-head"><div><p class="page-kicker">Prévia</p><h2>Feed vertical</h2></div><span>4:5</span></div>${previewCard(publication, env.PUBLIC_BASE_URL)}</section>
 
-        <section class="card instagram-approval-card">
+        <section class="card instagram-preview-card instagram-story-preview-card" data-instagram-format-panel="story" hidden><div class="instagram-preview-head"><div><p class="page-kicker">Prévia exata</p><h2>Story</h2></div><span>9:16</span></div>${storyPreviewCard(publication, story, env.PUBLIC_BASE_URL)}<p class="instagram-story-safe-note">As faixas pontilhadas não aparecem no JPG. Elas protegem a marca, os textos e a área do adesivo de link.</p></section>
+
+        <section class="card instagram-approval-card" data-instagram-format-panel="feed">
           <p class="page-kicker">Controle editorial</p><h2>${publication.approved_at ? 'Peça aprovada' : 'Aprovação obrigatória'}</h2>
           <p>${publication.approved_at ? `Aprovada por ${escapeHtml(publication.approved_by_name || 'diretor')} em ${formatDate(publication.approved_at)}.` : 'Confirme que imagem, chamada, legenda e fatos correspondem à matéria original.'}</p>
           ${!publication.approved_at && !locked ? `<form method="post" action="/admin/instagram/${publication.id}/approve">${renderCsrfInput(csrfToken)}<button class="btn btn-secondary" type="submit" ${canApprove ? '' : 'disabled'}><span class="admin-icon">${renderAdminIcon('shield')}</span> Aprovar conteúdo</button></form>` : ''}
           ${!canApprove && !publication.approved_at ? `<small>${!publication.photo_credit?.trim() ? 'Informe e salve o crédito da foto. ' : ''}${!publication.caption?.trim() ? 'Salve uma legenda para liberar a aprovação.' : ''}</small>` : ''}
         </section>
 
-        <section class="card instagram-publish-card">
+        <section class="card instagram-publish-card" data-instagram-format-panel="feed">
           <div class="instagram-publish-status ${config.publishReady ? 'is-ready' : ''}"><i></i><div><strong>${config.publishReady ? `${escapeHtml(config.accountLabel)} pronto no n8n` : 'Publicação ainda protegida'}</strong><p>${config.publishReady ? 'A peça aprovada será rasterizada e enviada pela API oficial.' : 'Configure o webhook de publicação em Integrações.'}</p></div></div>
           ${safeExternalUrl(publication.permalink) ? `<a class="btn" href="${escapeHtml(safeExternalUrl(publication.permalink))}" target="_blank" rel="noopener">Ver publicação <span class="admin-icon">${renderAdminIcon('external')}</span></a>` : !locked || publication.status === 'failed' ? `<form method="post" action="/admin/instagram/${publication.id}/publish" onsubmit="return confirm('Confirma o encaminhamento desta versão aprovada ao n8n?')">${renderCsrfInput(csrfToken)}<div class="form-group"><label for="scheduled-at">Agendar <span>opcional</span></label><input class="form-control" id="scheduled-at" type="datetime-local" name="scheduled_at"></div><button class="btn" type="submit" ${canDispatch ? '' : 'disabled'}>Publicar ou agendar <span class="admin-icon">${renderAdminIcon('arrow')}</span></button></form>` : ''}
           ${!isDirector ? '<small>A publicação final é restrita a diretores.</small>' : ''}
           ${publication.last_error ? `<div class="instagram-last-error"><strong>Última falha</strong><p>${escapeHtml(publication.last_error)}</p></div>` : ''}
         </section>
+
+        <section class="card instagram-story-manual-card" data-instagram-format-panel="story" hidden>
+          <p class="page-kicker">Distribuição manual</p><h2>Pronto para o aplicativo</h2><p>Baixe o JPG, publique-o como Story e cole o link rastreável no adesivo de link do Instagram.</p><button class="btn btn-outline" type="button" data-story-copy-link data-story-url="${escapeHtml(trackedStoryUrl)}">Copiar link da matéria</button><small data-story-copy-status aria-live="polite"></small>
+        </section>
       </aside>
     </div>
-    <script src="/static/admin-instagram.js?v=20260821-focal1" defer></script>`
+    <script src="/static/admin-instagram.js?v=20260821-focal2" defer></script>`
 
   return c.html(renderAdminLayout({ title: 'Instagram · Revisão', user, bodyHtml, activeTab: 'instagram', csrfToken }))
 }
@@ -282,6 +350,38 @@ export async function handleInstagramUpdate(c: Context) {
     return c.redirect(`/admin/instagram/${id}?message=${encodeURIComponent('Alterações salvas. A prévia foi atualizada.')}`, 303)
   } catch (error) {
     return c.redirect(`/admin/instagram/${id}?error=${encodeURIComponent(error instanceof Error ? error.message : 'Não foi possível salvar.')}`, 303)
+  }
+}
+
+function parseStoryEditorial(c: Context) {
+  const body = editorialBody(c)
+  const input = {
+    hat: String(body.hat || '').trim(),
+    title: String(body.title || '').trim(),
+    subtitle: String(body.subtitle || '').trim(),
+    photoCredit: String(body.photo_credit || '').trim(),
+    ctaText: String(body.cta_text || '').trim(),
+    imagePositionX: Number.parseInt(String(body.image_position_x || '50'), 10),
+    imagePositionY: Number.parseInt(String(body.image_position_y || '50'), 10)
+  }
+  if (!input.title || input.title.length > 120) throw new Error('Informe um título de Story com até 120 caracteres.')
+  if (input.hat.length > 40) throw new Error('O chapéu deve ter até 40 caracteres.')
+  if (input.subtitle.length > 160) throw new Error('O bigode do Story deve ter até 160 caracteres.')
+  if (!input.photoCredit) throw new Error('Informe o crédito da foto do Story.')
+  if (input.photoCredit.length > 160) throw new Error('O crédito da foto deve ter até 160 caracteres.')
+  if (input.ctaText.length > 60) throw new Error('A chamada para leitura deve ter até 60 caracteres.')
+  if (!Number.isFinite(input.imagePositionX) || !Number.isFinite(input.imagePositionY)) throw new Error('Informe um ponto focal válido para o Story.')
+  return input
+}
+
+export async function handleInstagramStoryUpdate(c: Context) {
+  if (!canEditSocial(c.get('adminUser').role)) return c.html('<h1>Acesso negado</h1>', 403)
+  const id = Number.parseInt(c.req.param('id'), 10)
+  try {
+    await updateInstagramStoryVariant(c.env as Env, id, parseStoryEditorial(c))
+    return c.redirect(`/admin/instagram/${id}?format=story&message=${encodeURIComponent('Story salvo. A prévia 9:16 foi atualizada.')}`, 303)
+  } catch (error) {
+    return c.redirect(`/admin/instagram/${id}?format=story&error=${encodeURIComponent(error instanceof Error ? error.message : 'Não foi possível salvar o Story.')}`, 303)
   }
 }
 

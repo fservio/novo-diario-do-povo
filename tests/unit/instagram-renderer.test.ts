@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { renderInstagramArtwork, stripArticleText } from '../../packages/core/instagram'
-import type { InstagramPublication } from '../../packages/core/instagram'
+import { renderInstagramArtwork, renderInstagramStoryArtwork, stripArticleText } from '../../packages/core/instagram'
+import type { InstagramPublication, InstagramStoryVariant } from '../../packages/core/instagram'
 
 function publication(overrides: Partial<InstagramPublication> = {}): InstagramPublication {
   return {
@@ -51,6 +51,27 @@ function publication(overrides: Partial<InstagramPublication> = {}): InstagramPu
   }
 }
 
+function story(overrides: Partial<InstagramStoryVariant> = {}): InstagramStoryVariant {
+  return {
+    id: 2,
+    publication_id: 1,
+    format: 'story_9x16',
+    template: 'editorial_story',
+    hat: 'Brasil',
+    title: 'Uma manchete importante para o leitor',
+    subtitle: 'Informacao contextual sem repetir o titulo principal.',
+    photo_credit: 'Agencia Teste',
+    cta_text: 'Leia a materia completa',
+    image_position_x: 50,
+    image_position_y: 50,
+    render_token: 'b'.repeat(48),
+    version: 1,
+    created_at: '2026-08-21T12:00:00.000Z',
+    updated_at: '2026-08-21T12:00:00.000Z',
+    ...overrides
+  }
+}
+
 describe('Instagram editorial artwork', () => {
   it('renders a fixed 1080x1350 branded composition', () => {
     const html = renderInstagramArtwork(publication(), 'https://diario.dopovo.com.br')
@@ -59,6 +80,7 @@ describe('Instagram editorial artwork', () => {
     expect(html).toContain('alt="Diário do Povo"')
     expect(html).toContain('Uma manchete importante')
     expect(html).toContain('/i/media/capa.jpg?w=1080&amp;h=1350&amp;q=92&amp;fp-x=0.5&amp;fp-y=0.5')
+    expect(html).toContain('transform:scale(1.12);transform-origin:50% 50%')
     expect(html).toContain('Foto: Agência Teste')
     expect(html).toContain('JORNALDIARIODOPOVO.COM.BR')
   })
@@ -66,6 +88,7 @@ describe('Instagram editorial artwork', () => {
   it('aplica o ponto focal salvo ao recorte entregue pelo Cloudflare', () => {
     const html = renderInstagramArtwork(publication({ image_position_x: 20, image_position_y: 80 }), 'https://diario.dopovo.com.br')
     expect(html).toContain('fp-x=0.2&amp;fp-y=0.8')
+    expect(html).toContain('transform-origin:20% 80%')
   })
 
   it('escapes editorial input instead of injecting markup', () => {
@@ -76,5 +99,42 @@ describe('Instagram editorial artwork', () => {
 
   it('converts the article body into compact text for the AI payload', () => {
     expect(stripArticleText('<h2>Título</h2><p>Texto &amp; contexto.</p>')).toBe('Título Texto & contexto.')
+  })
+})
+
+describe('Instagram Story editorial artwork', () => {
+  it('renders an exact 1080x1920 branded composition', () => {
+    const html = renderInstagramStoryArtwork(publication(), story(), 'https://diario.dopovo.com.br')
+    expect(html).toContain('width:1080px;height:1920px')
+    expect(html).toContain('/static/logo-dp.png')
+    expect(html).toContain('alt="Diário do Povo"')
+    expect(html).toContain('Uma manchete importante')
+    expect(html).toContain('/i/media/capa.jpg?w=1080&amp;h=1920&amp;q=92&amp;fp-x=0.5&amp;fp-y=0.5')
+    expect(html).toContain('transform:scale(1.12);transform-origin:50% 50%')
+    expect(html).toContain('Leia a materia completa')
+    expect(html).toContain('Foto: Agencia Teste')
+    expect(html).toContain('JORNALDIARIODOPOVO.COM.BR')
+  })
+
+  it('uses a focal point independent from the feed artwork', () => {
+    const html = renderInstagramStoryArtwork(
+      publication({ image_position_x: 90, image_position_y: 10 }),
+      story({ image_position_x: 20, image_position_y: 80 }),
+      'https://diario.dopovo.com.br'
+    )
+    expect(html).toContain('fp-x=0.2&amp;fp-y=0.8')
+    expect(html).toContain('transform-origin:20% 80%')
+    expect(html).not.toContain('fp-x=0.9&amp;fp-y=0.1')
+  })
+
+  it('escapes Story copy instead of injecting markup', () => {
+    const html = renderInstagramStoryArtwork(
+      publication(),
+      story({ title: '<script>alert(1)</script>', cta_text: '<b>Leia</b>' }),
+      'https://example.com'
+    )
+    expect(html).not.toContain('<script>alert(1)</script>')
+    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;')
+    expect(html).toContain('&lt;b&gt;Leia&lt;/b&gt;')
   })
 })

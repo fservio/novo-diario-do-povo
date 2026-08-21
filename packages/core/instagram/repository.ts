@@ -3,7 +3,8 @@ import type {
   InstagramPublication,
   InstagramPublicationAttempt,
   InstagramPublicationStatus,
-  InstagramSourcePost
+  InstagramSourcePost,
+  InstagramStoryVariant
 } from './types'
 
 const PUBLICATION_SELECT = `
@@ -71,6 +72,22 @@ export async function getInstagramPublicationByToken(env: Env, token: string): P
     .bind(token).first<InstagramPublication>()
 }
 
+export async function getInstagramStoryVariant(env: Env, publicationId: number): Promise<InstagramStoryVariant | null> {
+  return env.DB.prepare(`
+    SELECT * FROM instagram_story_variants
+    WHERE publication_id = ?
+    LIMIT 1
+  `).bind(publicationId).first<InstagramStoryVariant>()
+}
+
+export async function getInstagramStoryVariantByToken(env: Env, token: string): Promise<InstagramStoryVariant | null> {
+  return env.DB.prepare(`
+    SELECT * FROM instagram_story_variants
+    WHERE render_token = ?
+    LIMIT 1
+  `).bind(token).first<InstagramStoryVariant>()
+}
+
 export async function getInstagramStats(env: Env): Promise<Record<string, number>> {
   const result = await env.DB.prepare(`
     SELECT status, COUNT(*) AS total
@@ -89,6 +106,7 @@ export async function createInstagramPublication(env: Env, input: {
   postId: number
   userId: number
   renderToken: string
+  storyRenderToken: string
 }): Promise<number> {
   const source = await env.DB.prepare(`
     SELECT p.id, p.title, p.hat, p.excerpt, p.status, p.cover_media_id, c.name AS category_name
@@ -118,7 +136,57 @@ export async function createInstagramPublication(env: Env, input: {
     now,
     now
   ).run()
-  return Number(result.meta.last_row_id)
+  const publicationId = Number(result.meta.last_row_id)
+  try {
+    await env.DB.prepare(`
+      INSERT INTO instagram_story_variants (
+        publication_id, hat, title, subtitle, photo_credit,
+        image_position_x, image_position_y, render_token, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, NULL, 50, 50, ?, ?, ?)
+    `).bind(
+      publicationId,
+      source.hat || source.category_name || 'Notícia',
+      source.title,
+      source.excerpt || null,
+      input.storyRenderToken,
+      now,
+      now
+    ).run()
+  } catch (error) {
+    await env.DB.prepare('DELETE FROM instagram_publications WHERE id = ?').bind(publicationId).run()
+    throw error
+  }
+  return publicationId
+}
+
+export async function updateInstagramStoryVariant(env: Env, publicationId: number, input: {
+  hat: string
+  title: string
+  subtitle: string
+  photoCredit: string
+  ctaText: string
+  imagePositionX: number
+  imagePositionY: number
+}): Promise<void> {
+  const story = await getInstagramStoryVariant(env, publicationId)
+  if (!story) throw new Error('Variação de Story não encontrada.')
+
+  await env.DB.prepare(`
+    UPDATE instagram_story_variants
+    SET hat = ?, title = ?, subtitle = ?, photo_credit = ?, cta_text = ?,
+        image_position_x = ?, image_position_y = ?, version = version + 1, updated_at = ?
+    WHERE publication_id = ?
+  `).bind(
+    input.hat.trim() || null,
+    input.title.trim(),
+    input.subtitle.trim() || null,
+    input.photoCredit.trim(),
+    input.ctaText.trim() || 'Leia a matéria completa',
+    Math.max(0, Math.min(100, Math.round(input.imagePositionX))),
+    Math.max(0, Math.min(100, Math.round(input.imagePositionY))),
+    new Date().toISOString(),
+    publicationId
+  ).run()
 }
 
 export async function updateInstagramEditorial(env: Env, id: number, input: {

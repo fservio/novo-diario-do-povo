@@ -3147,6 +3147,11 @@ app.post('/admin/instagram/:id{[0-9]+}/edit', async (c) => {
   return handleInstagramUpdate(c)
 })
 
+app.post('/admin/instagram/:id{[0-9]+}/story/edit', async (c) => {
+  const { handleInstagramStoryUpdate } = await import('../packages/core/admin/instagram')
+  return handleInstagramStoryUpdate(c)
+})
+
 app.post('/admin/instagram/:id{[0-9]+}/caption', async (c) => {
   const { handleInstagramCaption } = await import('../packages/core/admin/instagram')
   return handleInstagramCaption(c)
@@ -3166,6 +3171,11 @@ app.post('/admin/instagram/:id{[0-9]+}/publish', async (c) => {
 app.get('/artes/editoriais/:token', async (c) => {
   const { handleInstagramArtwork } = await import('../packages/core/web/instagram')
   return handleInstagramArtwork(c)
+})
+
+app.get('/artes/stories/:token', async (c) => {
+  const { handleInstagramStoryArtwork } = await import('../packages/core/web/instagram')
+  return handleInstagramStoryArtwork(c)
 })
 
 // Authenticated n8n callback for caption and Meta publication status.

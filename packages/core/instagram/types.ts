@@ -70,6 +70,24 @@ export interface InstagramPublication {
   approved_by_name: string | null
 }
 
+export interface InstagramStoryVariant {
+  id: number
+  publication_id: number
+  format: 'story_9x16'
+  template: 'editorial_story'
+  hat: string | null
+  title: string
+  subtitle: string | null
+  photo_credit: string | null
+  cta_text: string
+  image_position_x: number
+  image_position_y: number
+  render_token: string
+  version: number
+  created_at: string
+  updated_at: string
+}
+
 export interface InstagramPublicationAttempt {
   id: number
   publication_id: number
