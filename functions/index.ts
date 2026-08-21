@@ -2111,7 +2111,7 @@ app.get('/opiniao', async (c) => {
   const { getHomeSections } = await import('../packages/core/db/home')
 
   const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
-  const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
+  const baseUrl = new URL(c.req.url).origin
 
   // Get nav sections
   const sections = await getHomeSections(c.env)
@@ -2141,7 +2141,7 @@ app.get('/coluna/:slug', async (c) => {
   const slug = c.req.param('slug')
 
   const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
-  const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
+  const baseUrl = new URL(c.req.url).origin
 
   // Daily Cover
   const { getMediaById } = await import('../packages/core/db')

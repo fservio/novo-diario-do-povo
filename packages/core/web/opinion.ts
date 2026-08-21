@@ -27,7 +27,7 @@ function renderOpinionLead(post: OpinionPost, baseUrl: string): string {
 
   return `
     <article class="ed-opinion-lead${image ? '' : ' ed-opinion-lead--no-media'}">
-      <a href="${escapeAttr(getPostUrl(post, baseUrl))}">
+      <a href="${escapeAttr(getPostUrl(post))}">
         ${image ? `
           <figure class="ed-opinion-lead__media">
             <img
@@ -61,7 +61,7 @@ function renderOpinionLead(post: OpinionPost, baseUrl: string): string {
 function renderOpinionCard(post: OpinionPost, baseUrl: string, compact = false): string {
   return renderEditorialArticleCard({
     title: post.title,
-    url: getPostUrl(post, baseUrl),
+    url: getPostUrl(post),
     hat: post.opinion_type === 'column' && post.column_name ? post.column_name : opinionLabels[post.opinion_type],
     excerpt: post.excerpt,
     published_at: post.published_at,
@@ -74,7 +74,7 @@ function renderOpinionCard(post: OpinionPost, baseUrl: string, compact = false):
 function renderEditorialStatement(post: OpinionPost, baseUrl: string): string {
   return `
     <article class="ed-editorial-statement">
-      <a href="${escapeAttr(getPostUrl(post, baseUrl))}">
+      <a href="${escapeAttr(getPostUrl(post))}">
         <span class="ed-editorial-statement__mark" aria-hidden="true">DP</span>
         <div>
           <p class="ed-kicker">Editorial do Jornal</p>
