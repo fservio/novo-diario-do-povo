@@ -50,6 +50,8 @@ describe('governança de equipe', () => {
 
 describe('proteção das rotas administrativas', () => {
   const source = readFileSync(new URL('../../functions/index.ts', import.meta.url), 'utf8')
+  const usersSource = readFileSync(new URL('../../packages/core/admin/users.ts', import.meta.url), 'utf8')
+  const authorsSource = readFileSync(new URL('../../packages/core/admin/authors.ts', import.meta.url), 'utf8')
 
   it('aplica perfil de diretor e CSRF em usuários e autores', () => {
     expect(source).toContain("app.use('/admin/users', requireDirectorForTeam, protectTeamCsrf)")
@@ -64,5 +66,12 @@ describe('proteção das rotas administrativas', () => {
     expect(source).toContain("/admin/users/:id{[0-9]+}/delete")
     expect(source).toContain("/admin/authors/:id{[0-9]+}/disable")
     expect(source).toContain("/admin/authors/:id{[0-9]+}/delete")
+  })
+
+  it('usa o campo CSRF padronizado em todos os formulários da equipe', () => {
+    expect(usersSource).not.toContain('name="csrf_token"')
+    expect(authorsSource).not.toContain('name="csrf_token"')
+    expect(usersSource).toContain('name="csrf"')
+    expect(authorsSource).toContain('name="csrf"')
   })
 })
