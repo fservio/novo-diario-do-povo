@@ -199,6 +199,10 @@ export interface Post {
   hat?: string
   excerpt?: string
   content: string
+  content_markdown?: string
+  content_json?: string
+  content_format?: 'legacy' | 'markdown' | 'visual'
+  content_version?: number
   category_id: number
   author_id: number
   cover_media_id?: number

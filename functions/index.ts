@@ -593,6 +593,21 @@ app.use('/api/admin/*', async (c, next) => {
   return requireAdmin(c, next)
 })
 
+// O editor de matérias altera conteúdo editorial e usa autosave via API.
+app.use('/admin/posts', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/admin/posts/*', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/api/admin/posts/*', async (c, next) => {
+  if (!/^\/api\/admin\/posts\/\d+\/autosave$/.test(c.req.path)) return next()
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+
 // Newsletter forms always validate the session-bound CSRF token.
 app.use('/admin/newsletters', async (c, next) => {
   const { csrfProtection } = await import('../packages/core/middleware')
@@ -1190,15 +1205,6 @@ app.post('/admin/posts', async (c) => {
     // ✅ CRITICAL: Reuse cached body from CSRF middleware
     const formData = (c.get('parsedBody') || await c.req.parseBody()) as Record<string, any>
 
-    console.log('[POST /admin/posts] Body received:', {
-      keys: Object.keys(formData),
-      title: formData.title,
-      content: formData.content,
-      category_id: formData.category_id,
-      author_id: formData.author_id,
-      hasParsedBody: !!c.get('parsedBody')
-    })
-
     // Se author_id vier vazio, garantir autor para o usuário logado
     let authorId = formData.author_id ? parseInt(String(formData.author_id)) : undefined
 
@@ -1239,10 +1245,9 @@ app.post('/admin/posts', async (c) => {
     }
 
     // Create (cast to CreatePostInput pois Zod já validou required fields)
-    const createPayload = {
-      ...data,
-      content_markdown: data.content
-    }
+    const createPayload = data.content_json?.trim()
+      ? { ...data, content_json: data.content_json, content_markdown: undefined }
+      : { ...data, content_markdown: data.content }
     const postId = await createPost(c.env.DB, createPayload as any)
     console.log('✅ [PROD] Post created successfully. ID:', postId, 'Title:', data.title)
 
@@ -1287,7 +1292,7 @@ app.post('/admin/posts', async (c) => {
 // GET /admin/posts/:id - Form editar post
 app.get('/admin/posts/:id', async (c) => {
   const { renderPostFormPage } = await import('../packages/core/admin/posts')
-  const { getPostById } = await import('../packages/core/db/posts')
+  const { getPostById, listPostRevisions } = await import('../packages/core/db/posts')
   const { findAllCategories, listActiveAuthors, ensureDefaultRedacao } = await import('../packages/core/db')
 
   const user = c.get('adminUser')
@@ -1310,6 +1315,7 @@ app.get('/admin/posts/:id', async (c) => {
   const tagsResult = await c.env.DB.prepare(
     'SELECT id, name FROM tags ORDER BY name ASC'
   ).all<{ id: number, name: string }>()
+  const revisions = await listPostRevisions(c.env.DB, id, 8)
 
   return c.html(renderPostFormPage({
     post,
@@ -1319,14 +1325,16 @@ app.get('/admin/posts/:id', async (c) => {
     user,
     csrfToken,
     cspNonce,
-    error: c.req.query('error')
+    error: c.req.query('error'),
+    message: c.req.query('message'),
+    revisions
   }))
 })
 
 // POST /admin/posts/:id - Atualizar post
 app.post('/admin/posts/:id', async (c) => {
   const { updatePostSchema } = await import('../packages/core/admin/posts')
-  const { updatePost } = await import('../packages/core/db/posts')
+  const { createPostRevision, getPostById, updatePost } = await import('../packages/core/db/posts')
   const { logAudit, ensureAuthorForAdminUser, validateAuthorId } = await import('../packages/core/db')
 
   const user = c.get('adminUser')
@@ -1378,12 +1386,19 @@ app.post('/admin/posts/:id', async (c) => {
 
     console.log('[DEBUG] parsed data.cover_media_id:', data.cover_media_id)
 
-    const updatePayload = {
-      ...data,
-      ...(data.content !== undefined ? { content_markdown: data.content } : {})
+    const currentPost = await getPostById(c.env.DB, id)
+    if (!currentPost) return c.notFound()
+    const expectedVersion = data.content_version || currentPost.content_version || 1
+    if ((currentPost.content_version || 1) !== expectedVersion) {
+      return c.redirect(`/admin/posts/${id}?error=content_conflict`, 303)
     }
 
+    const updatePayload = data.content_json?.trim()
+      ? { ...data, content_json: data.content_json, content_markdown: undefined as string | undefined, expected_content_version: expectedVersion }
+      : { ...data, ...(data.content !== undefined ? { content_markdown: data.content } : {}) }
+
     // Update
+    await createPostRevision(c.env.DB, currentPost, user.id, 'manual')
     await updatePost(c.env.DB, id, updatePayload as any)
 
     // Audit log
@@ -1400,7 +1415,58 @@ app.post('/admin/posts/:id', async (c) => {
     return c.redirect(`/admin/posts/${id}`, 303)
   } catch (error) {
     console.error('[Admin Posts] Update error:', error)
+    if (error instanceof Error && error.message === 'CONTENT_VERSION_CONFLICT') {
+      return c.redirect(`/admin/posts/${id}?error=content_conflict`, 303)
+    }
     return c.redirect(`/admin/posts/${id}?error=1`, 303)
+  }
+})
+
+// POST /api/admin/posts/:id/autosave - Salva conteúdo visual sem publicar
+app.post('/api/admin/posts/:id{[0-9]+}/autosave', async (c) => {
+  const { autosaveVisualPost } = await import('../packages/core/db/posts')
+  const id = Number(c.req.param('id'))
+  try {
+    const body = await c.req.json<Record<string, unknown>>()
+    const title = String(body.title || '').trim()
+    const contentJson = String(body.content_json || '')
+    const expectedVersion = Number(body.content_version || 0)
+    if (!title || title.length > 500) return c.json({ success: false, error: 'Título inválido.' }, 400)
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) return c.json({ success: false, error: 'Versão editorial inválida.' }, 400)
+    const contentVersion = await autosaveVisualPost(c.env.DB, {
+      postId: id,
+      contentJson,
+      expectedVersion,
+      title,
+      hat: String(body.hat || ''),
+      excerpt: String(body.excerpt || '')
+    })
+    return c.json({ success: true, content_version: contentVersion })
+  } catch (error) {
+    if (error instanceof Error && error.message === 'CONTENT_VERSION_CONFLICT') {
+      return c.json({ success: false, error: 'A matéria foi alterada em outra sessão.' }, 409)
+    }
+    console.error('[Admin Posts] Autosave error:', error)
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Falha no salvamento automático.' }, 400)
+  }
+})
+
+app.post('/admin/posts/:id{[0-9]+}/revisions/:revisionId{[0-9]+}/restore', async (c) => {
+  const { restorePostRevision } = await import('../packages/core/db/posts')
+  const { logAudit } = await import('../packages/core/db')
+  const postId = Number(c.req.param('id'))
+  const revisionId = Number(c.req.param('revisionId'))
+  const user = c.get('adminUser')
+  try {
+    await restorePostRevision(c.env.DB, postId, revisionId, user.id)
+    await logAudit(c.env, {
+      entityType: 'post', entityId: postId, action: 'revision_restored',
+      actorType: 'user', actorId: user.id, details: { revisionId }, requestId: c.get('requestId')
+    })
+    return c.redirect(`/admin/posts/${postId}?message=revision_restored`, 303)
+  } catch (error) {
+    console.error('[Admin Posts] Restore revision error:', error)
+    return c.redirect(`/admin/posts/${postId}?error=revision_restore_failed`, 303)
   }
 })
 

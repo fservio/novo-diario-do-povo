@@ -5,6 +5,7 @@
 
 import type { D1Database } from '@cloudflare/workers-types'
 import { renderMarkdownToHtml, sanitizeHtml } from '../render/sanitize'
+import { editorialDocumentHasText, renderEditorialDocumentToHtml, type EditorialContentFormat } from '../editorial-content'
 
 // Simple in-memory cache for total counts to reduce D1 read costs
 // This avoids expensive full table scans (COUNT(*)) on every admin list refresh
@@ -19,6 +20,9 @@ export interface Post {
   excerpt: string | null
   content: string
   content_markdown: string | null // Markdown source (optional, for new editor)
+  content_json: string | null
+  content_format: EditorialContentFormat
+  content_version: number
   category_id: number
   author_id: number
   cover_media_id: number | null
@@ -80,6 +84,7 @@ export interface CreatePostInput {
   excerpt?: string
   content: string
   content_markdown?: string
+  content_json?: string
   category_id: number
   author_id: number
   cover_media_id?: number
@@ -104,6 +109,8 @@ export interface UpdatePostInput {
   excerpt?: string
   content?: string
   content_markdown?: string
+  content_json?: string
+  expected_content_version?: number
   category_id?: number
   author_id?: number
   cover_media_id?: number
@@ -382,11 +389,17 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
   const baseSlug = input.slug || slugify(input.title)
   const slug = await generateUniqueSlug(db, baseSlug)
 
-  const hasMarkdown = input.content_markdown !== undefined && input.content_markdown !== null
-  const contentHtml = hasMarkdown
-    ? renderMarkdownToHtml(input.content_markdown || '')
-    : sanitizeHtml(input.content)
+  const hasVisualContent = Boolean(input.content_json?.trim())
+  const hasMarkdown = !hasVisualContent && input.content_markdown !== undefined && input.content_markdown !== null
+  if (hasVisualContent && !editorialDocumentHasText(input.content_json!)) throw new Error('Conteúdo é obrigatório.')
+  const contentHtml = hasVisualContent
+    ? renderEditorialDocumentToHtml(input.content_json!)
+    : hasMarkdown
+      ? renderMarkdownToHtml(input.content_markdown || '')
+      : sanitizeHtml(input.content)
   const contentMarkdownValue = hasMarkdown ? input.content_markdown : null
+  const contentJsonValue = hasVisualContent ? input.content_json : null
+  const contentFormat: EditorialContentFormat = hasVisualContent ? 'visual' : hasMarkdown ? 'markdown' : 'legacy'
   const hatValue = input.hat ? input.hat.trim().toUpperCase() : null
   const originalLink = input.original_link || null
 
@@ -397,6 +410,9 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
     input.excerpt || null,
     contentHtml,
     contentMarkdownValue,
+    contentJsonValue,
+    contentFormat,
+    1,
     input.category_id,
     input.author_id,
     input.cover_media_id || null,
@@ -417,22 +433,14 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
     now // updated_at
   ]
 
-  console.log('[createPost] Bind values:', {
-    count: bindValues.length,
-    values: bindValues,
-    input: input
-  })
-
-  // Ensure the SQL statement has the correct number of placeholders (?)
-  // We added original_link, so we need one more ? and the column name
   const result = await db.prepare(`
     INSERT INTO posts (
-      title, hat, slug, excerpt, content, content_markdown,
+      title, hat, slug, excerpt, content, content_markdown, content_json, content_format, content_version,
       category_id, author_id, cover_media_id, template, status, views,
       seo_title, seo_description, seo_canonical, seo_noindex,
       is_premium, paywall_tier, metering_exempt, is_live, is_headline, original_link,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(...bindValues).run()
 
   const postId = result.meta.last_row_id
@@ -493,15 +501,31 @@ export async function updatePost(db: D1Database, id: number, input: UpdatePostIn
     values.push(input.excerpt || null)
   }
 
-  if (input.content_markdown !== undefined) {
+  if (input.content_json !== undefined) {
+    if (!editorialDocumentHasText(input.content_json)) throw new Error('Conteúdo é obrigatório.')
+    fields.push('content = ?')
+    values.push(renderEditorialDocumentToHtml(input.content_json))
+    fields.push('content_json = ?')
+    values.push(input.content_json)
+    fields.push('content_markdown = NULL')
+    fields.push("content_format = 'visual'")
+    fields.push('content_version = content_version + 1')
+  } else if (input.content_markdown !== undefined) {
     const markdown = input.content_markdown || ''
     fields.push('content = ?')
     values.push(renderMarkdownToHtml(markdown))
     fields.push('content_markdown = ?')
     values.push(input.content_markdown)
+    fields.push('content_json = NULL')
+    fields.push("content_format = 'markdown'")
+    fields.push('content_version = content_version + 1')
   } else if (input.content !== undefined) {
     fields.push('content = ?')
     values.push(sanitizeHtml(input.content))
+    fields.push('content_json = NULL')
+    fields.push('content_markdown = NULL')
+    fields.push("content_format = 'legacy'")
+    fields.push('content_version = content_version + 1')
   }
 
   if (input.category_id !== undefined) {
@@ -578,9 +602,15 @@ export async function updatePost(db: D1Database, id: number, input: UpdatePostIn
   values.push(now)
 
   if (fields.length > 0) {
-    await db.prepare(
-      `UPDATE posts SET ${fields.join(', ')} WHERE id = ?`
-    ).bind(...values, id).run()
+    const where = input.expected_content_version !== undefined
+      ? 'id = ? AND content_version = ?'
+      : 'id = ?'
+    const result = await db.prepare(
+      `UPDATE posts SET ${fields.join(', ')} WHERE ${where}`
+    ).bind(...values, id, ...(input.expected_content_version !== undefined ? [input.expected_content_version] : [])).run()
+    if (input.expected_content_version !== undefined && (result.meta.changes || 0) === 0) {
+      throw new Error('CONTENT_VERSION_CONFLICT')
+    }
   }
 
   // Update tags
@@ -596,6 +626,111 @@ export async function updatePost(db: D1Database, id: number, input: UpdatePostIn
       `).bind(id, tagId, now).run()
     }
   }
+}
+
+export interface PostRevision {
+  id: number
+  post_id: number
+  title: string
+  excerpt: string | null
+  content: string
+  content_json: string | null
+  content_format: EditorialContentFormat
+  content_version: number
+  revision_type: 'manual' | 'autosave' | 'restore' | 'ai'
+  changed_by_user_id: number
+  changed_by_name?: string | null
+  created_at: string
+}
+
+export async function createPostRevision(
+  db: D1Database,
+  post: Post,
+  changedByUserId: number,
+  revisionType: PostRevision['revision_type'] = 'manual'
+): Promise<number> {
+  const result = await db.prepare(`
+    INSERT INTO post_revisions (
+      post_id, title, excerpt, content, content_json, content_format,
+      content_version, revision_type, changed_by_user_id, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    post.id, post.title, post.excerpt, post.content, post.content_json,
+    post.content_format || 'legacy', post.content_version || 1, revisionType,
+    changedByUserId, new Date().toISOString()
+  ).run()
+  return Number(result.meta.last_row_id || 0)
+}
+
+export async function listPostRevisions(db: D1Database, postId: number, limit = 12): Promise<PostRevision[]> {
+  const result = await db.prepare(`
+    SELECT r.*, u.name AS changed_by_name
+    FROM post_revisions r
+    LEFT JOIN users u ON u.id = r.changed_by_user_id
+    WHERE r.post_id = ?
+    ORDER BY r.created_at DESC, r.id DESC
+    LIMIT ?
+  `).bind(postId, Math.max(1, Math.min(50, limit))).all<PostRevision>()
+  return result.results || []
+}
+
+export async function restorePostRevision(
+  db: D1Database,
+  postId: number,
+  revisionId: number,
+  changedByUserId: number
+): Promise<void> {
+  const [post, revision] = await Promise.all([
+    getPostById(db, postId),
+    db.prepare('SELECT * FROM post_revisions WHERE id = ? AND post_id = ? LIMIT 1')
+      .bind(revisionId, postId).first<PostRevision>()
+  ])
+  if (!post || !revision) throw new Error('Revisão não encontrada.')
+  await createPostRevision(db, post, changedByUserId, 'restore')
+  await db.prepare(`
+    UPDATE posts
+    SET title = ?, excerpt = ?, content = ?, content_json = ?, content_markdown = NULL,
+        content_format = ?, content_version = content_version + 1, updated_at = ?
+    WHERE id = ?
+  `).bind(
+    revision.title,
+    revision.excerpt,
+    revision.content,
+    revision.content_json,
+    revision.content_json ? 'visual' : 'legacy',
+    new Date().toISOString(),
+    postId
+  ).run()
+}
+
+export async function autosaveVisualPost(db: D1Database, input: {
+  postId: number
+  contentJson: string
+  expectedVersion: number
+  title: string
+  hat?: string
+  excerpt?: string
+}): Promise<number> {
+  if (!editorialDocumentHasText(input.contentJson)) throw new Error('Conteúdo é obrigatório.')
+  const html = renderEditorialDocumentToHtml(input.contentJson)
+  const result = await db.prepare(`
+    UPDATE posts
+    SET title = ?, hat = ?, excerpt = ?, content = ?, content_json = ?,
+        content_markdown = NULL, content_format = 'visual',
+        content_version = content_version + 1, updated_at = ?
+    WHERE id = ? AND content_version = ?
+  `).bind(
+    input.title.trim().slice(0, 500),
+    input.hat?.trim().toUpperCase().slice(0, 60) || null,
+    input.excerpt?.trim().slice(0, 1_000) || null,
+    html,
+    input.contentJson,
+    new Date().toISOString(),
+    input.postId,
+    input.expectedVersion
+  ).run()
+  if ((result.meta.changes || 0) === 0) throw new Error('CONTENT_VERSION_CONFLICT')
+  return input.expectedVersion + 1
 }
 
 /**

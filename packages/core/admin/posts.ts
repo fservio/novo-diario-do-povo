@@ -6,7 +6,8 @@
 import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
 import { escapeHtml, renderAdminIcon, renderAdminLayout, type AdminUser } from './ui'
-import { renderMarkdownEditor } from './editor'
+import { renderVisualEditor } from './visual-editor'
+import { renderMarkdownToHtml } from '../render/sanitize'
 import { z } from 'zod'
 import {
   listPosts,
@@ -17,6 +18,7 @@ import {
   schedulePost,
   archivePost,
   type Post,
+  type PostRevision,
   type PostFilters
 } from '../db/posts'
 
@@ -24,7 +26,7 @@ import {
 // Validation Schemas
 // ============================================================================
 
-const createPostSchema = z.object({
+const postSchemaShape = {
   hat: z.string()
     .max(60, 'Chapéu deve ter no máximo 60 caracteres')
     .transform(val => val.trim().toUpperCase())
@@ -32,7 +34,9 @@ const createPostSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório').max(500),
   slug: z.string().optional(),
   excerpt: z.string().max(1000).optional(),
-  content: z.string().min(1, 'Conteúdo é obrigatório'),
+  content: z.string().max(1_000_000).optional().default(''),
+  content_json: z.string().max(500_000).optional(),
+  content_version: z.coerce.number().int().positive().optional(),
   category_id: z.coerce.number().int().positive(),
   author_id: z.coerce.number().int().positive(),
   cover_media_id: z.union([z.coerce.number().int().positive(), z.null()]).optional(),
@@ -47,9 +51,14 @@ const createPostSchema = z.object({
   is_live: z.coerce.number().int().min(0).max(1).optional(),
   is_headline: z.coerce.number().int().min(0).max(1).optional(),
   tags: z.array(z.coerce.number().int().positive()).optional(),
-})
+}
 
-const updatePostSchema = createPostSchema.partial()
+const createPostSchema = z.object(postSchemaShape).refine(
+  data => Boolean(data.content_json?.trim() || data.content?.trim()),
+  { message: 'Conteúdo é obrigatório', path: ['content'] }
+)
+
+const updatePostSchema = z.object(postSchemaShape).partial()
 
 const scheduleSchema = z.object({
   scheduled_at: z.string().refine((val) => {
@@ -295,11 +304,25 @@ function renderPostFormPage(params: {
   csrfToken: string
   cspNonce: string
   error?: string
+  message?: string
   defaultAuthorId?: number
+  revisions?: PostRevision[]
 }): string {
-  const { post, categories, authors, tags, user, csrfToken, cspNonce, error, defaultAuthorId } = params
+  const { post, categories, authors, tags, user, csrfToken, cspNonce, error, message, defaultAuthorId } = params
+  const revisions = params.revisions || []
   const isNew = !post
   const adminIcon = (name: string) => `<span class="admin-icon">${renderAdminIcon(name)}</span>`
+  const legacyEditorHtml = post?.content_json
+    ? post.content
+    : post?.content_markdown
+      ? renderMarkdownToHtml(post.content_markdown)
+      : post?.content || '<p></p>'
+  const errorMessage = error === 'content_conflict'
+    ? 'Esta matéria foi alterada em outra aba ou por outro usuário. Recarregue a página antes de continuar.'
+    : error === 'revision_restore_failed'
+      ? 'Não foi possível restaurar a versão selecionada.'
+      : error
+  const successMessage = message === 'revision_restored' ? 'Versão restaurada com sucesso.' : message
 
   const statusBadge = (status?: string) => {
     const palette: Record<string, string> = {
@@ -370,16 +393,30 @@ function renderPostFormPage(params: {
       <h1 class="section-title" style="margin-top: 0.5rem;">${isNew ? 'Criar nova matéria' : 'Editar matéria'}</h1>
     </div>
     
-    ${error ? `
+    ${errorMessage ? `
       <div class="error" style="margin-bottom: 1rem;">
-        ${escapeHtml(error)}
+        ${escapeHtml(errorMessage)}
       </div>
     ` : ''}
+    ${successMessage ? `<div class="admin-flash admin-flash--success">${escapeHtml(successMessage)}</div>` : ''}
     
     ${publicationPanel}
     
-    <form id="postEditorForm" method="post" action="${isNew ? '/admin/posts' : `/admin/posts/${post.id}`}" class="card">
+    <form id="postEditorForm" method="post" action="${isNew ? '/admin/posts' : `/admin/posts/${post.id}`}" class="post-editor-form">
       ${renderCsrfInput(csrfToken)}
+      <div class="post-editor-commandbar">
+        <div>
+          <span class="post-editor-commandbar__label">${isNew ? 'Novo rascunho' : `Matéria #${post.id}`}</span>
+          <span class="post-editor-commandbar__state" id="postEditorCommandState">${isNew ? 'Não salva' : `Atualizada ${formatDateTime(post.updated_at)}`}</span>
+        </div>
+        <div class="post-editor-commandbar__actions">
+          ${!isNew ? `<a href="/admin/posts/${post.id}/preview" target="_blank" rel="noopener" class="btn btn-outline">${adminIcon('external')} Prévia</a>` : ''}
+          <button type="submit" class="btn">${isNew ? 'Criar rascunho' : 'Salvar matéria'}</button>
+        </div>
+      </div>
+
+      <div class="post-editor-grid">
+        <div class="post-editor-main">
       
       <!-- Chapéu -->
       <div class="form-group">
@@ -439,21 +476,39 @@ function renderPostFormPage(params: {
         >${escapeHtml(post?.excerpt || '')}</textarea>
       </div>
       
-      <!-- Content Editor (Markdown) -->
-      <div class="form-group">
-        <label>Conteúdo da Matéria *</label>
-        <div style="border: 1.5px solid #e2e8f0; border-radius: 0.625rem; overflow: hidden; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);">
-        ${renderMarkdownEditor({
-    name: 'content',
-    value: post?.content_markdown || post?.content || '',
-    nonce: cspNonce,
-    id: 'mdEditor'
-  })}
-        </div>
-        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.75rem; display: flex; align-items: center; gap: 0.5rem; font-weight: 500;">
-          <span>💡 <strong>Dica:</strong> Use Markdown para formatar. Clique em 🖼️ para gerenciar mídias.</span>
-        </div>
+      <!-- Editor visual estruturado -->
+      <div class="form-group post-editor-content-field">
+        ${renderVisualEditor({
+          contentJson: post?.content_json,
+          legacyHtml: legacyEditorHtml,
+          postId: post?.id,
+          contentVersion: post?.content_version || 1,
+          csrfToken
+        })}
       </div>
+
+        </div>
+        <aside class="post-editor-sidebar" aria-label="Configurações da matéria">
+          <div class="post-editor-sidebar__heading"><span>Configurações</span><small>Publicação e distribuição</small></div>
+          ${!isNew ? `
+            <details class="post-editor-revisions">
+              <summary><span>Histórico de versões</span><small>${revisions.length ? `${revisions.length} versões recentes` : 'Ainda sem versões manuais'}</small></summary>
+              <div class="post-editor-revisions__list">
+                ${revisions.length ? revisions.map(revision => `
+                  <article>
+                    <div><strong>Versão ${revision.content_version}</strong><small>${escapeHtml(formatDateTime(revision.created_at))} · ${escapeHtml(revision.changed_by_name || 'Equipe editorial')}</small></div>
+                    <button
+                      type="submit"
+                      formaction="/admin/posts/${post.id}/revisions/${revision.id}/restore"
+                      formmethod="post"
+                      formnovalidate
+                      data-confirm-revision
+                    >Restaurar</button>
+                  </article>
+                `).join('') : '<p>A primeira versão será registrada ao salvar alterações.</p>'}
+              </div>
+            </details>
+          ` : ''}
       
       <!-- Categoria + Autor -->
       <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
@@ -518,7 +573,7 @@ function renderPostFormPage(params: {
               <span>🔴 AO VIVO (Publicar pulso e habilitar tempo real)</span>
             </label>
           </div>
-          <script>
+          <script nonce="${cspNonce}">
             document.querySelector('select[name="template"]').addEventListener('change', function(e) {
               const liveToggle = document.getElementById('liveToggle');
               if (e.target.value === 'liveblog') {
@@ -616,7 +671,7 @@ function renderPostFormPage(params: {
                     onmouseout="this.style.transform='scale(1)'; this.style.borderColor='var(--border-color)'"
                   >
                     <div style="aspect-ratio: 16/9; background: #eee; overflow: hidden;">
-                       <img src="https://pub-77114170e599427092eb96ac6e46955a.r2.dev/\${m.r2_key}" style="width: 100%; height: 100%; object-fit: cover; pointer-events: none;">
+                       <img src="/i/\${m.r2_key}?w=320&h=180&fit=cover" style="width: 100%; height: 100%; object-fit: cover; pointer-events: none;">
                     </div>
                     <div style="padding: 0.5rem; font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;">
                       \${m.filename}
@@ -773,8 +828,11 @@ function renderPostFormPage(params: {
         </div>
       </details>
       
+        </aside>
+      </div>
+
       <!-- Actions -->
-      <div style="display: flex; gap: 1rem; padding-top: 2rem; border-top: 1px solid var(--border-color); margin-top: 1rem;">
+      <div class="post-editor-actions">
         <button type="submit" class="btn" style="min-width: 160px;">
           ${isNew ? 'Criar Rascunho' : 'Salvar Alterações'}
         </button>
