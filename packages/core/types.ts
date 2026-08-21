@@ -188,6 +188,12 @@ export interface Tag {
   name: string
   description?: string
   seo_noindex: number
+  social_title?: string
+  social_description?: string
+  social_share_text?: string
+  social_image_media_id?: number
+  social_image_position_x?: number
+  social_image_position_y?: number
   created_at: string
   updated_at: string
 }

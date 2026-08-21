@@ -14,15 +14,26 @@ export interface ArticlePost {
   content: string
   content_markdown: string | null
   published_at: string
+  updated_at: string
   featured_image_r2_key: string | null
   featured_image_credits: string | null
   featured_image_alt: string | null
   featured_image_width?: number | null
   featured_image_height?: number | null
+  featured_image_mime_type?: string | null
   seo_title: string | null
   seo_description: string | null
   seo_noindex: number
   seo_canonical: string | null
+  social_title: string | null
+  social_description: string | null
+  social_share_text: string | null
+  social_image_r2_key: string | null
+  social_image_mime_type: string | null
+  social_image_width: number | null
+  social_image_height: number | null
+  social_image_position_x: number
+  social_image_position_y: number
   category_id: number
   category_name: string
   category_slug: string
@@ -64,15 +75,22 @@ export interface RelatedPost {
 export async function findArticleBySlug(env: Env, slug: string): Promise<ArticlePost | null> {
   const result = await env.DB.prepare(`
     SELECT 
-      p.id, p.slug, p.title, p.hat, p.excerpt, p.content, p.content_markdown, p.published_at,
+      p.id, p.slug, p.title, p.hat, p.excerpt, p.content, p.content_markdown, p.published_at, p.updated_at,
       p.template, p.opinion_type, p.opinion_featured,
       m.r2_key as featured_image_r2_key,
       m.credits as featured_image_credits,
       m.alt as featured_image_alt,
       m.width as featured_image_width,
       m.height as featured_image_height,
+      m.mime_type as featured_image_mime_type,
       p.seo_title, p.seo_description, 
       p.seo_noindex, p.seo_canonical, p.is_premium, p.is_live, p.paywall_tier,
+      p.social_title, p.social_description, p.social_share_text,
+      p.social_image_position_x, p.social_image_position_y,
+      ms.r2_key as social_image_r2_key,
+      ms.mime_type as social_image_mime_type,
+      ms.width as social_image_width,
+      ms.height as social_image_height,
       c.id as category_id,
       c.name as category_name,
       c.slug as category_slug,
@@ -91,6 +109,7 @@ export async function findArticleBySlug(env: Env, slug: string): Promise<Article
     JOIN categories c ON p.category_id = c.id
     LEFT JOIN authors a ON p.author_id = a.id
     LEFT JOIN media m ON p.cover_media_id = m.id
+    LEFT JOIN media ms ON p.social_image_media_id = ms.id
     LEFT JOIN media ma ON a.avatar_media_id = ma.id
     WHERE p.slug = ? AND p.status = 'published'
     LIMIT 1

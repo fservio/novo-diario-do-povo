@@ -7,6 +7,7 @@ import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
 import { escapeHtml, renderAdminIcon, renderAdminLayout, type AdminUser } from './ui'
 import { renderVisualEditor } from './visual-editor'
+import { renderSocialSharingPanel } from './social-sharing'
 import { renderMarkdownToHtml } from '../render/sanitize'
 import { z } from 'zod'
 import {
@@ -47,6 +48,12 @@ const postSchemaShape = {
   seo_description: z.string().max(500).optional(),
   seo_canonical: z.string().url().optional().or(z.literal('')),
   seo_noindex: z.coerce.number().int().min(0).max(1).optional(),
+  social_title: z.string().max(90).optional(),
+  social_description: z.string().max(220).optional(),
+  social_share_text: z.string().max(700).optional(),
+  social_image_media_id: z.union([z.coerce.number().int().positive(), z.null()]).optional(),
+  social_image_position_x: z.coerce.number().int().min(0).max(100).optional(),
+  social_image_position_y: z.coerce.number().int().min(0).max(100).optional(),
   is_premium: z.coerce.number().int().min(0).max(1).optional(),
   paywall_tier: z.enum(['free', 'metered', 'hard']).optional().or(z.literal('').transform((): string | undefined => undefined)),
   metering_exempt: z.coerce.number().int().min(0).max(1).optional(),
@@ -781,6 +788,8 @@ function renderPostFormPage(params: {
         </div>
       </div>
       
+      ${renderSocialSharingPanel({ post, csrfToken, cspNonce })}
+
       <!-- SEO -->
       <details style="margin-bottom: 1.5rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow: hidden;">
         <summary style="cursor: pointer; font-weight: 700; padding: 1rem; background: var(--bg-main); font-size: 0.875rem; display: flex; align-items: center; gap: 0.5rem;">

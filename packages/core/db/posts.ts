@@ -37,6 +37,14 @@ export interface Post {
   seo_canonical: string | null
   seo_noindex: number
 
+  // Distribuição social
+  social_title: string | null
+  social_description: string | null
+  social_share_text: string | null
+  social_image_media_id: number | null
+  social_image_position_x: number
+  social_image_position_y: number
+
   // Paywall
   is_premium: number
   paywall_tier: string | null
@@ -58,6 +66,11 @@ export interface Post {
   author_name?: string
   author_avatar_url?: string
   cover_media_url?: string
+  cover_media_credits?: string | null
+  social_image_url?: string | null
+  social_image_mime_type?: string | null
+  social_image_width?: number | null
+  social_image_height?: number | null
   tags?: string[]
 }
 
@@ -98,6 +111,12 @@ export interface CreatePostInput {
   seo_description?: string
   seo_canonical?: string
   seo_noindex?: number
+  social_title?: string
+  social_description?: string
+  social_share_text?: string
+  social_image_media_id?: number | null
+  social_image_position_x?: number
+  social_image_position_y?: number
   is_premium?: number
   paywall_tier?: string
   metering_exempt?: number
@@ -126,6 +145,12 @@ export interface UpdatePostInput {
   seo_description?: string
   seo_canonical?: string
   seo_noindex?: number
+  social_title?: string
+  social_description?: string
+  social_share_text?: string
+  social_image_media_id?: number | null
+  social_image_position_x?: number
+  social_image_position_y?: number
   is_premium?: number
   paywall_tier?: string
   metering_exempt?: number
@@ -304,11 +329,17 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
       c.name as category_name,
       a.name as author_name,
       ma.r2_key as author_avatar_url,
-      m.r2_key as cover_media_url
+      m.r2_key as cover_media_url,
+      m.credits as cover_media_credits,
+      sm.r2_key as social_image_url,
+      sm.mime_type as social_image_mime_type,
+      sm.width as social_image_width,
+      sm.height as social_image_height
     FROM posts p
     LEFT JOIN categories c ON c.id = p.category_id
     LEFT JOIN authors a ON a.id = p.author_id
     LEFT JOIN media m ON m.id = p.cover_media_id
+    LEFT JOIN media sm ON sm.id = p.social_image_media_id
     LEFT JOIN media ma ON ma.id = a.avatar_media_id
     ${whereClause}
     ORDER BY p.created_at DESC
@@ -332,11 +363,17 @@ export async function getPostById(db: D1Database, id: number): Promise<Post | nu
       c.name as category_name,
       a.name as author_name,
       ma.r2_key as author_avatar_url,
-      m.r2_key as cover_media_url
+      m.r2_key as cover_media_url,
+      m.credits as cover_media_credits,
+      sm.r2_key as social_image_url,
+      sm.mime_type as social_image_mime_type,
+      sm.width as social_image_width,
+      sm.height as social_image_height
     FROM posts p
     LEFT JOIN categories c ON c.id = p.category_id
     LEFT JOIN authors a ON a.id = p.author_id
     LEFT JOIN media m ON m.id = p.cover_media_id
+    LEFT JOIN media sm ON sm.id = p.social_image_media_id
     LEFT JOIN media ma ON ma.id = a.avatar_media_id
     WHERE p.id = ?
     LIMIT 1
@@ -367,11 +404,17 @@ export async function getPostBySlug(db: D1Database, slug: string): Promise<Post 
       c.name as category_name,
       a.name as author_name,
       ma.r2_key as author_avatar_url,
-      m.r2_key as cover_media_url
+      m.r2_key as cover_media_url,
+      m.credits as cover_media_credits,
+      sm.r2_key as social_image_url,
+      sm.mime_type as social_image_mime_type,
+      sm.width as social_image_width,
+      sm.height as social_image_height
     FROM posts p
     LEFT JOIN categories c ON c.id = p.category_id
     LEFT JOIN authors a ON a.id = p.author_id
     LEFT JOIN media m ON m.id = p.cover_media_id
+    LEFT JOIN media sm ON sm.id = p.social_image_media_id
     LEFT JOIN media ma ON ma.id = a.avatar_media_id
     WHERE p.slug = ?
     LIMIT 1
@@ -438,6 +481,12 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
     input.seo_description || null,
     input.seo_canonical || null,
     input.seo_noindex || 0,
+    input.social_title || null,
+    input.social_description || null,
+    input.social_share_text || null,
+    input.social_image_media_id || null,
+    input.social_image_position_x ?? 50,
+    input.social_image_position_y ?? 50,
     input.is_premium || 0,
     input.paywall_tier || null,
     input.metering_exempt || 0,
@@ -454,9 +503,11 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
       category_id, author_id, cover_media_id, template, status, views,
       opinion_type, opinion_featured,
       seo_title, seo_description, seo_canonical, seo_noindex,
+      social_title, social_description, social_share_text, social_image_media_id,
+      social_image_position_x, social_image_position_y,
       is_premium, paywall_tier, metering_exempt, is_live, is_headline, original_link,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(...bindValues).run()
 
   const postId = result.meta.last_row_id
@@ -622,6 +673,36 @@ export async function updatePost(db: D1Database, id: number, input: UpdatePostIn
   if (input.breaking_until !== undefined) {
     fields.push('breaking_until = ?')
     values.push(input.breaking_until || null)
+  }
+
+  if (input.social_title !== undefined) {
+    fields.push('social_title = ?')
+    values.push(input.social_title || null)
+  }
+
+  if (input.social_description !== undefined) {
+    fields.push('social_description = ?')
+    values.push(input.social_description || null)
+  }
+
+  if (input.social_share_text !== undefined) {
+    fields.push('social_share_text = ?')
+    values.push(input.social_share_text || null)
+  }
+
+  if (input.social_image_media_id !== undefined) {
+    fields.push('social_image_media_id = ?')
+    values.push(input.social_image_media_id || null)
+  }
+
+  if (input.social_image_position_x !== undefined) {
+    fields.push('social_image_position_x = ?')
+    values.push(input.social_image_position_x)
+  }
+
+  if (input.social_image_position_y !== undefined) {
+    fields.push('social_image_position_y = ?')
+    values.push(input.social_image_position_y)
   }
 
   fields.push('updated_at = ?')

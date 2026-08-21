@@ -1,4 +1,5 @@
 import { escapeAttr, escapeHtml } from './layout'
+import { renderSocialMetaTags, type SocialMeta } from './social'
 
 export type EditorialNavItem = {
   label: string
@@ -191,6 +192,7 @@ export function renderEditorialLayout(params: {
   nonce: string
   canonicalUrl?: string
   ogImage?: string
+  openGraph?: SocialMeta
   extraHeadHtml?: string
   extraScriptsHtml?: string
   googleAnalyticsId?: string
@@ -200,6 +202,18 @@ export function renderEditorialLayout(params: {
   const canonical = params.canonicalUrl || `${params.baseUrl}/`
   const description = params.description || `Notícias, análises e serviço público no ${params.siteName}`
   const ogImage = params.ogImage || `${params.baseUrl}/static/logo-dp.png`
+  const openGraph = params.openGraph || {
+    title: params.title,
+    description,
+    url: canonical,
+    siteName: params.siteName,
+    type: 'website' as const,
+    image: {
+      url: ogImage,
+      secureUrl: ogImage,
+      alt: params.siteName
+    }
+  }
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -209,17 +223,10 @@ export function renderEditorialLayout(params: {
   <title>${escapeHtml(params.title)}</title>
   <meta name="description" content="${escapeAttr(description)}">
   <link rel="canonical" href="${escapeAttr(canonical)}">
-  <meta property="og:locale" content="pt_BR">
-  <meta property="og:site_name" content="${escapeAttr(params.siteName)}">
-  <meta property="og:title" content="${escapeAttr(params.title)}">
-  <meta property="og:description" content="${escapeAttr(description)}">
-  <meta property="og:url" content="${escapeAttr(canonical)}">
-  <meta property="og:image" content="${escapeAttr(ogImage)}">
-  <meta property="og:type" content="website">
-  <meta name="twitter:card" content="summary_large_image">
+  ${renderSocialMetaTags(openGraph)}
   <meta name="theme-color" content="#123d5a">
   ${params.lcpPreloadUrl ? `<link rel="preload" as="image" href="${escapeAttr(params.lcpPreloadUrl)}"${params.lcpSrcSet ? ` imagesrcset="${escapeAttr(params.lcpSrcSet)}" imagesizes="(max-width: 760px) 100vw, 760px"` : ''} fetchpriority="high">` : ''}
-  <link rel="stylesheet" href="/static/editorial.css?v=20260821-opinion1">
+  <link rel="stylesheet" href="/static/editorial.css?v=20260821-social1">
   ${params.extraHeadHtml || ''}
   ${params.googleAnalyticsId ? `
     <script async src="https://www.googletagmanager.com/gtag/js?id=${escapeAttr(params.googleAnalyticsId)}"></script>

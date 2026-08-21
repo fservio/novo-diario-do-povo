@@ -17,6 +17,13 @@ import { getActiveCategories } from '../db/categories-cache'
 import { renderEditorialLayout } from './layout-editorial'
 import { renderEditorialArticleCard } from './components/editorial-card'
 import { renderEditorialAd } from './components/editorial-ad'
+import {
+  appendSiteName,
+  buildArticleShareMessage,
+  buildTrackedShareUrl,
+  normalizeSocialSiteName,
+  type SocialMeta
+} from './social'
 
 // ============================================================================
 // Helpers
@@ -106,7 +113,7 @@ function renderArticleCard(post: RelatedPost, baseUrl: string, options?: { isLar
   `
 }
 
-function renderArticleHeader(post: ArticlePost, readingTime: number): string {
+function renderArticleHeader(post: ArticlePost, readingTime: number, shareToolbar: string): string {
   const isEditorial = post.author_type === 'editorial'
   const isColumnist = post.author_type === 'columnist'
   const isContributor = post.author_type === 'contributor'
@@ -160,6 +167,7 @@ function renderArticleHeader(post: ArticlePost, readingTime: number): string {
         <span class="text-gray-300">•</span>
         <span>${readingTime} min de leitura</span>
       </div>
+      ${shareToolbar}
 
       <!-- Columnist Biography / Branded Section -->
       ${isColumnist ? `
@@ -434,21 +442,129 @@ function renderRelatedPosts(posts: RelatedPost[], baseUrl: string): string {
 // JSON-LD Helpers
 // ============================================================================
 
-function generateOGTags(post: ArticlePost, baseUrl: string): string {
-  const imageUrl = post.featured_image_r2_key
-    ? `${baseUrl}/i/${post.featured_image_r2_key}`
-    : `${baseUrl}/static/default-og.jpg`
+export function buildArticleSocialMeta(
+  post: ArticlePost,
+  baseUrl: string,
+  siteName: string,
+  canonicalUrl: string
+): SocialMeta {
+  const toIsoDate = (value: string | null | undefined) => {
+    if (!value) return null
+    const normalized = value.includes('T') ? value : `${value.replace(' ', 'T')}Z`
+    const date = new Date(normalized)
+    return Number.isNaN(date.getTime()) ? value : date.toISOString()
+  }
+  const brandName = normalizeSocialSiteName(siteName)
+  const socialTitle = appendSiteName(post.social_title || post.seo_title || post.title, brandName)
+  const socialDescription = post.social_description || post.seo_description || post.excerpt || post.title
+  const customImage = Boolean(post.social_image_r2_key)
+  const coverImage = Boolean(post.featured_image_r2_key)
+  const imageUrl = customImage
+    ? `${baseUrl}/i/${post.social_image_r2_key}`
+    : coverImage
+      ? `${baseUrl}/i/${post.featured_image_r2_key}?w=1200&h=630&fit=cover&q=90`
+      : `${baseUrl}/static/logo-dp.png`
+
+  return {
+    title: socialTitle,
+    description: socialDescription,
+    url: canonicalUrl,
+    siteName: brandName,
+    type: 'article',
+    image: {
+      url: imageUrl,
+      secureUrl: imageUrl,
+      type: customImage ? post.social_image_mime_type : coverImage ? null : 'image/png',
+      width: customImage ? post.social_image_width || 1200 : coverImage ? 1200 : null,
+      height: customImage ? post.social_image_height || 630 : coverImage ? 630 : null,
+      alt: customImage ? `Arte de compartilhamento: ${post.title}` : post.featured_image_alt || post.title
+    },
+    article: {
+      publishedTime: toIsoDate(post.published_at),
+      modifiedTime: toIsoDate(post.updated_at),
+      section: post.category_name
+    }
+  }
+}
+
+function renderArticleShareToolbar(post: ArticlePost, baseUrl: string, siteName: string): string {
+  const brandName = normalizeSocialSiteName(siteName)
+  const cleanUrl = getPostUrl(post, baseUrl)
+  const whatsappUrl = buildTrackedShareUrl(cleanUrl, 'whatsapp')
+  const nativeUrl = buildTrackedShareUrl(cleanUrl, 'native')
+  const copyUrl = buildTrackedShareUrl(cleanUrl, 'copy')
+  const title = post.social_title || post.title
+  const description = post.social_description || post.excerpt || ''
+  const whatsappMessage = buildArticleShareMessage({
+    title,
+    description,
+    url: whatsappUrl,
+    siteName: brandName,
+    template: post.social_share_text
+  })
 
   return `
-    <meta property="og:type" content="article">
-    <meta property="og:title" content="${escapeAttr(post.title)}">
-    <meta property="og:description" content="${escapeAttr(post.excerpt || post.title)}">
-    <meta property="og:url" content="${getPostUrl(post, baseUrl)}">
-    <meta property="og:image" content="${escapeAttr(imageUrl)}">
-    <meta property="article:published_time" content="${post.published_at}">
-    <meta property="article:section" content="${escapeAttr(post.category_name)}">
-    <meta name="twitter:card" content="summary_large_image">
+    <div class="ed-article-sharebar" aria-label="Compartilhar esta matéria" data-article-sharebar data-post-id="${post.id}">
+      <span class="ed-article-sharebar__label">Compartilhe</span>
+      <div class="ed-article-sharebar__actions">
+        <a class="ed-share-action ed-share-action--whatsapp" href="https://wa.me/?text=${encodeURIComponent(whatsappMessage)}" target="_blank" rel="noopener noreferrer" data-share-channel="whatsapp" aria-label="Compartilhar no WhatsApp">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.04 2a9.84 9.84 0 0 0-8.4 14.98L2 22l5.2-1.6A9.98 9.98 0 1 0 12.04 2Zm5.8 14.08c-.24.68-1.42 1.3-1.96 1.38-.5.1-1.12.14-1.8-.08-.42-.14-.96-.32-1.66-.62-2.92-1.26-4.82-4.2-4.96-4.4-.14-.2-1.18-1.56-1.18-2.98 0-1.42.74-2.12 1-2.42.26-.3.58-.38.78-.38h.56c.18 0 .42-.06.66.5.24.58.84 2.04.9 2.18.08.14.12.3.02.5-.1.2-.14.32-.28.48-.14.16-.3.36-.42.48-.14.14-.28.3-.12.58.16.3.72 1.18 1.54 1.92 1.06.94 1.94 1.22 2.22 1.36.28.14.44.12.6-.08.18-.2.76-.88.96-1.18.2-.3.4-.24.68-.14.28.1 1.78.84 2.08.98.3.16.5.22.58.34.08.12.08.7-.16 1.38Z"/></svg>
+          <span>WhatsApp</span>
+        </a>
+        <button class="ed-share-action" type="button" data-share-action="native" data-share-url="${escapeAttr(nativeUrl)}" data-share-title="${escapeAttr(title)}" data-share-text="${escapeAttr(`Leia no ${brandName}.`)}" aria-label="Abrir opções de compartilhamento">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a3 3 0 1 0-2.83-4 3 3 0 0 0 .14 1.18L8.91 8.6a3 3 0 1 0 0 6.8l6.4 3.42A3 3 0 1 0 16.25 17l-6.4-3.42c.1-.38.1-.78 0-1.16L16.25 9c.5.62 1.12 1 1.75 1Z"/></svg>
+          <span>Enviar</span>
+        </button>
+        <button class="ed-share-action" type="button" data-share-action="copy" data-share-url="${escapeAttr(copyUrl)}" aria-label="Copiar link da matéria">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7a5 5 0 0 1 5-5h4a5 5 0 0 1 0 10h-2v-2h2a3 3 0 1 0 0-6h-4a3 3 0 0 0-3 3v2H8V7Zm3 4h2v2h-2v-2Zm-4 1h2v2H7a3 3 0 1 0 0 6h4a3 3 0 0 0 3-3v-2h2v2a5 5 0 0 1-5 5H7a5 5 0 0 1 0-10Z"/></svg>
+          <span>Copiar link</span>
+        </button>
+      </div>
+      <span class="ed-article-sharebar__feedback" data-share-feedback aria-live="polite"></span>
+    </div>
   `
+}
+
+function renderArticleShareScript(nonce: string): string {
+  return `<script nonce="${escapeAttr(nonce)}">
+    (() => {
+      const sharebar = document.querySelector('[data-article-sharebar]');
+      if (!sharebar) return;
+      const feedback = sharebar.querySelector('[data-share-feedback]');
+      const postId = sharebar.getAttribute('data-post-id');
+      const track = (method) => {
+        if (typeof window.gtag === 'function') window.gtag('event', 'article_share', { method, post_id: postId });
+        else {
+          window.dataLayer = window.dataLayer || [];
+          window.dataLayer.push({ event: 'article_share', method, post_id: postId });
+        }
+      };
+      const nativeButton = sharebar.querySelector('[data-share-action="native"]');
+      if (nativeButton && !navigator.share) nativeButton.hidden = true;
+      sharebar.addEventListener('click', async (event) => {
+        const channelLink = event.target.closest('[data-share-channel]');
+        if (channelLink) { track(channelLink.dataset.shareChannel); return; }
+        const button = event.target.closest('[data-share-action]');
+        if (!button) return;
+        const action = button.dataset.shareAction;
+        try {
+          if (action === 'native' && navigator.share) {
+            await navigator.share({ title: button.dataset.shareTitle, text: button.dataset.shareText, url: button.dataset.shareUrl });
+            track('native');
+          }
+          if (action === 'copy') {
+            await navigator.clipboard.writeText(button.dataset.shareUrl);
+            feedback.textContent = 'Link copiado';
+            setTimeout(() => { feedback.textContent = ''; }, 2400);
+            track('copy');
+          }
+        } catch (error) {
+          if (error && error.name === 'AbortError') return;
+          feedback.textContent = 'Não foi possível compartilhar';
+        }
+      });
+    })();
+  </script>`
 }
 
 // ============================================================================
@@ -487,6 +603,9 @@ export async function renderArticlePage(
 
   const nonce = c.get('cspNonce') || ''
   const canonicalUrl = post.seo_canonical || getPostUrl(post, baseUrl)
+  const openGraph = buildArticleSocialMeta(post, baseUrl, siteName, canonicalUrl)
+  const shareToolbar = renderArticleShareToolbar(post, baseUrl, siteName)
+  const shareScript = renderArticleShareScript(nonce)
 
   // Use passed contentSource (teaser) OR full content
   const contentRaw = contentSource || post.content_markdown || post.content || ''
@@ -574,7 +693,6 @@ export async function renderArticlePage(
   const extraHeadHtml = `
     ${preloadHeadHtml}
     ${post.seo_noindex ? '<meta name="robots" content="noindex, follow">' : ''}
-    ${generateOGTags(post, baseUrl)}
     <script type="application/ld+json" nonce="${nonce}">
       ${articleJsonLd}
     </script>
@@ -610,6 +728,7 @@ export async function renderArticlePage(
           <span>Publicado em ${escapeHtml(formatDate(post.published_at))}, às ${escapeHtml(formatTime(post.published_at))}</span>
           <span>${readingTime} min de leitura</span>
         </div>
+        ${shareToolbar}
         ${opinionType === 'column' ? `
           <a class="ed-article-column-signature" href="/coluna/${escapeAttr(post.author_slug || '')}">
             <span class="ed-article-column-signature__portrait">
@@ -698,6 +817,8 @@ export async function renderArticlePage(
       navItems,
       bodyHtml,
       extraHeadHtml,
+      extraScriptsHtml: shareScript,
+      openGraph,
       baseUrl,
       googleAnalyticsId
     })
@@ -708,7 +829,7 @@ export async function renderArticlePage(
       <!-- Ad: Top -->
       ${adTopHtml ? `<div class="container mb-8">${adTopHtml}</div>` : ''}
       
-      ${renderArticleHeader(post, readingTime)}
+      ${renderArticleHeader(post, readingTime, shareToolbar)}
       
       <!-- Content -->
       ${isLiveBlog ? renderLiveBlogTimeline(liveUpdates, post.is_live === 1) : renderArticleContent(contentWithAds, isBlocked, nonce, post.author_type, accessCheck)}
@@ -769,6 +890,8 @@ export async function renderArticlePage(
     coverOfDay,
     bodyHtml,
     extraHeadHtml,
+    extraScriptsHtml: shareScript,
+    openGraph,
     theme,
     subscriber: options.accessCheck?.subscriber,
     googleAnalyticsId

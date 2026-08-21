@@ -496,6 +496,22 @@ select:focus-visible {
 .ed-article__rail h2 { margin: 0 0 14px; font-size: 12px; letter-spacing: .07em; text-transform: uppercase; }
 .ed-share { display: flex; flex-direction: column; gap: 8px; }
 .ed-share a { padding: 9px 0; border-bottom: 1px solid var(--ed-line); color: var(--ed-navy); font-size: 12px; font-weight: 700; text-decoration: none; }
+
+.ed-article-sharebar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 22px; font-family: var(--ed-sans); }
+.ed-article-sharebar__label { color: var(--ed-muted); font-size: 10px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.ed-article-sharebar__actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.ed-share-action { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; gap: 7px; padding: 8px 12px; border: 1px solid var(--ed-line); border-radius: 999px; background: #fff; color: var(--ed-navy); font-family: var(--ed-sans); font-size: 11px; font-weight: 800; text-decoration: none; cursor: pointer; transition: border-color .18s ease,background .18s ease,transform .18s ease; }
+.ed-share-action:hover { border-color: var(--ed-navy); background: var(--ed-soft); transform: translateY(-1px); }
+.ed-share-action svg { width: 16px; height: 16px; fill: currentColor; }
+.ed-share-action--whatsapp { border-color: #b6dbc2; background: #edf8f0; color: #11763a; }
+.ed-share-action--whatsapp:hover { border-color: #11763a; background: #e1f4e7; }
+.ed-article-sharebar__feedback { min-width: 72px; color: #11763a; font-size: 11px; font-weight: 800; }
+@media (max-width: 640px) {
+  .ed-article-sharebar { align-items: flex-start; flex-direction: column; margin-top: 18px; }
+  .ed-article-sharebar__actions { width: 100%; }
+  .ed-share-action { flex: 1; padding-inline: 9px; }
+  .ed-share-action span { white-space: nowrap; }
+}
 .ed-related-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
 .ed-paywall { margin: 32px 0; padding: 34px; border-top: 5px solid var(--ed-red); background: var(--ed-soft); font-family: var(--ed-sans); text-align: center; }
 .ed-paywall h3 { margin: 0 0 10px; font-family: var(--ed-serif); font-size: 30px; }

@@ -4,6 +4,7 @@
  */
 
 import { renderScript } from '../admin/ui'
+import { renderSocialMetaTags, type SocialMeta } from './social'
 
 const STATIC_ASSET_VERSION = '20260504'
 
@@ -22,11 +23,13 @@ export type PublicLayoutParams = {
   coverOfDay?: { r2Key: string; alt: string; aspectRatio?: string } | null
   bodyHtml: string
   extraHeadHtml?: string  // JSON-LD scripts and OG tags
+  extraScriptsHtml?: string
   googleAnalyticsId?: string
   theme?: 'default' | 'minimal' | 'alltype'
   subscriber?: any
   lcpPreloadUrl?: string
   lcpSrcSet?: string
+  openGraph?: SocialMeta
 }
 
 // ============================================================================
@@ -153,6 +156,19 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     month: 'long',
     day: 'numeric'
   })
+  const defaultSocialImage = `${new URL(canonicalUrl).origin}/static/logo-dp.png`
+  const openGraph = params.openGraph || {
+    title,
+    description: description || `Notícias, análises e serviço público no ${siteName}`,
+    url: canonicalUrl,
+    siteName,
+    type: 'website' as const,
+    image: {
+      url: defaultSocialImage,
+      secureUrl: defaultSocialImage,
+      alt: siteName
+    }
+  }
 
   // Cover drawer JS (if cover exists)
   const drawerScript = coverOfDay ? renderScript(`
@@ -375,6 +391,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
   <title>${escapeHtml(title)}</title>
   ${description ? `<meta name="description" content="${escapeAttr(description)}">` : ''}
   <link rel="canonical" href="${escapeAttr(canonicalUrl)}">
+  ${renderSocialMetaTags(openGraph)}
   ${params.lcpPreloadUrl ? `
     <link rel="preload" as="image" href="${escapeAttr(params.lcpPreloadUrl)}" 
       ${params.lcpSrcSet ? `imagesrcset="${escapeAttr(params.lcpSrcSet)}"` : ''} 
@@ -696,6 +713,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
   ` : ''}
   
   ${headerScript}
+  ${params.extraScriptsHtml || ''}
   
   
   </div>

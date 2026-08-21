@@ -195,6 +195,12 @@ app.post('/api/n8n/posts', async (c) => {
       template: body.template || 'article',
       seo_title: body.seo_title,
       seo_description: body.seo_description,
+      social_title: body.social_title,
+      social_description: body.social_description,
+      social_share_text: body.social_share_text,
+      social_image_media_id: body.social_image_media_id,
+      social_image_position_x: body.social_image_position_x,
+      social_image_position_y: body.social_image_position_y,
       is_premium: body.is_premium || 0,
       seo_noindex: body.seo_noindex || 0,
       is_headline: body.is_headline || 0,
@@ -603,7 +609,7 @@ app.use('/admin/posts/*', async (c, next) => {
   return csrfProtection(c, next)
 })
 app.use('/api/admin/posts/*', async (c, next) => {
-  if (!/^\/api\/admin\/posts\/\d+\/autosave$/.test(c.req.path)) return next()
+  if (!/^\/api\/admin\/posts\/\d+\/(autosave|social-card)$/.test(c.req.path)) return next()
   const { csrfProtection } = await import('../packages/core/middleware')
   return csrfProtection(c, next)
 })
@@ -1237,7 +1243,8 @@ app.post('/admin/posts', async (c) => {
         author_id: authorId,
         tags,
         opinion_featured: formData.opinion_featured ? 1 : 0,
-        cover_media_id: formData.cover_media_id ? parseInt(String(formData.cover_media_id)) : undefined
+        cover_media_id: formData.cover_media_id ? parseInt(String(formData.cover_media_id)) : undefined,
+        social_image_media_id: formData.social_image_media_id ? parseInt(String(formData.social_image_media_id)) : undefined
       })
       console.log('[POST /admin/posts] Zod validation passed')
     } catch (zodError) {
@@ -1378,12 +1385,24 @@ app.post('/admin/posts/:id', async (c) => {
       }
     }
 
+    let socialImageMediaId: number | null | undefined = undefined
+    if (formData.social_image_media_id !== undefined && formData.social_image_media_id !== null) {
+      const value = String(formData.social_image_media_id).trim()
+      if (value === '' || value === '0') {
+        socialImageMediaId = null
+      } else {
+        const parsed = parseInt(value)
+        if (!isNaN(parsed) && parsed > 0) socialImageMediaId = parsed
+      }
+    }
+
     const data = updatePostSchema.parse({
       ...formData,
       author_id: authorId,
       tags,
       opinion_featured: formData.opinion_featured ? 1 : 0,
-      cover_media_id: coverMediaId
+      cover_media_id: coverMediaId,
+      social_image_media_id: socialImageMediaId
     })
 
     console.log('[DEBUG] parsed data.cover_media_id:', data.cover_media_id)
@@ -1450,6 +1469,96 @@ app.post('/api/admin/posts/:id{[0-9]+}/autosave', async (c) => {
     }
     console.error('[Admin Posts] Autosave error:', error)
     return c.json({ success: false, error: error instanceof Error ? error.message : 'Falha no salvamento automático.' }, 400)
+  }
+})
+
+// POST /api/admin/posts/:id/social-card - Salva a arte Open Graph gerada no CMS
+app.post('/api/admin/posts/:id{[0-9]+}/social-card', async (c) => {
+  const { createMedia, extractImageDimensions } = await import('../packages/core/db/media')
+  const { getPostById, updatePost } = await import('../packages/core/db/posts')
+  const { logAudit } = await import('../packages/core/db')
+
+  const id = parseInt(c.req.param('id'))
+  const user = c.get('adminUser')
+  const post = await getPostById(c.env.DB, id)
+  if (!post) return c.json({ success: false, error: 'Matéria não encontrada.' }, 404)
+
+  try {
+    const formData = await c.req.formData()
+    const fileEntry = formData.get('file')
+    if (!fileEntry || typeof fileEntry === 'string') {
+      return c.json({ success: false, error: 'Arquivo da arte não enviado.' }, 400)
+    }
+
+    const file = fileEntry as File
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      return c.json({ success: false, error: 'A arte deve ser JPEG ou PNG.' }, 400)
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      return c.json({ success: false, error: 'A arte ultrapassa o limite de 4 MB.' }, 400)
+    }
+
+    const bytes = await file.arrayBuffer()
+    const dimensions = extractImageDimensions(bytes, file.type)
+    if (!dimensions || dimensions.width !== 1200 || dimensions.height !== 630) {
+      return c.json({ success: false, error: 'A arte deve ter exatamente 1200 × 630 pixels.' }, 400)
+    }
+
+    const random = Array.from(crypto.getRandomValues(new Uint8Array(8)))
+      .map(value => value.toString(16).padStart(2, '0'))
+      .join('')
+    const extension = file.type === 'image/png' ? 'png' : 'jpg'
+    const r2Key = `social/posts/${id}/${Date.now()}-${random}.${extension}`
+    await c.env.R2.put(r2Key, bytes, {
+      httpMetadata: { contentType: file.type },
+      customMetadata: { postId: String(id), purpose: 'open-graph' }
+    })
+
+    let mediaId: number
+    try {
+      mediaId = await createMedia(c.env, {
+        r2_key: r2Key,
+        filename: `diario-do-povo-og-${id}.${extension}`,
+        mime_type: file.type,
+        size_bytes: file.size,
+        width: 1200,
+        height: 630,
+        alt: `Arte de compartilhamento: ${post.title}`,
+        credits: post.cover_media_credits || undefined,
+        uploaded_by_user_id: user.id
+      })
+    } catch (error) {
+      await c.env.R2.delete(r2Key)
+      throw error
+    }
+
+    const clampPosition = (value: unknown) => {
+      const number = Number(value)
+      return Number.isFinite(number) ? Math.max(0, Math.min(100, Math.round(number))) : 50
+    }
+    await updatePost(c.env.DB, id, {
+      social_image_media_id: mediaId,
+      social_title: String(formData.get('social_title') || '').trim().slice(0, 90),
+      social_description: String(formData.get('social_description') || '').trim().slice(0, 220),
+      social_share_text: String(formData.get('social_share_text') || '').trim().slice(0, 700),
+      social_image_position_x: clampPosition(formData.get('social_image_position_x')),
+      social_image_position_y: clampPosition(formData.get('social_image_position_y'))
+    })
+
+    await logAudit(c.env, {
+      entityType: 'post',
+      entityId: id,
+      action: 'social_card_generated',
+      actorType: 'user',
+      actorId: user.id,
+      details: { mediaId, width: 1200, height: 630 },
+      requestId: c.get('requestId')
+    })
+
+    return c.json({ success: true, media_id: mediaId, url: `/i/${r2Key}` })
+  } catch (error) {
+    console.error('[Admin Posts] Social card error:', error)
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Falha ao gerar a arte.' }, 500)
   }
 })
 
