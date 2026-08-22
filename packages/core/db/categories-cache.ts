@@ -43,8 +43,9 @@ export async function getActiveCategories(env: Env): Promise<Category[]> {
             }
         })
 
-        // Store in cache (fire and forget - don't block on cache write)
-        await cache.put(cacheKey, response.clone())
+        cache.put(cacheKey, response.clone()).catch((error) => {
+            console.error('[getActiveCategories] Error writing categories cache:', error)
+        })
 
         return categories
     } catch (error) {

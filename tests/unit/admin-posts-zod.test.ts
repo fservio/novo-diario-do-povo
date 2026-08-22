@@ -76,6 +76,11 @@ describe('Admin Posts Zod Validation', () => {
         cover_media_id: 5,
         seo_title: 'SEO Title',
         seo_description: 'SEO Description',
+        social_title: 'Título para compartilhamento',
+        social_description: 'Resumo para compartilhamento.',
+        social_share_text: '{{title}} — leia no {{journal}}: {{url}}',
+        social_image_position_x: 45,
+        social_image_position_y: 60,
         is_premium: 1,
         paywall_tier: 'metered',
         tags: [1, 2, 3],
@@ -93,6 +98,26 @@ describe('Admin Posts Zod Validation', () => {
     it('rejeita template inválido', () => {
       const invalid = { ...basePost(), template: 'invalid' as any }
       const result = createPostSchema.safeParse(invalid)
+      expect(result.success).toBe(false)
+    })
+
+    it('classifica formatos da editoria de Opinião', () => {
+      const formats = ['editorial', 'article', 'column'] as const
+
+      formats.forEach(opinion_type => {
+        const result = createPostSchema.safeParse({ ...basePost(), opinion_type, opinion_featured: 1 })
+        expect(result.success).toBe(true)
+      })
+    })
+
+    it('usa notícia como formato editorial padrão', () => {
+      const result = createPostSchema.safeParse(basePost())
+      expect(result.success).toBe(true)
+      if (result.success) expect(result.data.opinion_type).toBe('news')
+    })
+
+    it('rejeita formato editorial desconhecido', () => {
+      const result = createPostSchema.safeParse({ ...basePost(), opinion_type: 'release' })
       expect(result.success).toBe(false)
     })
 

@@ -4,6 +4,44 @@
 
 import { describe, it, expect } from 'vitest'
 import { renderPublicLayout, type PublicLayoutParams } from '../../packages/core/web/layout'
+import { renderEditorialLayout } from '../../packages/core/web/layout-editorial'
+import { renderEditorialArticleCard } from '../../packages/core/web/components/editorial-card'
+
+describe('Editorial 2026 public system', () => {
+  it('renders an institutional masthead, navigation and accessible main landmark', () => {
+    const html = renderEditorialLayout({
+      title: 'Notícias — Diário do Povo',
+      description: 'Cobertura local independente.',
+      canonicalUrl: 'https://example.com/',
+      baseUrl: 'https://example.com',
+      siteName: 'Diário do Povo',
+      nonce: 'nonce-123',
+      navItems: [{ label: 'Política', href: '/categoria/politica', active: true }],
+      bodyHtml: '<article>Conteúdo</article>'
+    })
+
+    expect(html).toContain('/static/editorial.css')
+    expect(html).toContain('class="ed-container ed-masthead"')
+    expect(html).toContain('aria-current="page"')
+    expect(html).toContain('id="conteudo"')
+    expect(html).toContain('nonce="nonce-123"')
+  })
+
+  it('renders responsive editorial cards without inventing image placeholders', () => {
+    const html = renderEditorialArticleCard({
+      title: 'Câmara aprova novo plano para a cidade',
+      hat: 'Política',
+      excerpt: 'A proposta segue agora para sanção.',
+      url: '/noticia/plano-da-cidade',
+      size: 'lead'
+    })
+
+    expect(html).toContain('ed-story--lead')
+    expect(html).toContain('Câmara aprova novo plano')
+    expect(html).not.toContain('<img')
+    expect(html).not.toContain('placeholder')
+  })
+})
 
 describe('renderPublicLayout', () => {
   it('should include cover drawer elements when coverOfDay is provided', () => {
@@ -63,14 +101,15 @@ describe('renderPublicLayout', () => {
     expect(html).toContain('Test Content')
   })
 
-  it('should include navigation items', () => {
+  it('should include categories in navigation', () => {
     const params: PublicLayoutParams = {
       title: 'Test Page',
       canonicalUrl: 'https://example.com/test',
       siteName: 'Test Site',
-      navItems: [
-        { label: 'Brasil', href: '/categoria/brasil' },
-        { label: 'Economia', href: '/categoria/economia', active: true }
+      navItems: [],
+      categories: [
+        { id: 1, name: 'Brasil', slug: 'brasil' },
+        { id: 2, name: 'Economia', slug: 'economia' }
       ],
       bodyHtml: '<div>Test Content</div>'
     }
@@ -98,34 +137,96 @@ describe('renderPublicLayout', () => {
     expect(html).toContain('<meta property="og:type" content="article">')
   })
 
-  it('should render guardian theme CSS when theme is guardian', () => {
+  it('should render minimal theme CSS when theme is minimal', () => {
     const params: PublicLayoutParams = {
       title: 'Test Page',
       canonicalUrl: 'https://example.com/test',
       siteName: 'Test Site',
       navItems: [],
       bodyHtml: '<div>Test Content</div>',
-      theme: 'guardian'
+      theme: 'minimal'
     }
 
     const html = renderPublicLayout(params)
 
-    expect(html).toContain('<link href="/static/guardian.css" rel="stylesheet"')
-    expect(html).not.toContain('<link href="/static/styles.css" rel="stylesheet"')
+    expect(html).toContain('<link href="/static/minimal.css?v=')
+    expect(html).toContain('class="theme-minimal"')
   })
 
-  it('should render default theme CSS when theme is default or missing', () => {
+  it('should render alltype theme CSS when theme is alltype', () => {
     const params: PublicLayoutParams = {
       title: 'Test Page',
       canonicalUrl: 'https://example.com/test',
       siteName: 'Test Site',
       navItems: [],
-      bodyHtml: '<div>Test Content</div>'
+      bodyHtml: '<div>Test Content</div>',
+      theme: 'alltype'
     }
 
     const html = renderPublicLayout(params)
 
-    expect(html).toContain('<link href="/static/styles.css" rel="stylesheet"')
-    expect(html).not.toContain('<link href="/static/guardian.css" rel="stylesheet"')
+    expect(html).toContain('<link href="/static/alltype.css?v=')
+    expect(html).toContain('class="theme-alltype"')
+  })
+
+  it('should fallback to minimal theme CSS when theme is invalid, default or missing', () => {
+    const params: PublicLayoutParams = {
+      title: 'Test Page',
+      canonicalUrl: 'https://example.com/test',
+      siteName: 'Test Site',
+      navItems: [],
+      bodyHtml: '<div>Test Content</div>',
+      theme: 'invalid-theme-name' as any
+    }
+
+    const html = renderPublicLayout(params)
+
+    expect(html).toContain('<link href="/static/minimal.css?v=')
+    expect(html).toContain('class="theme-minimal"')
+  })
+
+  it('should preserve critical layout IDs', () => {
+    const params: PublicLayoutParams = {
+      title: 'Test Page',
+      canonicalUrl: 'https://example.com/test',
+      siteName: 'Test Site',
+      navItems: [],
+      bodyHtml: '<div>Test Content</div>',
+      coverOfDay: {
+        r2Key: 'test-cover.jpg',
+        alt: 'Test Cover'
+      }
+    }
+
+    const html = renderPublicLayout(params)
+
+    expect(html).toContain('id="mainContent"')
+    expect(html).toContain('id="coverBtn"')
+    expect(html).toContain('id="coverOverlay"')
+    expect(html).toContain('id="coverPanel"')
+    expect(html).toContain('id="coverClose"')
+  })
+})
+
+describe('Homepage theme integrations', () => {
+  it('should conditionalize homepage images based on isAllType', () => {
+    const fs = require('fs')
+    const path = require('path')
+    const homeCode = fs.readFileSync(path.join(__dirname, '../../packages/core/web/home.ts'), 'utf-8')
+    
+    expect(homeCode).toContain('isAllType')
+    expect(homeCode).toContain('renderHeroSection(data.hero, data.hotRail || [], baseUrl, isAllType)')
+    expect(homeCode).toContain('renderRadarSection(radarPosts, baseUrl, isAllType)')
+    expect(homeCode).toContain('renderCategorySection(block, baseUrl, i, isAllType)')
+  })
+
+  it('should route the rejected AllType V2 setting to the editorial theme', () => {
+    const fs = require('fs')
+    const path = require('path')
+    const homeCode = fs.readFileSync(path.join(__dirname, '../../packages/core/web/home.ts'), 'utf-8')
+    
+    expect(homeCode).toContain("themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2' || themeSetting === 'minimal'")
+    expect(homeCode).toContain('renderEditorialLayout')
+    expect(homeCode).toContain('renderEditorialArticleCard')
   })
 })

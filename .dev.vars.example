@@ -61,9 +61,24 @@ ADSENSE_CLIENT_ID=
 # Google Ad Manager
 GAM_NETWORK_CODE=
 
-# Newsletter Provider (mailchimp|sendgrid|internal)
-NEWSLETTER_PROVIDER=internal
+# Newsletter Provider (smtp para Hostinger)
+NEWSLETTER_PROVIDER=smtp
 NEWSLETTER_API_KEY=
+SMTP_HOST=smtp.hostinger.com
+SMTP_PORT=465
+SMTP_USERNAME=newsletter@seu-dominio.com.br
+SMTP_PASSWORD=
+SMTP_FROM_EMAIL=newsletter@seu-dominio.com.br
+SMTP_FROM_NAME=Diário do Povo
+# Reserva 20 mensagens do limite real de 100/24h para testes e contingências.
+NEWSLETTER_DAILY_LIMIT=80
+
+# ==============================================================================
+# OpenAI - Redação IA
+# Configure como segredo no Cloudflare em produção. Nunca exponha no navegador.
+# ==============================================================================
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-5.6-terra
 
 # Stripe (se usar pagamentos diretos além de Asaas)
 STRIPE_SECRET_KEY=

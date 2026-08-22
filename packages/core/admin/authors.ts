@@ -1,440 +1,200 @@
-/**
- * Admin Authors Management
- * CRUD for authors and columnists
- */
+/** Gestão de autores, colunistas e perfis editoriais. */
 
 import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
 import { z } from 'zod'
 import { escapeHtml, renderAdminLayout, type AdminUser } from './ui'
 import {
-  listActiveAuthors,
-  findAuthorById,
+  listAuthorsForAdmin,
+  getAdminAuthorById,
   createAuthor,
   updateAuthor,
-  type Author,
-  type CreateAuthorInput,
-  type UpdateAuthorInput
+  setAuthorActive,
+  deleteAuthor,
+  type AdminAuthor,
+  type ListAuthorsAdminFilters,
 } from '../db/authors'
 
-// ============================================================================
-// Zod Schemas
-// ============================================================================
-
-const createAuthorSchema = z.object({
-  name: z.string().min(2).max(255),
-  slug: z.string().min(2).max(255).optional(), // Optional, auto-generated if empty
-  email: z.string().email().optional().or(z.literal('')),
-  bio: z.string().optional(),
-  avatar_media_id: z.string().transform(val => val ? parseInt(val) : undefined).optional(),
-  social_twitter: z.string().optional(),
-  social_instagram: z.string().optional(),
-  social_linkedin: z.string().optional(),
-  author_type: z.enum(['staff', 'columnist', 'editorial', 'contributor']).default('staff'),
-  is_columnist: z.string().transform(val => val === '1').optional(),
-  column_name: z.string().optional(),
-  column_description: z.string().optional(),
+const authorSchema = z.object({
+  name: z.string().min(2, 'Informe o nome do autor.').max(255),
+  slug: z.string().max(255).optional().default(''),
+  email: z.string().email('Informe um e-mail válido.').optional().or(z.literal('')),
+  bio: z.string().max(3000).optional().default(''),
+  avatar_media_id: z.coerce.number().int().positive().optional().or(z.literal('')),
+  social_twitter: z.string().max(255).optional().default(''),
+  social_instagram: z.string().max(255).optional().default(''),
+  social_linkedin: z.string().max(500).optional().default(''),
+  author_type: z.enum(['staff', 'columnist', 'editorial', 'contributor']),
+  column_name: z.string().max(255).optional().default(''),
+  column_description: z.string().max(1000).optional().default(''),
 })
 
-const updateAuthorSchema = z.object({
-  name: z.string().min(2).max(255).optional(),
-  slug: z.string().min(2).max(255).optional(),
-  email: z.string().email().optional().or(z.literal('')),
-  bio: z.string().optional(),
-  avatar_media_id: z.string().transform(val => val ? parseInt(val) : undefined).optional(),
-  social_twitter: z.string().optional(),
-  social_instagram: z.string().optional(),
-  social_linkedin: z.string().optional(),
-  author_type: z.enum(['staff', 'columnist', 'editorial', 'contributor']).optional(),
-  is_columnist: z.string().transform(val => val === '1').optional(),
-  column_name: z.string().optional(),
-  column_description: z.string().optional(),
-})
-
-// ============================================================================
-// Render Functions
-// ============================================================================
-
-function renderAuthorsList(authors: Author[], csrfToken: string): string {
-  const rows = authors.map(author => {
-    const isColumnistBadge = author.is_columnist
-      ? '<span style="display: inline-flex; align-items: center; justify-content: center; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; background: var(--accent-soft); color: var(--accent);">Colunista</span>'
-      : ''
-
-    return `
-      <tr>
-        <td>
-          <div style="font-weight: 700;">${escapeHtml(author.name)}</div>
-          ${author.email ? `<div style="font-size: 0.8125rem; color: var(--text-muted);">${escapeHtml(author.email)}</div>` : ''}
-        </td>
-        <td>
-          ${isColumnistBadge}
-          ${author.column_name ? `<div style="font-size: 0.8125rem; font-weight: 600; margin-top: 0.25rem;">${escapeHtml(author.column_name)}</div>` : ''}
-        </td>
-        <td style="color: var(--text-muted); font-size: 0.875rem;">
-          ${author.social_instagram ? 'IG ' : ''}
-          ${author.social_twitter ? 'TW ' : ''}
-          ${author.social_linkedin ? 'LI' : ''}
-        </td>
-        <td>
-          <a href="/admin/authors/${author.id}" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color);">
-            Editar
-          </a>
-        </td>
-      </tr>
-    `
-  }).join('')
-
-  return `
-    <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
-      <div>
-        <h1 class="section-title" style="margin: 0;">Autores e Colunistas</h1>
-        <p style="color: var(--text-muted); margin-top: 0.5rem;">Gerencie a equipe editorial e as colunas de opinião.</p>
-      </div>
-      <a href="/admin/authors/new" class="btn">
-        <span>+</span> Novo Autor
-      </a>
-    </div>
-
-    <div class="card" style="padding: 0; overflow: hidden;">
-      <table>
-        <thead>
-          <tr>
-            <th style="width: 50px;">ID</th>
-            <th>Nome / Email</th>
-            <th>Tipo / Coluna</th>
-            <th>Redes</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${authors.map(author => `
-            <tr>
-              <td><code style="background: var(--bg-main); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8125rem; font-weight: 700; color: var(--text-muted);">#${author.id}</code></td>
-              <td>
-                <div style="font-weight: 700;">${escapeHtml(author.name)}</div>
-                ${author.email ? `<div style="font-size: 0.8125rem; color: var(--text-muted);">${escapeHtml(author.email)}</div>` : ''}
-              </td>
-              <td>
-                ${author.author_type === 'columnist'
-      ? '<span style="display: inline-flex; align-items: center; justify-content: center; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; background: var(--accent-soft); color: var(--accent);">Colunista</span>'
-      : author.author_type === 'editorial'
-        ? '<span style="display: inline-flex; align-items: center; justify-content: center; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; background: #e0f2fe; color: #0369a1;">Editorial</span>'
-        : author.author_type === 'contributor'
-          ? '<span style="display: inline-flex; align-items: center; justify-content: center; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; background: #fef3c7; color: #92400e;">Artigo Opinião</span>'
-          : '<span style="display: inline-flex; align-items: center; justify-content: center; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; background: var(--bg-main); color: var(--text-muted);">Autor</span>'}
-                ${author.column_name ? `<div style="font-size: 0.8125rem; font-weight: 600; margin-top: 0.25rem;">${escapeHtml(author.column_name)}</div>` : ''}
-              </td>
-              <td style="color: var(--text-muted); font-size: 0.875rem;">
-                ${author.social_instagram ? 'IG ' : ''}
-                ${author.social_twitter ? 'TW ' : ''}
-                ${author.social_linkedin ? 'LI' : ''}
-              </td>
-              <td>
-                <a href="/admin/authors/${author.id}" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color);">
-                  Editar
-                </a>
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-  `
+const typeLabels: Record<string, string> = {
+  staff: 'Equipe', columnist: 'Colunista', editorial: 'Editorial', contributor: 'Articulista',
 }
 
-function renderAuthorForm(author: Author | null, csrfToken: string, error?: string): string {
-  const isEdit = !!author
-  const title = isEdit ? 'Editar Autor' : 'Novo Autor'
-  const isColumnist = author?.is_columnist === 1
+function slugify(value: string): string {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'autor'
+}
 
-  const errorHTML = error ? `
-    <div class="error" style="margin-bottom: 2rem; padding: 1.25rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: var(--radius-md); color: #ef4444; font-weight: 500;">
-      ⚠️ ${escapeHtml(error)}
-    </div>
-  ` : ''
+function notice(message?: string, error?: string): string {
+  if (error) return `<div class="management-notice management-notice--error" role="alert">${escapeHtml(error)}</div>`
+  if (message) return `<div class="management-notice" role="status">${escapeHtml(message)}</div>`
+  return ''
+}
 
-  const formAction = isEdit ? `/admin/authors/${author!.id}` : '/admin/authors'
+function authorTypeBadge(type: string): string {
+  return `<span class="management-badge management-badge--author-${escapeHtml(type)}">${escapeHtml(typeLabels[type] || type)}</span>`
+}
+
+function statusBadge(active: number): string {
+  return `<span class="management-status ${active ? 'is-active' : 'is-inactive'}"><i></i>${active ? 'Ativo' : 'Arquivado'}</span>`
+}
+
+function renderAuthorsList(authors: AdminAuthor[], filters: ListAuthorsAdminFilters, csrfToken: string, message?: string, error?: string): string {
+  const rows = authors.map(author => `
+    <tr>
+      <td data-label="Autor"><div class="management-person"><span class="management-avatar management-avatar--editorial">${escapeHtml(author.name).split(/\s+/).slice(0, 2).map(part => part[0] || '').join('').toUpperCase()}</span><span><strong>${escapeHtml(author.name)}</strong><small>${escapeHtml(author.column_name || author.email || `/${author.slug}`)}</small></span></div></td>
+      <td data-label="Perfil">${authorTypeBadge(author.author_type)}</td>
+      <td data-label="Produção"><strong>${Number(author.post_count || 0)}</strong> <span class="management-muted">matéria(s)</span></td>
+      <td data-label="Acesso">${author.user_id ? `<a class="management-author-link" href="/admin/users/${author.user_id}">${escapeHtml(author.linked_user_name || author.linked_user_email || 'Conta vinculada')}</a><small class="management-block">${author.linked_user_active ? 'Acesso ativo' : 'Acesso suspenso'}</small>` : '<span class="management-muted">Perfil editorial</span>'}</td>
+      <td data-label="Status">${statusBadge(author.is_active)}</td>
+      <td data-label="Ações"><div class="management-actions"><a href="/admin/authors/${author.id}" class="btn btn-outline btn-compact">Editar</a>${author.slug !== 'redacao' ? `<form method="POST" action="/admin/authors/${author.id}/${author.is_active ? 'disable' : 'enable'}"><input type="hidden" name="csrf" value="${csrfToken}"><button class="btn btn-compact ${author.is_active ? 'btn-muted' : 'btn-success'}" type="submit">${author.is_active ? 'Arquivar' : 'Reativar'}</button></form>` : ''}</div></td>
+    </tr>
+  `).join('')
 
   return `
-    <div style="max-width: 800px;">
-      <div style="margin-bottom: 2rem;">
-        <a href="/admin/authors" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem; font-weight: 600; display: flex; align-items: center; gap: 0.25rem;">
-          ← Voltar para a lista
-        </a>
-        <h1 class="section-title" style="margin-top: 0.5rem;">${title}</h1>
-      </div>
-
-      ${errorHTML}
-
-      <form method="POST" action="${formAction}">
-        <input type="hidden" name="csrf_token" value="${csrfToken}" />
-        
-        <div class="grid grid-2" style="gap: 2rem; align-items: start;">
-          <!-- Basic Info -->
-          <div class="card">
-            <h2 style="font-size: 1.125rem; font-weight: 700; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
-              👤 Informações Básicas
-            </h2>
-
-            <div class="form-group">
-              <label>Nome Completo *</label>
-              <input type="text" name="name" class="form-control" value="${escapeHtml(author?.name || '')}" required placeholder="Nome do autor" />
-            </div>
-
-            <div class="form-group">
-              <label>Email (Opcional)</label>
-              <input type="email" name="email" class="form-control" value="${escapeHtml(author?.email || '')}" placeholder="contato@exemplo.com" />
-              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500;">Visível apenas internamente, a menos que especificado.</div>
-            </div>
-
-            <div class="form-group">
-              <label>Slug (URL) </label>
-              <input type="text" name="slug" class="form-control" value="${escapeHtml(author?.slug || '')}" placeholder="nome-sobrenome (automático se vazio)" style="font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem; background: #f8fafc;" />
-            </div>
-
-            <div class="form-group">
-              <label>Biografia Curta</label>
-              <textarea name="bio" class="form-control" rows="4" placeholder="Breve descrição do autor...">${escapeHtml(author?.bio || '')}</textarea>
-            </div>
-            
-            <div class="form-group">
-              <label>Foto do Autor (ID)</label>
-              <div style="display: flex; gap: 0.75rem;">
-                <input type="number" name="avatar_media_id" id="avatar_media_id" class="form-control" value="${author?.avatar_media_id || ''}" placeholder="ID" style="width: 100px;" />
-                <a href="/admin/media" target="_blank" class="btn btn-outline" style="padding: 0 1.25rem; display: flex; align-items: center;">Galeria ↗</a>
-              </div>
-            </div>
-          </div>
-
-          <!-- Social & Columnist -->
-          <div style="display: flex; flex-direction: column; gap: 2rem;">
-            
-            <!-- Column Type & Settings -->
-            <div class="card" style="border-left: 4px solid var(--accent);">
-              <h2 style="font-size: 1.125rem; font-weight: 700; margin-bottom: 1.5rem; margin-top: 0; color: var(--accent);">
-                📰 Tipo e Layout
-              </h2>
-              
-              <div class="form-group">
-                <label>Padrão Editorial</label>
-                <select name="author_type" id="author_type_select" class="form-control" onchange="toggleAuthorFields()" style="font-weight: 700;">
-                  <option value="staff" ${author?.author_type === 'staff' ? 'selected' : ''}>✒️ Redação / Staff</option>
-                  <option value="columnist" ${author?.author_type === 'columnist' ? 'selected' : ''}>👤 Colunista (Opinião)</option>
-                  <option value="editorial" ${author?.author_type === 'editorial' ? 'selected' : ''}>🏛️ Editorial (Voz do Jornal)</option>
-                  <option value="contributor" ${author?.author_type === 'contributor' ? 'selected' : ''}>🤝 Artigo de Opinião (Colaborador)</option>
-                </select>
-                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Isso define o layout automático do post.</div>
-              </div>
-
-              <!-- Hidden Checkbox for backward compatibility -->
-              <input type="hidden" name="is_columnist" id="is_columnist_hidden" value="${author?.author_type === 'columnist' ? '1' : '0'}" />
-
-              <div id="column_fields" style="display: ${author?.author_type === 'columnist' ? 'block' : 'none'}; padding-top: 1rem; border-top: 1px dotted var(--border-color); margin-top: 1rem;">
-                <div class="form-group">
-                  <label>Nome da Coluna</label>
-                  <input type="text" name="column_name" class="form-control" value="${escapeHtml(author?.column_name || '')}" placeholder="Ex: Ponto de Vista, Tech News..." />
-                </div>
-                
-                 <div class="form-group">
-                  <label>Descrição da Coluna</label>
-                  <textarea name="column_description" class="form-control" rows="3" placeholder="Sobre o que é esta coluna...">${escapeHtml(author?.column_description || '')}</textarea>
-                </div>
-              </div>
-
-              <div id="contributor_disclaimer" style="display: ${author?.author_type === 'contributor' ? 'block' : 'none'}; padding: 1rem; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 0.5rem; margin-top: 1rem;">
-                <div style="font-size: 0.8125rem; color: #92400e; font-weight: 600;">
-                  💡 <strong>Artigo de Opinião:</strong> Será exibido um disclaimer ao final do post indicando que a autoria é externa.
-                </div>
-              </div>
-
-              <script>
-                function toggleAuthorFields() {
-                  const select = document.getElementById('author_type_select');
-                  const columnistFields = document.getElementById('column_fields');
-                  const contributorFields = document.getElementById('contributor_disclaimer');
-                  const legacyHidden = document.getElementById('is_columnist_hidden');
-                  
-                  columnistFields.style.display = select.value === 'columnist' ? 'block' : 'none';
-                  contributorFields.style.display = select.value === 'contributor' ? 'block' : 'none';
-                  legacyHidden.value = select.value === 'columnist' ? '1' : '0';
-                }
-              </script>
-            </div>
-
-            <!-- Social Media -->
-            <div class="card">
-              <h2 style="font-size: 1.125rem; font-weight: 700; margin-bottom: 1.5rem; margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
-                🌐 Redes Sociais
-              </h2>
-              
-              <div class="form-group">
-                <label>Instagram</label>
-                <div style="position: relative;">
-                  <span style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #94a3b8; font-weight: 700;">@</span>
-                  <input type="text" name="social_instagram" class="form-control" value="${escapeHtml(author?.social_instagram || '')}" style="padding-left: 2.25rem;" placeholder="usuario" />
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label>Twitter / X</label>
-                <div style="position: relative;">
-                  <span style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #94a3b8; font-weight: 700;">@</span>
-                  <input type="text" name="social_twitter" class="form-control" value="${escapeHtml(author?.social_twitter || '')}" style="padding-left: 2.25rem;" placeholder="usuario" />
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label>LinkedIn URL</label>
-                <input type="text" name="social_linkedin" class="form-control" value="${escapeHtml(author?.social_linkedin || '')}" placeholder="https://linkedin.com/in/..." />
-              </div>
-            </div>
-            
-          </div>
-        </div>
-
-        <div style="display: flex; gap: 1rem; margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 2rem;">
-          <button type="submit" class="btn" style="min-width: 150px;">
-             ${isEdit ? 'Salvar Alterações' : 'Criar Autor'}
-          </button>
-          <a href="/admin/authors" class="btn" style="background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); text-decoration: none;">
-            Cancelar
-          </a>
-        </div>
-
+    <section class="management-page">
+      <header class="management-heading"><div><span class="management-kicker">Identidade editorial</span><h1>Autores e colunistas</h1><p>Organize assinaturas, colunas, perfis institucionais e seus vínculos com a equipe.</p></div><a href="/admin/authors/new" class="btn">Novo perfil de autor</a></header>
+      ${notice(message, error)}
+      <div class="management-stats"><article><span>Perfis exibidos</span><strong>${authors.length}</strong></article><article><span>Perfis ativos</span><strong>${authors.filter(a => a.is_active === 1).length}</strong></article><article><span>Colunistas</span><strong>${authors.filter(a => a.author_type === 'columnist').length}</strong></article></div>
+      <form class="management-filters" method="GET" action="/admin/authors">
+        <label class="management-search"><span>Buscar</span><input class="form-control" type="search" name="q" value="${escapeHtml(filters.q || '')}" placeholder="Nome, e-mail ou coluna"></label>
+        <label><span>Perfil</span><select class="form-control" name="type"><option value="">Todos</option>${Object.entries(typeLabels).map(([value, label]) => `<option value="${value}" ${filters.author_type === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
+        <label><span>Status</span><select class="form-control" name="status"><option value="">Todos</option><option value="active" ${filters.active === true ? 'selected' : ''}>Ativos</option><option value="inactive" ${filters.active === false ? 'selected' : ''}>Arquivados</option></select></label>
+        <button class="btn btn-outline" type="submit">Filtrar</button><a class="management-clear" href="/admin/authors">Limpar</a>
       </form>
-    </div>
+      <div class="management-table-wrap"><table class="management-table"><thead><tr><th>Autor</th><th>Perfil</th><th>Produção</th><th>Acesso</th><th>Status</th><th>Ações</th></tr></thead><tbody>${rows || '<tr><td colspan="6" class="management-empty">Nenhum perfil encontrado.</td></tr>'}</tbody></table></div>
+    </section>
   `
 }
 
-// ============================================================================
-// Handlers
-// ============================================================================
+function renderAuthorForm(author: AdminAuthor | null, csrfToken: string, error?: string, message?: string): string {
+  const isEdit = Boolean(author)
+  const canDelete = Boolean(author && author.slug !== 'redacao' && !author.user_id && Number(author.post_count || 0) === 0)
+  return `
+    <section class="management-page management-page--narrow">
+      <a class="management-back" href="/admin/authors">← Autores e colunistas</a>
+      <header class="management-heading"><div><span class="management-kicker">${isEdit ? 'Perfil editorial' : 'Nova assinatura'}</span><h1>${isEdit ? escapeHtml(author!.name) : 'Novo perfil de autor'}</h1><p>Defina como a autoria será apresentada nas matérias e páginas de opinião.</p></div>${author ? statusBadge(author.is_active) : ''}</header>
+      ${notice(message, error)}
+      <form method="POST" action="${isEdit ? `/admin/authors/${author!.id}` : '/admin/authors'}">
+        <div class="management-author-grid">
+          <div class="card management-form"><div class="management-card-title"><span>Identidade pública</span></div>
+            <div class="form-group"><label for="author-name">Nome de exibição</label><input id="author-name" class="form-control" name="name" value="${escapeHtml(author?.name || '')}" required maxlength="255"></div>
+            <div class="management-inline-fields"><div class="form-group"><label for="author-email">E-mail interno</label><input id="author-email" class="form-control" type="email" name="email" value="${escapeHtml(author?.email || '')}"></div><div class="form-group"><label for="author-slug">Endereço público</label><input id="author-slug" class="form-control" name="slug" value="${escapeHtml(author?.slug || '')}" placeholder="gerado automaticamente"></div></div>
+            <div class="form-group"><label for="author-bio">Biografia</label><textarea id="author-bio" class="form-control" name="bio" rows="6" maxlength="3000" placeholder="Experiência, área de cobertura e contexto profissional.">${escapeHtml(author?.bio || '')}</textarea></div>
+            <div class="form-group"><label for="author-avatar">Foto na biblioteca (ID)</label><div class="management-media-field"><input id="author-avatar" class="form-control" type="number" min="1" name="avatar_media_id" value="${author?.avatar_media_id || ''}" placeholder="ID"><a class="btn btn-outline" href="/admin/media" target="_blank" rel="noopener">Abrir biblioteca</a></div></div>
+          </div>
+          <div class="management-side-stack">
+            <div class="card management-form"><div class="management-card-title"><span>Função editorial</span></div><div class="form-group"><label for="author-type">Tipo de perfil</label><select id="author-type" class="form-control" name="author_type" onchange="document.getElementById('column-settings').hidden=this.value!=='columnist'">${Object.entries(typeLabels).map(([value, label]) => `<option value="${value}" ${author?.author_type === value || (!author && value === 'staff') ? 'selected' : ''}>${label}</option>`).join('')}</select></div><div id="column-settings" ${author?.author_type === 'columnist' ? '' : 'hidden'}><div class="form-group"><label>Nome da coluna</label><input class="form-control" name="column_name" value="${escapeHtml(author?.column_name || '')}"></div><div class="form-group"><label>Descrição da coluna</label><textarea class="form-control" name="column_description" rows="4">${escapeHtml(author?.column_description || '')}</textarea></div></div></div>
+            <div class="card management-form"><div class="management-card-title"><span>Presença digital</span></div><div class="form-group"><label>Instagram</label><input class="form-control" name="social_instagram" value="${escapeHtml(author?.social_instagram || '')}" placeholder="usuario"></div><div class="form-group"><label>X / Twitter</label><input class="form-control" name="social_twitter" value="${escapeHtml(author?.social_twitter || '')}" placeholder="usuario"></div><div class="form-group"><label>LinkedIn</label><input class="form-control" name="social_linkedin" value="${escapeHtml(author?.social_linkedin || '')}" placeholder="https://linkedin.com/in/..."></div></div>
+            ${author?.user_id ? `<article class="card management-access-card"><div class="management-card-title"><span>Acesso vinculado</span></div><p><strong>${escapeHtml(author.linked_user_name || author.name)}</strong><br>${escapeHtml(author.linked_user_email || '')}</p><a href="/admin/users/${author.user_id}">Gerenciar conta e permissões →</a></article>` : ''}
+          </div>
+        </div>
+        <input type="hidden" name="csrf" value="${csrfToken}"><div class="management-form-actions"><button class="btn" type="submit">${isEdit ? 'Salvar perfil' : 'Criar perfil'}</button><a class="btn btn-outline" href="/admin/authors">Cancelar</a></div>
+      </form>
+      ${author ? `<div class="management-lifecycle"><article class="card management-access-action"><div><strong>${author.is_active ? 'Arquivar perfil' : 'Reativar perfil'}</strong><p>${author.is_active ? 'Remove o autor das seleções futuras, preservando matérias e páginas existentes.' : 'Disponibiliza novamente o autor para novas publicações.'}</p></div>${author.slug === 'redacao' ? '<span class="management-self">Perfil institucional protegido.</span>' : `<form method="POST" action="/admin/authors/${author.id}/${author.is_active ? 'disable' : 'enable'}"><input type="hidden" name="csrf" value="${csrfToken}"><button class="btn ${author.is_active ? 'btn-danger' : 'btn-success'}" type="submit">${author.is_active ? 'Arquivar perfil' : 'Reativar perfil'}</button></form>`}</article><article class="card management-danger"><span class="management-kicker">Zona de segurança</span><h2>Excluir perfil</h2><p>${author.slug === 'redacao' ? 'A autoria institucional Redação é permanente.' : author.user_id ? 'Este perfil pertence a uma conta da equipe. Gerencie o acesso vinculado.' : Number(author.post_count || 0) > 0 ? `Há ${author.post_count} matéria(s) assinada(s). Arquive o perfil para preservar a autoria.` : 'Disponível porque este perfil não possui matérias nem conta vinculada.'}</p>${canDelete ? `<form method="POST" action="/admin/authors/${author.id}/delete"><input type="hidden" name="csrf" value="${csrfToken}"><label>Confirme digitando o nome do autor<input class="form-control" name="confirmation" required autocomplete="off" placeholder="${escapeHtml(author.name)}"></label><button class="btn btn-danger" type="submit">Excluir perfil definitivamente</button></form>` : ''}</article></div>` : ''}
+    </section>
+  `
+}
 
-/**
- * GET /admin/authors - List authors
- */
+function page(c: Context<{ Bindings: Env; Variables: AppContext }>, title: string, bodyHtml: string, status = 200) {
+  const user = c.get('adminUser') as AdminUser
+  const csrfToken = c.get('csrfToken') as string
+  return c.html(renderAdminLayout({ title, user, bodyHtml, activeTab: 'authors', csrfToken }), status as 200)
+}
+
+function parseId(c: Context): number | null {
+  const id = Number(c.req.param('id'))
+  return Number.isInteger(id) && id > 0 ? id : null
+}
+
+async function authorBody(c: Context<{ Bindings: Env; Variables: AppContext }>, id: number, error?: string, message?: string) {
+  const author = await getAdminAuthorById(c.env, id)
+  return author ? renderAuthorForm(author, c.get('csrfToken') as string, error, message) : null
+}
+
 export async function handleAuthorsList(c: Context<{ Bindings: Env; Variables: AppContext }>) {
-  const user = c.get('adminUser') as AdminUser
-  const csrfToken = c.get('csrfToken') as string
-
-  const authors = await listActiveAuthors(c.env)
-  const content = renderAuthorsList(authors, csrfToken)
-
-  return c.html(renderAdminLayout({
-    title: 'Autores',
-    user,
-    bodyHtml: content,
-    activeTab: 'authors', // We need to handle this in ui.ts
-    csrfToken
-  }))
+  const status = c.req.query('status')
+  const type = c.req.query('type')
+  const filters: ListAuthorsAdminFilters = { q: c.req.query('q')?.trim() || undefined, active: status === 'active' ? true : status === 'inactive' ? false : undefined, author_type: ['staff', 'columnist', 'editorial', 'contributor'].includes(type || '') ? type as AdminAuthor['author_type'] : undefined }
+  const authors = await listAuthorsForAdmin(c.env, filters)
+  return page(c, 'Autores e colunistas', renderAuthorsList(authors, filters, c.get('csrfToken') as string, c.req.query('message'), c.req.query('error')))
 }
 
-/**
- * GET /admin/authors/new - Create form
- */
 export async function handleAuthorsNew(c: Context<{ Bindings: Env; Variables: AppContext }>) {
-  const user = c.get('adminUser') as AdminUser
-  const csrfToken = c.get('csrfToken') as string
-
-  const content = renderAuthorForm(null, csrfToken)
-
-  return c.html(renderAdminLayout({
-    title: 'Novo Autor',
-    user,
-    bodyHtml: content,
-    activeTab: 'authors',
-    csrfToken
-  }))
+  return page(c, 'Novo autor', renderAuthorForm(null, c.get('csrfToken') as string))
 }
 
-/**
- * POST /admin/authors - Create action
- */
+function authorPayload(form: Record<string, string | File>) {
+  const data = authorSchema.parse(form)
+  return { name: data.name, slug: data.slug ? slugify(data.slug) : slugify(data.name), email: data.email || null, bio: data.bio || null, avatar_media_id: typeof data.avatar_media_id === 'number' ? data.avatar_media_id : null, social_twitter: data.social_twitter || null, social_instagram: data.social_instagram || null, social_linkedin: data.social_linkedin || null, author_type: data.author_type, is_columnist: data.author_type === 'columnist' ? 1 : 0, column_name: data.author_type === 'columnist' ? data.column_name || null : null, column_description: data.author_type === 'columnist' ? data.column_description || null : null }
+}
+
 export async function handleAuthorsCreate(c: Context<{ Bindings: Env; Variables: AppContext }>) {
-  const user = c.get('adminUser') as AdminUser
-  const csrfToken = c.get('csrfToken') as string
-
   try {
-    const formData = await c.req.parseBody()
-    const data = createAuthorSchema.parse(formData)
-
-    // Auto-generate slug if missing
-    const slug = data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-
-    await createAuthor(c.env, {
-      name: data.name,
-      slug,
-      email: data.email || null,
-      bio: data.bio || null,
-      avatar_media_id: data.avatar_media_id || null,
-      social_twitter: data.social_twitter || null,
-      social_instagram: data.social_instagram || null,
-      social_linkedin: data.social_linkedin || null,
-      is_active: 1,
-      is_columnist: data.author_type === 'columnist' ? 1 : 0,
-      author_type: data.author_type,
-      column_name: data.column_name || null,
-      column_description: data.column_description || null,
-    })
-
-    return c.redirect('/admin/authors', 303)
+    const form = await c.req.parseBody()
+    const id = await createAuthor(c.env, { ...authorPayload(form), is_active: 1 })
+    return c.redirect(`/admin/authors/${id}?message=${encodeURIComponent('Perfil de autor criado.')}`, 303)
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Erro ao criar autor'
-    const content = renderAuthorForm(null, csrfToken, errorMsg)
-    return c.html(renderAdminLayout({ bodyHtml: content, user, title: 'Erro', csrfToken }), 400)
+    return page(c, 'Novo autor', renderAuthorForm(null, c.get('csrfToken') as string, error instanceof Error ? error.message : 'Não foi possível criar o perfil.'), 400)
   }
 }
 
-/**
- * GET /admin/authors/:id - Edit form
- */
 export async function handleAuthorsEdit(c: Context<{ Bindings: Env; Variables: AppContext }>) {
-  const user = c.get('adminUser') as AdminUser
-  const csrfToken = c.get('csrfToken') as string
-  const id = parseInt(c.req.param('id'))
-
-  if (isNaN(id)) return c.notFound()
-
-  const author = await findAuthorById(c.env, id)
-  if (!author) return c.notFound()
-
-  const content = renderAuthorForm(author, csrfToken)
-
-  return c.html(renderAdminLayout({
-    title: `Editar ${author.name}`,
-    user,
-    bodyHtml: content,
-    activeTab: 'authors',
-    csrfToken
-  }))
+  const id = parseId(c)
+  if (!id) return c.notFound()
+  const body = await authorBody(c, id, c.req.query('error'), c.req.query('message'))
+  return body ? page(c, 'Editar autor', body) : c.notFound()
 }
 
-/**
- * POST /admin/authors/:id - Update action
- */
 export async function handleAuthorsUpdate(c: Context<{ Bindings: Env; Variables: AppContext }>) {
-  const user = c.get('adminUser') as AdminUser
-  const csrfToken = c.get('csrfToken') as string
-  const id = parseInt(c.req.param('id'))
-
-  if (isNaN(id)) return c.notFound()
-
+  const id = parseId(c)
+  if (!id) return c.notFound()
   try {
-    const formData = await c.req.parseBody()
-    const data = updateAuthorSchema.parse(formData)
-
-    await updateAuthor(c.env, id, {
-      ...data,
-      // Convert boolean check to 1/0 for update based on author_type
-      is_columnist: data.author_type === 'columnist' ? 1 : 0
-    })
-
-    return c.redirect('/admin/authors', 303)
+    await updateAuthor(c.env, id, authorPayload(await c.req.parseBody()))
+    return c.redirect(`/admin/authors/${id}?message=${encodeURIComponent('Perfil editorial atualizado.')}`, 303)
   } catch (error) {
-    const author = await findAuthorById(c.env, id)
-    const errorMsg = error instanceof Error ? error.message : 'Erro ao atualizar autor'
-    const content = renderAuthorForm(author, csrfToken, errorMsg)
-    return c.html(renderAdminLayout({ bodyHtml: content, user, title: 'Erro', csrfToken }), 400)
+    const body = await authorBody(c, id, error instanceof Error ? error.message : 'Não foi possível atualizar o perfil.')
+    return body ? page(c, 'Editar autor', body, 400) : c.notFound()
+  }
+}
+
+async function changeActive(c: Context<{ Bindings: Env; Variables: AppContext }>, active: boolean) {
+  const id = parseId(c)
+  if (!id) return c.notFound()
+  try {
+    await setAuthorActive(c.env, id, active)
+    return c.redirect(`/admin/authors/${id}?message=${encodeURIComponent(active ? 'Perfil reativado.' : 'Perfil arquivado; autoria e matérias foram preservadas.')}`, 303)
+  } catch (error) {
+    return c.redirect(`/admin/authors/${id}?error=${encodeURIComponent(error instanceof Error ? error.message : 'Não foi possível alterar o perfil.')}`, 303)
+  }
+}
+
+export const handleAuthorsDisable = (c: Context<{ Bindings: Env; Variables: AppContext }>) => changeActive(c, false)
+export const handleAuthorsEnable = (c: Context<{ Bindings: Env; Variables: AppContext }>) => changeActive(c, true)
+
+export async function handleAuthorsDelete(c: Context<{ Bindings: Env; Variables: AppContext }>) {
+  const id = parseId(c)
+  if (!id) return c.notFound()
+  const author = await getAdminAuthorById(c.env, id)
+  if (!author) return c.notFound()
+  try {
+    const form = await c.req.parseBody()
+    if (String(form.confirmation || '').trim().toLocaleLowerCase('pt-BR') !== author.name.trim().toLocaleLowerCase('pt-BR')) throw new Error('A confirmação não corresponde ao nome do autor.')
+    await deleteAuthor(c.env, id)
+    return c.redirect(`/admin/authors?message=${encodeURIComponent('Perfil de autor excluído.')}`, 303)
+  } catch (error) {
+    return c.redirect(`/admin/authors/${id}?error=${encodeURIComponent(error instanceof Error ? error.message : 'Não foi possível excluir o perfil.')}`, 303)
   }
 }

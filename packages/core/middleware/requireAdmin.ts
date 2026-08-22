@@ -7,6 +7,7 @@
 import type { Context, Next } from 'hono'
 import type { Env, AppContext } from '../types'
 import { verifyJWT } from '../auth'
+import { setCookie } from 'hono/cookie'
 
 export async function requireAdmin(c: Context<{ Bindings: Env; Variables: AppContext }>, next: Next): Promise<Response | void> {
   const path = c.req.path
@@ -78,10 +79,20 @@ export async function requireAdmin(c: Context<{ Bindings: Env; Variables: AppCon
     is_active: fullUser.is_active
   })
 
-  // Store CSRF token from cookie (no KV write per request)
-  if (csrfToken) {
-    c.set('csrfToken', csrfToken)
+  // Store CSRF token from cookie. Older valid sessions may not have the
+  // current cookie path; renew it transparently instead of breaking forms.
+  if (!csrfToken && payload.sid) {
+    const { generateCSRFToken } = await import('./security')
+    csrfToken = await generateCSRFToken(c.env, fullUser.id, payload.sid)
+    setCookie(c, 'admin_csrf', csrfToken, {
+      httpOnly: true,
+      secure: new URL(c.req.url).protocol === 'https:',
+      sameSite: 'Lax',
+      path: '/',
+      maxAge: 60 * 60
+    })
   }
+  if (csrfToken) c.set('csrfToken', csrfToken)
 
   await next()
 }

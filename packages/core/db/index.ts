@@ -89,7 +89,7 @@ export async function findPublishedPosts(
   }
 
   if (filters.tagId) {
-    query += ` AND p.id IN (SELECT post_id FROM post_tags WHERE tag_id = ?)`
+    query += ` AND p.id IN (SELECT post_id FROM posts_tags WHERE tag_id = ?)`
     bindings.push(filters.tagId)
   }
 
@@ -136,7 +136,7 @@ export async function countPublishedPosts(
   }
 
   if (filters.tagId) {
-    query += ` AND p.id IN (SELECT post_id FROM post_tags WHERE tag_id = ?)`
+    query += ` AND p.id IN (SELECT post_id FROM posts_tags WHERE tag_id = ?)`
     bindings.push(filters.tagId)
   }
 
@@ -166,7 +166,7 @@ export async function findPostWithRelations(env: Env, slug: string) {
   // Tags
   const tags = await env.DB.prepare(`
     SELECT t.* FROM tags t
-    INNER JOIN post_tags pt ON pt.tag_id = t.id
+    INNER JOIN posts_tags pt ON pt.tag_id = t.id
     WHERE pt.post_id = ?
   `).bind(post.id).all<Tag>()
 
@@ -376,28 +376,91 @@ export async function hasActiveSubscription(env: Env, readerUserId: number): Pro
 // Settings Repository
 // ============================================================================
 
-export async function getSetting(env: Env, key: string, scope: 'public' | 'private' = 'public'): Promise<any> {
-  // Try cache first
-  const cacheKey = `settings:${scope}:${key}`
-  const cached = await env.KV.get(cacheKey)
+// In-memory cache to avoid KV/DB roundtrips within the same isolate
+const settingsMemoryCache = new Map<string, { value: any; timestamp: number }>()
+const MEMORY_CACHE_TTL = 30000 // 30 seconds
+const KV_CACHE_TTL = 600 // 10 minutes in KV
 
-  if (cached) {
-    return JSON.parse(cached)
+export async function getSetting(env: Env, key: string, scope: 'public' | 'private' = 'public'): Promise<any> {
+  const results = await getSettings(env, [key], scope)
+  return results[key] ?? null
+}
+
+export async function getSettings(env: Env, keys: string[], scope: 'public' | 'private' = 'public'): Promise<Record<string, any>> {
+  const results: Record<string, any> = {}
+  const missingKeys: string[] = []
+
+  // 1. Memory Cache Check
+  for (const key of keys) {
+    const cacheKey = `settings:${scope}:${key}`
+    const memoized = settingsMemoryCache.get(cacheKey)
+    if (memoized && (Date.now() - memoized.timestamp) < MEMORY_CACHE_TTL) {
+      results[key] = memoized.value
+    } else {
+      missingKeys.push(key)
+    }
   }
 
-  // Fetch from DB
-  const result = await env.DB.prepare('SELECT value_json FROM settings WHERE key = ? AND scope = ?')
-    .bind(key, scope)
-    .first<{ value_json: string }>()
+  if (missingKeys.length === 0) return results
 
-  if (!result) return null
+  // 2. KV Cache Check (if available)
+  if (env.KV) {
+    const kvKeys = missingKeys.map(k => `settings:${scope}:${k}`)
+    const kvResults = await Promise.all(kvKeys.map(k => env.KV.get(k)))
+    
+    const stillMissing: string[] = []
+    kvResults.forEach((val, i) => {
+      const originalKey = missingKeys[i]
+      if (val) {
+        try {
+          const parsed = JSON.parse(val)
+          results[originalKey] = parsed
+          settingsMemoryCache.set(`settings:${scope}:${originalKey}`, { value: parsed, timestamp: Date.now() })
+        } catch {
+          stillMissing.push(originalKey)
+        }
+      } else {
+        stillMissing.push(originalKey)
+      }
+    })
 
-  const value = JSON.parse(result.value_json)
+    if (stillMissing.length === 0) return results
+    missingKeys.length = 0
+    missingKeys.push(...stillMissing)
+  }
 
-  // Cache for 5 minutes
-  await env.KV.put(cacheKey, result.value_json, { expirationTtl: 300 })
+  // 3. Database Fallback (Batch)
+  if (missingKeys.length > 0) {
+    const placeholders = missingKeys.map(() => '?').join(',')
+    const query = `SELECT key, value_json FROM settings WHERE scope = ? AND key IN (${placeholders})`
+    
+    try {
+      const dbResult = await env.DB.prepare(query)
+        .bind(scope, ...missingKeys)
+        .all<{ key: string; value_json: string }>()
 
-  return value
+      if (dbResult.results) {
+        for (const row of dbResult.results) {
+          try {
+            const value = JSON.parse(row.value_json)
+            results[row.key] = value
+            
+            const cacheKey = `settings:${scope}:${row.key}`
+            settingsMemoryCache.set(cacheKey, { value, timestamp: Date.now() })
+            if (env.KV) {
+              env.KV.put(cacheKey, row.value_json, { expirationTtl: KV_CACHE_TTL }).catch(() => {})
+            }
+          } catch (e) {
+            console.error(`[getSettings] JSON parse error for ${row.key}`, e)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[getSettings] Database error', error)
+    }
+  }
+
+  return results
 }
 
 export async function setSetting(
@@ -422,7 +485,8 @@ export async function setSetting(
 
   // Invalidate cache
   const cacheKey = `settings:${scope}:${key}`
-  await env.KV.delete(cacheKey)
+  settingsMemoryCache.delete(cacheKey)
+  if (env.KV) await env.KV.delete(cacheKey)
 }
 
 // ============================================================================

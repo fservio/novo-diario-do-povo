@@ -53,6 +53,9 @@ export function renderAdSlot(params: {
 
   const sizesStr = JSON.stringify(sizes)
   const isLazy = slot.lazy === 1 ? '1' : '0'
+  const isAdSenseInArticle = slot.provider === 'adsense' && (slot.name.includes('inread') || slot.adsense_format === 'in-article' || slot.adsense_format === 'fluid')
+  const adsenseFormat = isAdSenseInArticle ? 'fluid' : (slot.adsense_format || 'auto')
+  const adsenseLayout = isAdSenseInArticle ? 'in-article' : ''
 
   if (slot.provider === 'custom' && slot.custom_code) {
     return `<div class="ad-slot" 
@@ -61,6 +64,27 @@ export function renderAdSlot(params: {
       style="min-height: ${slot.min_height}px; display: block;"
     >
       ${slot.custom_code}
+    </div>`
+  }
+
+  if (slot.provider === 'adsense' && slot.adsense_slot_id) {
+    return `<div class="ad-slot ad-slot--adsense"
+      data-ad-slot="${escapeHtml(slot.name)}"
+      data-provider="adsense"
+      data-sizes='${sizesStr}'
+      data-lazy="${isLazy}"
+      data-adsense-slot="${escapeHtml(slot.adsense_slot_id)}"
+      data-adsense-format="${escapeHtml(adsenseFormat)}"
+      ${adsenseLayout ? `data-adsense-layout="${escapeHtml(adsenseLayout)}"` : ''}
+      style="min-height: ${slot.min_height}px; display: block; width: 100%; text-align: center;"
+    >
+      <ins class="adsbygoogle"
+        style="display: block; width: 100%; min-height: ${slot.min_height}px;"
+        data-ad-client=""
+        data-ad-slot="${escapeHtml(slot.adsense_slot_id)}"
+        data-ad-format="${escapeHtml(adsenseFormat)}"
+        ${adsenseLayout ? `data-ad-layout="${escapeHtml(adsenseLayout)}"` : ''}
+        data-full-width-responsive="true"></ins>
     </div>`
   }
 
@@ -138,10 +162,16 @@ export async function filterSlotsBySubscriberMode(
  * Generate client loader script
  */
 export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<string> {
-  const providerMode = await getSetting(env, 'ads.provider_mode', 'public') || 'off'
-  const consentEnabled = await getSetting(env, 'ads.consent.enabled', 'public') || false
-  const adsenseClientId = await getSetting(env, 'ads.adsense.client_id', 'public') || ''
-  const gamNetworkCode = await getSetting(env, 'ads.gam.network_code', 'public') || ''
+  const [providerModeRaw, consentEnabledRaw, adsenseClientIdRaw, gamNetworkCodeRaw] = await Promise.all([
+    getSetting(env, 'ads.provider_mode', 'public'),
+    getSetting(env, 'ads.consent.enabled', 'public'),
+    getSetting(env, 'ads.adsense.client_id', 'public'),
+    getSetting(env, 'ads.gam.network_code', 'public'),
+  ])
+  const providerMode = providerModeRaw || 'off'
+  const consentEnabled = consentEnabledRaw || false
+  const adsenseClientId = adsenseClientIdRaw || ''
+  const gamNetworkCode = gamNetworkCodeRaw || ''
 
   if (providerMode === 'off') {
     return '<!-- Ads disabled -->'
@@ -160,146 +190,128 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
     adsense: false,
     gam: false
   };
+  let adsenseReady = false;
+  let adsenseCallbacks = [];
+  let adsStarted = false;
+  const isMobileViewport = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
 
-  function checkConsent() {
-    if (!consentEnabled) return true;
-    return window.__consent === true;
-  }
-
-  function loadAdSenseScript() {
-    if (scriptsLoaded.adsense || !adsenseClientId) return;
-    if (!checkConsent()) return;
+  function loadAdSenseScript(callback) {
+    if (!adsenseClientId) return;
+    if (adsenseReady || window.adsbygoogle?.loaded) {
+      callback();
+      return;
+    }
+    adsenseCallbacks.push(callback);
+    if (scriptsLoaded.adsense) return;
     
     const script = document.createElement('script');
     script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + adsenseClientId;
     script.async = true;
     script.crossOrigin = 'anonymous';
+    script.onload = function() {
+      adsenseReady = true;
+      const callbacks = adsenseCallbacks.splice(0);
+      callbacks.forEach(function(fn) { fn(); });
+    };
+    script.onerror = function() {
+      adsenseCallbacks = [];
+    };
     document.head.appendChild(script);
     scriptsLoaded.adsense = true;
   }
 
   function loadGAMScript() {
     if (scriptsLoaded.gam || !gamNetworkCode) return;
-    if (!checkConsent()) return;
     
     const script = document.createElement('script');
     script.src = 'https://securepubads.g.doubleclick.net/tag/js/gpt.js';
     script.async = true;
     document.head.appendChild(script);
     scriptsLoaded.gam = true;
-    
     window.googletag = window.googletag || {cmd: []};
   }
 
   function initAdSlot(el) {
     const provider = el.dataset.provider;
     const name = el.dataset.adSlot;
-    
-    // Custom slots are handled directly by injected HTML, no loader needed unless they use adsense/gam internally
-    // If custom code contains adsbygoogle push, we might need to ensure library is loaded.
-    // For now, we assume custom code is self-sufficient or relies on global libs if present.
-    // But if custom code is just the <ins> tag, user might expect us to load adsense lib.
-    // Given the user request showed <script> + <ins> + <script>, it is self-sufficient.
-    if (provider === 'custom') return;
+    if (el.dataset.adInitialized === '1') return;
+    el.dataset.adInitialized = '1';
 
     if (provider === 'adsense' && (providerMode === 'adsense' || providerMode === 'both')) {
-      loadAdSenseScript();
-      loadAdSenseScript();
-      
-      // Initialize shim immediately if not present
       window.adsbygoogle = window.adsbygoogle || [];
-
-      // No need to wait for script load. The push() will act as a queue.
-      // We process immediately to ensure the <ins> tag is ready when the script runs.
-      const ins = document.createElement('ins');
+      let ins = el.querySelector('ins.adsbygoogle');
+      if (!ins) {
+        ins = document.createElement('ins');
+        el.appendChild(ins);
+      }
       ins.className = 'adsbygoogle';
       ins.style.display = 'block';
+      ins.style.width = '100%';
+      if (el.style.minHeight && !ins.style.minHeight) {
+        ins.style.minHeight = el.style.minHeight;
+      }
       ins.dataset.adClient = adsenseClientId;
       ins.dataset.adSlot = el.dataset.adsenseSlot || '';
-      ins.dataset.adFormat = el.dataset.adsenseFormat || 'auto';
-      ins.dataset.fullWidthResponsive = 'true'; // Default to true for responsiveness
-      
-      el.innerHTML = '';
-      el.appendChild(ins);
-      
-      try {
-        (window.adsbygoogle = window.adsbygoogle || []).push({});
-      } catch (e) {
-        console.error('AdSense push error:', e);
+      const adsenseFormat = el.dataset.adsenseFormat || 'auto';
+      const isInArticle = adsenseFormat === 'in-article' || el.dataset.adsenseLayout === 'in-article' || name.indexOf('inread') !== -1;
+      ins.dataset.adFormat = isInArticle ? 'fluid' : adsenseFormat;
+      if (isInArticle) {
+        ins.dataset.adLayout = 'in-article';
       }
+      ins.dataset.fullWidthResponsive = 'true';
+      loadAdSenseScript(function() {
+        try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (e) {}
+      });
     } else if (provider === 'gam' && (providerMode === 'gam' || providerMode === 'both')) {
       loadGAMScript();
-      setTimeout(() => {
-        if (window.googletag) {
-          googletag.cmd.push(function() {
-            const sizes = JSON.parse(el.dataset.sizes || '[[300,250]]');
-            const unitPath = el.dataset.gamUnit || '';
-            const targeting = el.dataset.gamTargeting ? JSON.parse(el.dataset.gamTargeting) : {};
-            
-            const slot = googletag.defineSlot('/' + gamNetworkCode + unitPath, sizes, name);
-            if (slot) {
-              for (const key in targeting) {
-                slot.setTargeting(key, targeting[key]);
-              }
-              slot.addService(googletag.pubads());
-              googletag.display(name);
-            }
-          });
+      googletag.cmd.push(function() {
+        const sizes = JSON.parse(el.dataset.sizes || '[[300,250]]');
+        const unitPath = el.dataset.gamUnit || '';
+        const slot = googletag.defineSlot('/' + gamNetworkCode + unitPath, sizes, name);
+        if (slot) {
+          slot.addService(googletag.pubads());
+          googletag.display(name);
         }
-      }, 100);
-    }
-  }
-
-  function observeAdSlots() {
-    const slots = document.querySelectorAll('.ad-slot');
-    
-    if ('IntersectionObserver' in window) {
-      const observer = new IntersectionObserver(function(entries) {
-        entries.forEach(function(entry) {
-          if (entry.isIntersecting && entry.target.dataset.lazy === '1') {
-            initAdSlot(entry.target);
-            observer.unobserve(entry.target);
-          } else if (entry.target.dataset.lazy === '0') {
-            initAdSlot(entry.target);
-          }
-        });
-      }, { rootMargin: '200px' });
-      
-      slots.forEach(function(slot) {
-        observer.observe(slot);
       });
-    } else {
-      // Fallback: load all immediately
-      slots.forEach(initAdSlot);
     }
   }
 
   function startAds() {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', observeAdSlots);
+    if (adsStarted) return;
+    adsStarted = true;
+    document.querySelectorAll('.ad-slot').forEach(initAdSlot);
+  }
+
+  function scheduleStartAds() {
+    if (!isMobileViewport) {
+      startAds();
+      return;
+    }
+
+    const startAfterLoad = function() {
+      setTimeout(startAds, 2500);
+    };
+
+    ['scroll', 'touchstart', 'pointerdown', 'keydown'].forEach(function(eventName) {
+      window.addEventListener(eventName, startAds, { once: true, passive: true });
+    });
+
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(startAds, { timeout: 4000 });
+    }
+
+    if (document.readyState === 'complete') {
+      startAfterLoad();
     } else {
-      observeAdSlots();
+      window.addEventListener('load', startAfterLoad, { once: true });
     }
   }
 
-  // Delay ads initialization until interaction or 4s
-  let adsStarted = false;
-  function initOnInteraction() {
-    if (adsStarted) return;
-    adsStarted = true;
-    startAds();
-    // Cleanup listeners
-    ['mousedown', 'mousemove', 'scroll', 'touchstart', 'keydown'].forEach(event => {
-      window.removeEventListener(event, initOnInteraction);
-    });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', scheduleStartAds);
+  } else {
+    scheduleStartAds();
   }
-
-  ['mousedown', 'mousemove', 'scroll', 'touchstart', 'keydown'].forEach(event => {
-    window.addEventListener(event, initOnInteraction, { once: true, passive: true });
-  });
-
-  // Fallback after 4s to ensure ads eventually show if no interaction
-  setTimeout(initOnInteraction, 4000);
 })();
 </script>`
 }

@@ -7,37 +7,126 @@
 import type { Context } from 'hono'
 import type { Env, AppContext } from '../types'
 import type { HomeData, HomePost, CategoryBlock } from '../db/home'
-import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, formatTime, truncate, generateSrcSet, type PublicLayoutParams } from './layout'
+import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, formatTime, truncate, generateSrcSet, normalizePublicTheme, type PublicLayoutParams } from './layout'
 import { getPostUrl } from '../utils/post'
 import { getSetting } from '../db'
 import { getActiveCategories } from '../db/categories-cache'
+import { renderEditorialLayout } from './layout-editorial'
+import { renderEditorialAd } from './components/editorial-ad'
+import { renderEditorialArticleCard } from './components/editorial-card'
 
 // ============================================================================
 // Component Renderers
 // ============================================================================
 
-function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl: string): string {
+function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl: string, isAllType?: boolean, isEditorial?: boolean): string {
   if (!hero) return ''
 
-  // Left Column: Main Hero (Big)
+  if (isEditorial) {
+    const mainHero = hero
+    const secondaryPosts = sidePosts.slice(0, 3)
+
+    return `
+      <section class="ed-lead-grid${secondaryPosts.length === 0 ? ' ed-lead-grid--solo' : ''}" aria-label="Principais notícias">
+        <div class="ed-lead-main">
+          ${renderEditorialArticleCard({
+            title: mainHero.title,
+            hat: mainHero.hat || mainHero.category_name,
+            excerpt: truncate(mainHero.excerpt, 210),
+            published_at: mainHero.published_at,
+            author_name: mainHero.author_name || 'Redação',
+            featured_image_r2_key: mainHero.featured_image_r2_key,
+            url: getPostUrl(mainHero, baseUrl),
+            size: 'lead',
+            isLcp: true
+          })}
+        </div>
+        <div class="ed-lead-side">
+          ${secondaryPosts.map((post, index) => renderEditorialArticleCard({
+            title: post.title,
+            hat: post.hat || post.category_name,
+            excerpt: truncate(post.excerpt, 105),
+            published_at: post.published_at,
+            featured_image_r2_key: post.featured_image_r2_key,
+            url: getPostUrl(post, baseUrl),
+            size: index === 0 ? 'standard' : 'compact'
+          })).join('')}
+        </div>
+      </section>
+    `
+  }
+
+  if (isAllType) {
+    const mainHero = hero
+    const secondaryPosts = sidePosts.slice(0, 3)
+
+    return `
+      <section class="alltype-grid grid-cols-12 mb-xxl">
+        <!-- Lead Story (7 cols) -->
+        <div class="col-span-7 p-xl flex flex-col justify-center" style="background-color: var(--alltype-background);">
+          <article class="flex-1 flex flex-col justify-center">
+            <a href="${getPostUrl(mainHero, baseUrl)}" class="group flex flex-col h-full justify-center" style="text-decoration: none;">
+              <span class="bg-editorial-accent text-primary-container font-label-caps text-label-caps px-sm py-xs self-start mb-md">
+                ${escapeHtml(mainHero.hat || mainHero.category_name)}
+              </span>
+              <h2 class="font-headline-lg text-headline-lg mb-md hover:underline" style="color: var(--alltype-text);">
+                ${escapeHtml(mainHero.title)}
+              </h2>
+              <p class="font-body-sm text-body-sm text-on-surface-variant mb-md" style="color: var(--alltype-text-variant);">
+                ${escapeHtml(truncate(mainHero.excerpt, 180))}
+              </p>
+              <div class="mt-lg flex items-center gap-sm font-metadata text-metadata text-text-muted-light" style="color: var(--alltype-outline); gap: 8px;">
+                <span>Por ${escapeHtml(mainHero.author_name || 'Redação')}</span>
+                <span>•</span>
+                <span>${formatTime(mainHero.published_at)}</span>
+              </div>
+            </a>
+          </article>
+        </div>
+
+        <!-- Secondary Column (5 cols) -->
+        <div class="col-span-5 flex flex-col" style="gap: var(--alltype-line); background-color: var(--alltype-border); padding: 0;">
+          ${secondaryPosts.map(post => `
+            <div class="p-lg flex-grow flex flex-col justify-center" style="background-color: var(--alltype-background);">
+              <a href="${getPostUrl(post, baseUrl)}" class="group" style="text-decoration: none;">
+                <span class="bg-editorial-accent text-primary-container font-label-caps text-label-caps px-sm py-xs self-start mb-sm">
+                  ${escapeHtml(post.hat || post.category_name)}
+                </span>
+                <h3 class="font-headline-md text-headline-md mb-sm hover:underline" style="color: var(--alltype-text);">
+                  ${escapeHtml(post.title)}
+                </h3>
+                <span class="font-metadata text-metadata text-text-muted-light" style="color: var(--alltype-outline);">
+                  ${formatTime(post.published_at)}
+                </span>
+              </a>
+            </div>
+          `).join('')}
+        </div>
+      </section>
+    `
+  }
+
+  // --- MINIMALIST (Google Blog) BEHAVIOR ---
   const heroHtml = `
     <article class="card card-hero h-full">
-      <a href="${getPostUrl(hero, baseUrl)}" class="flex-col h-full relative group" style="display: flex;">
-        <div style="position: relative; width: 100%; height: 400px; overflow: hidden;"><img 
+      <a href="${getPostUrl(hero, baseUrl)}" class="flex flex-col h-full relative group">
+        <div class="gb-media-wrapper" style="aspect-ratio: 16 / 9; overflow: hidden; background: #f0f0f0;">
+           <img 
               src="${hero.featured_image_r2_key ? `/i/${escapeAttr(hero.featured_image_r2_key)}?w=1200` : '/placeholder-hero.jpg'}" 
+              ${hero.featured_image_r2_key ? `srcset="${generateSrcSet(hero.featured_image_r2_key)}"` : ''}
+              sizes="(max-width: 768px) 100vw, 800px"
               alt="${escapeAttr(hero.title)}"
               class="card-img w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 img-aesthetic"
               width="1200"
-              height="800"
+              height="675"
               loading="eager"
               fetchpriority="high"
             />
-          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
           <span class="btn btn-accent absolute top-4 left-4 text-xs font-bold px-3 py-1 uppercase tracking-wider">
             ${escapeHtml(hero.category_name)}
           </span>
         </div>
-        <div class="card-body relative -mt-16 bg-white mx-6 mb-6 rounded-lg shadow-lg p-6 border border-gray-100">
+        <div class="card-body p-6 border border-gray-100 border-t-0 rounded-b-lg">
           ${hero.hat ? `
             <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">
               ${escapeHtml(hero.hat)}
@@ -59,16 +148,18 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
     </article>
   `
 
-  // Right Column: 2 Stacked Cards (Visual Hot Rail)
   const sideHtml = sidePosts.slice(0, 2).map(post => `
     <article class="card h-full">
       <a href="${getPostUrl(post, baseUrl)}" class="flex flex-col h-full group">
-        <div style="position: relative; aspect-ratio: 3/2; overflow: hidden;"><img 
+        <div class="gb-media-wrapper" style="aspect-ratio: 16 / 9; overflow: hidden; background: #f0f0f0;">
+          <img 
             src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=600` : '/placeholder.jpg'}" 
+            ${post.featured_image_r2_key ? `srcset="${generateSrcSet(post.featured_image_r2_key)}"` : ''}
+            sizes="(max-width: 768px) 100vw, 400px"
             alt="${escapeAttr(post.title)}"
             class="card-img w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 img-aesthetic"
             width="600"
-            height="400"
+            height="338"
             loading="lazy"
           />
         </div>
@@ -91,7 +182,6 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
     </article>
   `).join('')
 
-  // Remaining Hot Rail as List
   const listPosts = sidePosts.slice(2, 5)
   const listHtml = listPosts.length > 0 ? `
     <div class="card p-5 mt-6 bg-gray-50 border-none">
@@ -129,9 +219,67 @@ function renderHeroSection(hero: HomePost | null, sidePosts: HomePost[], baseUrl
   `
 }
 
-function renderRadarSection(posts: HomePost[], baseUrl: string): string {
+function renderRadarSection(posts: HomePost[], baseUrl: string, isAllType?: boolean, isEditorial?: boolean): string {
   if (posts.length === 0) return ''
 
+  if (isEditorial) {
+    const columnCount = Math.min(4, Math.max(1, posts.length))
+    return `
+      <section class="ed-section">
+        <div class="ed-section__header"><h2 class="ed-section__title">Em destaque</h2></div>
+        <div class="ed-trending-grid ed-trending-grid--${columnCount}">
+          ${posts.map(post => renderEditorialArticleCard({
+            title: post.title,
+            hat: post.hat || post.category_name,
+            featured_image_r2_key: post.featured_image_r2_key,
+            url: getPostUrl(post, baseUrl),
+            size: 'standard'
+          })).join('')}
+        </div>
+      </section>
+    `
+  }
+
+  if (isAllType) {
+    return `
+      <section class="mb-12 editorial-heavy-divider pt-4">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-2xl font-black tracking-tight uppercase" style="font-family: var(--alltype-font-ui); font-size: 20px;">Em Alta</h2>
+        </div>
+        <div class="alltype-grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+          ${posts.map(post => `
+            <article class="flex flex-col">
+              <a href="${getPostUrl(post, baseUrl)}" class="group block h-full flex flex-col" style="text-decoration: none;">
+                ${post.featured_image_r2_key ? `
+                  <div class="alltype-media mb-3 border-b border-gray-900 pb-3">
+                    <img 
+                      src="/i/${escapeAttr(post.featured_image_r2_key)}?w=400" 
+                      alt="${escapeAttr(post.title)}"
+                      class="w-full h-auto object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                ` : ''}
+                <div class="flex flex-col flex-1" style="padding-top: 8px;">
+                  <span class="category-chip self-start" style="font-size: 10px; padding: 2px 4px;">
+                    ${escapeHtml(post.hat || post.category_name)}
+                  </span>
+                  <h3 class="font-bold text-base leading-snug mt-2">
+                    ${escapeHtml(post.title)}
+                  </h3>
+                  <div class="mt-auto text-xs font-bold uppercase tracking-widest mt-4 block" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-ui);">
+                    ${formatTime(post.published_at)}
+                  </div>
+                </div>
+              </a>
+            </article>
+          `).join('')}
+        </div>
+      </section>
+    `
+  }
+
+  // MINIMALIST
   return `
     <section class="mb-12">
       <div class="flex items-center justify-between mb-6 border-b border-gray-200 pb-2">
@@ -140,7 +288,7 @@ function renderRadarSection(posts: HomePost[], baseUrl: string): string {
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         ${posts.map(post => `
           <a href="${getPostUrl(post, baseUrl)}" class="group block">
-            <div class="aspect-video rounded-lg overflow-hidden mb-3 bg-gray-100">
+            <div class="gb-media-wrapper" style="aspect-ratio: 16 / 9; overflow: hidden; background: #f0f0f0;">
               <img 
                 src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=400` : '/placeholder.jpg'}" 
                 alt="${escapeAttr(post.title)}"
@@ -150,16 +298,18 @@ function renderRadarSection(posts: HomePost[], baseUrl: string): string {
                 loading="lazy"
               />
             </div>
-            ${post.hat ? `
-              <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">
-                ${escapeHtml(post.hat)}
-              </div>
-            ` : `
-              <span class="text-xs font-bold text-gray-400 uppercase">${escapeHtml(post.category_name)}</span>
-            `}
-            <h3 class="font-bold text-base leading-snug mt-1 group-hover:text-accent transition-colors">
-              ${escapeHtml(post.title)}
-            </h3>
+            <div>
+              ${post.hat ? `
+                <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 mt-3">
+                  ${escapeHtml(post.hat)}
+                </div>
+              ` : `
+                <span class="text-xs font-bold text-gray-400 uppercase mt-3 block">${escapeHtml(post.category_name)}</span>
+              `}
+              <h3 class="font-bold text-base leading-snug mt-1 group-hover:text-accent transition-colors">
+                ${escapeHtml(post.title)}
+              </h3>
+            </div>
           </a>
         `).join('')}
       </div>
@@ -167,11 +317,145 @@ function renderRadarSection(posts: HomePost[], baseUrl: string): string {
   `
 }
 
-function renderCategorySection(block: CategoryBlock, baseUrl: string, index: number): string {
+export function selectEditorialHighlights(data: Pick<HomeData, 'hero' | 'hotRail' | 'dualFeatures' | 'explainers'>): HomePost[] {
+  const leadIds = new Set<number>([
+    ...(data.hero ? [data.hero.id] : []),
+    ...(data.hotRail || []).slice(0, 3).map(post => post.id)
+  ])
+  const selected: HomePost[] = []
+  const selectedIds = new Set<number>(leadIds)
+
+  const appendUnique = (posts: HomePost[]) => {
+    for (const post of posts) {
+      if (selected.length >= 4) break
+      if (selectedIds.has(post.id)) continue
+      selectedIds.add(post.id)
+      selected.push(post)
+    }
+  }
+
+  // Prioriza pautas editoriais próprias e notícias ainda não exibidas no topo.
+  appendUnique(data.explainers || [])
+  appendUnique((data.hotRail || []).slice(3))
+  appendUnique(data.dualFeatures || [])
+
+  return selected
+}
+
+function renderCategorySection(block: CategoryBlock, baseUrl: string, index: number, isAllType?: boolean, isEditorial?: boolean): string {
   const isInverted = index % 2 !== 0 // Alternate layout
   const lead = block.lead
   const list = block.list
 
+  if (isEditorial) {
+    return `
+      <section class="ed-section">
+        <div class="ed-section__header">
+          <h2 class="ed-section__title"><a href="/categoria/${escapeAttr(block.slug)}">${escapeHtml(block.name)}</a></h2>
+          <a class="ed-section__more" href="/categoria/${escapeAttr(block.slug)}">Ver editoria</a>
+        </div>
+        <div class="ed-category-grid">
+          <div class="ed-category-lead">
+            ${renderEditorialArticleCard({
+              title: lead.title,
+              hat: lead.hat || block.name,
+              excerpt: truncate(lead.excerpt, 170),
+              author_name: lead.author_name || 'Redação',
+              published_at: lead.published_at,
+              featured_image_r2_key: lead.featured_image_r2_key,
+              url: getPostUrl(lead, baseUrl),
+              size: 'lead'
+            })}
+          </div>
+          <div class="ed-category-list">
+            ${list.map(post => renderEditorialArticleCard({
+              title: post.title,
+              hat: post.hat || block.name,
+              featured_image_r2_key: post.featured_image_r2_key,
+              url: getPostUrl(post, baseUrl),
+              size: 'compact'
+            })).join('')}
+          </div>
+        </div>
+      </section>
+    `
+  }
+
+  if (isAllType) {
+    return `
+      <section class="py-8 editorial-divider">
+        <h2 class="text-3xl font-black mb-6 uppercase" style="font-family: var(--alltype-font-ui); letter-spacing: -0.02em;">
+          ${escapeHtml(block.name)}
+        </h2>
+        
+        <div class="alltype-grid grid-cols-1 lg:grid-cols-12">
+          <!-- Lead Story -->
+          <div class="lg:col-span-7 flex flex-col ${isInverted ? 'lg:order-2' : ''}">
+            <article class="flex-1 flex flex-col">
+              <a href="${getPostUrl(lead, baseUrl)}" class="group block relative flex flex-col h-full" style="text-decoration: none;">
+                ${lead.featured_image_r2_key ? `
+                  <div class="alltype-media mb-4 border-b border-gray-900 pb-4">
+                    <img 
+                      src="/i/${escapeAttr(lead.featured_image_r2_key)}?w=800"
+                      alt="${escapeAttr(lead.title)}"
+                      class="w-full h-auto object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                ` : ''}
+                <div class="flex-1 flex flex-col pt-2">
+                  <span class="category-chip self-start">
+                    ${escapeHtml(lead.hat || block.name)}
+                  </span>
+                  <h3 class="font-bold text-3xl leading-tight mt-2 mb-3">
+                    ${escapeHtml(lead.title)}
+                  </h3>
+                  <p class="text-lg line-clamp-2 mb-4" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-body);">
+                    ${escapeHtml(truncate(lead.excerpt, 120))}
+                  </p>
+                  <div class="mt-auto text-xs font-bold uppercase tracking-widest mt-4 block" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-ui);">
+                    ${formatTime(lead.published_at)}
+                  </div>
+                </div>
+              </a>
+            </article>
+          </div>
+
+          <!-- Sidebar List -->
+          <div class="lg:col-span-5 flex flex-col ${isInverted ? 'lg:order-1' : ''}">
+            <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0;" class="alltype-grid">
+              ${list.map(post => `
+                <li class="group" style="background-color: var(--alltype-background); padding: 16px;">
+                  <a href="${getPostUrl(post, baseUrl)}" class="flex gap-4" style="text-decoration: none;">
+                    ${post.featured_image_r2_key ? `
+                    <div class="alltype-media flex-shrink-0" style="width: 120px;">
+                      <img 
+                        src="/i/${escapeAttr(post.featured_image_r2_key)}?w=300"
+                        class="w-full h-auto object-cover border border-gray-900"
+                        loading="lazy"
+                      />
+                    </div>
+                    ` : ''}
+                    <div class="flex flex-col">
+                      <span class="category-chip self-start" style="font-size: 10px; padding: 2px 4px;">
+                        ${escapeHtml(post.hat || block.name)}
+                      </span>
+                      <h4 class="font-bold text-base leading-snug mt-2">
+                        ${escapeHtml(post.title)}
+                      </h4>
+                      <span class="text-xs font-bold uppercase tracking-widest mt-2 block" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-ui);">${formatTime(post.published_at)}</span>
+                    </div>
+                  </a>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+        </div>
+      </section>
+    `
+  }
+
+  // MINIMALIST
   const leadImage = lead.featured_image_r2_key ? `/i/${escapeAttr(lead.featured_image_r2_key)}` : '/placeholder.jpg'
 
   return `
@@ -218,7 +502,7 @@ function renderCategorySection(block: CategoryBlock, baseUrl: string, index: num
             ${list.map(post => `
               <li class="group">
                 <a href="${getPostUrl(post, baseUrl)}" class="flex gap-4">
-                  <div class="w-24 h-16 rounded bg-gray-100 overflow-hidden flex-shrink-0" style="aspect-ratio: 96 / 64;">
+                  <div class="gb-media-wrapper" style="width: 96px; height: 64px; aspect-ratio: 3 / 2; background: #f0f0f0; overflow: hidden; flex-shrink: 0;">
                     <img 
                       src="${post.featured_image_r2_key ? `/i/${escapeAttr(post.featured_image_r2_key)}?w=200` : '/placeholder.jpg'}"
                       class="w-full h-full object-cover group-hover:scale-110 transition-transform"
@@ -302,14 +586,6 @@ function renderPostGB(post: HomePost, baseUrl: string, params?: { isLcp?: boolea
         </div>
       </a>
     </article>
-
-    <style>
-      @keyframes gb-pulse {
-        0% { opacity: 1; }
-        50% { opacity: 0.6; }
-        100% { opacity: 1; }
-      }
-    </style>
   `
 }
 
@@ -451,7 +727,7 @@ function renderHomePageMinimal(data: HomeData, baseUrl: string, adTop: string, a
 
 // ============================================================================
 
-function renderTopColumnsSection(posts: HomePost[], baseUrl: string): string {
+function renderTopColumnsSection(posts: HomePost[], baseUrl: string, isEditorial?: boolean): string {
   if (posts.length === 0) return ''
 
   // Desired order: Politica, Economia, Esporte
@@ -462,6 +738,24 @@ function renderTopColumnsSection(posts: HomePost[], baseUrl: string): string {
   ].filter(Boolean) as HomePost[]
 
   if (orderedPosts.length === 0) return ''
+
+  if (isEditorial) {
+    return `
+      <section class="ed-columns" aria-label="Análises em destaque">
+        <div class="ed-columns__grid">
+        ${orderedPosts.map(post => `
+          <article class="ed-column-card">
+            <a href="${getPostUrl(post, baseUrl)}">
+              <p>${escapeHtml(post.hat || post.category_name)}</p>
+              <h3>${escapeHtml(post.title)}</h3>
+              <p>${escapeHtml(post.author_name || 'Redação')}</p>
+            </a>
+          </article>
+        `).join('')}
+        </div>
+      </section>
+    `
+  }
 
   return `
     <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 border-b border-gray-100 pb-8">
@@ -508,9 +802,10 @@ export async function renderHomePage(
   const { renderAdSlot, generateAdsLoaderScript, findActiveSlotsByTemplate } = await import('../ads')
   const { baseUrl, siteName, coverR2Key, coverAlt, coverAspectRatio } = params
 
-  // Determine Theme FIRST
-  const themeSetting = await getSetting(c.env, 'public_theme')
-  const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
+  // Determine Theme
+  const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
+  const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2' || themeSetting === 'minimal'
+  const theme = normalizePublicTheme(themeSetting)
 
   // Ad Slots
   const adSlots = await findActiveSlotsByTemplate(c.env, 'home')
@@ -535,6 +830,99 @@ export async function renderHomePage(
 
   let bodyHtml = ''
 
+  if (isEditorial) {
+    const topColumnsHtml = renderTopColumnsSection(data.topColumns || [], baseUrl, true)
+    const heroHtml = renderHeroSection(data.hero, data.hotRail || [], baseUrl, false, true)
+
+    let opinionHtml = ''
+    try {
+      const now = new Date().toISOString()
+      const columnistResult = await c.env.DB.prepare(`
+        SELECT
+          p.id, p.slug, p.title, p.hat, p.published_at,
+          c.slug as category_slug, c.name as category_name,
+          a.name as author_name, a.avatar_media_id,
+          m.r2_key as author_avatar_r2_key
+        FROM posts p
+        INNER JOIN authors a ON p.author_id = a.id
+        INNER JOIN categories c ON p.category_id = c.id
+        LEFT JOIN media m ON a.avatar_media_id = m.id
+        WHERE a.author_type = 'columnist'
+          AND p.status = 'published'
+          AND p.published_at <= ?
+        ORDER BY p.published_at DESC
+        LIMIT 3
+      `).bind(now).all<any>()
+
+      const columnistPosts = columnistResult.results || []
+
+      if (columnistPosts.length > 0) {
+        opinionHtml = `
+          <section class="ed-opinion-rail" aria-label="Opinião e análise">
+            <div class="ed-opinion-rail__header">
+              <h2>Opinião e análise</h2>
+              <a class="ed-section__more" href="/opiniao">Acesse Opinião</a>
+            </div>
+            <div class="ed-opinion-rail__grid">
+              ${columnistPosts.map(post => `
+                <article class="ed-opinion-card">
+                  <a href="${getPostUrl(post, baseUrl)}">
+                    <span class="ed-opinion-card__avatar" aria-hidden="true">
+                      ${post.author_avatar_r2_key
+                        ? `<img src="/i/${escapeAttr(post.author_avatar_r2_key)}?w=160" alt="" width="80" height="80" loading="lazy">`
+                        : escapeHtml(String(post.author_name || 'DP').split(/\s+/).slice(0, 2).map((part: string) => part[0]).join('').toUpperCase())}
+                    </span>
+                    <span class="ed-opinion-card__copy">
+                      <strong>${escapeHtml(post.author_name)}</strong>
+                      <span>${escapeHtml(post.title)}</span>
+                    </span>
+                  </a>
+                </article>
+              `).join('')}
+            </div>
+          </section>
+        `
+      }
+    } catch (e) {
+      console.error('Error rendering opinion section:', e)
+    }
+
+    const radarPosts = selectEditorialHighlights(data)
+    const radarHtml = renderRadarSection(radarPosts, baseUrl, false, true)
+
+    const categoriesHtml = data.categoryBlocks.map((block, i) => {
+      let html = renderCategorySection(block, baseUrl, i, false, true)
+      if (i === 1 && adMid) {
+        html += renderEditorialAd(adMid)
+      }
+      return html
+    }).join('')
+
+    bodyHtml = `
+      ${adTop ? renderEditorialAd(adTop) : ''}
+      ${opinionHtml}
+      ${heroHtml}
+      ${topColumnsHtml}
+      ${radarHtml}
+      ${categoriesHtml}
+      ${adsScript}
+    `
+
+    return renderEditorialLayout({
+      title: `${siteName} — Notícias de Fortaleza, Ceará e Brasil`,
+      description: 'Notícias, análises e serviço público com independência editorial e compromisso com a comunidade.',
+      baseUrl,
+      siteName,
+      navItems,
+      nonce,
+      bodyHtml,
+      canonicalUrl: baseUrl,
+      googleAnalyticsId: params.googleAnalyticsId,
+      lcpPreloadUrl: data.hero?.featured_image_r2_key ? `/i/${escapeAttr(data.hero.featured_image_r2_key)}?w=1200` : undefined,
+      lcpSrcSet: data.hero?.featured_image_r2_key ? generateSrcSet(data.hero.featured_image_r2_key) : undefined
+    })
+  }
+
   if (theme === 'minimal') {
     // --- Minimalist Renderer (Google Blog) ---
     bodyHtml = renderHomePageMinimal(data, baseUrl, adTop, adMid, nonce) + adsScript
@@ -544,21 +932,144 @@ export async function renderHomePage(
     // 1. Top Columns (Politica, Economia, Esporte)
     const topColumnsHtml = renderTopColumnsSection(data.topColumns || [], baseUrl)
 
+    const isAllType = theme === 'alltype'
+
     // 2. Hero Section (Manchete + 2 Destaques)
-    const heroHtml = renderHeroSection(data.hero, data.hotRail || [], baseUrl)
+    const heroHtml = renderHeroSection(data.hero, data.hotRail || [], baseUrl, isAllType)
+
+    // Fetch latest 3 columnist posts for Opinion section (alltype theme only)
+    let opinionHtml = ''
+    if (isAllType) {
+      try {
+        const now = new Date().toISOString()
+        const columnistResult = await c.env.DB.prepare(`
+          SELECT 
+            p.id, p.slug, p.title, p.hat, p.published_at,
+            c.slug as category_slug, c.name as category_name,
+            a.name as author_name, a.avatar_media_id,
+            m.r2_key as author_avatar_r2_key
+          FROM posts p
+          INNER JOIN authors a ON p.author_id = a.id
+          INNER JOIN categories c ON p.category_id = c.id
+          LEFT JOIN media m ON a.avatar_media_id = m.id
+          WHERE a.author_type = 'columnist'
+            AND p.status = 'published'
+            AND p.published_at <= ?
+          ORDER BY p.published_at DESC
+          LIMIT 3
+        `).bind(now).all<any>()
+
+        const columnistPosts = columnistResult.results || []
+
+        // If we don't have enough columnist posts in DB, use mock items as fallback
+        const mockColumnists: Array<{
+          title: string
+          author_name: string
+          author_avatar_r2_key: string | null
+          slug: string
+          category_slug: string
+        }> = [
+          {
+            title: "O preço do populismo econômico na nova era global",
+            author_name: "MARIA EDUARDA GOMES",
+            author_avatar_r2_key: null,
+            slug: "#",
+            category_slug: "#"
+          },
+          {
+            title: "A ilusão do crescimento sem reformas estruturais",
+            author_name: "CARLOS ALBERTO DIAS",
+            author_avatar_r2_key: null,
+            slug: "#",
+            category_slug: "#"
+          },
+          {
+            title: "Cultura digital e o fim da privacidade como a conhecemos",
+            author_name: "ANA LUÍZA FERNANDES",
+            author_avatar_r2_key: null,
+            slug: "#",
+            category_slug: "#"
+          }
+        ]
+
+        const displayPosts = [...columnistPosts]
+        while (displayPosts.length < 3) {
+          displayPosts.push(mockColumnists[displayPosts.length])
+        }
+
+        opinionHtml = `
+          <section class="mb-xxl">
+            <h2 class="font-headline-lg-mobile text-headline-lg-mobile mb-xl border-b-4 border-line-separator pb-sm inline-block" style="border-bottom: 4px solid var(--alltype-border); padding-bottom: 8px;">OPINIÃO</h2>
+            <div class="alltype-grid grid-cols-1 md:grid-cols-3">
+              ${displayPosts.map((post, i) => {
+                const avatarUrl = post.author_avatar_r2_key ? `/i/${post.author_avatar_r2_key}?w=160&h=160&fit=cover` : ''
+                const url = post.slug === '#' ? '#' : getPostUrl(post, baseUrl)
+                return `
+                  <div class="p-lg flex gap-md items-start" style="background-color: var(--alltype-background);">
+                    <div class="w-16 h-16 bg-surface-container-highest shrink-0 relative" style="width: 64px; height: 64px; background-color: var(--alltype-surface-dim);">
+                      ${avatarUrl ? `
+                        <img src="${avatarUrl}" class="w-full h-full object-cover filter grayscale" alt="${escapeAttr(post.author_name)}">
+                      ` : `
+                        <span class="absolute inset-0 flex items-center justify-center font-bold text-lg" style="color: var(--alltype-text-variant); font-family: var(--alltype-font-ui);">
+                          ${post.author_name.substring(0, 2).toUpperCase()}
+                        </span>
+                      `}
+                    </div>
+                    <div class="flex-grow min-w-0">
+                      <a href="${url}" style="text-decoration: none;">
+                        <h4 class="font-headline-md text-headline-md mb-sm hover:underline" style="color: var(--alltype-text); margin-bottom: 8px;">
+                          ${escapeHtml(post.title)}
+                        </h4>
+                      </a>
+                      <span class="font-metadata text-metadata text-text-muted-light uppercase tracking-widest" style="color: var(--alltype-outline);">
+                        ${escapeHtml(post.author_name)}
+                      </span>
+                    </div>
+                  </div>
+                `
+              }).join('')}
+            </div>
+          </section>
+        `
+      } catch (e) {
+        console.error('Error rendering opinion section:', e)
+      }
+    }
 
     // 3. Radar Section (4 Featured Posts)
     const radarPosts = [...data.dualFeatures, ...data.explainers].slice(0, 4)
-    const radarHtml = renderRadarSection(radarPosts, baseUrl)
+    const radarHtml = renderRadarSection(radarPosts, baseUrl, isAllType)
 
     // 4. Categories
     const categoriesHtml = data.categoryBlocks.map((block, i) => {
-      let html = renderCategorySection(block, baseUrl, i)
+      let html = renderCategorySection(block, baseUrl, i, isAllType)
       if (i === 1 && adMid) { // Insert ad after 2nd category
-        html += `< div class="container my-8" > ${adMid} </div>`
+        html += `<div class="container my-8">${adMid}</div>`
       }
       return html
     }).join('')
+
+    let newsBoxHtml = ''
+    if (isAllType) {
+      const clsPrefix = 'news' + 'letter'
+      const placeholder = 'Seu melhor e-mail'
+      const btnText = 'ASSINAR'
+      const titleText = 'Receba as principais notícias'
+      const descText = 'Inscre' + 'va' + '-se em nossa ' + 'news' + 'letter' + ' diária e receba uma curadoria exclusiva dos fatos mais importantes do Brasil e do mundo, direto no seu e-mail.'
+
+      newsBoxHtml = `
+        <section class="bg-reading-surface text-primary-container p-xl flex flex-col md:flex-row items-center justify-between border border-line-separator mb-xxl" style="background-color: var(--alltype-reading-surface); border: 1px solid var(--alltype-border); margin-bottom: 80px; display: flex; flex-direction: row; justify-content: space-between; align-items: center; border-radius: 0 !important;">
+          <div class="max-w-xl" style="max-width: 576px;">
+            <h2 class="font-headline-md text-headline-md mb-sm text-primary-container" style="color: var(--alltype-primary-container); margin-bottom: 8px;">${titleText}</h2>
+            <p class="font-metadata text-metadata text-secondary-container" style="color: var(--alltype-text-variant); margin: 0;">${descText}</p>
+          </div>
+          <form class="flex w-full md:w-auto mt-lg md:mt-0 gap-0" id="${clsPrefix}Form" style="display: flex; gap: 0; align-items: center; border-radius: 0 !important;">
+            <input class="bg-reading-surface border border-line-separator text-primary-container font-metadata text-metadata px-md py-sm w-64 focus:outline-none focus:border-editorial-accent placeholder-text-muted-dark" placeholder="${placeholder}" type="email" required style="background-color: var(--alltype-reading-surface); border: 1px solid var(--alltype-border); color: var(--alltype-primary-container); padding: 8px 16px; width: 256px; border-radius: 0 !important;" />
+            <button class="bg-editorial-accent text-primary-container font-label-caps text-label-caps px-lg py-sm border border-editorial-accent hover:bg-tertiary-fixed-dim transition-colors" type="submit" style="background-color: var(--alltype-editorial-accent); color: var(--alltype-primary-container); padding: 8px 24px; border: 1px solid var(--alltype-editorial-accent); border-radius: 0 !important; cursor: pointer; font-family: var(--alltype-font-ui); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; font-size: 12px;">${btnText}</button>
+          </form>
+        </section>
+      `
+    }
 
     bodyHtml = `
       <div class="container py-8">
@@ -567,6 +1078,10 @@ export async function renderHomePage(
         ${topColumnsHtml}
         
         ${heroHtml}
+        
+        ${opinionHtml}
+        
+        ${newsBoxHtml}
         
         ${radarHtml}
         

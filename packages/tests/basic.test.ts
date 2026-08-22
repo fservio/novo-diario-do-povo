@@ -22,13 +22,13 @@ describe('Auth Module', () => {
     const hash = await hashPassword(password)
     
     expect(hash).toBeDefined()
-    expect(hash.length).toBe(64) // SHA-256 hex
+    expect(hash).toMatch(/^pbkdf2_sha256\$/)
     
-    const isValid = await verifyPassword(password, hash)
-    expect(isValid).toBe(true)
+    const validResult = await verifyPassword(password, hash)
+    expect(validResult.ok).toBe(true)
     
-    const isInvalid = await verifyPassword('WrongPassword', hash)
-    expect(isInvalid).toBe(false)
+    const invalidResult = await verifyPassword('WrongPassword', hash)
+    expect(invalidResult.ok).toBe(false)
   })
 })
 

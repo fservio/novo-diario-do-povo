@@ -8,6 +8,7 @@ import type { Env, AppContext } from '../types'
 import { renderPublicLayout, escapeHtml, escapeAttr, formatTime, estimateReadingTime } from './layout'
 import { getPostUrl } from '../utils/post'
 import { getActiveCategories } from '../db/categories-cache'
+import { renderEditorialLayout } from './layout-editorial'
 
 export interface UltimasPost {
   id: number
@@ -56,7 +57,7 @@ export async function renderUltimasPage(
     page: number
     limit: number
     subscriber?: any
-    theme?: 'default' | 'minimal'
+    theme?: 'default' | 'minimal' | 'editorial'
     googleAnalyticsId?: string
   }
 ): Promise<string> {
@@ -71,6 +72,59 @@ export async function renderUltimasPage(
     if (!groups[group]) groups[group] = []
     groups[group].push(post)
   })
+
+  if (theme === 'editorial') {
+    const navItems = categories.map(category => ({
+      label: category.name,
+      href: `/categoria/${category.slug}`,
+      active: false
+    }))
+
+    const bodyHtml = `
+      <header class="ed-page-header">
+        <p class="ed-kicker">Em tempo real</p>
+        <h1 class="ed-page-title">Últimas notícias</h1>
+        <p class="ed-page-description">Acompanhe os fatos mais recentes, atualizados pela redação ao longo do dia.</p>
+      </header>
+
+      <div class="ed-latest">
+        ${Object.entries(groups).map(([groupName, groupPosts]) => `
+          <section class="ed-latest__group">
+            <h2>${escapeHtml(groupName)}</h2>
+            <div>
+              ${groupPosts.map(post => `
+                <article class="ed-latest__item">
+                  <a href="${getPostUrl(post, baseUrl)}">
+                    <time>${formatTime(post.published_at)}</time>
+                    <div>
+                      <p class="ed-kicker">${escapeHtml(post.category_name)}</p>
+                      <h3>${isLive(post.published_at) ? '<span class="ed-live">Agora</span>' : ''}${escapeHtml(post.title)}</h3>
+                    </div>
+                  </a>
+                </article>
+              `).join('')}
+            </div>
+          </section>
+        `).join('')}
+      </div>
+
+      <nav class="ed-pagination" aria-label="Paginação" style="display:flex;justify-content:center;gap:16px;margin-top:42px">
+        ${page > 1 ? `<a class="ed-button ed-button--secondary" href="/ultimas?page=${page - 1}">Anterior</a>` : ''}
+        ${posts.length === limit ? `<a class="ed-button ed-button--secondary" href="/ultimas?page=${page + 1}">Próxima</a>` : ''}
+      </nav>
+    `
+
+    return renderEditorialLayout({
+      title: `Últimas notícias — ${siteName}`,
+      description: 'Acompanhe as notícias mais recentes, atualizadas pela redação ao longo do dia.',
+      canonicalUrl: `${baseUrl}/ultimas${page > 1 ? `?page=${page}` : ''}`,
+      nonce,
+      siteName,
+      navItems,
+      bodyHtml,
+      baseUrl
+    })
+  }
 
   const bodyHtml = theme === 'minimal' ? `
     <div style="font-family: var(--font-sans); background: var(--gb-bg); color: var(--gb-text);">

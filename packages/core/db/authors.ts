@@ -56,6 +56,20 @@ export interface Author {
   updated_at: string
 }
 
+export interface AdminAuthor extends Author {
+  post_count: number
+  linked_user_name: string | null
+  linked_user_email: string | null
+  linked_user_role: string | null
+  linked_user_active: number | null
+}
+
+export interface ListAuthorsAdminFilters {
+  q?: string
+  active?: boolean
+  author_type?: Author['author_type']
+}
+
 export interface CreateAuthorInput {
   slug: string
   name: string
@@ -108,6 +122,55 @@ export async function listActiveAuthors(env: Env): Promise<Author[]> {
   `).all<Author>()
 
   return result.results || []
+}
+
+/** Lista completa para governança da equipe, incluindo inativos e vínculos de acesso. */
+export async function listAuthorsForAdmin(
+  env: Env,
+  filters: ListAuthorsAdminFilters = {}
+): Promise<AdminAuthor[]> {
+  let query = `
+    SELECT
+      a.id, a.slug, a.name, a.bio, a.avatar_media_id, a.email,
+      a.social_twitter, a.social_instagram, a.social_linkedin,
+      a.is_active, a.is_columnist, a.author_type, a.column_name, a.column_description,
+      a.user_id, a.created_at, a.updated_at,
+      m.r2_key AS avatar_r2_key,
+      COUNT(p.id) AS post_count,
+      u.name AS linked_user_name,
+      u.email AS linked_user_email,
+      u.role AS linked_user_role,
+      u.is_active AS linked_user_active
+    FROM authors a
+    LEFT JOIN media m ON a.avatar_media_id = m.id
+    LEFT JOIN posts p ON p.author_id = a.id
+    LEFT JOIN users u ON u.id = a.user_id
+    WHERE 1=1
+  `
+  const bindings: unknown[] = []
+
+  if (filters.q) {
+    query += ' AND (a.name LIKE ? OR a.email LIKE ? OR a.column_name LIKE ?)'
+    const pattern = `%${filters.q}%`
+    bindings.push(pattern, pattern, pattern)
+  }
+  if (filters.active !== undefined) {
+    query += ' AND a.is_active = ?'
+    bindings.push(filters.active ? 1 : 0)
+  }
+  if (filters.author_type) {
+    query += ' AND a.author_type = ?'
+    bindings.push(filters.author_type)
+  }
+
+  query += ' GROUP BY a.id ORDER BY a.is_active DESC, a.name COLLATE NOCASE ASC'
+  const result = await env.DB.prepare(query).bind(...bindings).all<AdminAuthor>()
+  return result.results || []
+}
+
+export async function getAdminAuthorById(env: Env, id: number): Promise<AdminAuthor | null> {
+  const authors = await listAuthorsForAdmin(env)
+  return authors.find(author => author.id === id) || null
 }
 
 /**
@@ -347,6 +410,41 @@ export async function updateAuthor(env: Env, id: number, data: UpdateAuthorInput
     SET ${fields.join(', ')}
     WHERE id = ?
   `).bind(...values, id).run()
+}
+
+export async function getAuthorPostCount(env: Env, id: number): Promise<number> {
+  const row = await env.DB.prepare('SELECT COUNT(*) AS count FROM posts WHERE author_id = ?')
+    .bind(id).first<{ count: number }>()
+  return Number(row?.count || 0)
+}
+
+export async function setAuthorActive(env: Env, id: number, active: boolean): Promise<void> {
+  const author = await findAuthorById(env, id)
+  if (!author) throw new Error('Autor não encontrado.')
+  if (!active && author.slug === 'redacao') {
+    throw new Error('A autoria institucional Redação não pode ser desativada.')
+  }
+
+  await env.DB.prepare("UPDATE authors SET is_active = ?, updated_at = datetime('now') WHERE id = ?")
+    .bind(active ? 1 : 0, id).run()
+}
+
+/** Remove apenas perfis sem conta vinculada e sem matérias. */
+export async function deleteAuthor(env: Env, id: number): Promise<void> {
+  const author = await findAuthorById(env, id)
+  if (!author) throw new Error('Autor não encontrado.')
+  if (author.slug === 'redacao') {
+    throw new Error('A autoria institucional Redação não pode ser excluída.')
+  }
+  if (author.user_id) {
+    throw new Error('Este autor está vinculado a uma conta da equipe. Gerencie primeiro o acesso do usuário.')
+  }
+  const postCount = await getAuthorPostCount(env, id)
+  if (postCount > 0) {
+    throw new Error(`Este autor possui ${postCount} matéria(s). Desative o perfil para preservar a autoria.`)
+  }
+
+  await env.DB.prepare('DELETE FROM authors WHERE id = ?').bind(id).run()
 }
 
 /**

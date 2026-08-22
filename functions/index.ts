@@ -30,9 +30,14 @@ const BOOTSTRAP_FLAG = 'bootstrap:done'
 let bootstrapExecuted = false // In-memory cache
 
 app.use('*', async (c, next) => {
+  const path = c.req.path
+  if (path.startsWith('/static/') || path.startsWith('/i/') || path.startsWith('/favicon.ico') || path.startsWith('/api/debug/')) {
+    return next()
+  }
+
   // Check in-memory first (fastest)
   if (bootstrapExecuted) {
-    await next()
+    return next()
     return
   }
 
@@ -42,7 +47,7 @@ app.use('*', async (c, next) => {
 
     if (flagValue === 'true') {
       bootstrapExecuted = true
-      await next()
+      return next()
       return
     }
 
@@ -190,6 +195,12 @@ app.post('/api/n8n/posts', async (c) => {
       template: body.template || 'article',
       seo_title: body.seo_title,
       seo_description: body.seo_description,
+      social_title: body.social_title,
+      social_description: body.social_description,
+      social_share_text: body.social_share_text,
+      social_image_media_id: body.social_image_media_id,
+      social_image_position_x: body.social_image_position_x,
+      social_image_position_y: body.social_image_position_y,
       is_premium: body.is_premium || 0,
       seo_noindex: body.seo_noindex || 0,
       is_headline: body.is_headline || 0,
@@ -294,7 +305,7 @@ app.get('/api/n8n/media', async (c) => {
 app.get('/i/:key{.+}', async (c) => {
   const { serveMedia } = await import('../packages/core/storage')
   const key = c.req.param('key')
-  return serveMedia(c.env, key)
+  return serveMedia(c.env, key, c.req.raw)
 })
 
 // Serve static assets from public/static/
@@ -545,7 +556,7 @@ app.get('/sitemap.xml', async (c) => {
 
 app.get('/sitemap-news.xml', async (c) => {
   const { generateNewsSitemap } = await import('../packages/core/seo')
-  const xml = await generateNewsSitemap(c.env, c.env.PUBLIC_BASE_URL)
+  const xml = await generateNewsSitemap(c.env)
   return c.text(xml, 200, { 'Content-Type': 'application/xml' })
 })
 
@@ -587,6 +598,115 @@ app.use('/api/admin/*', async (c, next) => {
   const { requireAdmin } = await import('../packages/core/middleware')
   return requireAdmin(c, next)
 })
+
+// O editor de matérias altera conteúdo editorial e usa autosave via API.
+app.use('/admin/posts', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/admin/posts/*', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/api/admin/posts/*', async (c, next) => {
+  if (!/^\/api\/admin\/posts\/\d+\/(autosave|social-card)$/.test(c.req.path)) return next()
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/api/admin/media/upload', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+
+// Newsletter forms always validate the session-bound CSRF token.
+app.use('/admin/newsletters', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/admin/newsletters/*', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+
+// Engagement campaigns alter public delivery rules and require CSRF protection.
+app.use('/admin/engagement', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/admin/engagement/*', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+
+// Social publishing forms use the same session-bound CSRF protection.
+app.use('/admin/instagram', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/admin/instagram/*', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+
+// Editorial AI forms change source, dossier and review state.
+app.use('/admin/redacao-ia', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/admin/redacao-ia/*', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+
+// Video Studio forms generate and approve newsroom scripts.
+app.use('/admin/video-ia', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/admin/video-ia/*', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+
+app.use('/admin/integrations', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/admin/integrations/*', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+
+// Settings forms change operational data and must use the session-bound token.
+app.use('/admin/settings', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/admin/settings/*', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+
+// Team governance is director-only and every mutation is CSRF protected.
+const requireDirectorForTeam = async (c: any, next: any) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  return requireDirector(c, next)
+}
+const protectTeamCsrf = async (c: any, next: any) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+}
+app.use('/admin/users', requireDirectorForTeam, protectTeamCsrf)
+app.use('/admin/users/*', requireDirectorForTeam, protectTeamCsrf)
+app.use('/admin/authors', requireDirectorForTeam, protectTeamCsrf)
+app.use('/admin/authors/*', requireDirectorForTeam, protectTeamCsrf)
+
+const requireEditorForTags = async (c: any, next: any) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  return requireEditor(c, next)
+}
+app.use('/admin/tags', requireEditorForTags, protectTeamCsrf)
+app.use('/admin/tags/*', requireEditorForTags, protectTeamCsrf)
 
 // GET /admin/login (public)
 app.get('/admin/login', async (c) => {
@@ -781,7 +901,7 @@ app.get('/admin', async (c) => {
     c.set('adminUser', user)
     c.set('csrfToken', getCookie(c, 'admin_csrf'))
 
-    const { renderAdminLayout } = await import('../packages/core/admin/ui')
+    const { renderAdminLayout, renderAdminIcon, escapeHtml } = await import('../packages/core/admin/ui')
     const { getSetting } = await import('../packages/core/db')
     const csrfToken = getCookie(c, 'admin_csrf')
 
@@ -798,80 +918,87 @@ app.get('/admin', async (c) => {
 
     const asaasConfigured = await getSetting(c.env, 'asaas.api_key', 'private')
 
+    const dashboardIcon = (name: string) => `<span class="admin-icon">${renderAdminIcon(name)}</span>`
     const bodyHtml = `
-    <div style="margin-bottom: var(--space-10); padding-top: var(--space-4);">
-      <h1 class="section-title" style="margin: 0; font-size: 2.5rem; letter-spacing: -0.04em; font-weight: 800; line-height: 1.1;">Visão Geral</h1>
-      <p style="color: var(--text-muted); margin-top: var(--space-3); font-size: 1.125rem; font-weight: 500;">O pulso da sua redação em tempo real.</p>
-    </div>
-
-    <!-- Stats Matrix -->
-    <div class="grid grid-4" style="margin-bottom: var(--space-12); gap: var(--space-6);">
-      <div class="card" style="position: relative; overflow: hidden; border: none; box-shadow: var(--shadow-md);">
-        <div style="position: absolute; top: -1rem; right: -1rem; font-size: 5rem; opacity: 0.05; transform: rotate(15deg); pointer-events: none;">📝</div>
-        <div style="font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); font-weight: 800; margin-bottom: var(--space-2);">Posts Publicados</div>
-        <div style="font-size: 2.5rem; font-weight: 900; color: var(--text-main); line-height: 1;">${postsCount?.count || 0}</div>
+      <div class="page-intro">
+        <div>
+          <p class="page-kicker">Painel editorial</p>
+          <h1 class="page-title">Bom trabalho, ${escapeHtml(user.name?.split(/\s+/)[0] || 'Editor')}.</h1>
+          <p class="page-description">Acompanhe a operação do jornal e acesse as tarefas mais frequentes da redação.</p>
+        </div>
+        <a href="/admin/posts/new" class="btn">${dashboardIcon('posts')} Nova matéria</a>
       </div>
 
-      <div class="card" style="position: relative; overflow: hidden; border: none; box-shadow: var(--shadow-md);">
-        <div style="position: absolute; top: -1rem; right: -1rem; font-size: 5rem; opacity: 0.05; transform: rotate(15deg); pointer-events: none;">💎</div>
-        <div style="font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); font-weight: 800; margin-bottom: var(--space-2);">Planos de Assinatura</div>
-        <div style="font-size: 2.5rem; font-weight: 900; color: var(--text-main); line-height: 1;">${plansCount?.count || 0}</div>
-      </div>
+      <section aria-labelledby="dashboard-overview-title">
+        <h2 id="dashboard-overview-title" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Indicadores gerais</h2>
+        <div class="stats-grid">
+          <article class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Matérias publicadas</span>
+              <span class="stat-icon">${dashboardIcon('posts')}</span>
+            </div>
+            <strong class="stat-value">${postsCount?.count || 0}</strong>
+          </article>
 
-      <div class="card" style="position: relative; overflow: hidden; border: none; box-shadow: var(--shadow-md);">
-        <div style="position: absolute; top: -1rem; right: -1rem; font-size: 5rem; opacity: 0.05; transform: rotate(15deg); pointer-events: none;">📢</div>
-        <div style="font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); font-weight: 800; margin-bottom: var(--space-2);">Publicidade</div>
-        <div style="font-size: 2.5rem; font-weight: 900; color: var(--text-main); line-height: 1;">${adsCount?.count || 0}</div>
-      </div>
+          <article class="stat-card is-accent">
+            <div class="stat-top">
+              <span class="stat-label">Planos ativos</span>
+              <span class="stat-icon">${dashboardIcon('users')}</span>
+            </div>
+            <strong class="stat-value">${plansCount?.count || 0}</strong>
+          </article>
 
-      <div class="card" style="position: relative; overflow: hidden; border: none; box-shadow: var(--shadow-md); border-left: 6px solid ${asaasConfigured ? 'var(--success)' : 'var(--danger)'};">
-        <div style="position: absolute; top: -1rem; right: -1rem; font-size: 5rem; opacity: 0.05; transform: rotate(15deg); pointer-events: none;">💳</div>
-        <div style="font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); font-weight: 800; margin-bottom: var(--space-2);">Pagamentos / Asaas</div>
-        <div style="font-size: 1.25rem; font-weight: 800; color: ${asaasConfigured ? 'var(--success)' : 'var(--danger)'}; margin-top: var(--space-4);">
-          ${asaasConfigured ? '✓ Conexão Ativa' : '✗ Configuração Pendente'}
-        </div>
-      </div>
-    </div>
+          <article class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Espaços publicitários</span>
+              <span class="stat-icon">${dashboardIcon('ads')}</span>
+            </div>
+            <strong class="stat-value">${adsCount?.count || 0}</strong>
+          </article>
 
-    <!-- Quick Actions Redesign -->
-    <div style="margin-bottom: var(--space-8);">
-        <h2 style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; margin: 0;">Ações Rápidas</h2>
-    </div>
-    
-    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-6);">
-      <a href="/admin/posts/new" class="card" style="text-decoration: none; padding: var(--space-8); display: flex; align-items: center; gap: var(--space-6);">
-        <div style="width: 64px; height: 64px; background: var(--accent-soft); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 2rem; flex-shrink: 0;">✍️</div>
-        <div>
-          <h3 style="color: var(--text-main); font-size: 1.25rem; font-weight: 800; margin: 0 0 var(--space-1) 0;">Escrever Post</h3>
-          <p style="color: var(--text-muted); font-size: 0.9375rem; line-height: 1.5; margin: 0;">Publique novos conteúdos e notícias.</p>
+          <article class="stat-card ${asaasConfigured ? 'is-success' : 'is-danger'}">
+            <div class="stat-top">
+              <span class="stat-label">Pagamentos</span>
+              <span class="stat-icon">${dashboardIcon('billing')}</span>
+            </div>
+            <strong class="stat-value is-status" style="color:${asaasConfigured ? 'var(--success)' : 'var(--danger)'}">
+              <span class="status-inline"><span class="status-dot"></span>${asaasConfigured ? 'Conexão ativa' : 'Configuração pendente'}</span>
+            </strong>
+          </article>
         </div>
-      </a>
+      </section>
 
-      <a href="/admin/settings" class="card" style="text-decoration: none; padding: var(--space-8); display: flex; align-items: center; gap: var(--space-6);">
-        <div style="width: 64px; height: 64px; background: var(--bg-main); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 2rem; flex-shrink: 0; border: 1px solid var(--border-color);">⚙️</div>
-        <div>
-          <h3 style="color: var(--text-main); font-size: 1.25rem; font-weight: 800; margin: 0 0 var(--space-1) 0;">Configurações</h3>
-          <p style="color: var(--text-muted); font-size: 0.9375rem; line-height: 1.5; margin: 0;">Nome do site, seções e SEO.</p>
+      <section aria-labelledby="quick-actions-title">
+        <div class="dashboard-section-heading">
+          <div>
+            <h2 id="quick-actions-title">Ações rápidas</h2>
+            <p>Atalhos para o fluxo diário de publicação.</p>
+          </div>
         </div>
-      </a>
 
-      <a href="/admin/media/upload" class="card" style="text-decoration: none; padding: var(--space-8); display: flex; align-items: center; gap: var(--space-6);">
-        <div style="width: 64px; height: 64px; background: var(--bg-main); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 2rem; flex-shrink: 0; border: 1px solid var(--border-color);">🖼️</div>
-        <div>
-          <h3 style="color: var(--text-main); font-size: 1.25rem; font-weight: 800; margin: 0 0 var(--space-1) 0;">Subir Mídias</h3>
-          <p style="color: var(--text-muted); font-size: 0.9375rem; line-height: 1.5; margin: 0;">Adicione fotos para sua galeria.</p>
+        <div class="quick-actions">
+          <a href="/admin/posts/new" class="quick-action">
+            <div class="quick-action-top"><span class="quick-action-icon">${dashboardIcon('posts')}</span><span class="admin-icon quick-action-arrow">${renderAdminIcon('arrow')}</span></div>
+            <div><h3>Escrever matéria</h3><p>Crie, revise e publique um novo conteúdo.</p></div>
+          </a>
+
+          <a href="/admin/daily-cover" class="quick-action">
+            <div class="quick-action-top"><span class="quick-action-icon">${dashboardIcon('cover')}</span><span class="admin-icon quick-action-arrow">${renderAdminIcon('arrow')}</span></div>
+            <div><h3>Organizar a capa</h3><p>Defina as principais chamadas do jornal.</p></div>
+          </a>
+
+          <a href="/admin/media/upload" class="quick-action">
+            <div class="quick-action-top"><span class="quick-action-icon">${dashboardIcon('media')}</span><span class="admin-icon quick-action-arrow">${renderAdminIcon('arrow')}</span></div>
+            <div><h3>Adicionar mídia</h3><p>Envie fotografias para a biblioteca editorial.</p></div>
+          </a>
+
+          ${user.role === 'admin' || user.role === 'director' ? `<a href="/admin/users" class="quick-action">
+            <div class="quick-action-top"><span class="quick-action-icon">${dashboardIcon('shield')}</span><span class="admin-icon quick-action-arrow">${renderAdminIcon('arrow')}</span></div>
+            <div><h3>Gerenciar equipe</h3><p>Administre colaboradores e permissões.</p></div>
+          </a>` : ''}
         </div>
-      </a>
-      
-      <a href="/admin/users" class="card" style="text-decoration: none; padding: var(--space-8); display: flex; align-items: center; gap: var(--space-6);">
-        <div style="width: 64px; height: 64px; background: var(--bg-main); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 2rem; flex-shrink: 0; border: 1px solid var(--border-color);">👥</div>
-        <div>
-          <h3 style="color: var(--text-main); font-size: 1.25rem; font-weight: 800; margin: 0 0 var(--space-1) 0;">Gerenciar Equipe</h3>
-          <p style="color: var(--text-muted); font-size: 0.9375rem; line-height: 1.5; margin: 0;">Administre autores e permissões.</p>
-        </div>
-      </a>
-    </div>
-  `
+      </section>
+    `
 
     return c.html(renderAdminLayout({
       title: 'Dashboard',
@@ -915,6 +1042,55 @@ app.post('/admin/authors/:id{[0-9]+}', async (c) => {
   return handleAuthorsUpdate(c)
 })
 
+app.post('/admin/authors/:id{[0-9]+}/disable', async (c) => {
+  const { handleAuthorsDisable } = await import('../packages/core/admin/authors')
+  return handleAuthorsDisable(c)
+})
+
+app.post('/admin/authors/:id{[0-9]+}/enable', async (c) => {
+  const { handleAuthorsEnable } = await import('../packages/core/admin/authors')
+  return handleAuthorsEnable(c)
+})
+
+app.post('/admin/authors/:id{[0-9]+}/delete', async (c) => {
+  const { handleAuthorsDelete } = await import('../packages/core/admin/authors')
+  return handleAuthorsDelete(c)
+})
+
+// ============================================================================
+// Admin Tags Routes (RBAC: Editor or Director)
+// ============================================================================
+
+app.get('/admin/tags', async (c) => {
+  const { handleTagsList } = await import('../packages/core/admin/tags')
+  return handleTagsList(c)
+})
+
+app.get('/admin/tags/new', async (c) => {
+  const { handleTagsNew } = await import('../packages/core/admin/tags')
+  return handleTagsNew(c)
+})
+
+app.post('/admin/tags', async (c) => {
+  const { handleTagsCreate } = await import('../packages/core/admin/tags')
+  return handleTagsCreate(c)
+})
+
+app.get('/admin/tags/:id{[0-9]+}', async (c) => {
+  const { handleTagsEdit } = await import('../packages/core/admin/tags')
+  return handleTagsEdit(c)
+})
+
+app.post('/admin/tags/:id{[0-9]+}', async (c) => {
+  const { handleTagsUpdate } = await import('../packages/core/admin/tags')
+  return handleTagsUpdate(c)
+})
+
+app.post('/admin/tags/:id{[0-9]+}/delete', async (c) => {
+  const { handleTagsDelete } = await import('../packages/core/admin/tags')
+  return handleTagsDelete(c)
+})
+
 // ============================================================================
 // Admin Integrations Routes
 // ============================================================================
@@ -928,6 +1104,16 @@ app.get('/admin/integrations', async (c) => {
 app.post('/admin/integrations/n8n/generate', async (c) => {
   const { handleGenerateKey } = await import('../packages/core/admin/integrations')
   return handleGenerateKey(c)
+})
+
+app.post('/admin/integrations/instagram', async (c) => {
+  const { handleInstagramIntegrationSave } = await import('../packages/core/admin/integrations')
+  return handleInstagramIntegrationSave(c)
+})
+
+app.post('/admin/integrations/openai', async (c) => {
+  const { handleEditorialAiIntegrationSave } = await import('../packages/core/admin/integrations')
+  return handleEditorialAiIntegrationSave(c)
 })
 
 // ============================================================================
@@ -1119,15 +1305,6 @@ app.post('/admin/posts', async (c) => {
     // ✅ CRITICAL: Reuse cached body from CSRF middleware
     const formData = (c.get('parsedBody') || await c.req.parseBody()) as Record<string, any>
 
-    console.log('[POST /admin/posts] Body received:', {
-      keys: Object.keys(formData),
-      title: formData.title,
-      content: formData.content,
-      category_id: formData.category_id,
-      author_id: formData.author_id,
-      hasParsedBody: !!c.get('parsedBody')
-    })
-
     // Se author_id vier vazio, garantir autor para o usuário logado
     let authorId = formData.author_id ? parseInt(String(formData.author_id)) : undefined
 
@@ -1159,7 +1336,9 @@ app.post('/admin/posts', async (c) => {
         ...formData,
         author_id: authorId,
         tags,
-        cover_media_id: formData.cover_media_id ? parseInt(String(formData.cover_media_id)) : undefined
+        opinion_featured: formData.opinion_featured ? 1 : 0,
+        cover_media_id: formData.cover_media_id ? parseInt(String(formData.cover_media_id)) : undefined,
+        social_image_media_id: formData.social_image_media_id ? parseInt(String(formData.social_image_media_id)) : undefined
       })
       console.log('[POST /admin/posts] Zod validation passed')
     } catch (zodError) {
@@ -1168,10 +1347,9 @@ app.post('/admin/posts', async (c) => {
     }
 
     // Create (cast to CreatePostInput pois Zod já validou required fields)
-    const createPayload = {
-      ...data,
-      content_markdown: data.content
-    }
+    const createPayload = data.content_json?.trim()
+      ? { ...data, content_json: data.content_json, content_markdown: undefined }
+      : { ...data, content_markdown: data.content }
     const postId = await createPost(c.env.DB, createPayload as any)
     console.log('✅ [PROD] Post created successfully. ID:', postId, 'Title:', data.title)
 
@@ -1216,7 +1394,7 @@ app.post('/admin/posts', async (c) => {
 // GET /admin/posts/:id - Form editar post
 app.get('/admin/posts/:id', async (c) => {
   const { renderPostFormPage } = await import('../packages/core/admin/posts')
-  const { getPostById } = await import('../packages/core/db/posts')
+  const { getPostById, listPostRevisions } = await import('../packages/core/db/posts')
   const { findAllCategories, listActiveAuthors, ensureDefaultRedacao } = await import('../packages/core/db')
 
   const user = c.get('adminUser')
@@ -1239,6 +1417,7 @@ app.get('/admin/posts/:id', async (c) => {
   const tagsResult = await c.env.DB.prepare(
     'SELECT id, name FROM tags ORDER BY name ASC'
   ).all<{ id: number, name: string }>()
+  const revisions = await listPostRevisions(c.env.DB, id, 8)
 
   return c.html(renderPostFormPage({
     post,
@@ -1248,14 +1427,16 @@ app.get('/admin/posts/:id', async (c) => {
     user,
     csrfToken,
     cspNonce,
-    error: c.req.query('error')
+    error: c.req.query('error'),
+    message: c.req.query('message'),
+    revisions
   }))
 })
 
 // POST /admin/posts/:id - Atualizar post
 app.post('/admin/posts/:id', async (c) => {
   const { updatePostSchema } = await import('../packages/core/admin/posts')
-  const { updatePost } = await import('../packages/core/db/posts')
+  const { createPostRevision, getPostById, updatePost } = await import('../packages/core/db/posts')
   const { logAudit, ensureAuthorForAdminUser, validateAuthorId } = await import('../packages/core/db')
 
   const user = c.get('adminUser')
@@ -1298,21 +1479,41 @@ app.post('/admin/posts/:id', async (c) => {
       }
     }
 
+    let socialImageMediaId: number | null | undefined = undefined
+    if (formData.social_image_media_id !== undefined && formData.social_image_media_id !== null) {
+      const value = String(formData.social_image_media_id).trim()
+      if (value === '' || value === '0') {
+        socialImageMediaId = null
+      } else {
+        const parsed = parseInt(value)
+        if (!isNaN(parsed) && parsed > 0) socialImageMediaId = parsed
+      }
+    }
+
     const data = updatePostSchema.parse({
       ...formData,
       author_id: authorId,
       tags,
-      cover_media_id: coverMediaId
+      opinion_featured: formData.opinion_featured ? 1 : 0,
+      cover_media_id: coverMediaId,
+      social_image_media_id: socialImageMediaId
     })
 
     console.log('[DEBUG] parsed data.cover_media_id:', data.cover_media_id)
 
-    const updatePayload = {
-      ...data,
-      ...(data.content !== undefined ? { content_markdown: data.content } : {})
+    const currentPost = await getPostById(c.env.DB, id)
+    if (!currentPost) return c.notFound()
+    const expectedVersion = data.content_version || currentPost.content_version || 1
+    if ((currentPost.content_version || 1) !== expectedVersion) {
+      return c.redirect(`/admin/posts/${id}?error=content_conflict`, 303)
     }
 
+    const updatePayload = data.content_json?.trim()
+      ? { ...data, content_json: data.content_json, content_markdown: undefined as string | undefined, expected_content_version: expectedVersion }
+      : { ...data, ...(data.content !== undefined ? { content_markdown: data.content } : {}) }
+
     // Update
+    await createPostRevision(c.env.DB, currentPost, user.id, 'manual')
     await updatePost(c.env.DB, id, updatePayload as any)
 
     // Audit log
@@ -1329,7 +1530,148 @@ app.post('/admin/posts/:id', async (c) => {
     return c.redirect(`/admin/posts/${id}`, 303)
   } catch (error) {
     console.error('[Admin Posts] Update error:', error)
+    if (error instanceof Error && error.message === 'CONTENT_VERSION_CONFLICT') {
+      return c.redirect(`/admin/posts/${id}?error=content_conflict`, 303)
+    }
     return c.redirect(`/admin/posts/${id}?error=1`, 303)
+  }
+})
+
+// POST /api/admin/posts/:id/autosave - Salva conteúdo visual sem publicar
+app.post('/api/admin/posts/:id{[0-9]+}/autosave', async (c) => {
+  const { autosaveVisualPost } = await import('../packages/core/db/posts')
+  const id = Number(c.req.param('id'))
+  try {
+    const body = await c.req.json<Record<string, unknown>>()
+    const title = String(body.title || '').trim()
+    const contentJson = String(body.content_json || '')
+    const expectedVersion = Number(body.content_version || 0)
+    if (!title || title.length > 500) return c.json({ success: false, error: 'Título inválido.' }, 400)
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) return c.json({ success: false, error: 'Versão editorial inválida.' }, 400)
+    const contentVersion = await autosaveVisualPost(c.env.DB, {
+      postId: id,
+      contentJson,
+      expectedVersion,
+      title,
+      hat: String(body.hat || ''),
+      excerpt: String(body.excerpt || '')
+    })
+    return c.json({ success: true, content_version: contentVersion })
+  } catch (error) {
+    if (error instanceof Error && error.message === 'CONTENT_VERSION_CONFLICT') {
+      return c.json({ success: false, error: 'A matéria foi alterada em outra sessão.' }, 409)
+    }
+    console.error('[Admin Posts] Autosave error:', error)
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Falha no salvamento automático.' }, 400)
+  }
+})
+
+// POST /api/admin/posts/:id/social-card - Salva a arte Open Graph gerada no CMS
+app.post('/api/admin/posts/:id{[0-9]+}/social-card', async (c) => {
+  const { createMedia, extractImageDimensions } = await import('../packages/core/db/media')
+  const { getPostById, updatePost } = await import('../packages/core/db/posts')
+  const { logAudit } = await import('../packages/core/db')
+
+  const id = parseInt(c.req.param('id'))
+  const user = c.get('adminUser')
+  const post = await getPostById(c.env.DB, id)
+  if (!post) return c.json({ success: false, error: 'Matéria não encontrada.' }, 404)
+
+  try {
+    const formData = await c.req.formData()
+    const fileEntry = formData.get('file')
+    if (!fileEntry || typeof fileEntry === 'string') {
+      return c.json({ success: false, error: 'Arquivo da arte não enviado.' }, 400)
+    }
+
+    const file = fileEntry as File
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      return c.json({ success: false, error: 'A arte deve ser JPEG ou PNG.' }, 400)
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      return c.json({ success: false, error: 'A arte ultrapassa o limite de 4 MB.' }, 400)
+    }
+
+    const bytes = await file.arrayBuffer()
+    const dimensions = extractImageDimensions(bytes, file.type)
+    if (!dimensions || dimensions.width !== 1200 || dimensions.height !== 630) {
+      return c.json({ success: false, error: 'A arte deve ter exatamente 1200 × 630 pixels.' }, 400)
+    }
+
+    const random = Array.from(crypto.getRandomValues(new Uint8Array(8)))
+      .map(value => value.toString(16).padStart(2, '0'))
+      .join('')
+    const extension = file.type === 'image/png' ? 'png' : 'jpg'
+    const r2Key = `social/posts/${id}/${Date.now()}-${random}.${extension}`
+    await c.env.R2.put(r2Key, bytes, {
+      httpMetadata: { contentType: file.type },
+      customMetadata: { postId: String(id), purpose: 'open-graph' }
+    })
+
+    let mediaId: number
+    try {
+      mediaId = await createMedia(c.env, {
+        r2_key: r2Key,
+        filename: `diario-do-povo-og-${id}.${extension}`,
+        mime_type: file.type,
+        size_bytes: file.size,
+        width: 1200,
+        height: 630,
+        alt: `Arte de compartilhamento: ${post.title}`,
+        credits: post.cover_media_credits || undefined,
+        uploaded_by_user_id: user.id
+      })
+    } catch (error) {
+      await c.env.R2.delete(r2Key)
+      throw error
+    }
+
+    const clampPosition = (value: unknown) => {
+      const number = Number(value)
+      return Number.isFinite(number) ? Math.max(0, Math.min(100, Math.round(number))) : 50
+    }
+    await updatePost(c.env.DB, id, {
+      social_image_media_id: mediaId,
+      social_title: String(formData.get('social_title') || '').trim().slice(0, 90),
+      social_description: String(formData.get('social_description') || '').trim().slice(0, 220),
+      social_share_text: String(formData.get('social_share_text') || '').trim().slice(0, 700),
+      social_image_position_x: clampPosition(formData.get('social_image_position_x')),
+      social_image_position_y: clampPosition(formData.get('social_image_position_y'))
+    })
+
+    await logAudit(c.env, {
+      entityType: 'post',
+      entityId: id,
+      action: 'social_card_generated',
+      actorType: 'user',
+      actorId: user.id,
+      details: { mediaId, width: 1200, height: 630 },
+      requestId: c.get('requestId')
+    })
+
+    return c.json({ success: true, media_id: mediaId, url: `/i/${r2Key}` })
+  } catch (error) {
+    console.error('[Admin Posts] Social card error:', error)
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Falha ao gerar a arte.' }, 500)
+  }
+})
+
+app.post('/admin/posts/:id{[0-9]+}/revisions/:revisionId{[0-9]+}/restore', async (c) => {
+  const { restorePostRevision } = await import('../packages/core/db/posts')
+  const { logAudit } = await import('../packages/core/db')
+  const postId = Number(c.req.param('id'))
+  const revisionId = Number(c.req.param('revisionId'))
+  const user = c.get('adminUser')
+  try {
+    await restorePostRevision(c.env.DB, postId, revisionId, user.id)
+    await logAudit(c.env, {
+      entityType: 'post', entityId: postId, action: 'revision_restored',
+      actorType: 'user', actorId: user.id, details: { revisionId }, requestId: c.get('requestId')
+    })
+    return c.redirect(`/admin/posts/${postId}?message=revision_restored`, 303)
+  } catch (error) {
+    console.error('[Admin Posts] Restore revision error:', error)
+    return c.redirect(`/admin/posts/${postId}?error=revision_restore_failed`, 303)
   }
 })
 
@@ -1686,6 +2028,18 @@ app.get('/admin/settings/:scope/:key', async (c) => {
   return renderSettingEditPage(c, scope, key, error)
 })
 
+// API /api/admin/media/upload - Upload assíncrono para editores internos
+app.post('/api/admin/media/upload', async (c) => {
+  const { handleMediaApiUpload } = await import('../packages/core/admin/media')
+  return handleMediaApiUpload(c)
+})
+
+// POST /admin/settings/newsletter
+app.post('/admin/settings/newsletter', async (c) => {
+  const { handleNewsletterSettingsUpdate } = await import('../packages/core/admin/settings')
+  return handleNewsletterSettingsUpdate(c)
+})
+
 // POST /admin/settings/:scope/:key
 app.post('/admin/settings/:scope/:key', async (c) => {
   const { handleSettingUpdate } = await import('../packages/core/admin/settings')
@@ -1938,176 +2292,52 @@ app.post('/api/admin/posts/:id/live-updates', async (c) => {
 
 // V2 Gold Route (Isolated)
 app.get('/v2', async (c) => {
-  const { getHomeData } = await import('../packages/core/db/home')
-  const { renderHomePageGold } = await import('../packages/core/web/home-gold')
-  const { getSetting } = await import('../packages/core/db')
-
-  // Get home data (reused from V1)
-  const data = await getHomeData(c.env)
-
-  // Get CMS settings
-  const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
-
-  // Daily Cover
-  const { getMediaById } = await import('../packages/core/db')
-  const dailyCover = await getSetting(c.env, 'daily_cover') as { media_id: number } | null
-  let coverR2Key = ''
-  let coverAlt = 'Capa do Dia'
-  let coverAspectRatio = '3/4'
-
-  if (dailyCover?.media_id) {
-    const media = await getMediaById(c.env, dailyCover.media_id)
-    if (media) {
-      coverR2Key = media.r2_key
-      coverAlt = media.alt || media.filename
-      if (media.width && media.height) {
-        coverAspectRatio = `${media.width}/${media.height}`
-      }
-    }
-  }
-
-  const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
-
-  // Render V2 Gold
-  const html = await renderHomePageGold(c, data, {
-    baseUrl,
-    siteName,
-    coverR2Key,
-    coverAlt,
-    coverAspectRatio
-  })
-
-  return c.html(html)
+  return c.redirect('/', 301)
 })
 
 // V2 Article Route (Isolated for testing)
 app.get('/v2/noticia/:slug', async (c) => {
-  const { findPostWithRelations, findPublishedPosts, getSetting } = await import('../packages/core/db')
-  const { renderArticlePageGold } = await import('../packages/core/web/article-gold')
-
   const slug = c.req.param('slug')
-  const post = await findPostWithRelations(c.env, slug)
-
-  if (!post) {
-    return c.text('Not Found', 404)
-  }
-
-  // Related Posts (Simulate Recirculation)
-  const related = await findPublishedPosts(c.env, {
-    categoryId: post.category_id,
-    limit: 3
-  })
-  // Filter out current post
-  const relatedFiltered = related.filter(p => p.id !== post.id).slice(0, 3)
-
-  const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
-  const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
-
-  const html = await renderArticlePageGold(c, post, relatedFiltered, {
-    baseUrl,
-    siteName
-  })
-
-
-  return c.html(html)
+  return c.redirect(`/noticia/${encodeURIComponent(slug)}`, 301)
 })
 
 // V2 Category Route
 app.get('/v2/categoria/:slug', async (c) => {
-  const { findCategoryBySlug, findPublishedPosts, countPublishedPosts, getSetting } = await import('../packages/core/db')
-  const { renderCategoryPageGold } = await import('../packages/core/web/category-gold')
-
   const slug = c.req.param('slug')
-  const page = Number(c.req.query('page') || 1)
-  const limit = 20
-
-  const category = await findCategoryBySlug(c.env, slug)
-  if (!category) {
-    return c.text('Category Not Found', 404)
-  }
-
-  // Fetch Posts
-  const posts = await findPublishedPosts(c.env, {
-    categoryId: category.id,
-    limit,
-    offset: (page - 1) * limit
-  })
-
-  const total = await countPublishedPosts(c.env, { categoryId: category.id })
-  const totalPages = Math.ceil(total / limit)
-
-  const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
-  const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
-
-  const html = await renderCategoryPageGold(c, {
-    category: {
-      name: category.name,
-      slug: category.slug,
-      description: category.description
-    },
-    posts: posts.map(p => ({
-      ...p,
-      published_at: p.published_at || new Date().toISOString(),
-      category_name: category.name // Ensure category name is passed
-    })),
-    page,
-    totalPages
-  }, {
-    baseUrl,
-    siteName
-  })
-
-  return c.html(html)
+  const page = c.req.query('page')
+  return c.redirect(`/categoria/${encodeURIComponent(slug)}${page ? `?page=${encodeURIComponent(page)}` : ''}`, 301)
 })
 
 // ============================================================================
 // Public Columns Routes
 // ============================================================================
 
-app.get('/colunas', async (c) => {
-  const { renderColumnsList } = await import('../packages/core/web/columns')
+app.get('/colunas', (c) => c.redirect('/opiniao', 301))
+
+app.get('/opiniao', async (c) => {
+  const { renderOpinionPage } = await import('../packages/core/web/opinion')
   const { getSetting } = await import('../packages/core/db')
   const { getHomeSections } = await import('../packages/core/db/home')
 
   const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
-  const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
-
-  // Daily Cover
-  const { getMediaById } = await import('../packages/core/db')
-  const dailyCover = await getSetting(c.env, 'daily_cover') as { media_id: number } | null
-  let coverR2Key = ''
-  let coverAlt = 'Capa do Dia'
-  let coverAspectRatio = '3/4'
-
-  if (dailyCover?.media_id) {
-    const media = await getMediaById(c.env, dailyCover.media_id)
-    if (media) {
-      coverR2Key = media.r2_key
-      coverAlt = media.alt || media.filename
-      if (media.width && media.height) {
-        coverAspectRatio = `${media.width}/${media.height}`
-      }
-    }
-  }
+  const baseUrl = new URL(c.req.url).origin
 
   // Get nav sections
   const sections = await getHomeSections(c.env)
   const navItems = sections
-    .filter(s => s.enabled)
+    .filter(s => s.enabled && s.slug !== 'colunas' && s.slug !== 'opiniao')
     .map(s => ({
       label: s.title,
       href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
-      active: false // We could check, but 'colunas' isn't in dynamic sections usually
+      active: false
     }))
 
-  // Add Colunas to nav if not present (optional hardcoded fallback)
-  navItems.push({ label: 'Colunas', href: '/colunas', active: true })
+  navItems.push({ label: 'Opinião', href: '/opiniao', active: true })
 
-  const html = await renderColumnsList(c, {
+  const html = await renderOpinionPage(c, {
     baseUrl,
     siteName,
-    navItems,
-    coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null
+    navItems
   })
 
   return c.html(html)
@@ -2120,7 +2350,7 @@ app.get('/coluna/:slug', async (c) => {
   const slug = c.req.param('slug')
 
   const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
-  const baseUrl = c.env.PUBLIC_BASE_URL || 'https://example.com'
+  const baseUrl = new URL(c.req.url).origin
 
   // Daily Cover
   const { getMediaById } = await import('../packages/core/db')
@@ -2143,14 +2373,14 @@ app.get('/coluna/:slug', async (c) => {
   // Get nav sections
   const sections = await getHomeSections(c.env)
   const navItems = sections
-    .filter(s => s.enabled)
+    .filter(s => s.enabled && s.slug !== 'colunas' && s.slug !== 'opiniao')
     .map(s => ({
       label: s.title,
       href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
       active: false
     }))
 
-  navItems.push({ label: 'Colunas', href: '/colunas', active: false })
+  navItems.push({ label: 'Opinião', href: '/opiniao', active: true })
 
   const html = await renderColumnPage(c, slug, {
     baseUrl,
@@ -2179,6 +2409,61 @@ app.get('/autor/:slug', async (c) => {
 
   const posts = await findPublishedPosts(c.env, { authorId: author.id, limit: 30 })
   const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+
+  const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
+  const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2' || themeSetting === 'minimal'
+
+  if (isEditorial) {
+    const { getHomeSections } = await import('../packages/core/db/home')
+    const { renderEditorialLayout } = await import('../packages/core/web/layout-editorial')
+    const { renderEditorialArticleCard } = await import('../packages/core/web/components/editorial-card')
+    const { escapeHtml } = await import('../packages/core/web/layout')
+
+    const sections = await getHomeSections(c.env)
+    const navItems = sections
+      .filter(s => s.enabled)
+      .map(s => ({
+        label: s.title,
+        href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
+        active: false
+      }))
+
+    const baseUrl = c.env.PUBLIC_BASE_URL || new URL(c.req.url).origin
+
+    const bodyHtml = `
+      <header class="ed-page-header">
+        <p class="ed-kicker">Autor</p>
+        <h1 class="ed-page-title">${escapeHtml(author.name)}</h1>
+        ${author.bio ? `<p class="ed-page-description">${escapeHtml(author.bio)}</p>` : ''}
+      </header>
+
+      <section class="ed-listing">
+            ${posts.map((post: any) => renderEditorialArticleCard({
+              title: post.title,
+              hat: post.hat || author.name,
+              excerpt: post.excerpt,
+              published_at: post.published_at,
+              featured_image_r2_key: post.featured_image_r2_key,
+              url: getPostUrl(post, baseUrl),
+              size: 'standard'
+            })).join('')}
+      </section>
+
+      ${posts.length === 0 ? `<div class="ed-empty">Nenhum artigo encontrado para este autor.</div>` : ''}
+    `
+
+    const html = renderEditorialLayout({
+      title: `${author.name} | ${siteName}`,
+      description: author.bio || `Artigos de ${author.name}`,
+      canonicalUrl: `${baseUrl}/autor/${author.slug}`,
+      nonce: c.get('cspNonce') || '',
+      siteName,
+      navItems,
+      bodyHtml,
+      baseUrl
+    })
+    return c.html(html)
+  }
 
   return c.html(`
     <!DOCTYPE html>
@@ -2262,12 +2547,12 @@ app.get('/assinar', async (c) => {
   return c.html(html)
 })
 
-app.get('/portal/account', async (c) => {
+app.get('/conta', async (c) => {
   const { renderAccountPage } = await import('../packages/core/web/portal/account')
   return c.html(await renderAccountPage(c))
 })
 
-app.get('/conta', (c) => c.redirect('/portal/account', 301))
+app.get('/portal/account', (c) => c.redirect('/conta', 301))
 
 // ============================================================================
 // Subscriber Portal UI
@@ -2676,84 +2961,572 @@ app.notFound((c) => {
 
 // GET /admin/users - List users
 app.get('/admin/users', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
   const { handleUsersList } = await import('../packages/core/admin/users')
   return handleUsersList(c)
 })
 
 // GET /admin/users/new - New user form
 app.get('/admin/users/new', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
   const { handleUsersNew } = await import('../packages/core/admin/users')
   return handleUsersNew(c)
 })
 
 // POST /admin/users - Create user
 app.post('/admin/users', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
   const { handleUsersCreate } = await import('../packages/core/admin/users')
   return handleUsersCreate(c)
 })
 
 // GET /admin/users/:id - Edit user form
 app.get('/admin/users/:id{[0-9]+}', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
   const { handleUsersEdit } = await import('../packages/core/admin/users')
   return handleUsersEdit(c)
 })
 
 // POST /admin/users/:id - Update user
 app.post('/admin/users/:id{[0-9]+}', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
   const { handleUsersUpdate } = await import('../packages/core/admin/users')
   return handleUsersUpdate(c)
 })
 
 // POST /admin/users/:id/reset-password - Reset password
 app.post('/admin/users/:id{[0-9]+}/reset-password', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
   const { handleUsersResetPassword } = await import('../packages/core/admin/users')
   return handleUsersResetPassword(c)
 })
 
 // POST /admin/users/:id/disable - Disable user
 app.post('/admin/users/:id{[0-9]+}/disable', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
   const { handleUsersDisable } = await import('../packages/core/admin/users')
   return handleUsersDisable(c)
 })
 
 // POST /admin/users/:id/enable - Enable user
 app.post('/admin/users/:id{[0-9]+}/enable', async (c) => {
-  const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
-
   const { handleUsersEnable } = await import('../packages/core/admin/users')
   return handleUsersEnable(c)
+})
+
+app.post('/admin/users/:id{[0-9]+}/ensure-author', async (c) => {
+  const { handleUsersEnsureAuthor } = await import('../packages/core/admin/users')
+  return handleUsersEnsureAuthor(c)
+})
+
+app.post('/admin/users/:id{[0-9]+}/delete', async (c) => {
+  const { handleUsersDelete } = await import('../packages/core/admin/users')
+  return handleUsersDelete(c)
 })
 
 // ============================================================================
 // Admin Subscribers Routes (RBAC: Director only)
 // ============================================================================
 
+// ============================================================================
+// Admin Redação IA Routes
+// ============================================================================
+
+app.get('/admin/redacao-ia', async (c) => {
+  const { renderEditorialAiDashboard } = await import('../packages/core/admin/editorial-ai')
+  return renderEditorialAiDashboard(c)
+})
+
+app.get('/admin/redacao-ia/fontes', async (c) => {
+  const { renderEditorialSourcesPage } = await import('../packages/core/admin/editorial-ai')
+  return renderEditorialSourcesPage(c)
+})
+
+app.post('/admin/redacao-ia/fontes', async (c) => {
+  const { handleEditorialSourceCreate } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialSourceCreate(c)
+})
+
+app.post('/admin/redacao-ia/fontes/sincronizar', async (c) => {
+  const { handleEditorialSourcesSync } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialSourcesSync(c)
+})
+
+app.post('/admin/redacao-ia/fontes/:id{[0-9]+}/sincronizar', async (c) => {
+  const { handleEditorialSourceSync } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialSourceSync(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/fontes/:id{[0-9]+}/estado', async (c) => {
+  const { handleEditorialSourceState } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialSourceState(c, Number(c.req.param('id')))
+})
+
+app.get('/admin/redacao-ia/radar', async (c) => {
+  const { renderEditorialRadarPage } = await import('../packages/core/admin/editorial-ai')
+  return renderEditorialRadarPage(c)
+})
+
+app.post('/admin/redacao-ia/radar/:id{[0-9]+}/pauta', async (c) => {
+  const { handleEditorialFeedItemWorkspace } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialFeedItemWorkspace(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/radar/:id{[0-9]+}/estado', async (c) => {
+  const { handleEditorialFeedItemState } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialFeedItemState(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/pautas/post/:postId{[0-9]+}', async (c) => {
+  const { handleEditorialPostWorkspace } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialPostWorkspace(c, Number(c.req.param('postId')))
+})
+
+app.get('/admin/redacao-ia/pautas/:id{[0-9]+}', async (c) => {
+  const { renderEditorialWorkspacePage } = await import('../packages/core/admin/editorial-ai')
+  return renderEditorialWorkspacePage(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/briefing', async (c) => {
+  const { handleEditorialWorkspaceBrief } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialWorkspaceBrief(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/materiais', async (c) => {
+  const { handleEditorialMaterialCreate } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialMaterialCreate(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/triagem', async (c) => {
+  const { handleEditorialTriage } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialTriage(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/rascunho', async (c) => {
+  const { handleEditorialDraft } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialDraft(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/copidesque', async (c) => {
+  const { handleEditorialCopydesk } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialCopydesk(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/checagem', async (c) => {
+  const { handleEditorialFactCheck } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialFactCheck(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/afirmacoes/:claimId{[0-9]+}', async (c) => {
+  const { handleEditorialClaimReview } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialClaimReview(c, Number(c.req.param('id')), Number(c.req.param('claimId')))
+})
+
+app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/aplicar', async (c) => {
+  const { handleEditorialRevisionApply } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialRevisionApply(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/aprovar', async (c) => {
+  const { handleEditorialWorkspaceApprove } = await import('../packages/core/admin/editorial-ai')
+  return handleEditorialWorkspaceApprove(c, Number(c.req.param('id')))
+})
+
+app.post('/api/n8n/editorial/rss/sync', async (c) => {
+  const { handleN8nEditorialRssSync } = await import('../packages/core/admin/editorial-ai')
+  return handleN8nEditorialRssSync(c)
+})
+
+// ============================================================================
+// Admin Video AI Studio Routes
+// ============================================================================
+
+app.get('/admin/video-ia', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { renderVideoAiDashboard } = await import('../packages/core/admin/video-ai')
+  return renderVideoAiDashboard(c)
+})
+
+app.get('/admin/video-ia/avatares', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { renderVideoAvatarPage } = await import('../packages/core/admin/video-ai')
+  return renderVideoAvatarPage(c)
+})
+
+app.post('/admin/video-ia/avatares', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireDirector(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoAvatarCreate } = await import('../packages/core/admin/video-ai')
+  return handleVideoAvatarCreate(c)
+})
+
+app.post('/admin/video-ia/avatares/:id{[0-9]+}/estado', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireDirector(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoAvatarState } = await import('../packages/core/admin/video-ai')
+  return handleVideoAvatarState(c, Number(c.req.param('id')))
+})
+
+app.get('/admin/video-ia/novo', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { renderVideoProjectNew } = await import('../packages/core/admin/video-ai')
+  return renderVideoProjectNew(c)
+})
+
+app.get('/api/admin/video-ia/posts', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementPostSearch } = await import('../packages/core/admin/engagement')
+  return handleEngagementPostSearch(c)
+})
+
+app.post('/admin/video-ia', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoProjectCreate } = await import('../packages/core/admin/video-ai')
+  return handleVideoProjectCreate(c)
+})
+
+app.get('/admin/video-ia/:id{[0-9]+}', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { renderVideoProjectDetail } = await import('../packages/core/admin/video-ai')
+  return renderVideoProjectDetail(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/video-ia/:id{[0-9]+}/gerar', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoGenerate } = await import('../packages/core/admin/video-ai')
+  return handleVideoGenerate(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/video-ia/:id{[0-9]+}/roteiro', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoScriptSave } = await import('../packages/core/admin/video-ai')
+  return handleVideoScriptSave(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/video-ia/:id{[0-9]+}/checar', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoReview } = await import('../packages/core/admin/video-ai')
+  return handleVideoReview(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/video-ia/:id{[0-9]+}/questoes/:issue{[0-9]+}', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoIssueResolve } = await import('../packages/core/admin/video-ai')
+  return handleVideoIssueResolve(c, Number(c.req.param('id')), Number(c.req.param('issue')))
+})
+
+app.post('/admin/video-ia/:id{[0-9]+}/aprovar', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoApprove } = await import('../packages/core/admin/video-ai')
+  return handleVideoApprove(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/video-ia/:id{[0-9]+}/pronto', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoReady } = await import('../packages/core/admin/video-ai')
+  return handleVideoReady(c, Number(c.req.param('id')))
+})
+
+app.get('/admin/video-ia/:id{[0-9]+}/download', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoDownload } = await import('../packages/core/admin/video-ai')
+  return handleVideoDownload(c, Number(c.req.param('id')))
+})
+
+// ============================================================================
+// Admin Newsletters Routes
+// ============================================================================
+
+app.get('/admin/engagement', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementList } = await import('../packages/core/admin/engagement')
+  return handleEngagementList(c)
+})
+
+app.get('/admin/engagement/new', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementNew } = await import('../packages/core/admin/engagement')
+  return handleEngagementNew(c)
+})
+
+app.get('/api/admin/engagement/posts', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementPostSearch } = await import('../packages/core/admin/engagement')
+  return handleEngagementPostSearch(c)
+})
+
+app.post('/admin/engagement', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementCreate } = await import('../packages/core/admin/engagement')
+  return handleEngagementCreate(c)
+})
+
+app.get('/admin/engagement/:id{[0-9]+}', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementDetail } = await import('../packages/core/admin/engagement')
+  return handleEngagementDetail(c)
+})
+
+app.get('/admin/engagement/:id{[0-9]+}/edit', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementEdit } = await import('../packages/core/admin/engagement')
+  return handleEngagementEdit(c)
+})
+
+app.post('/admin/engagement/:id{[0-9]+}/edit', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementUpdate } = await import('../packages/core/admin/engagement')
+  return handleEngagementUpdate(c)
+})
+
+app.post('/admin/engagement/:id{[0-9]+}/duplicate', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementDuplicate } = await import('../packages/core/admin/engagement')
+  return handleEngagementDuplicate(c)
+})
+
+app.post('/admin/engagement/:id{[0-9]+}/status', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireDirector(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementStatus } = await import('../packages/core/admin/engagement')
+  return handleEngagementStatus(c)
+})
+
+app.get('/admin/newsletters', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleNewslettersList } = await import('../packages/core/admin/newsletters')
+  return handleNewslettersList(c)
+})
+
+app.get('/admin/newsletters/new', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleNewsletterNew } = await import('../packages/core/admin/newsletters')
+  return handleNewsletterNew(c)
+})
+
+app.post('/admin/newsletters', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleNewsletterCreate } = await import('../packages/core/admin/newsletters')
+  return handleNewsletterCreate(c)
+})
+
+app.post('/admin/newsletters/audience', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireDirector(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleNewsletterAudienceAdd } = await import('../packages/core/admin/newsletters')
+  return handleNewsletterAudienceAdd(c)
+})
+
+app.get('/admin/newsletters/:id{[0-9]+}', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleNewsletterDetail } = await import('../packages/core/admin/newsletters')
+  return handleNewsletterDetail(c)
+})
+
+app.get('/admin/newsletters/:id{[0-9]+}/edit', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleNewsletterEdit } = await import('../packages/core/admin/newsletters')
+  return handleNewsletterEdit(c)
+})
+
+app.post('/admin/newsletters/:id{[0-9]+}/edit', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleNewsletterUpdate } = await import('../packages/core/admin/newsletters')
+  return handleNewsletterUpdate(c)
+})
+
+app.get('/admin/newsletters/:id{[0-9]+}/preview', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleNewsletterPreview } = await import('../packages/core/admin/newsletters')
+  return handleNewsletterPreview(c)
+})
+
+app.post('/admin/newsletters/:id{[0-9]+}/test', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleNewsletterTest } = await import('../packages/core/admin/newsletters')
+  return handleNewsletterTest(c)
+})
+
+app.post('/admin/newsletters/:id{[0-9]+}/send', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireDirector(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleNewsletterSend } = await import('../packages/core/admin/newsletters')
+  return handleNewsletterSend(c)
+})
+
+// ============================================================================
+// Admin Instagram Routes
+// ============================================================================
+
+app.get('/admin/instagram', async (c) => {
+  const { handleInstagramList } = await import('../packages/core/admin/instagram')
+  return handleInstagramList(c)
+})
+
+app.get('/admin/instagram/new', async (c) => {
+  const { handleInstagramNew } = await import('../packages/core/admin/instagram')
+  return handleInstagramNew(c)
+})
+
+app.post('/admin/instagram', async (c) => {
+  const { handleInstagramCreate } = await import('../packages/core/admin/instagram')
+  return handleInstagramCreate(c)
+})
+
+app.get('/admin/instagram/:id{[0-9]+}', async (c) => {
+  const { handleInstagramDetail } = await import('../packages/core/admin/instagram')
+  return handleInstagramDetail(c)
+})
+
+app.post('/admin/instagram/:id{[0-9]+}/edit', async (c) => {
+  const { handleInstagramUpdate } = await import('../packages/core/admin/instagram')
+  return handleInstagramUpdate(c)
+})
+
+app.post('/admin/instagram/:id{[0-9]+}/story/edit', async (c) => {
+  const { handleInstagramStoryUpdate } = await import('../packages/core/admin/instagram')
+  return handleInstagramStoryUpdate(c)
+})
+
+app.post('/admin/instagram/:id{[0-9]+}/caption', async (c) => {
+  const { handleInstagramCaption } = await import('../packages/core/admin/instagram')
+  return handleInstagramCaption(c)
+})
+
+app.post('/admin/instagram/:id{[0-9]+}/approve', async (c) => {
+  const { handleInstagramApprove } = await import('../packages/core/admin/instagram')
+  return handleInstagramApprove(c)
+})
+
+app.post('/admin/instagram/:id{[0-9]+}/publish', async (c) => {
+  const { handleInstagramPublish } = await import('../packages/core/admin/instagram')
+  return handleInstagramPublish(c)
+})
+
+// Public tokenized artwork URL consumed by the n8n rasterization step.
+app.get('/artes/editoriais/:token', async (c) => {
+  const { handleInstagramArtwork } = await import('../packages/core/web/instagram')
+  return handleInstagramArtwork(c)
+})
+
+app.get('/artes/stories/:token', async (c) => {
+  const { handleInstagramStoryArtwork } = await import('../packages/core/web/instagram')
+  return handleInstagramStoryArtwork(c)
+})
+
+// Authenticated n8n callback for caption and Meta publication status.
+app.patch('/api/n8n/instagram/:id{[0-9]+}', async (c) => {
+  const { handleInstagramN8nCallback } = await import('../packages/core/web/instagram')
+  return handleInstagramN8nCallback(c)
+})
+
+app.post('/api/n8n/instagram/:id{[0-9]+}', async (c) => {
+  const { handleInstagramN8nCallback } = await import('../packages/core/web/instagram')
+  return handleInstagramN8nCallback(c)
+})
+
+// Public, tokenized newsletter preference routes.
+app.use('/api/newsletter/subscribe', async (c, next) => {
+  const { rateLimiter } = await import('../packages/core/middleware/ratelimit')
+  return rateLimiter('newsletter')(c as any, next)
+})
+
+app.post('/api/newsletter/subscribe', async (c) => {
+  const { handleNewsletterSubscribe } = await import('../packages/core/web/newsletter')
+  return handleNewsletterSubscribe(c)
+})
+
+app.get('/api/engagement/eligible', async (c) => {
+  const { handleEngagementEligible } = await import('../packages/core/web/engagement')
+  return handleEngagementEligible(c)
+})
+
+app.use('/api/engagement/events', async (c, next) => {
+  const { rateLimiter } = await import('../packages/core/middleware/ratelimit')
+  return rateLimiter('public')(c as any, next)
+})
+
+app.post('/api/engagement/events', async (c) => {
+  const { handleEngagementEvent } = await import('../packages/core/web/engagement')
+  return handleEngagementEvent(c)
+})
+
+app.get('/newsletter/unsubscribe/:token', async (c) => {
+  const { handleNewsletterUnsubscribePage } = await import('../packages/core/web/newsletter')
+  return handleNewsletterUnsubscribePage(c)
+})
+
+app.post('/newsletter/unsubscribe/:token', async (c) => {
+  const { handleNewsletterUnsubscribe } = await import('../packages/core/web/newsletter')
+  return handleNewsletterUnsubscribe(c)
+})
+
+app.post('/api/newsletter/unsubscribe/:token', async (c) => {
+  const { handleNewsletterOneClickUnsubscribe } = await import('../packages/core/web/newsletter')
+  return handleNewsletterOneClickUnsubscribe(c)
+})
+
 // GET /admin/subscribers - List subscribers
 app.get('/admin/subscribers', async (c) => {
   const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
+  const accessResponse = await requireDirector(c, async () => { })
+  if (accessResponse) return accessResponse
   const { handleSubscribersList } = await import('../packages/core/admin/subscribers')
   return handleSubscribersList(c)
 })
@@ -2761,7 +3534,8 @@ app.get('/admin/subscribers', async (c) => {
 // GET /admin/subscribers/:id - Subscriber detail
 app.get('/admin/subscribers/:id{[0-9]+}', async (c) => {
   const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
+  const accessResponse = await requireDirector(c, async () => { })
+  if (accessResponse) return accessResponse
   const { handleSubscriberDetail } = await import('../packages/core/admin/subscribers')
   return handleSubscriberDetail(c)
 })
@@ -2769,7 +3543,8 @@ app.get('/admin/subscribers/:id{[0-9]+}', async (c) => {
 // POST /admin/subscribers/:id/status - Update account status
 app.post('/admin/subscribers/:id{[0-9]+}/status', async (c) => {
   const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
+  const accessResponse = await requireDirector(c, async () => { })
+  if (accessResponse) return accessResponse
   const { handleUpdateStatus } = await import('../packages/core/admin/subscribers')
   return handleUpdateStatus(c)
 })
@@ -2777,7 +3552,8 @@ app.post('/admin/subscribers/:id{[0-9]+}/status', async (c) => {
 // POST /admin/subscribers/:id/grant-complimentary - Grant manual subscription
 app.post('/admin/subscribers/:id{[0-9]+}/grant-complimentary', async (c) => {
   const { requireDirector } = await import('../packages/core/middleware/rbac')
-  await requireDirector(c, async () => { })
+  const accessResponse = await requireDirector(c, async () => { })
+  if (accessResponse) return accessResponse
   const { handleGrantComplimentary } = await import('../packages/core/admin/subscribers')
   return handleGrantComplimentary(c)
 })

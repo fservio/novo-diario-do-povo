@@ -41,8 +41,17 @@ export interface Env {
   // Opcionais (controláveis via CMS)
   ADSENSE_CLIENT_ID?: string
   GAM_NETWORK_CODE?: string
-  NEWSLETTER_PROVIDER?: 'mailchimp' | 'sendgrid' | 'internal'
+  NEWSLETTER_PROVIDER?: 'mailchimp' | 'sendgrid' | 'internal' | 'smtp'
   NEWSLETTER_API_KEY?: string
+  SMTP_HOST?: string
+  SMTP_PORT?: string
+  SMTP_USERNAME?: string
+  SMTP_PASSWORD?: string
+  SMTP_FROM_EMAIL?: string
+  SMTP_FROM_NAME?: string
+  NEWSLETTER_DAILY_LIMIT?: string
+  OPENAI_API_KEY?: string
+  OPENAI_MODEL?: string
   STRIPE_SECRET_KEY?: string
   STRIPE_WEBHOOK_SECRET?: string
 }
@@ -67,8 +76,17 @@ export const envSchema = z.object({
   ASAAS_BOOTSTRAP_ENVIRONMENT: z.enum(['sandbox', 'production']).optional(),
   ADSENSE_CLIENT_ID: z.string().optional(),
   GAM_NETWORK_CODE: z.string().optional(),
-  NEWSLETTER_PROVIDER: z.enum(['mailchimp', 'sendgrid', 'internal']).optional(),
+  NEWSLETTER_PROVIDER: z.enum(['mailchimp', 'sendgrid', 'internal', 'smtp']).optional(),
   NEWSLETTER_API_KEY: z.string().optional(),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.string().optional(),
+  SMTP_USERNAME: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  SMTP_FROM_EMAIL: z.string().email().optional(),
+  SMTP_FROM_NAME: z.string().optional(),
+  NEWSLETTER_DAILY_LIMIT: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
+  OPENAI_MODEL: z.string().optional(),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
 })
@@ -170,6 +188,12 @@ export interface Tag {
   name: string
   description?: string
   seo_noindex: number
+  social_title?: string
+  social_description?: string
+  social_share_text?: string
+  social_image_media_id?: number
+  social_image_position_x?: number
+  social_image_position_y?: number
   created_at: string
   updated_at: string
 }
@@ -181,11 +205,17 @@ export interface Post {
   hat?: string
   excerpt?: string
   content: string
+  content_markdown?: string
+  content_json?: string
+  content_format?: 'legacy' | 'markdown' | 'visual'
+  content_version?: number
   category_id: number
   author_id: number
   cover_media_id?: number
   status: 'draft' | 'review' | 'published' | 'archived'
   template: 'article' | 'liveblog' | 'hub' | 'story'
+  opinion_type?: 'news' | 'editorial' | 'article' | 'column'
+  opinion_featured?: number
   seo_title?: string
   seo_description?: string
   seo_canonical?: string
@@ -283,6 +313,8 @@ export const createPostSchema = z.object({
   author_type: z.enum(['staff', 'columnist', 'editorial', 'contributor']).default('staff'),
   status: z.enum(['draft', 'review', 'published', 'archived']).default('draft'),
   template: z.enum(['article', 'liveblog', 'hub', 'story']).default('article'),
+  opinion_type: z.enum(['news', 'editorial', 'article', 'column']).default('news'),
+  opinion_featured: z.number().int().min(0).max(1).default(0),
   seo_title: z.string().max(70).optional(),
   seo_description: z.string().max(160).optional(),
   is_premium: z.number().int().min(0).max(1).default(0),
