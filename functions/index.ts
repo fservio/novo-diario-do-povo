@@ -3140,6 +3140,14 @@ app.get('/admin/engagement/new', async (c) => {
   return handleEngagementNew(c)
 })
 
+app.get('/api/admin/engagement/posts', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementPostSearch } = await import('../packages/core/admin/engagement')
+  return handleEngagementPostSearch(c)
+})
+
 app.post('/admin/engagement', async (c) => {
   const { requireEditor } = await import('../packages/core/middleware/rbac')
   const accessResponse = await requireEditor(c, async () => { })

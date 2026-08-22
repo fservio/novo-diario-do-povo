@@ -8,8 +8,15 @@
   var previewCampaign = preview ? preview.querySelector('.engagement-admin-preview__campaign') : null;
   var typeInputs = Array.from(form.querySelectorAll('input[name="campaign_type"]'));
   var formatInput = form.querySelector('[name="display_format"]');
-  var postSelect = form.querySelector('[name="post_id"]');
+  var postInput = form.querySelector('[data-post-id]');
   var postSearch = form.querySelector('[data-post-search]');
+  var postPicker = form.querySelector('[data-post-picker]');
+  var postCombobox = form.querySelector('.engagement-post-combobox');
+  var postDropdown = form.querySelector('[data-post-dropdown]');
+  var postResults = form.querySelector('[data-post-results]');
+  var postOptions = Array.from(form.querySelectorAll('[data-post-option]'));
+  var postSelection = form.querySelector('[data-post-selection]');
+  var postError = form.querySelector('[data-post-error]');
   var imageEditor = form.querySelector('[data-image-editor]');
   var imageIdInput = form.querySelector('[data-image-media-id]');
   var focalX = form.querySelector('[data-focal="x"]');
@@ -23,6 +30,9 @@
   var csrfInput = form.querySelector('input[name="csrf"]');
   var initialized = false;
   var searchTimer = null;
+  var postSearchTimer = null;
+  var postSearchRequest = 0;
+  var selectedPostOption = null;
 
   var defaults = {
     newsletter: { eyebrow: 'Newsletter do Diário', title: 'Informação de confiança, direto no seu e-mail.', body: 'Receba uma seleção das notícias mais importantes do dia.', cta_label: 'Quero receber' },
@@ -140,7 +150,9 @@
   }
 
   function selectedPost() {
-    return postSelect && postSelect.selectedIndex > 0 ? postSelect.options[postSelect.selectedIndex] : null;
+    if (selectedPostOption) return selectedPostOption;
+    if (!postInput || !postInput.value) return null;
+    return postOptions.find(function (option) { return option.dataset.postId === postInput.value; }) || null;
   }
 
   function setPreviewImage(url) {
@@ -200,8 +212,8 @@
     setImage({ url: option.dataset.imageUrl, source: 'post', name: 'Capa da matéria selecionada', meta: 'A imagem acompanhará futuras alterações na capa da matéria.' });
   }
 
-  function applySelectedPost() {
-    var option = selectedPost();
+  function applySelectedPost(option) {
+    option = option || selectedPost();
     var postButton = imageEditor && imageEditor.querySelector('[data-image-action="post"]');
     if (postButton) postButton.hidden = !option;
     if (!option) return;
@@ -211,6 +223,106 @@
     field('cta_label').value = 'Ler matéria';
     form.querySelectorAll('[data-preview-input]').forEach(updateCopy);
     usePostCover();
+  }
+
+  function choosePost(option, applyContent) {
+    if (!option || !postInput) return;
+    selectedPostOption = option;
+    postInput.value = option.dataset.postId || '';
+    postOptions.forEach(function (item) {
+      var selected = item === option;
+      item.classList.toggle('is-selected', selected);
+      item.setAttribute('aria-selected', selected ? 'true' : 'false');
+    });
+    if (postSearch) postSearch.value = option.dataset.title || '';
+    if (postCombobox) postCombobox.hidden = true;
+    if (postSelection) {
+      postSelection.hidden = false;
+      postSelection.querySelector('[data-post-selection-title]').textContent = option.dataset.title || option.textContent.trim();
+    }
+    if (postError) postError.hidden = true;
+    setPostDropdown(false);
+    if (applyContent) applySelectedPost(option);
+  }
+
+  function clearPost() {
+    if (!postInput) return;
+    selectedPostOption = null;
+    postInput.value = '';
+    postOptions.forEach(function (option) { option.classList.remove('is-selected'); option.setAttribute('aria-selected', 'false'); });
+    if (postSelection) postSelection.hidden = true;
+    if (postCombobox) postCombobox.hidden = false;
+    var postButton = imageEditor && imageEditor.querySelector('[data-image-action="post"]');
+    if (postButton) postButton.hidden = true;
+    if (imageEditor && imageEditor.dataset.imageSource === 'post') setImage(null);
+    postSearch.value = '';
+    loadPostOptions('');
+    setPostDropdown(true);
+    postSearch.focus();
+  }
+
+  function setPostDropdown(open) {
+    if (!postDropdown || !postSearch) return;
+    postDropdown.hidden = !open;
+    postSearch.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function bindPostOptions() {
+    postOptions = Array.from(form.querySelectorAll('[data-post-option]'));
+    postOptions.forEach(function (option) {
+      option.addEventListener('click', function () { choosePost(option, true); });
+      option.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') { setPostDropdown(false); postSearch.focus(); return; }
+        if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+        event.preventDefault();
+        var index = postOptions.indexOf(option);
+        postOptions[event.key === 'ArrowDown' ? Math.min(index + 1, postOptions.length - 1) : Math.max(index - 1, 0)].focus();
+      });
+    });
+  }
+
+  function formatPostDate(value) {
+    if (!value) return '';
+    var date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString('pt-BR', { timeZone: 'America/Fortaleza', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function renderPostOptions(items) {
+    if (!postResults) return;
+    postResults.replaceChildren();
+    items.forEach(function (item) {
+      var option = document.createElement('button');
+      option.type = 'button'; option.className = 'engagement-post-option'; option.setAttribute('role', 'option'); option.setAttribute('aria-selected', 'false');
+      option.dataset.postOption = ''; option.dataset.postId = String(item.id); option.dataset.title = item.title || ''; option.dataset.body = item.excerpt || '';
+      option.dataset.eyebrow = item.hat || item.category_name || 'Destaque'; option.dataset.url = item.url || ''; option.dataset.imageUrl = item.image_url || ''; option.dataset.imageId = item.cover_media_id || '';
+      var eyebrow = document.createElement('span'); eyebrow.textContent = item.hat || item.category_name || 'Matéria';
+      var title = document.createElement('strong'); title.textContent = item.title || '';
+      var date = document.createElement('small'); date.textContent = formatPostDate(item.published_at || item.created_at);
+      option.append(eyebrow, title, date); postResults.appendChild(option);
+    });
+    bindPostOptions();
+    var result = form.querySelector('[data-post-result]');
+    if (!result) return;
+    result.textContent = items.length ? items.length + ' matéria(s) encontrada(s). Selecione uma opção.' : 'Nenhuma matéria encontrada. Tente outro termo.';
+  }
+
+  function loadPostOptions(query) {
+    if (!postResults) return;
+    var request = ++postSearchRequest;
+    var result = form.querySelector('[data-post-result]');
+    if (result) result.textContent = query ? 'Pesquisando no acervo…' : 'Carregando matérias recentes…';
+    fetch('/api/admin/engagement/posts?q=' + encodeURIComponent(query || '') + '&limit=15', { credentials: 'same-origin' })
+      .then(function (response) { if (!response.ok) throw new Error(); return response.json(); })
+      .then(function (payload) {
+        if (request !== postSearchRequest) return;
+        if (!payload.success) throw new Error();
+        renderPostOptions(payload.results || []);
+      })
+      .catch(function () {
+        if (request !== postSearchRequest) return;
+        if (result) result.textContent = 'Não foi possível pesquisar as matérias. Tente novamente.';
+      });
   }
 
   function updateFocal() {
@@ -291,16 +403,29 @@
   if (formatInput) formatInput.addEventListener('change', updateFormat);
   form.querySelectorAll('[data-preview-input]').forEach(function (input) { input.addEventListener('input', function () { updateCopy(input); }); });
   if (field('advertiser_name')) field('advertiser_name').addEventListener('input', updateAdvertisingPreview);
-  if (postSelect) postSelect.addEventListener('change', applySelectedPost);
-  if (postSearch) postSearch.addEventListener('input', function () {
-    var query = postSearch.value.trim().toLocaleLowerCase('pt-BR'); var count = 0;
-    Array.from(postSelect.options).forEach(function (option, index) {
-      if (!index) return;
-      var visible = !query || option.textContent.toLocaleLowerCase('pt-BR').indexOf(query) >= 0;
-      option.hidden = !visible; if (visible) count += 1;
+  bindPostOptions();
+  if (postSearch) {
+    postSearch.addEventListener('focus', function () { setPostDropdown(true); });
+    postSearch.addEventListener('click', function () { setPostDropdown(true); });
+    postSearch.addEventListener('input', function () {
+      setPostDropdown(true);
+      window.clearTimeout(postSearchTimer);
+      postSearchTimer = window.setTimeout(function () { loadPostOptions(postSearch.value.trim()); }, 250);
     });
-    form.querySelector('[data-post-result]').textContent = count + ' matéria(s) encontrada(s).';
-  });
+    postSearch.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') { setPostDropdown(false); return; }
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Enter') return;
+      var options = postOptions.filter(function (option) { return !option.hidden; });
+      if (!options.length) return;
+      var focused = options.indexOf(document.activeElement);
+      if (event.key === 'Enter' && focused >= 0) { event.preventDefault(); choosePost(options[focused], true); return; }
+      if (event.key === 'Enter') return;
+      event.preventDefault(); setPostDropdown(true);
+      options[event.key === 'ArrowDown' ? Math.min(focused + 1, options.length - 1) : Math.max(focused - 1, 0)].focus();
+    });
+  }
+  var postClear = form.querySelector('[data-post-clear]');
+  if (postClear) postClear.addEventListener('click', clearPost);
   if (focalX) focalX.addEventListener('input', updateFocal);
   if (focalY) focalY.addEventListener('input', updateFocal);
   form.querySelector('[data-image-action="upload"]').addEventListener('click', function () { showUploadPanel(true); });
@@ -315,7 +440,15 @@
   });
   form.querySelectorAll('[data-media-close]').forEach(function (button) { button.addEventListener('click', closeMediaModal); });
   mediaSearch.addEventListener('input', function () { window.clearTimeout(searchTimer); searchTimer = window.setTimeout(function () { loadMedia(mediaSearch.value); }, 250); });
+  document.addEventListener('click', function (event) { if (postPicker && !postPicker.contains(event.target)) setPostDropdown(false); });
   document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && !mediaModal.hidden) closeMediaModal(); });
+  form.addEventListener('submit', function (event) {
+    if (selectedType() !== 'editorial' || (postInput && postInput.value)) return;
+    event.preventDefault();
+    if (postError) postError.hidden = false;
+    postSearch.focus();
+  });
 
-  applyMode(false); updateFormat(); updateFocal();
+  if (selectedPost()) choosePost(selectedPost(), false);
+  setPostDropdown(false); applyMode(false); updateFormat(); updateFocal();
 })();

@@ -1,6 +1,6 @@
 import type { Context } from 'hono'
 import type { Env } from '../types'
-import { listNewsletterPosts } from '../newsletter'
+import type { NewsletterPost } from '../newsletter'
 import { getPostUrl } from '../utils/post'
 import {
   createEngagementCampaign,
@@ -61,6 +61,50 @@ function formatDate(value: string | null | undefined): string {
   return new Date(value).toLocaleString('pt-BR', { timeZone: 'America/Fortaleza', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+async function searchPublishedPosts(env: Env, query = '', limit = 15): Promise<NewsletterPost[]> {
+  const normalizedQuery = query.trim().slice(0, 120)
+  const safeLimit = Math.max(1, Math.min(30, Math.trunc(limit) || 15))
+  const likeQuery = `%${normalizedQuery}%`
+  const result = await env.DB.prepare(`
+    SELECT
+      p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at, p.created_at, p.cover_media_id,
+      c.name AS category_name,
+      m.r2_key AS cover_media_url,
+      0 AS position
+    FROM posts p
+    LEFT JOIN categories c ON c.id = p.category_id
+    LEFT JOIN media m ON m.id = p.cover_media_id
+    WHERE p.status = 'published'
+      AND (? = '' OR p.title LIKE ? OR COALESCE(p.hat, '') LIKE ? OR COALESCE(c.name, '') LIKE ?)
+    ORDER BY COALESCE(p.published_at, p.created_at) DESC, p.id DESC
+    LIMIT ?
+  `).bind(normalizedQuery, likeQuery, likeQuery, likeQuery, safeLimit).all<NewsletterPost>()
+  return result.results || []
+}
+
+async function getPublishedPost(env: Env, id: number): Promise<NewsletterPost | null> {
+  return env.DB.prepare(`
+    SELECT
+      p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at, p.created_at, p.cover_media_id,
+      c.name AS category_name,
+      m.r2_key AS cover_media_url,
+      0 AS position
+    FROM posts p
+    LEFT JOIN categories c ON c.id = p.category_id
+    LEFT JOIN media m ON m.id = p.cover_media_id
+    WHERE p.id = ? AND p.status = 'published'
+    LIMIT 1
+  `).bind(id).first<NewsletterPost>()
+}
+
+function postOptionMarkup(post: NewsletterPost, selected = false): string {
+  const imageUrl = post.cover_media_url ? `/i/${escapeHtml(post.cover_media_url)}?w=900` : ''
+  return `<button class="engagement-post-option${selected ? ' is-selected' : ''}" type="button" role="option" data-post-option data-post-id="${post.id}" aria-selected="${selected ? 'true' : 'false'}"
+    data-title="${escapeHtml(post.title)}" data-body="${escapeHtml(post.excerpt || '')}"
+    data-eyebrow="${escapeHtml(post.hat || post.category_name || 'Destaque')}" data-url="${escapeHtml(getPostUrl(post))}"
+    data-image-url="${imageUrl}" data-image-id="${post.cover_media_id || ''}"><span>${escapeHtml(post.hat || post.category_name || 'Matéria')}</span><strong>${escapeHtml(post.title)}</strong><small>${escapeHtml(formatDate(post.published_at || post.created_at))}</small></button>`
+}
+
 function previewMarkup(campaign: Partial<EngagementCampaign> & { campaign_type: string; display_format: string; title: string }): string {
   const image = campaign.image_r2_key ? `/i/${escapeHtml(campaign.image_r2_key)}?w=700` : ''
   const positionX = Math.max(0, Math.min(100, Number(campaign.image_position_x ?? 50)))
@@ -114,7 +158,7 @@ export async function handleEngagementList(c: Context) {
 
 async function renderCampaignForm(c: Context, campaign?: EngagementCampaign, error?: string): Promise<Response> {
   const env = c.env as Env
-  const posts = await listNewsletterPosts(env, 100)
+  let posts = await searchPublishedPosts(env)
   const csrfToken = c.get('csrfToken') || ''
   const current = campaign || {
     campaign_type: 'newsletter', display_format: 'slide_in', internal_name: '', eyebrow: 'Newsletter do Diário',
@@ -132,13 +176,12 @@ async function renderCampaignForm(c: Context, campaign?: EngagementCampaign, err
   const selectedImageName = current.image_filename || (current.post_id && current.image_r2_key ? 'Capa da matéria selecionada' : '')
   const selectedImageMeta = current.image_credits ? `Crédito: ${current.image_credits}` : (selectedImageUrl ? 'Imagem vinculada à campanha' : '')
   const selectedImageSource = current.image_media_id ? 'custom' : (current.post_id && current.image_r2_key ? 'post' : 'none')
-  const postOptions = posts.map(post => {
-    const imageUrl = post.cover_media_url ? `/i/${escapeHtml(post.cover_media_url)}?w=900` : ''
-    return `<option value="${post.id}" ${current.post_id === post.id ? 'selected' : ''}
-      data-title="${escapeHtml(post.title)}" data-body="${escapeHtml(post.excerpt || '')}"
-      data-eyebrow="${escapeHtml(post.hat || post.category_name || 'Destaque')}" data-url="${escapeHtml(getPostUrl(post))}"
-      data-image-url="${imageUrl}" data-image-id="${post.cover_media_id || ''}">${escapeHtml(post.title)}</option>`
-  }).join('')
+  let selectedPost = posts.find(post => post.id === current.post_id)
+  if (current.post_id && !selectedPost) {
+    selectedPost = await getPublishedPost(env, current.post_id) || undefined
+    if (selectedPost) posts = [selectedPost, ...posts]
+  }
+  const postCards = posts.map(post => postOptionMarkup(post, current.post_id === post.id)).join('')
   const bodyHtml = `<div class="page-intro engagement-heading"><div><a class="newsletter-back" href="${editing ? `/admin/engagement/${current.id}` : '/admin/engagement'}">← Voltar</a><p class="page-kicker">${editing ? `Campanha #${current.id}` : 'Nova campanha'}</p><h1 class="page-title">${editing ? 'Editar campanha' : 'Planejar uma chamada'}</h1><p class="page-description">Conteúdo, segmentação e limites de frequência em uma única configuração.</p></div></div>
     ${notice(undefined, error || c.req.query('error'))}
     <form class="engagement-form" method="post" action="${editing ? `/admin/engagement/${current.id}/edit` : '/admin/engagement'}" data-engagement-form data-editing="${editing ? 'true' : 'false'}">
@@ -154,7 +197,7 @@ async function renderCampaignForm(c: Context, campaign?: EngagementCampaign, err
         <section class="card engagement-form-section"><div class="engagement-form-section__head"><span>2</span><div><h2>Ação da campanha</h2><p>Cada objetivo pede informações e comportamento próprios.</p></div></div>
           <div class="engagement-mode-panel" data-mode-panel="newsletter"><div class="engagement-mode-panel__icon">@</div><div><strong>Captação de newsletter</strong><p>O leitor verá um campo de e-mail e o consentimento de privacidade. A inscrição entra imediatamente na base, sem dupla confirmação.</p></div></div>
           <div class="engagement-mode-panel" data-mode-panel="editorial"><div class="engagement-mode-panel__icon">↗</div><div><strong>Matéria em destaque</strong><p>Selecione uma matéria publicada. Título, resumo, link e foto de capa podem ser aplicados automaticamente.</p>
-            <div class="form-group engagement-post-picker"><label for="post_search">Localizar matéria</label><input class="form-control" id="post_search" type="search" placeholder="Digite parte do título" data-post-search><label for="post_id">Matéria publicada</label><select class="form-control" id="post_id" name="post_id" data-required="true"><option value="">Selecione uma matéria</option>${postOptions}</select><small class="field-help" data-post-result>${posts.length} matéria(s) disponível(is).</small></div></div></div>
+            <div class="form-group engagement-post-picker" data-post-picker><label for="post_search">Matéria publicada</label><div class="engagement-post-combobox"><input class="form-control" id="post_search" type="search" autocomplete="off" placeholder="Busque por título, chapéu ou editoria" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="post_results" data-post-search><span class="engagement-post-combobox__icon" aria-hidden="true">⌄</span><div class="engagement-post-dropdown" data-post-dropdown hidden><div class="engagement-post-results" id="post_results" role="listbox" data-post-results>${postCards}</div><small class="field-help" data-post-result>${posts.length ? `${posts.length} matéria(s) recente(s). Digite para pesquisar todo o acervo.` : 'Nenhuma matéria publicada disponível.'}</small></div></div><input type="hidden" id="post_id" name="post_id" value="${current.post_id || ''}" data-post-id data-required="true"><div class="engagement-post-selection" data-post-selection ${selectedPost ? '' : 'hidden'}><span><small>Matéria selecionada</small><strong data-post-selection-title>${escapeHtml(selectedPost?.title || '')}</strong></span><button type="button" class="btn btn-ghost btn-compact" data-post-clear>Trocar</button></div><p class="engagement-post-error" data-post-error role="alert" hidden>Escolha uma matéria publicada antes de salvar.</p></div></div></div>
           <div class="engagement-mode-panel" data-mode-panel="instagram"><div class="engagement-mode-panel__icon">◎</div><div><strong>Perfil ou publicação no Instagram</strong><p>Informe um endereço completo do Instagram para conduzir o leitor à conta, reel ou publicação.</p></div></div>
           <div class="engagement-mode-panel" data-mode-panel="advertising"><div class="engagement-mode-panel__icon">AD</div><div><strong>Campanha publicitária</strong><p>O criativo será identificado como publicidade e o link receberá tratamento de conteúdo patrocinado.</p>
             <div class="form-group"><label for="advertiser_name">Anunciante</label><input class="form-control" id="advertiser_name" name="advertiser_name" maxlength="120" value="${escapeHtml(current.advertiser_name || '')}" data-required="true" placeholder="Nome da marca ou anunciante"></div></div></div>
@@ -197,11 +240,31 @@ async function renderCampaignForm(c: Context, campaign?: EngagementCampaign, err
       <aside class="engagement-form__aside"><div class="card engagement-preview-panel"><div class="engagement-section-head"><div><p class="page-kicker">Prévia</p><h2>Experiência do leitor</h2></div><span>Responsiva</span></div>${previewMarkup(current)}<p class="engagement-preview-note"><strong>Exibição responsável.</strong> A campanha nunca aparece imediatamente e respeita os limites globais do site.</p></div>
         <div class="engagement-savebar"><button class="btn" type="submit">${editing ? 'Salvar alterações' : 'Criar rascunho'}</button><a class="btn btn-outline" href="${editing ? `/admin/engagement/${current.id}` : '/admin/engagement'}">Cancelar</a></div></aside>
       <div class="engagement-media-modal" data-media-modal hidden><div class="engagement-media-modal__backdrop" data-media-close></div><section class="engagement-media-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="engagement-media-title"><header><div><p class="page-kicker">Biblioteca de mídia</p><h2 id="engagement-media-title">Escolher imagem</h2></div><button type="button" data-media-close aria-label="Fechar">×</button></header><div class="engagement-media-modal__search"><input class="form-control" type="search" placeholder="Buscar por nome, descrição ou crédito" data-media-search><span data-media-status>Carregando imagens…</span></div><div class="engagement-media-grid" data-media-grid></div></section></div>
-    </form><script src="/static/admin-engagement.js?v=20260821-2" defer></script>`
+    </form><script src="/static/admin-engagement.js?v=20260822-2" defer></script>`
   return c.html(renderAdminLayout({ title: editing ? 'Editar campanha' : 'Nova campanha', user: c.get('adminUser'), bodyHtml, activeTab: 'engagement', csrfToken }))
 }
 
 export async function handleEngagementNew(c: Context) { return renderCampaignForm(c) }
+
+export async function handleEngagementPostSearch(c: Context) {
+  const env = c.env as Env
+  const query = c.req.query('q') || ''
+  const requestedLimit = Number(c.req.query('limit') || 15)
+  try {
+    const posts = await searchPublishedPosts(env, query, requestedLimit)
+    return c.json({
+      success: true,
+      results: posts.map(post => ({
+        ...post,
+        url: getPostUrl(post),
+        image_url: post.cover_media_url ? `/i/${post.cover_media_url}?w=900` : ''
+      }))
+    })
+  } catch (error) {
+    console.error('[Engagement] Published post search failed:', error)
+    return c.json({ success: false, error: 'Não foi possível pesquisar as matérias.' }, 500)
+  }
+}
 
 export async function handleEngagementCreate(c: Context) {
   try {
