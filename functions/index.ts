@@ -658,6 +658,16 @@ app.use('/admin/redacao-ia/*', async (c, next) => {
   return csrfProtection(c, next)
 })
 
+// Video Studio forms generate and approve newsroom scripts.
+app.use('/admin/video-ia', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/admin/video-ia/*', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+
 app.use('/admin/integrations', async (c, next) => {
   const { csrfProtection } = await import('../packages/core/middleware')
   return csrfProtection(c, next)
@@ -3118,6 +3128,130 @@ app.post('/admin/redacao-ia/pautas/:id{[0-9]+}/aprovar', async (c) => {
 app.post('/api/n8n/editorial/rss/sync', async (c) => {
   const { handleN8nEditorialRssSync } = await import('../packages/core/admin/editorial-ai')
   return handleN8nEditorialRssSync(c)
+})
+
+// ============================================================================
+// Admin Video AI Studio Routes
+// ============================================================================
+
+app.get('/admin/video-ia', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { renderVideoAiDashboard } = await import('../packages/core/admin/video-ai')
+  return renderVideoAiDashboard(c)
+})
+
+app.get('/admin/video-ia/avatares', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { renderVideoAvatarPage } = await import('../packages/core/admin/video-ai')
+  return renderVideoAvatarPage(c)
+})
+
+app.post('/admin/video-ia/avatares', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireDirector(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoAvatarCreate } = await import('../packages/core/admin/video-ai')
+  return handleVideoAvatarCreate(c)
+})
+
+app.post('/admin/video-ia/avatares/:id{[0-9]+}/estado', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireDirector(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoAvatarState } = await import('../packages/core/admin/video-ai')
+  return handleVideoAvatarState(c, Number(c.req.param('id')))
+})
+
+app.get('/admin/video-ia/novo', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { renderVideoProjectNew } = await import('../packages/core/admin/video-ai')
+  return renderVideoProjectNew(c)
+})
+
+app.get('/api/admin/video-ia/posts', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementPostSearch } = await import('../packages/core/admin/engagement')
+  return handleEngagementPostSearch(c)
+})
+
+app.post('/admin/video-ia', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoProjectCreate } = await import('../packages/core/admin/video-ai')
+  return handleVideoProjectCreate(c)
+})
+
+app.get('/admin/video-ia/:id{[0-9]+}', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { renderVideoProjectDetail } = await import('../packages/core/admin/video-ai')
+  return renderVideoProjectDetail(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/video-ia/:id{[0-9]+}/gerar', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoGenerate } = await import('../packages/core/admin/video-ai')
+  return handleVideoGenerate(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/video-ia/:id{[0-9]+}/roteiro', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoScriptSave } = await import('../packages/core/admin/video-ai')
+  return handleVideoScriptSave(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/video-ia/:id{[0-9]+}/checar', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoReview } = await import('../packages/core/admin/video-ai')
+  return handleVideoReview(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/video-ia/:id{[0-9]+}/questoes/:issue{[0-9]+}', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoIssueResolve } = await import('../packages/core/admin/video-ai')
+  return handleVideoIssueResolve(c, Number(c.req.param('id')), Number(c.req.param('issue')))
+})
+
+app.post('/admin/video-ia/:id{[0-9]+}/aprovar', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoApprove } = await import('../packages/core/admin/video-ai')
+  return handleVideoApprove(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/video-ia/:id{[0-9]+}/pronto', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoReady } = await import('../packages/core/admin/video-ai')
+  return handleVideoReady(c, Number(c.req.param('id')))
+})
+
+app.get('/admin/video-ia/:id{[0-9]+}/download', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleVideoDownload } = await import('../packages/core/admin/video-ai')
+  return handleVideoDownload(c, Number(c.req.param('id')))
 })
 
 // ============================================================================

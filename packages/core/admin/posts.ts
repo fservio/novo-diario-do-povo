@@ -396,6 +396,9 @@ function renderPostFormPage(params: {
             ${adminIcon('ai')} Abrir na Redação IA
           </button>
         </form>
+        <a href="/admin/video-ia/novo?post=${post.id}" class="btn btn-outline">
+          ${adminIcon('video')} Criar roteiro em vídeo
+        </a>
       </div>
     </div>
   ` : ''

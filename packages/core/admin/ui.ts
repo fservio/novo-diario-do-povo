@@ -48,6 +48,7 @@ export function renderAdminIcon(name: string): string {
     media: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>',
     newsletter: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/><path d="M7 17h4"/>',
     engagement: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
+    video: '<rect x="3" y="5" width="14" height="14" rx="2"/><path d="m17 10 4-2v8l-4-2z"/><path d="m8.5 9 4 3-4 3z"/>',
     instagram: '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>',
     ai: '<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/><path d="m10.4 12 1.1 1.1 2.3-2.5"/>',
     radar: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 4v8l5.7-5.7"/>',
@@ -125,7 +126,7 @@ export function renderAdminLayout(
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/admin.css?v=20260821-engagement1">
+  <link rel="stylesheet" href="/static/admin.css?v=20260822-video2">
 </head>
 <body>
   <a class="skip-link" href="#admin-content">Ir para o conteúdo</a>
@@ -147,6 +148,7 @@ export function renderAdminLayout(
         <div class="nav-label">Publicação</div>
         <a class="${isActive('posts')}" href="/admin/posts"${current('posts')}>${icon('posts')}Matérias</a>
         <a class="${isActive('redacao-ia')}" href="/admin/redacao-ia"${current('redacao-ia')}>${icon('ai')}Redação IA</a>
+        <a class="${isActive('video-ia')}" href="/admin/video-ia"${current('video-ia')}>${icon('video')}Vídeo IA</a>
         <a class="${isActive('daily-cover')}" href="/admin/daily-cover"${current('daily-cover')}>${icon('cover')}Capa do dia</a>
         <a class="${isActive('live')}" href="/admin/live"${current('live')}>${icon('live')}Central ao vivo</a>
         <a class="${isActive('categories')}" href="/admin/categories"${current('categories')}>${icon('categories')}Editorias</a>
