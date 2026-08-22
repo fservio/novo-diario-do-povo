@@ -223,10 +223,11 @@ function renderRadarSection(posts: HomePost[], baseUrl: string, isAllType?: bool
   if (posts.length === 0) return ''
 
   if (isEditorial) {
+    const columnCount = Math.min(4, Math.max(1, posts.length))
     return `
       <section class="ed-section">
         <div class="ed-section__header"><h2 class="ed-section__title">Em destaque</h2></div>
-        <div class="ed-trending-grid">
+        <div class="ed-trending-grid ed-trending-grid--${columnCount}">
           ${posts.map(post => renderEditorialArticleCard({
             title: post.title,
             hat: post.hat || post.category_name,
@@ -314,6 +315,31 @@ function renderRadarSection(posts: HomePost[], baseUrl: string, isAllType?: bool
       </div>
     </section>
   `
+}
+
+export function selectEditorialHighlights(data: Pick<HomeData, 'hero' | 'hotRail' | 'dualFeatures' | 'explainers'>): HomePost[] {
+  const leadIds = new Set<number>([
+    ...(data.hero ? [data.hero.id] : []),
+    ...(data.hotRail || []).slice(0, 3).map(post => post.id)
+  ])
+  const selected: HomePost[] = []
+  const selectedIds = new Set<number>(leadIds)
+
+  const appendUnique = (posts: HomePost[]) => {
+    for (const post of posts) {
+      if (selected.length >= 4) break
+      if (selectedIds.has(post.id)) continue
+      selectedIds.add(post.id)
+      selected.push(post)
+    }
+  }
+
+  // Prioriza pautas editoriais próprias e notícias ainda não exibidas no topo.
+  appendUnique(data.explainers || [])
+  appendUnique((data.hotRail || []).slice(3))
+  appendUnique(data.dualFeatures || [])
+
+  return selected
 }
 
 function renderCategorySection(block: CategoryBlock, baseUrl: string, index: number, isAllType?: boolean, isEditorial?: boolean): string {
@@ -861,7 +887,7 @@ export async function renderHomePage(
       console.error('Error rendering opinion section:', e)
     }
 
-    const radarPosts = [...data.dualFeatures, ...data.explainers].slice(0, 4)
+    const radarPosts = selectEditorialHighlights(data)
     const radarHtml = renderRadarSection(radarPosts, baseUrl, false, true)
 
     const categoriesHtml = data.categoryBlocks.map((block, i) => {

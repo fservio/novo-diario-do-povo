@@ -387,6 +387,9 @@ select:focus-visible {
 .ed-story--compact .ed-story__title { font-size: 18px; line-height: 1.18; }
 
 .ed-trending-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
+.ed-trending-grid--1 { grid-template-columns: minmax(0, 1fr); }
+.ed-trending-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ed-trending-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .ed-trending-grid .ed-story { padding-right: 22px; border-right: 1px solid var(--ed-line); }
 .ed-trending-grid .ed-story:last-child { padding-right: 0; border-right: 0; }
 .ed-trending-grid .ed-story__title { font-size: 20px; }
