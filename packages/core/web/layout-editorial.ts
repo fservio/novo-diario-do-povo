@@ -164,6 +164,7 @@ function renderEditorialFooter(siteName: string): string {
             <h2>O jornal</h2>
             <a href="/ultimas">Últimas notícias</a>
             <a href="/opiniao">Opinião</a>
+            <a href="/whatsapp">WhatsApp</a>
             <a href="/assinar">Assine</a>
           </div>
           <div class="ed-footer__column">

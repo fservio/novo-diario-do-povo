@@ -7,6 +7,7 @@ import { randomHex } from '../utils'
 import { normalizeRole } from '../db/users'
 import { getInstagramRuntimeConfig } from '../instagram'
 import { getEditorialAiRuntimeConfig } from '../editorial-ai'
+import { getWhatsAppRuntimeConfig } from '../whatsapp'
 
 /**
  * GET /admin/integrations
@@ -27,6 +28,7 @@ export async function renderIntegrationsPage(c: Context<{ Bindings: Env; Variabl
   const baseUrl = c.env.PUBLIC_BASE_URL
   const instagramConfig = await getInstagramRuntimeConfig(c.env)
   const editorialAiConfig = await getEditorialAiRuntimeConfig(c.env)
+  const whatsappConfig = await getWhatsAppRuntimeConfig(c.env)
 
   const bodyHtml = `
     <div style="margin-bottom: 2rem;">
@@ -169,6 +171,20 @@ export async function renderIntegrationsPage(c: Context<{ Bindings: Env; Variabl
         </form>
         <a class="integration-ai-link" href="/admin/redacao-ia">Abrir espaço de trabalho →</a>
       </div>
+
+      <div class="card integration-ai-card">
+        <div class="integration-ai-head"><div class="integration-ai-icon" style="background:#167a55">WA</div><div><p class="page-kicker">Audiência direta</p><h3>WhatsApp Cloud API</h3><span class="newsletter-provider ${whatsappConfig.apiReady && whatsappConfig.enabled ? 'is-ready' : ''}"><i></i>${whatsappConfig.apiReady ? (whatsappConfig.enabled ? 'Envio habilitado' : 'Credenciais prontas') : 'Configuração incompleta'}</span></div></div>
+        <p class="integration-ai-copy">Distribuição individual consentida, webhooks de entrega e leitura, templates aprovados e descadastramento auditável.</p>
+        <div class="integration-ai-secret"><span>SEGREDOS CLOUDFLARE</span><strong>${whatsappConfig.accessTokenConfigured && whatsappConfig.appSecretConfigured && whatsappConfig.verifyTokenConfigured ? 'Configurados no ambiente' : 'ACCESS_TOKEN, APP_SECRET ou VERIFY_TOKEN ausentes'}</strong><small>Credenciais sensíveis nunca são gravadas nem exibidas pelo CMS.</small></div>
+        <form method="post" action="/admin/integrations/whatsapp" class="integration-ai-form">${renderCsrfInput(csrfToken)}
+          <label class="integration-ai-toggle"><input type="checkbox" name="enabled" value="1" ${whatsappConfig.enabled ? 'checked' : ''}><span><strong>Habilitar envios</strong><small>Ative somente após testar o webhook e aprovar o template na Meta.</small></span></label>
+          <div class="form-group"><label for="wa-business-number">Número público</label><input class="form-control" id="wa-business-number" name="business_number" value="${escapeHtml(whatsappConfig.businessNumber)}" placeholder="5586999999999" inputmode="numeric" required><small>Formato internacional, apenas números.</small></div>
+          <div class="integration-ai-grid"><div class="form-group"><label for="wa-phone-id">Phone Number ID</label><input class="form-control" id="wa-phone-id" name="phone_number_id" value="${escapeHtml(whatsappConfig.phoneNumberId)}"><small>Pode ficar vazio enquanto a landing page opera sem API.</small></div><div class="form-group"><label for="wa-waba-id">WABA ID</label><input class="form-control" id="wa-waba-id" name="waba_id" value="${escapeHtml(whatsappConfig.wabaId)}"></div></div>
+          <div class="form-group"><label for="wa-template">Template padrão aprovado</label><input class="form-control" id="wa-template" name="default_template" value="${escapeHtml(whatsappConfig.defaultTemplate)}" required><small>Estrutura esperada: título, resumo e link como variáveis 1, 2 e 3.</small></div>
+          <div class="integration-instagram-security"><span>Webhook</span><p>${escapeHtml(baseUrl)}/api/webhooks/whatsapp</p></div>
+          <button class="btn" type="submit">Salvar WhatsApp</button>
+        </form><a class="integration-ai-link" href="/admin/whatsapp">Abrir central do WhatsApp →</a>
+      </div>
     </div>
   `
 
@@ -258,4 +274,20 @@ export async function handleEditorialAiIntegrationSave(c: Context<{ Bindings: En
     console.error('[Editorial AI Integration] Save error:', error)
     return c.redirect('/admin/integrations?error=Não+foi+possível+salvar+a+configuração+da+Redação+IA.', 303)
   }
+}
+
+export async function handleWhatsAppIntegrationSave(c: Context<{ Bindings: Env; Variables: AppContext }>) {
+  const user = c.get('adminUser') as AdminUser
+  if (normalizeRole(user.role) !== 'director') return c.html('<h1>Acesso negado</h1>', 403)
+  const body = (c.get('parsedBody') || await c.req.parseBody()) as Record<string, string>
+  const businessNumber = String(body.business_number || '').replace(/\D/g, '')
+  const phoneNumberId = String(body.phone_number_id || '').trim()
+  const wabaId = String(body.waba_id || '').trim()
+  const defaultTemplate = String(body.default_template || '').trim()
+  if (!/^\d{10,15}$/.test(businessNumber)) return c.redirect('/admin/integrations?error=Informe+o+número+internacional+do+WhatsApp.', 303)
+  if (phoneNumberId && !/^\d{5,30}$/.test(phoneNumberId)) return c.redirect('/admin/integrations?error=Informe+um+Phone+Number+ID+válido.', 303)
+  if (wabaId && !/^\d{5,30}$/.test(wabaId)) return c.redirect('/admin/integrations?error=Informe+um+WABA+ID+válido.', 303)
+  if (!/^[a-z0-9_]{3,180}$/.test(defaultTemplate)) return c.redirect('/admin/integrations?error=Informe+um+template+válido.', 303)
+  for (const [key, value] of [['whatsapp.enabled', body.enabled === '1'], ['whatsapp.business_number', businessNumber], ['whatsapp.phone_number_id', phoneNumberId], ['whatsapp.waba_id', wabaId], ['whatsapp.default_template', defaultTemplate]] as Array<[string, string | boolean]>) await setSetting(c.env, key, value, 'private', user.id)
+  return c.redirect('/admin/integrations?success=whatsapp', 303)
 }

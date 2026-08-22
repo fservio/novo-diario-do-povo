@@ -48,6 +48,7 @@ export function renderAdminIcon(name: string): string {
     media: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>',
     newsletter: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/><path d="M7 17h4"/>',
     engagement: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
+    whatsapp: '<path d="M20.5 11.6a8.5 8.5 0 0 1-12.6 7.5L3 20.5l1.4-4.7A8.5 8.5 0 1 1 20.5 11.6Z"/><path d="M8.2 7.7c.4 3.1 2.8 5.5 5.9 5.9l1.1-1.3c.3-.3.7-.4 1.1-.2l1.6.7M8.2 7.7 7.5 6.1c-.2-.4-.1-.8.2-1.1L9 4"/>',
     video: '<rect x="3" y="5" width="14" height="14" rx="2"/><path d="m17 10 4-2v8l-4-2z"/><path d="m8.5 9 4 3-4 3z"/>',
     instagram: '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>',
     ai: '<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/><path d="m10.4 12 1.1 1.1 2.3-2.5"/>',
@@ -126,7 +127,7 @@ export function renderAdminLayout(
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/admin.css?v=20260822-video2">
+  <link rel="stylesheet" href="/static/admin.css?v=20260822-whatsapp1">
 </head>
 <body>
   <a class="skip-link" href="#admin-content">Ir para o conteúdo</a>
@@ -156,6 +157,7 @@ export function renderAdminLayout(
         ${canManageTeam ? `<a class="${isActive('authors')}" href="/admin/authors"${current('authors')}>${icon('authors')}Autores</a>` : ''}
         <a class="${isActive('media')}" href="/admin/media"${current('media')}>${icon('media')}Biblioteca de mídia</a>
         <a class="${isActive('newsletters')}" href="/admin/newsletters"${current('newsletters')}>${icon('newsletter')}Newsletters</a>
+        <a class="${isActive('whatsapp')}" href="/admin/whatsapp"${current('whatsapp')}>${icon('whatsapp')}WhatsApp</a>
         <a class="${isActive('instagram')}" href="/admin/instagram"${current('instagram')}>${icon('instagram')}Instagram</a>
         <a class="${isActive('engagement')}" href="/admin/engagement"${current('engagement')}>${icon('engagement')}Campanhas</a>
 

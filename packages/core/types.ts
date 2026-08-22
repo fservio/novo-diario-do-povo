@@ -52,6 +52,12 @@ export interface Env {
   NEWSLETTER_DAILY_LIMIT?: string
   OPENAI_API_KEY?: string
   OPENAI_MODEL?: string
+  WHATSAPP_ACCESS_TOKEN?: string
+  WHATSAPP_APP_SECRET?: string
+  WHATSAPP_VERIFY_TOKEN?: string
+  WHATSAPP_PHONE_NUMBER_ID?: string
+  WHATSAPP_WABA_ID?: string
+  WHATSAPP_BUSINESS_NUMBER?: string
   STRIPE_SECRET_KEY?: string
   STRIPE_WEBHOOK_SECRET?: string
 }
@@ -87,6 +93,12 @@ export const envSchema = z.object({
   NEWSLETTER_DAILY_LIMIT: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().optional(),
+  WHATSAPP_ACCESS_TOKEN: z.string().optional(),
+  WHATSAPP_APP_SECRET: z.string().optional(),
+  WHATSAPP_VERIFY_TOKEN: z.string().optional(),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
+  WHATSAPP_WABA_ID: z.string().optional(),
+  WHATSAPP_BUSINESS_NUMBER: z.string().optional(),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
 })

@@ -24,6 +24,7 @@ export function renderAlltypeFooter(siteName: string, logoUrl: string): string {
               <ul>
                 <li><a href="/contato">Redação</a></li>
                 <li><a href="/anuncie">Anuncie</a></li>
+                <li><a href="/whatsapp">WhatsApp</a></li>
               </ul>
             </div>
           </div>

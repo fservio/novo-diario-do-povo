@@ -668,6 +668,16 @@ app.use('/admin/video-ia/*', async (c, next) => {
   return csrfProtection(c, next)
 })
 
+// WhatsApp campaigns and destination links alter consented audience delivery.
+app.use('/admin/whatsapp', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/admin/whatsapp/*', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+
 app.use('/admin/integrations', async (c, next) => {
   const { csrfProtection } = await import('../packages/core/middleware')
   return csrfProtection(c, next)
@@ -3254,6 +3264,85 @@ app.get('/admin/video-ia/:id{[0-9]+}/download', async (c) => {
   return handleVideoDownload(c, Number(c.req.param('id')))
 })
 
+app.post('/admin/integrations/whatsapp', async (c) => {
+  const { handleWhatsAppIntegrationSave } = await import('../packages/core/admin/integrations')
+  return handleWhatsAppIntegrationSave(c)
+})
+
+// ============================================================================
+// Admin WhatsApp Routes
+// ============================================================================
+
+app.get('/admin/whatsapp', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { }); if (accessResponse) return accessResponse
+  const { renderWhatsAppDashboard } = await import('../packages/core/admin/whatsapp')
+  return renderWhatsAppDashboard(c)
+})
+
+app.get('/admin/whatsapp/audiencia', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { }); if (accessResponse) return accessResponse
+  const { renderWhatsAppAudience } = await import('../packages/core/admin/whatsapp')
+  return renderWhatsAppAudience(c)
+})
+
+app.get('/admin/whatsapp/destinos', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { }); if (accessResponse) return accessResponse
+  const { renderWhatsAppDestinations } = await import('../packages/core/admin/whatsapp')
+  return renderWhatsAppDestinations(c)
+})
+
+app.post('/admin/whatsapp/destinos', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireDirector(c, async () => { }); if (accessResponse) return accessResponse
+  const { handleWhatsAppDestinationCreate } = await import('../packages/core/admin/whatsapp')
+  return handleWhatsAppDestinationCreate(c)
+})
+
+app.post('/admin/whatsapp/destinos/:id{[0-9]+}/status', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireDirector(c, async () => { }); if (accessResponse) return accessResponse
+  const { handleWhatsAppDestinationStatus } = await import('../packages/core/admin/whatsapp')
+  return handleWhatsAppDestinationStatus(c, Number(c.req.param('id')))
+})
+
+app.get('/admin/whatsapp/campanhas/nova', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { }); if (accessResponse) return accessResponse
+  const { renderWhatsAppCampaignNew } = await import('../packages/core/admin/whatsapp')
+  return renderWhatsAppCampaignNew(c)
+})
+
+app.post('/admin/whatsapp/campanhas', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { }); if (accessResponse) return accessResponse
+  const { handleWhatsAppCampaignCreate } = await import('../packages/core/admin/whatsapp')
+  return handleWhatsAppCampaignCreate(c)
+})
+
+app.get('/admin/whatsapp/campanhas/:id{[0-9]+}', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { }); if (accessResponse) return accessResponse
+  const { renderWhatsAppCampaignDetail } = await import('../packages/core/admin/whatsapp')
+  return renderWhatsAppCampaignDetail(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/whatsapp/campanhas/:id{[0-9]+}/aprovar', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { }); if (accessResponse) return accessResponse
+  const { handleWhatsAppCampaignApprove } = await import('../packages/core/admin/whatsapp')
+  return handleWhatsAppCampaignApprove(c, Number(c.req.param('id')))
+})
+
+app.post('/admin/whatsapp/campanhas/:id{[0-9]+}/enviar', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireDirector(c, async () => { }); if (accessResponse) return accessResponse
+  const { handleWhatsAppCampaignSend } = await import('../packages/core/admin/whatsapp')
+  return handleWhatsAppCampaignSend(c, Number(c.req.param('id')))
+})
+
 // ============================================================================
 // Admin Newsletters Routes
 // ============================================================================
@@ -3490,6 +3579,52 @@ app.use('/api/newsletter/subscribe', async (c, next) => {
 app.post('/api/newsletter/subscribe', async (c) => {
   const { handleNewsletterSubscribe } = await import('../packages/core/web/newsletter')
   return handleNewsletterSubscribe(c)
+})
+
+app.get('/whatsapp', async (c) => {
+  const { renderWhatsAppLanding } = await import('../packages/core/web/whatsapp')
+  return renderWhatsAppLanding(c)
+})
+
+app.use('/whatsapp/inscrever', async (c, next) => {
+  const { rateLimiter } = await import('../packages/core/middleware/ratelimit')
+  return rateLimiter('newsletter')(c as any, next)
+})
+
+app.post('/whatsapp/inscrever', async (c) => {
+  const { handleWhatsAppSignup } = await import('../packages/core/web/whatsapp')
+  return handleWhatsAppSignup(c)
+})
+
+app.get('/whatsapp/destino/:id{[0-9]+}', async (c) => {
+  const { handleWhatsAppDestinationRedirect } = await import('../packages/core/web/whatsapp')
+  return handleWhatsAppDestinationRedirect(c, Number(c.req.param('id')))
+})
+
+app.get('/whatsapp/sair/:token', async (c) => {
+  const { renderWhatsAppUnsubscribe } = await import('../packages/core/web/whatsapp')
+  return renderWhatsAppUnsubscribe(c, c.req.param('token'))
+})
+
+app.post('/whatsapp/sair/:token', async (c) => {
+  const { handleWhatsAppUnsubscribe } = await import('../packages/core/web/whatsapp')
+  return handleWhatsAppUnsubscribe(c, c.req.param('token'))
+})
+
+app.get('/api/webhooks/whatsapp', async (c) => {
+  const mode = c.req.query('hub.mode'); const token = c.req.query('hub.verify_token'); const challenge = c.req.query('hub.challenge')
+  if (mode === 'subscribe' && token && c.env.WHATSAPP_VERIFY_TOKEN && token === c.env.WHATSAPP_VERIFY_TOKEN) return c.text(challenge || '', 200)
+  return c.text('Forbidden', 403)
+})
+
+app.post('/api/webhooks/whatsapp', async (c) => {
+  const raw = await c.req.text(); const signature = c.req.header('X-Hub-Signature-256') || ''
+  const { processWhatsAppWebhook, verifyWhatsAppSignature } = await import('../packages/core/whatsapp')
+  if (!(await verifyWhatsAppSignature(c.env, raw, signature))) return c.text('Invalid signature', 401)
+  let payload: unknown
+  try { payload = JSON.parse(raw) } catch { return c.text('Invalid JSON', 400) }
+  c.executionCtx.waitUntil(processWhatsAppWebhook(c.env, payload))
+  return c.text('EVENT_RECEIVED', 200)
 })
 
 app.get('/api/engagement/eligible', async (c) => {
