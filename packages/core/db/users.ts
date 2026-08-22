@@ -385,6 +385,7 @@ const STAFF_USER_REFERENCE_TABLES = [
   { table: 'settings', column: 'updated_by_user_id', label: 'configurações' },
   { table: 'media', column: 'uploaded_by_user_id', label: 'arquivos de mídia' },
   { table: 'newsletter_campaigns', column: 'created_by_user_id', label: 'newsletters' },
+  { table: 'engagement_campaigns', column: 'created_by_user_id', label: 'campanhas de engajamento' },
   { table: 'instagram_publications', column: 'created_by_user_id', label: 'publicações sociais' },
   { table: 'editorial_ai_sources', column: 'created_by_user_id', label: 'fontes da Redação IA' },
   { table: 'editorial_ai_workspaces', column: 'created_by_user_id', label: 'pautas da Redação IA' },

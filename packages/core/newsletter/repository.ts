@@ -39,7 +39,7 @@ export async function getNewsletterStats(env: Env): Promise<{
 export async function listNewsletterPosts(env: Env, limit = 60): Promise<NewsletterPost[]> {
   const result = await env.DB.prepare(`
     SELECT
-      p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at, p.created_at,
+      p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at, p.created_at, p.cover_media_id,
       c.name AS category_name,
       m.r2_key AS cover_media_url,
       0 AS position
@@ -127,7 +127,7 @@ export async function getNewsletterCampaign(env: Env, id: number): Promise<Newsl
 
   const items = await env.DB.prepare(`
     SELECT
-      p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at, p.created_at,
+      p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at, p.created_at, p.cover_media_id,
       c.name AS category_name,
       m.r2_key AS cover_media_url,
       i.position
@@ -155,20 +155,25 @@ export async function addConfirmedNewsletterRecipient(env: Env, input: {
   name?: string
   token: string
   source?: string
+  consentVersion?: string
 }): Promise<void> {
   const now = new Date().toISOString()
   await env.DB.prepare(`
     INSERT INTO newsletter_subscribers (
       email, name, segments_json, status, confirmation_token, confirmed_at,
-      unsubscribed_at, source, created_at, unsubscribe_token, updated_at
-    ) VALUES (?, ?, '["geral"]', 'confirmed', NULL, ?, NULL, ?, ?, ?, ?)
+      unsubscribed_at, source, created_at, unsubscribe_token, updated_at,
+      consent_at, consent_version
+    ) VALUES (?, ?, '["geral"]', 'confirmed', NULL, ?, NULL, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(email) DO UPDATE SET
       name = COALESCE(excluded.name, newsletter_subscribers.name),
       status = 'confirmed',
       confirmed_at = excluded.confirmed_at,
       unsubscribed_at = NULL,
+      source = excluded.source,
       unsubscribe_token = COALESCE(newsletter_subscribers.unsubscribe_token, excluded.unsubscribe_token),
-      updated_at = excluded.updated_at
+      updated_at = excluded.updated_at,
+      consent_at = excluded.consent_at,
+      consent_version = excluded.consent_version
   `).bind(
     input.email.trim().toLowerCase(),
     input.name?.trim() || null,
@@ -176,7 +181,9 @@ export async function addConfirmedNewsletterRecipient(env: Env, input: {
     input.source || 'admin',
     now,
     input.token,
-    now
+    now,
+    now,
+    input.consentVersion || 'newsletter-single-optin-v1'
   ).run()
 }
 

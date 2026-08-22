@@ -1,6 +1,7 @@
 import type { Context } from 'hono'
 import type { Env } from '../types'
-import { unsubscribeNewsletterRecipient } from '../newsletter'
+import { addConfirmedNewsletterRecipient, unsubscribeNewsletterRecipient } from '../newsletter'
+import { randomHex } from '../utils'
 
 function page(content: string): string {
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Preferências de newsletter | Diário do Povo</title><style>
@@ -29,4 +30,49 @@ export async function handleNewsletterOneClickUnsubscribe(c: Context) {
   if (!/^[a-f0-9]{48}$/i.test(token)) return c.json({ success: false }, 404)
   await unsubscribeNewsletterRecipient(c.env as Env, token)
   return c.json({ success: true })
+}
+
+function wantsJson(c: Context): boolean {
+  return (c.req.header('content-type') || '').includes('application/json') || (c.req.header('accept') || '').includes('application/json')
+}
+
+export async function handleNewsletterSubscribe(c: Context) {
+  const json = wantsJson(c)
+  try {
+    const body = json ? await c.req.json<Record<string, unknown>>() : await c.req.parseBody()
+    const email = String(body.email || '').trim().toLowerCase()
+    const name = String(body.name || '').trim().slice(0, 100)
+    const consent = body.consent === true || ['yes', 'on', '1', 'true'].includes(String(body.consent || '').toLowerCase())
+    const honeypot = String(body.company || '').trim()
+    const campaignId = Number(body.campaignId || body.campaign_id || 0)
+
+    // Bots recebem uma resposta neutra, sem gravar dados.
+    if (honeypot) return json ? c.json({ success: true }) : c.redirect('/?newsletter=success', 303)
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      return json ? c.json({ success: false, error: 'Informe um e-mail válido.' }, 400) : c.redirect('/?newsletter=invalid', 303)
+    }
+    if (!consent) {
+      return json ? c.json({ success: false, error: 'Confirme que deseja receber a newsletter.' }, 400) : c.redirect('/?newsletter=consent', 303)
+    }
+
+    const source = Number.isInteger(campaignId) && campaignId > 0 ? `popup:${campaignId}` : 'website'
+    await addConfirmedNewsletterRecipient(c.env as any, {
+      email, name: name || undefined, token: randomHex(32), source,
+      consentVersion: 'newsletter-single-optin-v1'
+    })
+
+    if (campaignId > 0) {
+      const { recordEngagementEvent } = await import('../engagement')
+      const device = String(body.device) === 'mobile' ? 'mobile' : 'desktop'
+      const pageType = String(body.pageType || 'other')
+      c.executionCtx.waitUntil(recordEngagementEvent(c.env as any, campaignId, 'conversion', device, pageType))
+    }
+
+    return json
+      ? c.json({ success: true, message: 'Inscrição realizada. Você já faz parte da newsletter do Diário.' })
+      : c.redirect('/?newsletter=success', 303)
+  } catch (error) {
+    console.error('[Newsletter] Public subscribe failed:', error)
+    return json ? c.json({ success: false, error: 'Não foi possível concluir a inscrição.' }, 500) : c.redirect('/?newsletter=error', 303)
+  }
 }

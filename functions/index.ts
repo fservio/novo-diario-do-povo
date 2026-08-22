@@ -613,6 +613,10 @@ app.use('/api/admin/posts/*', async (c, next) => {
   const { csrfProtection } = await import('../packages/core/middleware')
   return csrfProtection(c, next)
 })
+app.use('/api/admin/media/upload', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
 
 // Newsletter forms always validate the session-bound CSRF token.
 app.use('/admin/newsletters', async (c, next) => {
@@ -620,6 +624,16 @@ app.use('/admin/newsletters', async (c, next) => {
   return csrfProtection(c, next)
 })
 app.use('/admin/newsletters/*', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+
+// Engagement campaigns alter public delivery rules and require CSRF protection.
+app.use('/admin/engagement', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+app.use('/admin/engagement/*', async (c, next) => {
   const { csrfProtection } = await import('../packages/core/middleware')
   return csrfProtection(c, next)
 })
@@ -2004,6 +2018,12 @@ app.get('/admin/settings/:scope/:key', async (c) => {
   return renderSettingEditPage(c, scope, key, error)
 })
 
+// API /api/admin/media/upload - Upload assíncrono para editores internos
+app.post('/api/admin/media/upload', async (c) => {
+  const { handleMediaApiUpload } = await import('../packages/core/admin/media')
+  return handleMediaApiUpload(c)
+})
+
 // POST /admin/settings/newsletter
 app.post('/admin/settings/newsletter', async (c) => {
   const { handleNewsletterSettingsUpdate } = await import('../packages/core/admin/settings')
@@ -3104,6 +3124,70 @@ app.post('/api/n8n/editorial/rss/sync', async (c) => {
 // Admin Newsletters Routes
 // ============================================================================
 
+app.get('/admin/engagement', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementList } = await import('../packages/core/admin/engagement')
+  return handleEngagementList(c)
+})
+
+app.get('/admin/engagement/new', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementNew } = await import('../packages/core/admin/engagement')
+  return handleEngagementNew(c)
+})
+
+app.post('/admin/engagement', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementCreate } = await import('../packages/core/admin/engagement')
+  return handleEngagementCreate(c)
+})
+
+app.get('/admin/engagement/:id{[0-9]+}', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementDetail } = await import('../packages/core/admin/engagement')
+  return handleEngagementDetail(c)
+})
+
+app.get('/admin/engagement/:id{[0-9]+}/edit', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementEdit } = await import('../packages/core/admin/engagement')
+  return handleEngagementEdit(c)
+})
+
+app.post('/admin/engagement/:id{[0-9]+}/edit', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementUpdate } = await import('../packages/core/admin/engagement')
+  return handleEngagementUpdate(c)
+})
+
+app.post('/admin/engagement/:id{[0-9]+}/duplicate', async (c) => {
+  const { requireEditor } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireEditor(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementDuplicate } = await import('../packages/core/admin/engagement')
+  return handleEngagementDuplicate(c)
+})
+
+app.post('/admin/engagement/:id{[0-9]+}/status', async (c) => {
+  const { requireDirector } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireDirector(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { handleEngagementStatus } = await import('../packages/core/admin/engagement')
+  return handleEngagementStatus(c)
+})
+
 app.get('/admin/newsletters', async (c) => {
   const { requireEditor } = await import('../packages/core/middleware/rbac')
   const accessResponse = await requireEditor(c, async () => { })
@@ -3256,6 +3340,31 @@ app.post('/api/n8n/instagram/:id{[0-9]+}', async (c) => {
 })
 
 // Public, tokenized newsletter preference routes.
+app.use('/api/newsletter/subscribe', async (c, next) => {
+  const { rateLimiter } = await import('../packages/core/middleware/ratelimit')
+  return rateLimiter('newsletter')(c as any, next)
+})
+
+app.post('/api/newsletter/subscribe', async (c) => {
+  const { handleNewsletterSubscribe } = await import('../packages/core/web/newsletter')
+  return handleNewsletterSubscribe(c)
+})
+
+app.get('/api/engagement/eligible', async (c) => {
+  const { handleEngagementEligible } = await import('../packages/core/web/engagement')
+  return handleEngagementEligible(c)
+})
+
+app.use('/api/engagement/events', async (c, next) => {
+  const { rateLimiter } = await import('../packages/core/middleware/ratelimit')
+  return rateLimiter('public')(c as any, next)
+})
+
+app.post('/api/engagement/events', async (c) => {
+  const { handleEngagementEvent } = await import('../packages/core/web/engagement')
+  return handleEngagementEvent(c)
+})
+
 app.get('/newsletter/unsubscribe/:token', async (c) => {
   const { handleNewsletterUnsubscribePage } = await import('../packages/core/web/newsletter')
   return handleNewsletterUnsubscribePage(c)

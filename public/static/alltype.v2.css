@@ -689,11 +689,27 @@ img {
 
 .dp-newsletter-form {
   display: flex;
+  flex-wrap: wrap;
   max-width: 480px;
   margin-left: auto;
   margin-right: auto;
   border: var(--dp-hairline);
 }
+
+.dp-newsletter-consent {
+  display: flex;
+  flex: 0 0 100%;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 10px 12px 0;
+  color: var(--dp-muted);
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.dp-newsletter-consent input { margin-top: 2px; accent-color: var(--dp-text); }
+.dp-newsletter-consent a { color: inherit; text-decoration: underline; }
 
 .dp-newsletter-input {
   flex: 1;

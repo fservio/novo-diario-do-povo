@@ -271,13 +271,28 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
         link.href = url.pathname + url.search;
       }
     });
-    // Newsletter form submit handler
+    // Newsletter single opt-in: grava a inscrição imediatamente, sem e-mail de confirmação.
     const newsletterForm = document.getElementById('newsletterForm');
     if (newsletterForm) {
-      newsletterForm.addEventListener('submit', (e) => {
+      newsletterForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        alert('Inscrição realizada com sucesso! Obrigado por assinar nossa newsletter.');
-        newsletterForm.reset();
+        const button = newsletterForm.querySelector('button[type="submit"]');
+        if (button) { button.disabled = true; button.textContent = 'Inscrevendo…'; }
+        try {
+          const data = Object.fromEntries(new FormData(newsletterForm).entries());
+          const response = await fetch('/api/newsletter/subscribe', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            credentials: 'same-origin', body: JSON.stringify(data)
+          });
+          const result = await response.json();
+          if (!response.ok || !result.success) throw new Error(result.error || 'Não foi possível concluir.');
+          newsletterForm.reset();
+          alert(result.message);
+        } catch (error) {
+          alert(error instanceof Error ? error.message : 'Não foi possível concluir a inscrição.');
+        } finally {
+          if (button) { button.disabled = false; button.textContent = 'Inscrever-se'; }
+        }
       });
     }
   `, nonce).replace('<script', '<script data-script="header-scroll" defer')
@@ -527,6 +542,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
   <!-- Main CSS -->
   <link rel="preload" href="${cssHref}" as="style">
   <link href="${cssHref}" rel="stylesheet" fetchpriority="high">
+  <link href="/static/engagement.css?v=20260821-1" rel="stylesheet">
 
   ${extraHeadHtml}
   ${googleAnalyticsId ? `
@@ -713,6 +729,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
   ` : ''}
   
   ${headerScript}
+  <script src="/static/engagement.js?v=20260821-1" defer></script>
   ${params.extraScriptsHtml || ''}
   
   

@@ -227,6 +227,7 @@ export function renderEditorialLayout(params: {
   <meta name="theme-color" content="#123d5a">
   ${params.lcpPreloadUrl ? `<link rel="preload" as="image" href="${escapeAttr(params.lcpPreloadUrl)}"${params.lcpSrcSet ? ` imagesrcset="${escapeAttr(params.lcpSrcSet)}" imagesizes="(max-width: 760px) 100vw, 760px"` : ''} fetchpriority="high">` : ''}
   <link rel="stylesheet" href="/static/editorial.css?v=20260821-hero1">
+  <link rel="stylesheet" href="/static/engagement.css?v=20260821-1">
   ${params.extraHeadHtml || ''}
   ${params.googleAnalyticsId ? `
     <script async src="https://www.googletagmanager.com/gtag/js?id=${escapeAttr(params.googleAnalyticsId)}"></script>
@@ -244,6 +245,7 @@ export function renderEditorialLayout(params: {
     ${params.bodyHtml}
   </main>
   ${renderEditorialFooter(params.siteName)}
+  <script src="/static/engagement.js?v=20260821-1" defer></script>
   ${params.extraScriptsHtml || ''}
 </body>
 </html>`

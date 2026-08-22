@@ -28,6 +28,7 @@ export interface NewsletterPost {
   created_at: string
   category_name: string | null
   cover_media_url: string | null
+  cover_media_id?: number | null
   position: number
 }
 
