@@ -9,6 +9,7 @@
     "build": "vite build && vite build --config vite.editor.config.ts",
     "preview": "wrangler pages dev dist",
     "deploy": "npm run build && wrangler pages deploy dist",
+    "deploy:video-jobs": "wrangler deploy --config wrangler.video-jobs.jsonc",
     "deploy:prod": "npm run build && wrangler pages deploy dist --project-name novo-diario-do-povo",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.editor.json",
     "lint": "eslint . --ext .ts,.tsx",

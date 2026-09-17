@@ -3184,6 +3184,27 @@ app.get('/admin/video-ia/novo', async (c) => {
   return renderVideoProjectNew(c)
 })
 
+app.post('/api/internal/video-ia/step', async (c) => {
+  const { processVideoJobStep, validVideoJobsSecret } = await import('../packages/core/video-ai/jobs')
+  if (!validVideoJobsSecret(c.env.VIDEO_JOBS_SECRET, (c.req.header('Authorization') || '').replace(/^Bearer /, ''))) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+  const body = await c.req.json<{ jobId?: string }>().catch(() => ({} as { jobId?: string }))
+  if (typeof body.jobId !== 'string' || !/^[a-f0-9-]{36}$/.test(body.jobId)) return c.json({ error: 'Invalid job' }, 400)
+  c.header('Cache-Control', 'no-store')
+  return c.json(await processVideoJobStep(c.env, body.jobId))
+})
+
+app.get('/api/admin/video-ia/:id{[0-9]+}/status', async (c) => {
+  const { requireStaff } = await import('../packages/core/middleware/rbac')
+  const accessResponse = await requireStaff(c, async () => { })
+  if (accessResponse) return accessResponse
+  const { getLatestVideoJob } = await import('../packages/core/video-ai/jobs')
+  const job = await getLatestVideoJob(c.env, Number(c.req.param('id')))
+  c.header('Cache-Control', 'no-store')
+  return c.json(job ? { status: job.status, stage: job.stage, attempts: job.attempts, error: job.error_message } : { status: 'idle' })
+})
+
 app.get('/api/admin/video-ia/posts', async (c) => {
   const { requireStaff } = await import('../packages/core/middleware/rbac')
   const accessResponse = await requireStaff(c, async () => { })

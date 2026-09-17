@@ -29,6 +29,7 @@
   },
   "include": [
     "functions/**/*",
+    "workers/**/*",
     "packages/**/*",
     "apps/**/*",
     "*.ts"

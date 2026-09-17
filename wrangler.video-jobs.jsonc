@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "diario-video-jobs",
+  "main": "workers/video-jobs.ts",
+  "compatibility_date": "2024-09-23",
+  "workers_dev": false,
+  "preview_urls": false,
+  "triggers": { "crons": ["* * * * *"] },
+  "vars": { "VIDEO_JOBS_ORIGIN": "https://diario.dopovo.com.br" },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "webapp-prod-v2",
+    "database_id": "16c980b7-4c6f-45df-b315-b4b2d5b7ceaa"
+  }]
+}

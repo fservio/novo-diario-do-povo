@@ -52,6 +52,7 @@ export interface Env {
   NEWSLETTER_DAILY_LIMIT?: string
   OPENAI_API_KEY?: string
   OPENAI_MODEL?: string
+  VIDEO_JOBS_SECRET?: string
   WHATSAPP_ACCESS_TOKEN?: string
   WHATSAPP_APP_SECRET?: string
   WHATSAPP_VERIFY_TOKEN?: string

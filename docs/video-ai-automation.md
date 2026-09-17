@@ -13,9 +13,13 @@ Ao criar um projeto, o Estúdio gera e revisa o roteiro automaticamente. Projeto
 
 ## Implantação e operação
 
-Aplicar `migrations/0042_video_ai_automation.sql` antes de disponibilizar o código. A tabela de leases impede duas execuções simultâneas no mesmo projeto. O lease expira em dez minutos caso uma execução seja interrompida; o encerramento normal o remove.
+Aplicar as migrações `0042_video_ai_automation.sql` e `0043_video_ai_jobs.sql` antes de disponibilizar o código. O POST de geração somente agenda uma tarefa no D1 e responde com redirecionamento. O índice único impede tarefas ativas duplicadas para o mesmo projeto.
 
-A execução é síncrona à requisição: a página informa o processamento e deve permanecer aberta. Cada chamada à IA tem limite de 55 segundos; seis chamadas podem levar vários minutos. Não há fila persistente nem retomada automática após fechamento da conexão. Uma falha deixa o projeto bloqueado e permite uma nova execução. O estado `review` representa processamento ou bloqueio; `ready` representa liberação automática. Aprovações automáticas não são atribuídas a um editor humano.
+O Worker `diario-video-jobs` (`wrangler.video-jobs.jsonc`) executa a cada minuto e processa até três projetos por rodada, com no máximo seis etapas por projeto. Cada etapa chama o endpoint interno do Pages e executa somente uma chamada à IA (limite de 55 segundos). A geração e a revisão são persistidas separadamente; a página consulta o progresso sem executar IA e pode ser fechada. Um lease de 90 segundos evita execução concorrente. Uma revisão já persistida é reutilizada após interrupção. Falhas de transporte podem ser retomadas no próximo minuto; erros da IA ficam registrados como falha do projeto. O limite de três gerações inclui tentativas interrompidas.
+
+Configurar o mesmo segredo aleatório `VIDEO_JOBS_SECRET` no Pages e no Worker, sem incluí-lo no Git. O endpoint interno exige esse segredo e aceita apenas IDs de tarefas existentes; nunca aceita prompts nem credenciais enviados pelo cliente. O Worker não possui endereço público habilitado. A chave da OpenAI permanece exclusivamente no Pages.
+
+Publicação: aplicar migrações, configurar os segredos, publicar o Pages e executar `npm run deploy:video-jobs`. Novos Cron Triggers podem levar alguns minutos para se propagar. O estado `review` representa processamento ou bloqueio; `ready` representa liberação automática. Aprovações automáticas não são atribuídas a um editor humano.
 
 A produção de vídeo e o envio ao HeyGen continuam fora deste fluxo: a saída é o roteiro TXT/CSV ou as falas para copiar. Não há publicação automática de vídeo.
 

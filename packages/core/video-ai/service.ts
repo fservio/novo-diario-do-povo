@@ -175,6 +175,29 @@ export function validateVideoEditorialRules(project: VideoProject, script: Video
   return { ...review, issues, ready_for_production: review.ready_for_production && !issues.some(issue => issue.status !== 'confirmed') }
 }
 
+export async function generateVideoScriptVersion(env: Env, project: VideoProject, userId: number, previous: VideoVersion | null, basePrompt?: string): Promise<number> {
+  const projectId = project.id
+  await assertRunBudget(env)
+  const config = await getEditorialAiRuntimeConfig(env)
+  const runId = await startVideoAiRun(env, { projectId, action: 'generate', model: config.model, promptVersion: PROMPT_VERSION, userId })
+  const started = Date.now()
+  let versionId: number
+  try {
+    const feedback = previous ? `\n<DADOS_PARA_REESCRITA>${JSON.stringify({ previous_script: JSON.parse(previous.script_json), review: parseVideoReview(previous.review_json) })}</DADOS_PARA_REESCRITA>` : ''
+    const result = await requestVideoScript(env, (basePrompt || await buildVideoPrompt(env, project)) + feedback)
+    const script = videoScriptZod.parse(result.data) as VideoScriptOutput
+    script.word_count = countVideoWords(script)
+    script.estimated_duration_seconds = estimateVideoSeconds(script.word_count)
+    script.segments.forEach(segment => { segment.estimated_seconds = estimateVideoSeconds(segment.dialogue.trim().split(/\s+/).length) })
+    await completeVideoAiRun(env, runId, { ...result, output: script })
+    versionId = await saveVideoVersion(env, { projectId, runId, script, userId })
+  } catch (error) {
+    await failVideoAiRun(env, runId, error instanceof Error ? error.message : 'Falha na geração.', Date.now() - started)
+    throw error
+  }
+  return versionId
+}
+
 export async function generateVideoProjectScript(env: Env, projectId: number, userId: number): Promise<number> {
   const project = await getVideoProject(env, projectId)
   if (!project || project.status === 'archived') throw new Error('Projeto indisponível para geração.')
@@ -188,24 +211,7 @@ export async function generateVideoProjectScript(env: Env, projectId: number, us
     const basePrompt = await buildVideoPrompt(env, project)
     let previous = await getLatestVideoVersion(env, projectId)
     for (let attempt = 1; attempt <= MAX_VIDEO_ATTEMPTS; attempt++) {
-      await assertRunBudget(env)
-      const config = await getEditorialAiRuntimeConfig(env)
-      const runId = await startVideoAiRun(env, { projectId, action: 'generate', model: config.model, promptVersion: PROMPT_VERSION, userId })
-      const started = Date.now()
-      let versionId: number
-      try {
-        const feedback = previous ? `\n<DADOS_PARA_REESCRITA>${JSON.stringify({ previous_script: JSON.parse(previous.script_json), review: parseVideoReview(previous.review_json) })}</DADOS_PARA_REESCRITA>` : ''
-        const result = await requestVideoScript(env, basePrompt + feedback)
-        const script = videoScriptZod.parse(result.data) as VideoScriptOutput
-        script.word_count = countVideoWords(script)
-        script.estimated_duration_seconds = estimateVideoSeconds(script.word_count)
-        script.segments.forEach(segment => { segment.estimated_seconds = estimateVideoSeconds(segment.dialogue.trim().split(/\s+/).length) })
-        await completeVideoAiRun(env, runId, { ...result, output: script })
-        versionId = await saveVideoVersion(env, { projectId, runId, script, userId })
-      } catch (error) {
-        await failVideoAiRun(env, runId, error instanceof Error ? error.message : 'Falha na geração.', Date.now() - started)
-        throw error
-      }
+      const versionId = await generateVideoScriptVersion(env, project, userId, previous, basePrompt)
       const version = await getVideoVersion(env, projectId, versionId)
       if (!version) throw new Error('A versão gerada não foi persistida.')
       const review = await reviewVideoProjectScript(env, projectId, version, userId)

@@ -10,14 +10,42 @@
       if (event.defaultPrevented) return;
       form.querySelectorAll('button[type="submit"]').forEach(function (button) {
         button.disabled = true;
-        button.textContent = 'Produzindo e revisando…';
+        button.textContent = 'Agendando produção…';
       });
       var progress = document.createElement('p');
       progress.setAttribute('role', 'status');
-      progress.textContent = 'A IA está redigindo, revisando e corrigindo o roteiro. O processo pode levar alguns minutos. Mantenha esta página aberta.';
+      progress.textContent = 'O roteiro será produzido em segundo plano. Você poderá acompanhar o resultado na página do projeto.';
       form.appendChild(progress);
     });
   });
+
+  var jobStatus = document.querySelector('[data-video-job-status]');
+  if (jobStatus) {
+    var failures = 0;
+    var pollJob = function () {
+      fetch(jobStatus.dataset.videoJobStatus, { credentials: 'same-origin', cache: 'no-store' })
+        .then(function (response) {
+          if (!response.ok || response.redirected) throw new Error('status unavailable');
+          return response.json();
+        })
+        .then(function (job) {
+          failures = 0;
+          if (job.status !== 'active') {
+            var url = new URL(window.location.href);
+            url.searchParams.delete('version'); url.searchParams.delete('message'); url.searchParams.delete('error');
+            window.location.replace(url.toString()); return;
+          }
+          jobStatus.querySelector('[data-video-job-message]').textContent = (job.stage === 'review' ? 'Revisando o roteiro' : 'Aguardando ou gerando roteiro') + ' · tentativa ' + (job.attempts || 1) + ' de 3. Você pode sair desta página.';
+          window.setTimeout(pollJob, 5000);
+        })
+        .catch(function () {
+          failures++;
+          jobStatus.querySelector('[data-video-job-message]').textContent = 'Não foi possível atualizar o progresso. A produção continua em segundo plano.';
+          if (failures < 12) window.setTimeout(pollJob, Math.min(30000, failures * 5000));
+        });
+    };
+    window.setTimeout(pollJob, 2000);
+  }
 
   var scriptForm = document.querySelector('[data-video-script-form]');
   if (scriptForm) initializeScriptWorkspace(scriptForm);

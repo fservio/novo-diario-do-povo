@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.mock('../../packages/core/video-ai/jobs', () => ({ getLatestVideoJob: vi.fn(async () => null), enqueueVideoJob: vi.fn(async () => ({ id: 'job', status: 'active' })) }))
+vi.mock('../../packages/core/db', () => ({ logAudit: vi.fn() }))
+
 vi.mock('../../packages/core/video-ai/repository', () => ({
   getVideoProject: vi.fn(), getVideoVersion: vi.fn(), getLatestVideoVersion: vi.fn(),
   listVideoVersions: vi.fn(), listVideoAiRuns: vi.fn()
@@ -13,7 +16,8 @@ vi.mock('../../packages/core/admin/ui', () => ({
   renderAdminLayout: (input: any) => input.bodyHtml
 }))
 import * as repo from '../../packages/core/video-ai/repository'
-import { handleVideoDownload, handleVideoIssueResolve, handleVideoScriptSave, renderVideoProjectDetail } from '../../packages/core/admin/video-ai'
+import { handleVideoDownload, handleVideoGenerate, handleVideoIssueResolve, handleVideoScriptSave, renderVideoProjectDetail } from '../../packages/core/admin/video-ai'
+import { enqueueVideoJob, getLatestVideoJob } from '../../packages/core/video-ai/jobs'
 
 const script = { title: 'Escolas', summary: 'Anúncio', word_count: 8, estimated_duration_seconds: 10,
   disclosure: 'Avatar de IA', pronunciation_notes: [], editorial_notes: [], unresolved_points: [],
@@ -28,6 +32,7 @@ const context = (query: Record<string, string> = {}) => ({ env: {},
   req: { query: (key: string) => query[key] }, get: () => ({ id: 1, role: 'admin' }),
   text: (body: string, status: number) => new Response(body, { status }),
   html: (body: string) => new Response(body), notFound: () => new Response(null, { status: 404 })
+  , redirect: (location: string, status: number) => new Response(null, { status, headers: { Location: location } })
 }) as any
 
 beforeEach(() => {
@@ -40,6 +45,19 @@ beforeEach(() => {
 })
 
 describe('Saída de produção do Estúdio', () => {
+  it('responde ao POST com redirecionamento depois de agendar, sem aguardar IA', async () => {
+    const response = await handleVideoGenerate(context(), 1)
+    expect(response.status).toBe(303)
+    expect(response.headers.get('Location')).toContain('Produ%C3%A7%C3%A3o%20agendada')
+    expect(enqueueVideoJob).toHaveBeenCalledOnce()
+  })
+  it('mostra progresso e impede nova geração enquanto existe tarefa ativa', async () => {
+    vi.mocked(getLatestVideoJob).mockResolvedValueOnce({ status: 'active', stage: 'review', attempts: 2 } as any)
+    const html = await (await renderVideoProjectDetail(context(), 1)).text()
+    expect(html).toContain('data-video-job-status=')
+    expect(html).toContain('Você pode sair desta página')
+    expect(html).not.toContain('Executar produção automática')
+  })
   it('exporta somente a versão atual liberada', async () => {
     const response = await handleVideoDownload(context(), 1)
     expect(response.status).toBe(200)

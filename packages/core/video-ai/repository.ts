@@ -1,12 +1,12 @@
 import type { Env } from '../types'
 
-export async function claimVideoPipeline(env: Env, projectId: number, owner: string): Promise<boolean> {
+export async function claimVideoPipeline(env: Env, projectId: number, owner: string, leaseMs = 10 * 60 * 1000): Promise<boolean> {
   const now = Date.now()
   const result = await env.DB.prepare(`
     INSERT INTO video_ai_pipeline_locks (project_id, owner, expires_at) VALUES (?, ?, ?)
     ON CONFLICT(project_id) DO UPDATE SET owner = excluded.owner, expires_at = excluded.expires_at
     WHERE video_ai_pipeline_locks.expires_at < ?
-  `).bind(projectId, owner, now + 10 * 60 * 1000, now).run()
+  `).bind(projectId, owner, now + leaseMs, now).run()
   return Number(result.meta.changes) === 1
 }
 

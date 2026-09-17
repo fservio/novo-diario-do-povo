@@ -2,13 +2,12 @@ import type { Context } from 'hono'
 import type { AppContext, Env } from '../types'
 import { getEditorialAiRuntimeConfig } from '../editorial-ai/openai'
 import { logAudit } from '../db'
+import { enqueueVideoJob, getLatestVideoJob } from '../video-ai/jobs'
 import { normalizeRole } from '../db/users'
 import {
-  approveVideoProject,
   canAutoApproveVideo,
   createVideoAvatar,
   createVideoProjectFromPost,
-  generateVideoProjectScript,
   getLatestVideoVersion,
   getVideoProject,
   getVideoProjectStats,
@@ -198,7 +197,7 @@ export async function renderVideoProjectNew(c: AdminContext): Promise<Response> 
           <div class="form-group"><label for="closing_cta">Chamada final</label><input class="form-control" id="closing_cta" name="closing_cta" maxlength="500" value="Acompanhe a cobertura completa no Diário do Povo."></div>
         </section></main>
       <aside class="video-project-form__aside"><section class="card video-project-summary"><p class="page-kicker">Fluxo editorial</p><h2>Da matéria ao estúdio</h2><ol><li><span>1</span>Configure e crie o projeto</li><li><span>2</span>A IA seleciona os fatos e redige</li><li><span>3</span>A revisão verifica fatos e qualidade</li><li><span>4</span>A IA corrige até duas vezes</li><li><span>5</span>O roteiro é liberado ou bloqueado</li></ol><p>Nada será enviado ao HeyGen. A equipe copiará ou baixará o roteiro aprovado.</p></section><div class="video-project-savebar"><button class="btn" type="submit" ${hasAvatar ? '' : 'disabled'}>Criar e produzir roteiro</button><a class="btn btn-outline" href="/admin/video-ia">Cancelar</a></div></aside>
-    </form><script src="/static/admin-video-ai.js?v=20260917-2" defer></script>`
+    </form><script src="/static/admin-video-ai.js?v=20260917-3" defer></script>`
   return c.html(renderAdminLayout({ title: 'Novo roteiro · Vídeo IA', user: c.get('adminUser'), bodyHtml, activeTab: 'video-ia', csrfToken }))
 }
 
@@ -252,6 +251,7 @@ function renderReview(project: VideoProject, version: VideoVersion, review: Vide
 export async function renderVideoProjectDetail(c: AdminContext, id: number): Promise<Response> {
   const project = await getVideoProject(c.env, id)
   if (!project) return c.notFound()
+  const job = await getLatestVideoJob(c.env, id)
   const versions = await listVideoVersions(c.env, id)
   const selectedVersionId = Number(c.req.query('version') || 0)
   const version = selectedVersionId ? await getVideoVersion(c.env, id, selectedVersionId) : versions[0] || null
@@ -266,22 +266,23 @@ export async function renderVideoProjectDetail(c: AdminContext, id: number): Pro
   const stale = Boolean(project.post_updated_at && project.source_updated_at && project.post_updated_at > project.source_updated_at)
   const bodyHtml = `<div class="page-intro video-ai-heading"><div><a class="newsletter-back" href="/admin/video-ia">← Estúdio de Vídeo</a><p class="page-kicker">Projeto #${project.id} · ${escapeHtml(formatLabels[project.format])}</p><h1 class="page-title">${escapeHtml(project.internal_title)}</h1><p class="page-description">Baseado em “${escapeHtml(project.post_title || 'Matéria indisponível')}” · ${project.duration_seconds}s · ${escapeHtml(orientationLabels[project.orientation])}</p></div><div class="video-ai-heading__actions">${statusBadge(project.status)}<a class="btn btn-outline" href="/admin/posts/${project.post_id}">Abrir matéria</a></div></div>
     ${notice(c.req.query('message'), c.req.query('error'))}
+    ${job?.status === 'active' ? `<div class="video-ai-notice" role="status" data-video-job-status="/api/admin/video-ia/${id}/status"><strong>Produção em segundo plano</strong><p data-video-job-message>${job.stage === 'review' ? 'Revisando o roteiro' : 'Aguardando ou gerando roteiro'} · tentativa ${job.attempts || 1} de 3. Você pode sair desta página.</p></div>` : job?.status === 'failed' ? `<div class="video-ai-notice is-error" role="alert">${escapeHtml(job.error_message || 'A produção não foi concluída.')}</div>` : ''}
     ${stale ? '<div class="video-ai-notice is-warning"><strong>A matéria foi atualizada depois da criação deste projeto.</strong> Gere um novo projeto para incorporar as mudanças com rastreabilidade.</div>' : ''}
     <section class="video-project-overview"><article><span>Equipe virtual</span><div>${selectedAvatarNames(project).map(item => `${roleBadge(item.role)}<strong>${escapeHtml(item.name)}</strong>`).join('')}</div></article><article><span>Direção</span><strong>${escapeHtml(toneLabels[project.tone])}</strong><small>${escapeHtml(project.target_audience || 'Público geral')}</small></article><article><span>Versão ativa</span><strong>${version ? `v${version.version_number}` : 'Ainda não gerada'}</strong><small>${version ? `${version.word_count} palavras · ${version.estimated_seconds}s` : 'Configure e execute a IA'}</small></article></section>
-    ${!version ? `<section class="card video-generate-card"><span class="admin-icon">${renderAdminIcon('video')}</span><div><p class="page-kicker">Primeira versão</p><h2>Gerar roteiro audiovisual</h2><p>A IA adaptará a matéria às funções de ${selectedAvatarNames(project).map(item => roleLabels[item.role].toLowerCase()).join(', ')}, preservando os fatos e a duração planejada.</p><small>${config.apiKeyConfigured ? `${escapeHtml(config.model)} · revisão e reescrita automáticas` : 'Configure OPENAI_API_KEY antes de continuar.'}</small></div><form method="post" action="/admin/video-ia/${project.id}/gerar">${renderCsrfInput(csrfToken)}<button class="btn" type="submit" ${config.enabled && config.apiKeyConfigured ? '' : 'disabled'}>Gerar roteiro</button></form></section>` : `<div class="video-workspace-tabs"><a class="active" href="#roteiro">Roteiro</a><a href="#checagem">Checagem</a><a href="#saida">Saída para produção</a></div>
-      <section class="video-workspace-grid"><main><section class="card video-script-card" id="roteiro"><div class="video-ai-section-head"><div><p class="page-kicker">Versão ${version.version_number}</p><h2>Diálogos dos avatares</h2></div><div class="video-version-actions">${versions.length > 1 ? `<select class="form-control" data-video-version-select>${versions.map(item => `<option value="${item.id}" ${item.id === version.id ? 'selected' : ''}>Versão ${item.version_number}${item.is_human_edited ? ' · editada' : ''}</option>`).join('')}</select>` : ''}${project.status !== 'archived' ? `<form method="post" action="/admin/video-ia/${project.id}/gerar">${renderCsrfInput(csrfToken)}<button class="btn btn-outline btn-compact" type="submit">Executar produção automática</button></form>` : ''}</div></div>${renderScriptEditor(project, version, script!, locked, csrfToken)}</section>
+    ${!version ? `<section class="card video-generate-card"><span class="admin-icon">${renderAdminIcon('video')}</span><div><p class="page-kicker">Primeira versão</p><h2>Gerar roteiro audiovisual</h2><p>A IA adaptará a matéria às funções de ${selectedAvatarNames(project).map(item => roleLabels[item.role].toLowerCase()).join(', ')}, preservando os fatos e a duração planejada.</p><small>${config.apiKeyConfigured ? `${escapeHtml(config.model)} · revisão e reescrita automáticas` : 'Configure OPENAI_API_KEY antes de continuar.'}</small></div><form method="post" action="/admin/video-ia/${project.id}/gerar">${renderCsrfInput(csrfToken)}<button class="btn" type="submit" ${config.enabled && config.apiKeyConfigured && job?.status !== 'active' ? '' : 'disabled'}>Gerar roteiro</button></form></section>` : `<div class="video-workspace-tabs"><a class="active" href="#roteiro">Roteiro</a><a href="#checagem">Checagem</a><a href="#saida">Saída para produção</a></div>
+      <section class="video-workspace-grid"><main><section class="card video-script-card" id="roteiro"><div class="video-ai-section-head"><div><p class="page-kicker">Versão ${version.version_number}</p><h2>Diálogos dos avatares</h2></div><div class="video-version-actions">${versions.length > 1 ? `<select class="form-control" data-video-version-select>${versions.map(item => `<option value="${item.id}" ${item.id === version.id ? 'selected' : ''}>Versão ${item.version_number}${item.is_human_edited ? ' · editada' : ''}</option>`).join('')}</select>` : ''}${project.status !== 'archived' && job?.status !== 'active' ? `<form method="post" action="/admin/video-ia/${project.id}/gerar">${renderCsrfInput(csrfToken)}<button class="btn btn-outline btn-compact" type="submit">Executar produção automática</button></form>` : ''}</div></div>${renderScriptEditor(project, version, script!, locked, csrfToken)}</section>
         <section class="card video-review-card" id="checagem"><div class="video-ai-section-head"><div><p class="page-kicker">Integridade</p><h2>Checagem editorial</h2></div></div>${renderReview(project, version, review, csrfToken)}</section></main>
         <aside><section class="card video-production-card" id="saida"><p class="page-kicker">HeyGen · fluxo manual</p><h2>Saída para produção</h2><p>Copie o roteiro completo ou somente as falas de cada avatar.</p>${productionReady ? `<div class="video-production-actions"><button class="btn" type="button" data-video-copy="all">Copiar roteiro completo</button>${selectedAvatarNames(project).map(item => `<button class="btn btn-outline" type="button" data-video-copy="${item.role}">Copiar ${escapeHtml(item.name)}</button>`).join('')}<a class="btn btn-outline" href="/admin/video-ia/${project.id}/download?version=${version.id}&format=txt">Baixar TXT</a><a class="btn btn-outline" href="/admin/video-ia/${project.id}/download?version=${version.id}&format=csv">Baixar CSV</a></div>` : '<p>A saída será disponibilizada quando a versão atual passar por todos os critérios.</p>'}<p class="video-copy-status" data-video-copy-status role="status"></p><div class="video-production-state">${productionReady ? '<strong>Pronto para produção</strong><p>Versão liberada automaticamente após revisão factual e editorial.</p>' : '<strong>Produção não liberada</strong><p>Execute a produção automática para gerar, revisar e corrigir o roteiro. Após três tentativas sem aprovação, os motivos ficam registrados.</p>'}</div></section>
           <section class="card video-history-card"><p class="page-kicker">Auditoria</p><h2>Operações de IA</h2>${runs.length ? `<ul>${runs.slice(0, 8).map(run => `<li><span>${run.action === 'generate' ? 'Geração' : 'Checagem'} · ${escapeHtml(run.status)}</span><strong>${escapeHtml(run.model)}</strong><small>${run.total_tokens} tokens · ${formatDate(run.created_at)}</small>${run.error_message ? `<p>${escapeHtml(run.error_message)}</p>` : ''}</li>`).join('')}</ul>` : '<p>Nenhuma operação registrada.</p>'}</section></aside></section>`}
-    <script src="/static/admin-video-ai.js?v=20260917-2" defer></script>`
+    <script src="/static/admin-video-ai.js?v=20260917-3" defer></script>`
   return c.html(renderAdminLayout({ title: `Vídeo #${project.id}`, user, bodyHtml, activeTab: 'video-ia', csrfToken }))
 }
 
 export async function handleVideoGenerate(c: AdminContext, id: number): Promise<Response> {
   try {
-    await generateVideoProjectScript(c.env, id, c.get('adminUser').id)
-    await logAudit(c.env, { entityType: 'video_ai_project', entityId: id, action: 'generate_script', actorType: 'user', actorId: c.get('adminUser').id, requestId: c.get('requestId') })
-    return c.redirect(`/admin/video-ia/${id}?message=${encodeURIComponent('Roteiro gerado, revisado e liberado automaticamente para produção.')}`, 303)
+    await enqueueVideoJob(c.env, id, c.get('adminUser').id)
+    await logAudit(c.env, { entityType: 'video_ai_project', entityId: id, action: 'enqueue_script', actorType: 'user', actorId: c.get('adminUser').id, requestId: c.get('requestId') })
+    return c.redirect(`/admin/video-ia/${id}?message=${encodeURIComponent('Produção agendada. O roteiro será gerado e revisado em segundo plano.')}`, 303)
   } catch (error) {
     return c.redirect(`/admin/video-ia/${id}?error=${encodeURIComponent(error instanceof Error ? error.message : 'Falha na geração do roteiro.')}`, 303)
   }
@@ -300,13 +301,7 @@ export async function handleVideoIssueResolve(c: AdminContext, id: number, issue
 }
 
 export async function handleVideoApprove(c: AdminContext, id: number): Promise<Response> {
-  try {
-    await approveVideoProject(c.env, id, c.get('adminUser').id)
-    await logAudit(c.env, { entityType: 'video_ai_project', entityId: id, action: 'approve', actorType: 'user', actorId: c.get('adminUser').id, requestId: c.get('requestId') })
-    return c.redirect(`/admin/video-ia/${id}?message=${encodeURIComponent('Roteiro liberado automaticamente para produção.')}`, 303)
-  } catch (error) {
-    return c.redirect(`/admin/video-ia/${id}?error=${encodeURIComponent(error instanceof Error ? error.message : 'Não foi possível aprovar.')}`, 303)
-  }
+  return handleVideoGenerate(c, id)
 }
 
 export async function handleVideoReady(c: AdminContext, id: number): Promise<Response> {
