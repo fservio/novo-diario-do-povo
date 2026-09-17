@@ -9,7 +9,8 @@ export async function drainVideoJobs(env: VideoJobsEnv): Promise<void> {
   await Promise.all((jobs.results || []).map(async job => {
     for (let step = 0; step < 6; step++) {
       const response = await fetch(`${env.VIDEO_JOBS_ORIGIN}/api/internal/video-ia/step`, {
-        method: 'POST', redirect: 'error',
+        // Workers only supports follow/manual. Never forward the secret across redirects.
+        method: 'POST', redirect: 'manual',
         headers: { Authorization: `Bearer ${env.VIDEO_JOBS_SECRET}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ jobId: job.id }), signal: AbortSignal.timeout(75_000)
       })

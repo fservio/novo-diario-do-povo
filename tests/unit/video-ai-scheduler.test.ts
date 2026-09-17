@@ -10,6 +10,7 @@ describe('Executor em segundo plano', () => {
     await drainVideoJobs(env)
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer internal-secret')
+    expect(fetchMock.mock.calls[0][1].redirect).toBe('manual')
   })
   it('encerra o tick quando outra execução possui o lease', async () => {
     const fetchMock = vi.fn(async () => Response.json({ status: 'busy' }))
@@ -22,5 +23,12 @@ describe('Executor em segundo plano', () => {
     vi.stubGlobal('fetch', fetchMock)
     await expect(drainVideoJobs(env)).rejects.toThrow('503')
     expect(fetchMock).toHaveBeenCalledOnce()
+  })
+  it('recusa redirecionamento sem enviar o segredo a outro destino', async () => {
+    const fetchMock = vi.fn(async () => new Response(null, { status: 302, headers: { Location: 'https://other.example' } }))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(drainVideoJobs(env)).rejects.toThrow('302')
+    expect(fetchMock).toHaveBeenCalledOnce()
+    expect(fetchMock.mock.calls[0][1].redirect).toBe('manual')
   })
 })
