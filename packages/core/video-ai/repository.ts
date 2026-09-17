@@ -1,4 +1,32 @@
 import type { Env } from '../types'
+
+export async function claimVideoPipeline(env: Env, projectId: number, owner: string): Promise<boolean> {
+  const now = Date.now()
+  const result = await env.DB.prepare(`
+    INSERT INTO video_ai_pipeline_locks (project_id, owner, expires_at) VALUES (?, ?, ?)
+    ON CONFLICT(project_id) DO UPDATE SET owner = excluded.owner, expires_at = excluded.expires_at
+    WHERE video_ai_pipeline_locks.expires_at < ?
+  `).bind(projectId, owner, now + 10 * 60 * 1000, now).run()
+  return Number(result.meta.changes) === 1
+}
+
+export async function releaseVideoPipeline(env: Env, projectId: number, owner: string): Promise<void> {
+  await env.DB.prepare('DELETE FROM video_ai_pipeline_locks WHERE project_id = ? AND owner = ?').bind(projectId, owner).run()
+}
+
+export async function markVideoAutomaticallyReady(env: Env, projectId: number, version: VideoVersion, owner: string): Promise<void> {
+  const now = new Date().toISOString()
+  const result = await env.DB.prepare(`
+    UPDATE video_ai_projects SET status = 'ready', approved_by_user_id = NULL, approved_at = ?, updated_at = ?
+    WHERE id = ? AND status = 'review'
+      AND EXISTS (SELECT 1 FROM video_ai_pipeline_locks WHERE project_id = ? AND owner = ? AND expires_at > ?)
+      AND ? = (SELECT id FROM video_ai_versions WHERE project_id = ? ORDER BY version_number DESC LIMIT 1)
+      AND EXISTS (SELECT 1 FROM video_ai_versions WHERE id = ? AND script_json = ? AND review_json IS NOT NULL)
+      AND EXISTS (SELECT 1 FROM posts WHERE id = video_ai_projects.post_id AND status IN ('published', 'review')
+        AND COALESCE(updated_at, published_at, created_at) = video_ai_projects.source_updated_at)
+  `).bind(now, now, projectId, projectId, owner, Date.now(), version.id, projectId, version.id, version.script_json).run()
+  if (Number(result.meta.changes) !== 1) throw new Error('A fonte ou a versão mudou durante a geração; a produção permanece bloqueada.')
+}
 import type {
   VideoAiRun,
   VideoAvatar,
@@ -48,7 +76,7 @@ export async function setVideoAvatarActive(env: Env, id: number, active: boolean
 
 const PROJECT_SELECT = `
   SELECT p.*,
-    post.title AS post_title, post.status AS post_status, post.updated_at AS post_updated_at,
+    post.title AS post_title, post.status AS post_status, COALESCE(post.updated_at, post.published_at, post.created_at) AS post_updated_at,
     anchor.name AS anchor_name, reporter.name AS reporter_name, commentator.name AS commentator_name,
     creator.name AS created_by_name, approver.name AS approved_by_name,
     (SELECT MAX(v.version_number) FROM video_ai_versions v WHERE v.project_id = p.id) AS latest_version_number
@@ -112,8 +140,11 @@ export async function setVideoProjectStatus(env: Env, id: number, status: VideoP
     return
   }
   await env.DB.prepare(`
-    UPDATE video_ai_projects SET status = ?, archived_at = CASE WHEN ? = 'archived' THEN ? ELSE archived_at END, updated_at = ? WHERE id = ?
-  `).bind(status, status, now, now, id).run()
+    UPDATE video_ai_projects SET status = ?, archived_at = CASE WHEN ? = 'archived' THEN ? ELSE archived_at END,
+      approved_at = CASE WHEN ? = 'review' THEN NULL ELSE approved_at END,
+      approved_by_user_id = CASE WHEN ? = 'review' THEN NULL ELSE approved_by_user_id END,
+      updated_at = ? WHERE id = ?
+  `).bind(status, status, now, status, status, now, id).run()
 }
 
 export async function startVideoAiRun(env: Env, input: {

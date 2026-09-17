@@ -2,8 +2,12 @@ import type { Env } from '../types'
 import { getPostById } from '../db/posts'
 import { getEditorialAiRuntimeConfig } from '../editorial-ai/openai'
 import { sha256Hex } from '../utils/crypto'
-import { requestVideoReview, requestVideoScript, videoScriptZod } from './openai'
+import { requestVideoReview, requestVideoScript, videoScriptZod, videoReviewZod } from './openai'
 import {
+  claimVideoPipeline,
+  releaseVideoPipeline,
+  markVideoAutomaticallyReady,
+  getVideoVersion,
   completeVideoAiRun,
   createVideoProject,
   failVideoAiRun,
@@ -24,7 +28,8 @@ import type {
   VideoVersion
 } from './types'
 
-const PROMPT_VERSION = 'video-studio-v1.0'
+const PROMPT_VERSION = 'video-studio-v2.0-auto'
+export const MAX_VIDEO_ATTEMPTS = 3
 
 function stripHtml(value: string): string {
   return value
@@ -53,7 +58,7 @@ export function parseVideoScript(value: string): VideoScriptOutput {
 
 export function parseVideoReview(value: string | null): VideoReviewOutput | null {
   if (!value) return null
-  try { return JSON.parse(value) as VideoReviewOutput } catch { return null }
+  try { return videoReviewZod.parse(JSON.parse(value)) as VideoReviewOutput } catch { return null }
 }
 
 function normalizeDuration(value: number): number {
@@ -107,7 +112,7 @@ function formatLabel(format: VideoProjectFormat): string {
   return ({ bulletin: 'boletim rápido', report: 'reportagem', explainer: 'explicador', commentary: 'comentário ou análise' })[format]
 }
 
-async function buildVideoPrompt(env: Env, project: VideoProject): Promise<string> {
+export async function buildVideoPrompt(env: Env, project: VideoProject): Promise<string> {
   const avatars = await listVideoAvatars(env)
   const assignments = [
     project.anchor_avatar_id ? avatars.find(item => item.id === project.anchor_avatar_id) : null,
@@ -125,7 +130,13 @@ async function buildVideoPrompt(env: Env, project: VideoProject): Promise<string
     '<DIRECAO_EDITORIAL>',
     `TÍTULO INTERNO: ${project.internal_title}`,
     `FORMATO: ${formatLabel(project.format)}`,
-    `DURAÇÃO-ALVO: ${project.duration_seconds} segundos; aproximadamente ${targetWords} palavras, com tolerância de 10%.`,
+    `ESTRUTURA: ${{
+      bulletin: 'Lide direto, dois ou três fatos essenciais atribuídos, serviço ou próximo passo conhecido e encerramento breve. Poucas trocas de voz.',
+      report: 'Abertura com a notícia, desenvolvimento com evidências e fontes, contexto disponível e consequências comprovadas. Cada passagem acrescenta informação.',
+      explainer: 'Apresente o que mudou ou a pergunta central; explique o mecanismo com base na fonte, quem é afetado e o que ainda não se sabe. Não invente exemplos factuais.',
+      commentary: 'Apresente primeiro os fatos atribuídos; depois sinalize a análise e suas premissas; encerre com os limites da interpretação. Não invente intenções ou previsões.'
+    }[project.format]}`,
+    `DURAÇÃO-ALVO: ${project.duration_seconds} segundos; aproximadamente ${targetWords} palavras, limite máximo com tolerância de 10%. Encurte se a fonte não sustentar esse tempo.`,
     `ORIENTAÇÃO: ${project.orientation}`,
     `TOM: ${project.tone}`,
     `PÚBLICO: ${project.target_audience || 'Leitores do Diário do Povo.'}`,
@@ -138,34 +149,79 @@ async function buildVideoPrompt(env: Env, project: VideoProject): Promise<string
   ].join('\n')
 }
 
+export function canAutoApproveVideo(script: VideoScriptOutput, review: VideoReviewOutput | null): boolean {
+  const scores = review?.quality_scores
+  return Boolean(review?.ready_for_production && scores && scores.accuracy === 5 &&
+    scores.news_value >= 4 && scores.structure >= 4 && scores.spoken_language >= 4 &&
+    !script.unresolved_points.length && !review.issues.some(issue => issue.status !== 'confirmed'))
+}
+
+export function validateVideoEditorialRules(project: VideoProject, script: VideoScriptOutput, review: VideoReviewOutput): VideoReviewOutput {
+  const issues = [...review.issues]
+  const add = (claim: string, sequence = 0) => issues.push({ severity: 'blocking', segment_sequence: sequence,
+    claim, evidence: '', status: 'needs_review', recommendation: claim })
+  const source = JSON.parse(project.source_snapshot_json)
+  const normalize = (value: string) => value.replace(/\s+/g, ' ').trim()
+  const evidence = [source.title, source.excerpt, source.content].filter(Boolean).map(normalize)
+  if (estimateVideoSeconds(countVideoWords(script)) > project.duration_seconds * 1.1) add('Encurte as falas: duração acima do limite de 110%.')
+  if (!script.disclosure.trim()) add('Inclua transparência sobre apresentação por avatares de IA.')
+  for (const point of script.unresolved_points) add(`Resolva ou remova a informação sem sustentação: ${point}`)
+  script.segments.forEach((segment, index) => {
+    if (segment.sequence !== index + 1) add('Numere os blocos em sequência, começando em 1.', segment.sequence)
+    if (!project[`${segment.speaker_role}_avatar_id`]) add('Utilize somente os avatares selecionados.', segment.sequence)
+    if (!['transition', 'closing'].includes(segment.segment_type) && !segment.factual_basis.length) add('Informe trechos literais da fonte para o bloco.', segment.sequence)
+    if (segment.factual_basis.some(quote => !normalize(quote) || !evidence.some(text => text.includes(normalize(quote))))) add('Substitua a base factual por trechos literais existentes na matéria.', segment.sequence)
+  })
+  return { ...review, issues, ready_for_production: review.ready_for_production && !issues.some(issue => issue.status !== 'confirmed') }
+}
+
 export async function generateVideoProjectScript(env: Env, projectId: number, userId: number): Promise<number> {
   const project = await getVideoProject(env, projectId)
-  if (!project) throw new Error('Projeto de vídeo não encontrado.')
-  if (['approved', 'ready', 'archived'].includes(project.status)) throw new Error('Este projeto está encerrado para geração.')
-  await assertRunBudget(env)
-  const config = await getEditorialAiRuntimeConfig(env)
-  const runId = await startVideoAiRun(env, { projectId, action: 'generate', model: config.model, promptVersion: PROMPT_VERSION, userId })
-  const started = Date.now()
+  if (!project || project.status === 'archived') throw new Error('Projeto indisponível para geração.')
+  const owner = crypto.randomUUID()
+  if (!(await claimVideoPipeline(env, projectId, owner))) throw new Error('A produção automática deste projeto já está em andamento.')
   try {
-    const result = await requestVideoScript(env, await buildVideoPrompt(env, project))
-    const script = { ...result.data }
-    const allowedRoles: string[] = []
-    if (project.anchor_avatar_id) allowedRoles.push('anchor')
-    if (project.reporter_avatar_id) allowedRoles.push('reporter')
-    if (project.commentator_avatar_id) allowedRoles.push('commentator')
-    const invalidRole = script.segments.find(segment => !allowedRoles.includes(segment.speaker_role))
-    if (invalidRole) throw new Error('A IA atribuiu uma fala a uma função que não participa deste projeto. Gere novamente.')
-    script.word_count = countVideoWords(script)
-    script.estimated_duration_seconds = estimateVideoSeconds(script.word_count)
-    await completeVideoAiRun(env, runId, { ...result, output: script })
-    return saveVideoVersion(env, { projectId, runId, script, userId })
-  } catch (error) {
-    await failVideoAiRun(env, runId, error instanceof Error ? error.message : 'Falha na geração.', Date.now() - started)
-    throw error
+    await setVideoProjectStatus(env, projectId, 'review')
+    if (project.post_updated_at !== project.source_updated_at || !['published', 'review'].includes(project.post_status || '')) {
+      throw new Error('A matéria de origem mudou ou não está disponível. Crie um novo projeto com a fonte atualizada.')
+    }
+    const basePrompt = await buildVideoPrompt(env, project)
+    let previous = await getLatestVideoVersion(env, projectId)
+    for (let attempt = 1; attempt <= MAX_VIDEO_ATTEMPTS; attempt++) {
+      await assertRunBudget(env)
+      const config = await getEditorialAiRuntimeConfig(env)
+      const runId = await startVideoAiRun(env, { projectId, action: 'generate', model: config.model, promptVersion: PROMPT_VERSION, userId })
+      const started = Date.now()
+      let versionId: number
+      try {
+        const feedback = previous ? `\n<DADOS_PARA_REESCRITA>${JSON.stringify({ previous_script: JSON.parse(previous.script_json), review: parseVideoReview(previous.review_json) })}</DADOS_PARA_REESCRITA>` : ''
+        const result = await requestVideoScript(env, basePrompt + feedback)
+        const script = videoScriptZod.parse(result.data) as VideoScriptOutput
+        script.word_count = countVideoWords(script)
+        script.estimated_duration_seconds = estimateVideoSeconds(script.word_count)
+        script.segments.forEach(segment => { segment.estimated_seconds = estimateVideoSeconds(segment.dialogue.trim().split(/\s+/).length) })
+        await completeVideoAiRun(env, runId, { ...result, output: script })
+        versionId = await saveVideoVersion(env, { projectId, runId, script, userId })
+      } catch (error) {
+        await failVideoAiRun(env, runId, error instanceof Error ? error.message : 'Falha na geração.', Date.now() - started)
+        throw error
+      }
+      const version = await getVideoVersion(env, projectId, versionId)
+      if (!version) throw new Error('A versão gerada não foi persistida.')
+      const review = await reviewVideoProjectScript(env, projectId, version, userId)
+      if (canAutoApproveVideo(parseVideoScript(version.script_json), review)) {
+        await markVideoAutomaticallyReady(env, projectId, version, owner)
+        return versionId
+      }
+      previous = { ...version, review_json: JSON.stringify(review) }
+    }
+    throw new Error('Produção bloqueada após 3 tentativas. Consulte os motivos na checagem da última versão.')
+  } finally {
+    await releaseVideoPipeline(env, projectId, owner)
   }
 }
 
-export async function reviewVideoProjectScript(env: Env, projectId: number, version: VideoVersion, userId: number): Promise<void> {
+export async function reviewVideoProjectScript(env: Env, projectId: number, version: VideoVersion, userId: number): Promise<VideoReviewOutput> {
   const project = await getVideoProject(env, projectId)
   if (!project) throw new Error('Projeto de vídeo não encontrado.')
   await assertRunBudget(env)
@@ -174,25 +230,20 @@ export async function reviewVideoProjectScript(env: Env, projectId: number, vers
   const started = Date.now()
   try {
     const result = await requestVideoReview(env, [
-      '<MATERIA_FONTE_NAO_CONFIAVEL>', project.source_snapshot_json, '</MATERIA_FONTE_NAO_CONFIAVEL>',
+      await buildVideoPrompt(env, project),
       '<ROTEIRO_PARA_CHECAGEM_NAO_CONFIAVEL>', version.script_json, '</ROTEIRO_PARA_CHECAGEM_NAO_CONFIAVEL>'
     ].join('\n'))
-    await completeVideoAiRun(env, runId, { ...result, output: result.data })
-    await saveVideoReview(env, projectId, version.id, result.data)
+    const review = validateVideoEditorialRules(project, parseVideoScript(version.script_json), videoReviewZod.parse(result.data) as VideoReviewOutput)
+    await completeVideoAiRun(env, runId, { ...result, output: review })
+    await saveVideoReview(env, projectId, version.id, review)
+    return review
   } catch (error) {
     await failVideoAiRun(env, runId, error instanceof Error ? error.message : 'Falha na checagem.', Date.now() - started)
     throw error
   }
 }
 
+// Legacy callers also run the full automatic gate; a human decision cannot bypass it.
 export async function approveVideoProject(env: Env, projectId: number, userId: number): Promise<void> {
-  const project = await getVideoProject(env, projectId)
-  if (!project) throw new Error('Projeto de vídeo não encontrado.')
-  const version = await getLatestVideoVersion(env, projectId)
-  if (!version) throw new Error('Gere e revise um roteiro antes de aprovar.')
-  const review = parseVideoReview(version.review_json)
-  if (!review) throw new Error('Execute a checagem automática antes da aprovação.')
-  const pending = review.issues.filter(issue => issue.status !== 'confirmed' && issue.human_status !== 'resolved')
-  if (pending.length) throw new Error(`Resolva ${pending.length} alerta(s) editorial(is) antes de aprovar.`)
-  await setVideoProjectStatus(env, projectId, 'approved', userId)
+  await generateVideoProjectScript(env, projectId, userId)
 }

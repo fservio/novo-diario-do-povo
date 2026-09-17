@@ -96,6 +96,8 @@ export interface VideoReviewIssue {
 export interface VideoReviewOutput {
   overall_assessment: string
   ready_for_human_review: boolean
+  ready_for_production?: boolean
+  quality_scores?: { accuracy: number; news_value: number; structure: number; spoken_language: number }
   issues: VideoReviewIssue[]
 }
 

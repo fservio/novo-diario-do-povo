@@ -4,6 +4,21 @@
   var projectForm = document.querySelector('[data-video-project-form]');
   if (projectForm) initializeProjectForm(projectForm);
 
+  document.querySelectorAll('form').forEach(function (form) {
+    if (!form.matches('[data-video-project-form]') && !/\/video-ia\/\d+\/gerar$/.test(form.action)) return;
+    form.addEventListener('submit', function (event) {
+      if (event.defaultPrevented) return;
+      form.querySelectorAll('button[type="submit"]').forEach(function (button) {
+        button.disabled = true;
+        button.textContent = 'Produzindo e revisando…';
+      });
+      var progress = document.createElement('p');
+      progress.setAttribute('role', 'status');
+      progress.textContent = 'A IA está redigindo, revisando e corrigindo o roteiro. O processo pode levar alguns minutos. Mantenha esta página aberta.';
+      form.appendChild(progress);
+    });
+  });
+
   var scriptForm = document.querySelector('[data-video-script-form]');
   if (scriptForm) initializeScriptWorkspace(scriptForm);
 
