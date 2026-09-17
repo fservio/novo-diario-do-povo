@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,wght@0,400..900;1,400..900&amp;family=Fira+Sans:wght@300;400;500;600;700&amp;family=Literata:ital,wght@0,200..900;1,200..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            background-color: #0B0B0B;
+            color: #F7F4EC;
+            -webkit-font-smoothing: antialiased;
+        }
+        /* Custom Hairline Dividers */
+        .border-hairline {
+            border-color: #2A2A2A;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        ::selection {
+            background-color: #D8CBA8;
+            color: #0B0B0B;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface": "#131313",
+                      "surface-container-low": "#1c1b1b",
+                      "inverse-on-surface": "#313030",
+                      "tertiary-fixed": "#e5e2e1",
+                      "on-surface": "#e5e2e1",
+                      "surface-bright": "#3a3939",
+                      "inverse-surface": "#e5e2e1",
+                      "on-primary": "#373017",
+                      "surface-dim": "#131313",
+                      "on-error-container": "#ffdad6",
+                      "outline-variant": "#4a463d",
+                      "secondary-container": "#474741",
+                      "on-secondary-fixed-variant": "#474741",
+                      "surface-container-lowest": "#0e0e0e",
+                      "surface-tint": "#d3c6a3",
+                      "primary-fixed-dim": "#d3c6a3",
+                      "surface-variant": "#353534",
+                      "on-tertiary-fixed": "#1c1b1b",
+                      "secondary-fixed": "#e5e2da",
+                      "on-tertiary-container": "#575655",
+                      "tertiary-container": "#cecbcb",
+                      "surface-container-high": "#2a2a2a",
+                      "on-primary-fixed-variant": "#4f462c",
+                      "surface-container": "#201f1f",
+                      "outline": "#969084",
+                      "error-container": "#93000a",
+                      "secondary-fixed-dim": "#c9c6bf",
+                      "on-secondary-fixed": "#1c1c17",
+                      "primary": "#f5e7c3",
+                      "on-tertiary": "#313030",
+                      "on-tertiary-fixed-variant": "#474646",
+                      "background": "#131313",
+                      "primary-container": "#d8cba8",
+                      "primary-fixed": "#efe2be",
+                      "on-surface-variant": "#cdc6b9",
+                      "on-primary-fixed": "#211b05",
+                      "error": "#ffb4ab",
+                      "surface-container-highest": "#353534",
+                      "tertiary-fixed-dim": "#c8c6c5",
+                      "on-primary-container": "#5e553a",
+                      "on-error": "#690005",
+                      "on-secondary": "#31312b",
+                      "inverse-primary": "#675e41",
+                      "on-background": "#e5e2e1",
+                      "tertiary": "#eae7e7",
+                      "secondary": "#c9c6bf",
+                      "on-secondary-container": "#b7b5ae"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "unit": "4px",
+                      "section-gap": "80px",
+                      "margin-mobile": "16px",
+                      "gutter": "1px",
+                      "margin-desktop": "40px"
+              },
+              "fontFamily": {
+                      "body-sm": ["Literata"],
+                      "label-caps": ["Fira Sans"],
+                      "headline-lg-mobile": ["Bodoni Moda"],
+                      "metadata": ["Fira Sans"],
+                      "display-xl": ["Bodoni Moda"],
+                      "headline-lg": ["Bodoni Moda"],
+                      "headline-md": ["Bodoni Moda"],
+                      "body-reading": ["Literata"]
+              },
+              "fontSize": {
+                      "body-sm": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600"}],
+                      "headline-lg-mobile": ["32px", {"lineHeight": "38px", "fontWeight": "600"}],
+                      "metadata": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "display-xl": ["84px", {"lineHeight": "90px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "headline-lg": ["48px", {"lineHeight": "56px", "fontWeight": "600"}],
+                      "headline-md": ["32px", {"lineHeight": "40px", "fontWeight": "500"}],
+                      "body-reading": ["20px", {"lineHeight": "32px", "fontWeight": "400"}]
+              }
+            },
+          },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface border-b border-outline-variant flex flex-col items-center w-full px-margin-desktop py-4">
+<div class="w-full flex justify-between items-center mb-4">
+<span class="material-symbols-outlined text-primary cursor-pointer active:opacity-70" data-icon="menu">menu</span>
+<h1 class="font-display-xl text-display-xl text-primary uppercase tracking-tighter">JORNAL DIÁRIO DO POVO</h1>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer" data-icon="search">search</span>
+<button class="font-label-caps text-label-caps border border-primary px-4 py-2 hover:bg-primary hover:text-on-primary transition-colors duration-200">ASSINAR</button>
+</div>
+</div>
+<nav class="hidden md:flex gap-8">
+<a class="font-label-caps text-label-caps text-primary border-b border-primary hover:text-primary transition-colors duration-200 cursor-pointer" href="#">Opinião</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary transition-colors duration-200 cursor-pointer" href="#">Política</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary transition-colors duration-200 cursor-pointer" href="#">Economia</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary transition-colors duration-200 cursor-pointer" href="#">Cultura</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary transition-colors duration-200 cursor-pointer" href="#">Mundo</a>
+</nav>
+</header>
+<main class="mt-[180px] px-margin-desktop mb-section-gap">
+<!-- Hero Section -->
+<section class="mb-section-gap border-b border-outline-variant pb-section-gap text-center">
+<div class="max-w-6xl mx-auto">
+<p class="font-label-caps text-label-caps text-primary mb-4">EDIÇÃO DE DOMINGO, 24 DE MAIO</p>
+<h2 class="font-display-xl text-display-xl text-on-surface leading-tight mb-8 italic">
+                    A Crise Silenciosa das Instituições e o Futuro da Democracia Liberal.
+                </h2>
+<div class="flex justify-center items-center gap-4">
+<span class="w-12 h-px bg-outline-variant"></span>
+<p class="font-metadata text-metadata text-on-surface-variant uppercase tracking-widest">Análise por Ricardo Albuquerque</p>
+<span class="w-12 h-px bg-outline-variant"></span>
+</div>
+</div>
+</section>
+<!-- 12-Column Grid -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter bg-outline-variant border border-outline-variant">
+<!-- Left Column: Editorial Sections (3 Cols) -->
+<aside class="md:col-span-3 bg-background p-6 flex flex-col gap-10">
+<div>
+<h3 class="font-label-caps text-label-caps text-primary border-b border-outline-variant pb-2 mb-6">PODER</h3>
+<ul class="flex flex-col gap-6">
+<li class="group cursor-pointer">
+<p class="font-metadata text-metadata text-on-surface-variant mb-1">08:45</p>
+<h4 class="font-headline-md text-[20px] leading-tight group-hover:text-primary transition-colors">Reforma administrativa avança em comissão especial.</h4>
+</li>
+<li class="group cursor-pointer">
+<p class="font-metadata text-metadata text-on-surface-variant mb-1">07:12</p>
+<h4 class="font-headline-md text-[20px] leading-tight group-hover:text-primary transition-colors">Novos nomes para o Supremo dividem opiniões no Senado.</h4>
+</li>
+</ul>
+</div>
+<div>
+<h3 class="font-label-caps text-label-caps text-primary border-b border-outline-variant pb-2 mb-6">BRASIL</h3>
+<ul class="flex flex-col gap-6">
+<li class="group cursor-pointer">
+<p class="font-metadata text-metadata text-on-surface-variant mb-1">Há 2 horas</p>
+<h4 class="font-headline-md text-[20px] leading-tight group-hover:text-primary transition-colors">Seca no Norte atinge níveis históricos e ameaça navegação.</h4>
+</li>
+<li class="group cursor-pointer">
+<p class="font-metadata text-metadata text-on-surface-variant mb-1">Há 4 horas</p>
+<h4 class="font-headline-md text-[20px] leading-tight group-hover:text-primary transition-colors">Censo revela mudanças profundas na demografia urbana.</h4>
+</li>
+</ul>
+</div>
+</aside>
+<!-- Center Columns: Main News (6 Cols) -->
+<section class="md:col-span-6 bg-background p-8 border-x border-outline-variant">
+<div class="flex flex-col gap-12">
+<article class="border-b border-outline-variant pb-12 group cursor-pointer">
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-4 flex items-center gap-2">
+<span class="w-2 h-2 bg-primary"></span> ECONOMIA
+                        </p>
+<h3 class="font-headline-lg text-headline-lg mb-4 group-hover:text-primary transition-colors">Mercados globais reagem à nova política de juros do Fed.</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                            Analistas preveem um período de volatilidade prolongada enquanto as principais economias do G7 buscam equilíbrio entre inflação e crescimento sustentável no pós-pandemia. O impacto no Brasil pode ser sentido no câmbio já na abertura de segunda-feira.
+                        </p>
+</article>
+<article class="border-b border-outline-variant pb-12 group cursor-pointer">
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-4">INTERNACIONAL</p>
+<h3 class="font-headline-md text-headline-md mb-4 group-hover:text-primary transition-colors">Tensões geopolíticas no Leste Europeu entram em nova fase.</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                            Esforços diplomáticos em Genebra não conseguem reduzir a escalada militar na fronteira, levantando preocupações sobre a segurança energética do continente durante o inverno rigoroso que se aproxima.
+                        </p>
+</article>
+<article class="group cursor-pointer">
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-4">TECNOLOGIA</p>
+<h3 class="font-headline-md text-headline-md mb-4 group-hover:text-primary transition-colors">A Inteligência Artificial e a Ética do Trabalho Criativo.</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                            Como os novos modelos de linguagem estão redefinindo o papel do autor e quais são os limites legais para o treinamento de redes neurais com obras protegidas por direitos autorais.
+                        </p>
+</article>
+</div>
+</section>
+<!-- Right Column: Opinion & Ranking (3 Cols) -->
+<aside class="md:col-span-3 bg-background p-6 flex flex-col gap-10">
+<div>
+<h3 class="font-label-caps text-label-caps text-primary border-b border-outline-variant pb-2 mb-6 uppercase">Opinião</h3>
+<div class="flex flex-col gap-8">
+<div class="group cursor-pointer">
+<h5 class="font-metadata text-metadata text-primary mb-1">Helena Valente</h5>
+<h4 class="font-headline-md text-[18px] leading-snug group-hover:underline">O crepúsculo da diplomacia tradicional.</h4>
+</div>
+<div class="group cursor-pointer border-t border-outline-variant pt-6">
+<h5 class="font-metadata text-metadata text-primary mb-1">Marcos Serra</h5>
+<h4 class="font-headline-md text-[18px] leading-snug group-hover:underline">A economia real não cabe em planilhas de Excel.</h4>
+</div>
+<div class="group cursor-pointer border-t border-outline-variant pt-6">
+<h5 class="font-metadata text-metadata text-primary mb-1">Ana Clara Mendes</h5>
+<h4 class="font-headline-md text-[18px] leading-snug group-hover:underline">Educação: a única reforma que realmente importa.</h4>
+</div>
+</div>
+</div>
+<div class="mt-auto">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant border-b border-outline-variant pb-2 mb-6">MAIS LIDAS</h3>
+<ol class="flex flex-col gap-4">
+<li class="flex gap-4 items-start group cursor-pointer">
+<span class="font-display-xl text-[40px] leading-none text-outline-variant">01</span>
+<p class="font-body-sm text-body-sm text-on-surface group-hover:text-primary">O guia definitivo para entender o novo regime fiscal.</p>
+</li>
+<li class="flex gap-4 items-start group cursor-pointer">
+<span class="font-display-xl text-[40px] leading-none text-outline-variant">02</span>
+<p class="font-body-sm text-body-sm text-on-surface group-hover:text-primary">Por que as cidades brasileiras estão ficando mais quentes.</p>
+</li>
+<li class="flex gap-4 items-start group cursor-pointer">
+<span class="font-display-xl text-[40px] leading-none text-outline-variant">03</span>
+<p class="font-body-sm text-body-sm text-on-surface group-hover:text-primary">A ascensão das criptomoedas estatais no mercado asiático.</p>
+</li>
+</ol>
+</div>
+</aside>
+</div>
+</main>
+<!-- Footer -->
+<footer class="w-full border-t border-outline-variant bg-surface-container-lowest grid grid-cols-12 gap-gutter px-margin-desktop py-section-gap w-full text-center md:text-left">
+<div class="col-span-12 md:col-span-4 mb-8 md:mb-0">
+<h2 class="font-headline-md text-headline-md text-primary mb-4">JORNAL DIÁRIO DO POVO</h2>
+<p class="font-metadata text-metadata text-on-surface-variant">
+                Compromisso inabalável com a verdade, a análise profunda e a independência editorial desde 1921.
+            </p>
+</div>
+<div class="col-span-12 md:col-span-4 flex flex-col gap-2 items-center md:items-start mb-8 md:mb-0">
+<a class="font-metadata text-metadata text-on-surface-variant hover:text-primary underline transition-opacity duration-200" href="#">Expediente</a>
+<a class="font-metadata text-metadata text-on-surface-variant hover:text-primary underline transition-opacity duration-200" href="#">Privacidade</a>
+<a class="font-metadata text-metadata text-on-surface-variant hover:text-primary underline transition-opacity duration-200" href="#">Termos de Uso</a>
+<a class="font-metadata text-metadata text-on-surface-variant hover:text-primary underline transition-opacity duration-200" href="#">Anuncie</a>
+<a class="font-metadata text-metadata text-on-surface-variant hover:text-primary underline transition-opacity duration-200" href="#">Fale Conosco</a>
+</div>
+<div class="col-span-12 md:col-span-4 flex flex-col items-center md:items-end justify-between">
+<div class="flex gap-4 mb-4">
+<span class="material-symbols-outlined text-on-surface-variant hover:text-primary cursor-pointer" data-icon="facebook">social_leaderboard</span>
+<span class="material-symbols-outlined text-on-surface-variant hover:text-primary cursor-pointer" data-icon="x">close</span>
+<span class="material-symbols-outlined text-on-surface-variant hover:text-primary cursor-pointer" data-icon="instagram">photo_camera</span>
+</div>
+<p class="font-metadata text-metadata text-on-surface-variant opacity-60">
+                © 2024 JORNAL DIÁRIO DO POVO. TODOS OS DIREITOS RESERVADOS. PROPRIEDADE INTELECTUAL E RIGOR EDITORIAL.
+            </p>
+</div>
+</footer>
+<script>
+        // Micro-interaction for articles
+        document.querySelectorAll('article, li.group').forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                el.style.opacity = '0.9';
+            });
+            el.addEventListener('mouseleave', () => {
+                el.style.opacity = '1';
+            });
+        });
+
+        // Floating Header Effect
+        let lastScroll = 0;
+        window.addEventListener('scroll', () => {
+            const currentScroll = window.pageYOffset;
+            const header = document.querySelector('header');
+            if (currentScroll > lastScroll && currentScroll > 200) {
+                header.style.transform = 'translateY(-100%)';
+            } else {
+                header.style.transform = 'translateY(0)';
+            }
+            header.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+            lastScroll = currentScroll;
+        });
+    </script>
+</body></html>

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Últimas Notícias | JORNAL DIÁRIO DO POVO</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&amp;family=Literata:ital,wght@0,200..900;1,200..900&amp;family=Fira+Sans:ital,wght@0,100..900;1,100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#313030",
+                        "background": "#0B0B0B",
+                        "on-tertiary": "#313030",
+                        "on-primary-fixed-variant": "#4f462c",
+                        "outline": "#969084",
+                        "on-background": "#e5e2e1",
+                        "secondary-fixed-dim": "#c9c6bf",
+                        "on-tertiary-fixed": "#1c1b1b",
+                        "on-secondary": "#31312b",
+                        "inverse-surface": "#e5e2e1",
+                        "surface": "#131313",
+                        "surface-container-highest": "#353534",
+                        "surface-bright": "#3a3939",
+                        "on-primary-fixed": "#211b05",
+                        "surface-container-low": "#1c1b1b",
+                        "on-error-container": "#ffdad6",
+                        "tertiary-container": "#cecbcb",
+                        "secondary-container": "#474741",
+                        "on-surface-variant": "#cdc6b9",
+                        "on-secondary-container": "#b7b5ae",
+                        "on-error": "#690005",
+                        "tertiary": "#eae7e7",
+                        "surface-container-high": "#2a2a2a",
+                        "primary": "#f5e7c3",
+                        "tertiary-fixed": "#e5e2e1",
+                        "error-container": "#93000a",
+                        "surface-dim": "#131313",
+                        "on-surface": "#e5e2e1",
+                        "on-tertiary-container": "#575655",
+                        "on-secondary-fixed": "#1c1c17",
+                        "outline-variant": "#4a463d",
+                        "on-secondary-fixed-variant": "#474741",
+                        "primary-container": "#d8cba8",
+                        "error": "#ffb4ab",
+                        "surface-tint": "#d3c6a3",
+                        "secondary-fixed": "#e5e2da",
+                        "inverse-primary": "#675e41",
+                        "surface-variant": "#353534",
+                        "primary-fixed": "#efe2be",
+                        "surface-container-lowest": "#0e0e0e",
+                        "secondary": "#c9c6bf",
+                        "on-tertiary-fixed-variant": "#474646",
+                        "on-primary": "#373017",
+                        "tertiary-fixed-dim": "#c8c6c5",
+                        "primary-fixed-dim": "#d3c6a3",
+                        "on-primary-container": "#5e553a",
+                        "surface-container": "#201f1f"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0rem",
+                        "lg": "0rem",
+                        "xl": "0rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "section-gap": "80px",
+                        "margin-mobile": "16px",
+                        "margin-desktop": "40px",
+                        "gutter": "1px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Bodoni Moda"],
+                        "body-sm": ["Literata"],
+                        "body-reading": ["Literata"],
+                        "display-xl": ["Bodoni Moda"],
+                        "metadata": ["Fira Sans"],
+                        "headline-lg-mobile": ["Bodoni Moda"],
+                        "headline-lg": ["Bodoni Moda"],
+                        "label-caps": ["Fira Sans"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["32px", {"lineHeight": "40px", "fontWeight": "500"}],
+                        "body-sm": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "body-reading": ["20px", {"lineHeight": "32px", "fontWeight": "400"}],
+                        "display-xl": ["84px", {"lineHeight": "90px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "metadata": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-lg-mobile": ["32px", {"lineHeight": "38px", "fontWeight": "600"}],
+                        "headline-lg": ["48px", {"lineHeight": "56px", "fontWeight": "600"}],
+                        "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #0B0B0B;
+            color: #e5e2e1;
+        }
+        .hairline-grid {
+            border-color: #2A2A2A;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .timeline-line::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background-color: #2A2A2A;
+        }
+        @media (min-width: 768px) {
+            .timeline-line::before {
+                left: 50%;
+                transform: translateX(-50%);
+            }
+        }
+    </style>
+</head>
+<body class="antialiased font-body-sm">
+<!-- TopNavBar Shell -->
+<header class="docked full-width top-0 z-50 bg-background border-b border-surface-container-highest">
+<nav class="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop py-4 max-w-full">
+<div class="flex items-center gap-8">
+<a class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary uppercase tracking-tighter" href="#">
+                    JORNAL DIÁRIO DO POVO
+                </a>
+<div class="hidden md:flex gap-6">
+<a class="text-on-surface-variant font-label-caps text-label-caps hover:text-primary transition-colors duration-200" href="#">POLÍTICA</a>
+<a class="text-on-surface-variant font-label-caps text-label-caps hover:text-primary transition-colors duration-200" href="#">ECONOMIA</a>
+<a class="text-on-surface-variant font-label-caps text-label-caps hover:text-primary transition-colors duration-200" href="#">CULTURA</a>
+<a class="text-on-surface-variant font-label-caps text-label-caps hover:text-primary transition-colors duration-200" href="#">OPINIÃO</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-primary p-2">search</button>
+<button class="material-symbols-outlined text-primary p-2">menu</button>
+</div>
+</nav>
+</header>
+<main class="min-h-screen">
+<!-- Title Section -->
+<section class="px-margin-mobile md:px-margin-desktop pt-24 pb-12 border-b border-surface-container-highest">
+<h1 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface uppercase tracking-tight">
+                Últimas Notícias
+            </h1>
+<p class="font-label-caps text-label-caps text-outline mt-2 tracking-widest uppercase">Atualizado em tempo real • Brasília, DF</p>
+</section>
+<!-- Timeline Feed -->
+<section class="relative px-margin-mobile md:px-margin-desktop py-12 md:py-24 max-w-7xl mx-auto">
+<div class="timeline-line relative">
+<!-- Entry 1 -->
+<div class="relative mb-20 md:flex md:justify-between items-start w-full">
+<div class="hidden md:block md:w-[45%] text-right pr-12 pt-1">
+<span class="font-metadata text-metadata text-primary uppercase tracking-widest">Poder</span>
+</div>
+<div class="absolute left-[-4px] md:left-1/2 md:ml-[-5px] top-2 w-2 h-2 rounded-full bg-primary-container z-10"></div>
+<div class="pl-8 md:pl-12 md:w-[45%]">
+<div class="mb-2 flex items-center gap-4">
+<span class="font-label-caps text-label-caps bg-surface-container-high text-primary px-2 py-1">14:20</span>
+<span class="md:hidden font-metadata text-metadata text-primary-container uppercase">Poder</span>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-surface hover:text-primary-container transition-colors cursor-pointer">
+                            Reforma Tributária: Senado inicia votação em primeiro turno do texto base
+                        </h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-4 line-clamp-2">
+                            A proposta visa simplificar a cobrança de impostos sobre consumo e unificar tributos federais, estaduais e municipais sob um novo regime de IVA dual.
+                        </p>
+<div class="mt-6 flex items-center gap-6 font-label-caps text-label-caps text-outline uppercase tracking-wider">
+<span>Por Helena Vasconcelos</span>
+<span>4 min de leitura</span>
+</div>
+</div>
+</div>
+<!-- Entry 2 -->
+<div class="relative mb-20 md:flex md:flex-row-reverse md:justify-between items-start w-full">
+<div class="hidden md:block md:w-[45%] text-left pl-12 pt-1">
+<span class="font-metadata text-metadata text-primary uppercase tracking-widest">Economia</span>
+</div>
+<div class="absolute left-[-4px] md:left-1/2 md:ml-[-5px] top-2 w-2 h-2 rounded-full bg-outline z-10"></div>
+<div class="pl-8 md:pr-12 md:w-[45%] md:text-right">
+<div class="mb-2 flex items-center md:justify-end gap-4">
+<span class="md:hidden font-metadata text-metadata text-primary-container uppercase">Economia</span>
+<span class="font-label-caps text-label-caps bg-surface-container-high text-primary px-2 py-1">13:45</span>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-surface hover:text-primary-container transition-colors cursor-pointer">
+                            Bolsa atinge recorde histórico impulsionada por setor de tecnologia e mineração
+                        </h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-4 line-clamp-2">
+                            O índice Ibovespa ultrapassou a marca psicológica importante, refletindo o otimismo dos investidores com os dados de inflação abaixo do esperado.
+                        </p>
+<div class="mt-6 flex items-center md:justify-end gap-6 font-label-caps text-label-caps text-outline uppercase tracking-wider">
+<span>Por Ricardo Mendes</span>
+<span>3 min de leitura</span>
+</div>
+</div>
+</div>
+<!-- Entry 3 -->
+<div class="relative mb-20 md:flex md:justify-between items-start w-full">
+<div class="hidden md:block md:w-[45%] text-right pr-12 pt-1">
+<span class="font-metadata text-metadata text-primary uppercase tracking-widest">Cultura</span>
+</div>
+<div class="absolute left-[-4px] md:left-1/2 md:ml-[-5px] top-2 w-2 h-2 rounded-full bg-outline z-10"></div>
+<div class="pl-8 md:pl-12 md:w-[45%]">
+<div class="mb-2 flex items-center gap-4">
+<span class="font-label-caps text-label-caps bg-surface-container-high text-primary px-2 py-1">12:10</span>
+<span class="md:hidden font-metadata text-metadata text-primary-container uppercase">Cultura</span>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-surface hover:text-primary-container transition-colors cursor-pointer">
+                            Museu de Arte Moderna anuncia exposição inédita de vanguarda brasileira
+                        </h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-4 line-clamp-2">
+                            A mostra reunirá mais de duzentas obras, incluindo pinturas e esculturas nunca antes exibidas ao público, traçando um paralelo entre o modernismo e a arte contemporânea.
+                        </p>
+<div class="mt-6 flex items-center gap-6 font-label-caps text-label-caps text-outline uppercase tracking-wider">
+<span>Por Clarice Alencar</span>
+<span>6 min de leitura</span>
+</div>
+</div>
+</div>
+<!-- Entry 4 -->
+<div class="relative mb-20 md:flex md:flex-row-reverse md:justify-between items-start w-full">
+<div class="hidden md:block md:w-[45%] text-left pl-12 pt-1">
+<span class="font-metadata text-metadata text-primary uppercase tracking-widest">Opinião</span>
+</div>
+<div class="absolute left-[-4px] md:left-1/2 md:ml-[-5px] top-2 w-2 h-2 rounded-full bg-outline z-10"></div>
+<div class="pl-8 md:pr-12 md:w-[45%] md:text-right">
+<div class="mb-2 flex items-center md:justify-end gap-4">
+<span class="md:hidden font-metadata text-metadata text-primary-container uppercase">Opinião</span>
+<span class="font-label-caps text-label-caps bg-surface-container-high text-primary px-2 py-1">11:05</span>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-surface hover:text-primary-container transition-colors cursor-pointer italic">
+                            O Peso do Silêncio: A urgência de novas vozes no debate diplomático atual
+                        </h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-4 line-clamp-2">
+                            Análise profunda sobre como as recentes mudanças na geopolítica global exigem um reposicionamento estratégico do corpo diplomático brasileiro.
+                        </p>
+<div class="mt-6 flex items-center md:justify-end gap-6 font-label-caps text-label-caps text-outline uppercase tracking-wider">
+<span>Por Dr. Augusto Paes</span>
+<span>8 min de leitura</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Load More Interaction -->
+<div class="flex justify-center mt-section-gap">
+<button class="border border-outline-variant px-12 py-4 font-label-caps text-label-caps text-primary hover:bg-primary-container hover:text-on-primary-container transition-all duration-300 uppercase tracking-widest">
+                    Carregar Mais Notícias
+                </button>
+</div>
+</section>
+</main>
+<!-- Footer Shell -->
+<footer class="full-width bg-background border-t border-surface-container-highest">
+<div class="flex flex-col md:flex-row justify-between items-center w-full px-margin-mobile md:px-margin-desktop py-section-gap">
+<div class="mb-8 md:mb-0">
+<div class="font-headline-md text-headline-md text-on-surface uppercase tracking-tighter mb-2">DIÁRIO DO POVO</div>
+<p class="font-metadata text-metadata text-outline font-label-caps text-label-caps">© 2024 JORNAL DIÁRIO DO POVO. EDITORIAL BRUTALISM SYSTEM.</p>
+</div>
+<div class="flex gap-8">
+<a class="text-outline font-label-caps text-label-caps hover:text-primary underline decoration-1" href="#">Expediente</a>
+<a class="text-outline font-label-caps text-label-caps hover:text-primary underline decoration-1" href="#">Privacidade</a>
+<a class="text-outline font-label-caps text-label-caps hover:text-primary underline decoration-1" href="#">Assine</a>
+<a class="text-outline font-label-caps text-label-caps hover:text-primary underline decoration-1" href="#">Contato</a>
+</div>
+</div>
+</footer>
+<script>
+        // Micro-interaction for timeline hover effect
+        document.querySelectorAll('.timeline-line > div').forEach(item => {
+            item.addEventListener('mouseenter', () => {
+                const dot = item.querySelector('.rounded-full');
+                if (dot) {
+                    dot.classList.remove('bg-outline');
+                    dot.classList.add('bg-primary-container');
+                    dot.style.boxShadow = '0 0 10px rgba(216, 203, 168, 0.5)';
+                }
+            });
+            item.addEventListener('mouseleave', () => {
+                const dot = item.querySelector('.rounded-full');
+                // Only reset if it's not the top active one
+                if (dot && !item.previousElementSibling === false) {
+                    dot.classList.remove('bg-primary-container');
+                    dot.classList.add('bg-outline');
+                    dot.style.boxShadow = 'none';
+                }
+            });
+        });
+    </script>
+</body></html>

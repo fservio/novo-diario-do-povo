@@ -152,7 +152,7 @@ export async function updateTag(
 export async function deleteTag(env: Env, id: number): Promise<void> {
     // Check if tag is used in posts
     const postsCount = await env.DB.prepare(
-        'SELECT COUNT(*) as count FROM post_tags WHERE tag_id = ?'
+        'SELECT COUNT(*) as count FROM posts_tags WHERE tag_id = ?'
     ).bind(id).first<{ count: number }>()
 
     if (postsCount && postsCount.count > 0) {

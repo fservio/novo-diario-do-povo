@@ -4,6 +4,9 @@
  */
 
 import { renderScript } from '../admin/ui'
+import { renderSocialMetaTags, type SocialMeta } from './social'
+
+const STATIC_ASSET_VERSION = '20260504'
 
 // ============================================================================
 // Types
@@ -20,11 +23,13 @@ export type PublicLayoutParams = {
   coverOfDay?: { r2Key: string; alt: string; aspectRatio?: string } | null
   bodyHtml: string
   extraHeadHtml?: string  // JSON-LD scripts and OG tags
+  extraScriptsHtml?: string
   googleAnalyticsId?: string
-  theme?: 'default' | 'minimal'
+  theme?: 'default' | 'minimal' | 'alltype'
   subscriber?: any
   lcpPreloadUrl?: string
   lcpSrcSet?: string
+  openGraph?: SocialMeta
 }
 
 // ============================================================================
@@ -104,6 +109,27 @@ export function generateSrcSet(r2Key: string): string {
 export { getPostUrl } from '../utils/post'
 
 // ============================================================================
+// Theme Whitelist & Registry
+// ============================================================================
+
+export const allowedPublicThemes = new Set(["minimal", "alltype"]);
+
+export function normalizePublicTheme(value: unknown): "minimal" | "alltype" {
+  return value === "alltype" ? "alltype" : "minimal";
+}
+
+export const PUBLIC_THEMES = {
+  minimal: {
+    label: "Minimalista (Google Style)",
+    cssHref: "/static/minimal.css"
+  },
+  alltype: {
+    label: "AllType",
+    cssHref: "/static/alltype.css"
+  }
+} as const;
+
+// ============================================================================
 // Public Layout
 // ============================================================================
 
@@ -115,7 +141,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     nonce = '',
     siteName,
     navItems,
-    categories,
+  categories = [],
     coverOfDay,
     bodyHtml,
     extraHeadHtml = '',
@@ -130,6 +156,19 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     month: 'long',
     day: 'numeric'
   })
+  const defaultSocialImage = `${new URL(canonicalUrl).origin}/static/logo-dp.png`
+  const openGraph = params.openGraph || {
+    title,
+    description: description || `Notícias, análises e serviço público no ${siteName}`,
+    url: canonicalUrl,
+    siteName,
+    type: 'website' as const,
+    image: {
+      url: defaultSocialImage,
+      secureUrl: defaultSocialImage,
+      alt: siteName
+    }
+  }
 
   // Cover drawer JS (if cover exists)
   const drawerScript = coverOfDay ? renderScript(`
@@ -232,13 +271,98 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
         link.href = url.pathname + url.search;
       }
     });
-  `, nonce).replace('<script', '<script data-script="header-scroll"')
+    // Newsletter single opt-in: grava a inscrição imediatamente, sem e-mail de confirmação.
+    const newsletterForm = document.getElementById('newsletterForm');
+    if (newsletterForm) {
+      newsletterForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const button = newsletterForm.querySelector('button[type="submit"]');
+        if (button) { button.disabled = true; button.textContent = 'Inscrevendo…'; }
+        try {
+          const data = Object.fromEntries(new FormData(newsletterForm).entries());
+          const response = await fetch('/api/newsletter/subscribe', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            credentials: 'same-origin', body: JSON.stringify(data)
+          });
+          const result = await response.json();
+          if (!response.ok || !result.success) throw new Error(result.error || 'Não foi possível concluir.');
+          newsletterForm.reset();
+          alert(result.message);
+        } catch (error) {
+          alert(error instanceof Error ? error.message : 'Não foi possível concluir a inscrição.');
+        } finally {
+          if (button) { button.disabled = false; button.textContent = 'Inscrever-se'; }
+        }
+      });
+    }
+  `, nonce).replace('<script', '<script data-script="header-scroll" defer')
 
-  // Theme Selection
-  const cssFile = theme === 'minimal' ? '/static/minimal.css' : '/static/styles.css'
+  // Theme Selection & Normalization
+  const normalizedTheme = normalizePublicTheme(theme)
+  const cssFile = PUBLIC_THEMES[normalizedTheme].cssHref
+  const cssHref = `${cssFile}?v=${STATIC_ASSET_VERSION}`
+  const isAllType = normalizedTheme === 'alltype'
 
   // Header Logic
-  const headerHtml = theme === 'minimal' ? `
+  const headerHtml = isAllType ? `
+    <header class="bg-background text-on-background top-0 border-b border-line-separator flat no-shadows w-full" style="padding-top: 16px; padding-bottom: 16px; border-bottom: var(--alltype-line) solid var(--alltype-border) !important;">
+      <div class="flex flex-col items-center w-full px-md py-sm md:px-xl">
+        <div class="w-full flex justify-between items-center mb-md max-w-container-max mx-auto" style="margin-bottom: 16px;">
+          <!-- 1. Menu (Left) -->
+          <button id="mobileMenuBtn" class="hover:bg-surface-container-highest transition-colors duration-200 p-sm scale-95 active:opacity-80 transition-all border-none bg-transparent" aria-label="Menu" style="cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 8px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+
+          <!-- 2. Logo and Edition (Center) -->
+          <div class="flex flex-col items-center">
+            <a href="/" class="alltype-logo-image" aria-label="${escapeAttr(siteName)}" style="display: flex; align-items: center; justify-content: center; text-decoration: none;">
+              <img src="/static/logo-dp.png" alt="${escapeAttr(siteName)}" width="162" height="56" fetchpriority="high" style="max-height: 48px; max-width: 240px; height: auto; width: auto; object-fit: contain;">
+            </a>
+            <div class="flex gap-md font-label-caps text-label-caps mt-sm text-text-muted-light desktop-only" style="margin-top: 8px; font-family: var(--alltype-font-ui); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--alltype-outline); gap: 16px;">
+              <span>${today}</span>
+              <span>|</span>
+              <span>Edição Nº 4.521</span>
+            </div>
+          </div>
+
+          <!-- 3. Actions (Right) -->
+          <div class="flex items-center gap-md">
+            <div class="gb-actions desktop-only" style="display: flex; gap: 16px; align-items: center; font-family: var(--alltype-font-ui); font-size: 14px; font-weight: 700; text-transform: uppercase;">
+              ${subscriber ? `
+                <a href="/portal" style="color: var(--alltype-text); text-decoration: none;">Minha Conta</a>
+              ` : `
+                <a href="/portal/login" style="color: var(--alltype-text); text-decoration: none;">Entrar</a>
+              `}
+              <a href="/assinar" class="btn-primary px-lg py-sm" style="padding: 8px 16px; text-decoration: none;">Assine</a>
+            </div>
+            <!-- Mobile Actions -->
+            <div class="gb-actions" style="display: none;" id="mobileActions">
+               <a href="/assinar" class="btn-primary" style="padding: 4px 12px; font-size: 12px; text-decoration: none;">Assine</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Sub-Navigation (Bottom Row - Desktop Only) -->
+        <nav class="w-full max-w-container-max mx-auto flex justify-center gap-xl border-t-4 border-line-separator pt-md desktop-only" style="margin-top: 16px; border-top: 4px solid var(--alltype-border); padding-top: 16px; gap: 32px; font-family: var(--alltype-font-ui); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;">
+          ${navItems.map(item => `
+            <a class="text-on-surface-variant font-label-caps hover:text-on-surface hover:bg-surface-container-highest transition-colors duration-200 p-sm scale-95 active:opacity-80 transition-all uppercase" href="${escapeAttr(item.href)}" style="text-decoration: none; padding: 4px 8px;">
+              ${escapeHtml(item.label)}
+            </a>
+          `).join('')}
+        </nav>
+      </div>
+      <style nonce="\${nonce}">
+        @media (max-width: 768px) {
+          #mobileActions { display: flex !important; align-items: center; }
+          .alltype-logo-image img { max-height: 32px !important; }
+        }
+      </style>
+    </header>
+  ` : `
     <header class="gb-header">
       <div class="gb-container gb-header__inner">
         <!-- 1. Hamburger (Always Visible) -->
@@ -252,7 +376,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
 
         <!-- 2. Logo (Image Only, Larger) -->
         <a href="/" class="gb-logo" aria-label="${escapeAttr(siteName)}">
-          <img src="/i/static/logo-dp.png?w=324" alt="${escapeAttr(siteName)}" style="max-height: 32px; max-width: 180px; height: auto; width: auto; object-fit: contain;">
+          <img src="/static/logo-dp.png" alt="${escapeAttr(siteName)}" width="162" height="56" fetchpriority="high" style="max-height: 32px; max-width: 180px; height: auto; width: auto; object-fit: contain;">
         </a>
 
         <!-- Spacer -->
@@ -260,6 +384,9 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
 
         <!-- 3. Actions (Modern Google Style) -->
         <div class="gb-actions" style="display: flex; gap: 8px; align-items: center;">
+          ${coverOfDay ? `
+            <button id="coverBtn" class="gb-btn gb-btn--text" style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">Capa do Dia</button>
+          ` : ''}
           ${subscriber ? `
             <a href="/portal" class="gb-btn gb-btn--text">Minha Conta</a>
           ` : `
@@ -269,46 +396,6 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
         </div>
       </div>
     </header>
-  ` : `
-    <header class="site-header">
-    <div class="container header-inner">
-      <div class="flex items-center gap-8">
-        <a href="/" class="logo">${escapeHtml(siteName)}</a>
-        
-        <!-- Desktop Nav -->
-        <nav class="nav-links desktop-only">
-          ${navItems.slice(0, 5).map(item => `
-            <a href="${escapeAttr(item.href)}" class="nav-link ${item.active ? 'active' : ''}">
-              ${escapeHtml(item.label)}
-            </a>
-          `).join('')}
-        </nav>
-      </div>
-
-      <div class="flex items-center gap-4">
-        <!-- Mobile Menu trigger -->
-        <button id="mobileMenuBtn" class="btn btn-outline mobile-only" aria-label="Menu">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="3" y1="12" x2="21" y2="12"></line>
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <line x1="3" y1="18" x2="21" y2="18"></line>
-          </svg>
-        </button>
-
-        ${coverOfDay ? `
-          <button id="coverBtn" class="btn btn-outline text-xs uppercase tracking-wide desktop-only">
-            Capa do Dia
-          </button>
-        ` : ''}
-        <a href="/assinar" class="btn btn-primary">Assine</a>
-        ${subscriber ? `
-          <a href="/portal" class="btn btn-outline desktop-only">Minha Conta</a>
-        ` : `
-          <a href="/portal/login" class="btn btn-outline desktop-only">Entrar</a>
-        `}
-      </div>
-    </div>
-  </header>
   `
 
   return `<!DOCTYPE html>
@@ -319,29 +406,37 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
   <title>${escapeHtml(title)}</title>
   ${description ? `<meta name="description" content="${escapeAttr(description)}">` : ''}
   <link rel="canonical" href="${escapeAttr(canonicalUrl)}">
-  ${params.lcpPreloadUrl ? `<link rel="preload" as="image" href="${escapeAttr(params.lcpPreloadUrl)}" ${params.lcpSrcSet ? `imagesrcset="${escapeAttr(params.lcpSrcSet)}"` : ''} fetchpriority="high">` : ''}
+  ${renderSocialMetaTags(openGraph)}
+  ${params.lcpPreloadUrl ? `
+    <link rel="preload" as="image" href="${escapeAttr(params.lcpPreloadUrl)}" 
+      ${params.lcpSrcSet ? `imagesrcset="${escapeAttr(params.lcpSrcSet)}"` : ''} 
+      imagesizes="(max-width: 768px) 100vw, 1200px"
+      fetchpriority="high">` : ''}
   
   <link rel="dns-prefetch" href="https://securepubads.g.doubleclick.net">
   <link rel="dns-prefetch" href="https://pagead2.googlesyndication.com">
   <link rel="dns-prefetch" href="https://www.googletagmanager.com">
   <link rel="dns-prefetch" href="https://www.google-analytics.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://pagead2.googlesyndication.com">
-  <link rel="preconnect" href="https://securepubads.g.doubleclick.net">
 
   <!-- Fonts - Faster Loading -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" as="font" href="https://fonts.gstatic.com/s/inter/v18/UcC7EFIdjxPjmlpbc0Q-QSv_D8w.woff2" type="font/woff2" crossorigin>
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=swap">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=swap" media="print" id="google-fonts-link">
+  <link rel="preconnect" href="https://fonts.googleapis.com" media="(min-width: 769px)">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin media="(min-width: 769px)">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=optional" media="(min-width: 769px)">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=optional" media="print" id="google-fonts-link" data-desktop-media="(min-width: 769px)">
   <script nonce="${nonce}">
-    document.getElementById('google-fonts-link').addEventListener('load', function() {
-      this.media = 'all';
-    });
+    (function() {
+      const fontsLink = document.getElementById('google-fonts-link');
+      if (!fontsLink) return;
+      const desktopMedia = fontsLink.getAttribute('data-desktop-media') || '(min-width: 769px)';
+      if (window.matchMedia && !window.matchMedia(desktopMedia).matches) return;
+      fontsLink.addEventListener('load', function() {
+        this.media = desktopMedia;
+      });
+    })();
   </script>
   <noscript>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=optional" media="(min-width: 769px)">
   </noscript>
   
   <!-- Critical CSS - Inlined for FCP -->
@@ -355,6 +450,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
       --gb-border: #dadce0;
       --gb-header-height: 64px;
       --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --accent: #1a73e8;
     }
     html, body {
       margin: 0;
@@ -364,6 +460,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
       font-family: var(--font-sans);
       -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
+      min-height: 100vh;
     }
     .gb-header {
       height: var(--gb-header-height);
@@ -373,6 +470,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
       position: sticky;
       top: 0;
       z-index: 1000;
+      border-bottom: 1px solid var(--gb-border);
     }
     .gb-container {
       width: 100%;
@@ -381,28 +479,70 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
       padding: 0 24px;
       box-sizing: border-box;
     }
-    /* Fixed mobile padding for FCP */
     @media (max-width: 768px) {
-      .gb-container { padding-left: 16px !important; padding-right: 16px !important; }
+      .gb-container { padding: 0 16px !important; }
+      .desktop-only { display: none !important; }
     }
-    /* Forced Link Styling - High Specificity */
-    #articleBody a, 
-    .article-content a,
-    .article-content p a {
-      color: #1a73e8 !important;
-      font-weight: 800 !important;
-      text-decoration: underline !important;
+    .img-aesthetic {
+       aspect-ratio: 16/9;
+       background: #f0f0f0;
+       object-fit: cover;
     }
-    #articleBody a:hover,
-    .article-content a:hover {
-      color: #1557b0 !important;
-      text-decoration: underline !important;
+    /* Anti-CLS for Ads - Optimized */
+    .ad-slot {
+      min-height: 90px;
+      background: #fdfdfd;
+      margin: 16px 0;
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .ad-slot[data-provider="adsense"], .ad-slot--adsense {
+      display: block !important;
+      width: 100%;
+      text-align: center;
+      overflow: visible;
+    }
+    .ad-slot[data-provider="adsense"] .adsbygoogle {
+      display: block !important;
+      width: 100%;
+    }
+    @media (max-width: 768px) {
+      .ad-slot { min-height: 100px !important; }
+      .ad-slot[data-ad-slot="home_top_leaderboard"] {
+        height: 100px !important;
+        min-height: 100px !important;
+        max-height: 100px !important;
+        margin: 12px 0 !important;
+        overflow: hidden !important;
+      }
+      .ad-slot[data-ad-slot="home_top_leaderboard"] .adsbygoogle {
+        height: 100px !important;
+        min-height: 100px !important;
+      }
+      .ad-slot[data-ad-slot^="article_top"],
+      .ad-slot[data-ad-slot^="article_footer"] {
+        height: 100px !important;
+        min-height: 100px !important;
+        max-height: 100px !important;
+        overflow: hidden !important;
+      }
+    }
+    /* Critical Typography */
+    h1, h2, h3 { line-height: 1.2; margin: 0; }
+    a { text-decoration: none; color: inherit; }
+    @keyframes gb-pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.6; }
+      100% { opacity: 1; }
     }
   </style>
 
   <!-- Main CSS -->
-  <link rel="preload" href="${cssFile}?v=${Date.now()}" as="style">
-  <link href="${cssFile}?v=${Date.now()}" rel="stylesheet" fetchpriority="high">
+  <link rel="preload" href="${cssHref}" as="style">
+  <link href="${cssHref}" rel="stylesheet" fetchpriority="high">
+  <link href="/static/engagement.css?v=20260821-1" rel="stylesheet">
 
   ${extraHeadHtml}
   ${googleAnalyticsId ? `
@@ -472,7 +612,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     </script>
   ` : ''}
 </head>
-<body style="padding: 0 !important;">
+<body class="theme-${normalizedTheme}" style="padding: 0 !important;">
   <div style="padding-inline: 16px; max-width: 100vw; overflow-x: hidden;">
   <!-- Header -->
   ${headerHtml}
@@ -482,7 +622,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
     <div class="mobile-menu-panel">
       <div class="gb-menu-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
         <span class="gb-logo" style="margin: 0; opacity: 1;">
-          <img src="/static/logo-dp.png" alt="Logo" style="height: 24px; width: auto;">
+          <img src="/static/logo-dp.png" alt="Logo" width="120" height="42" loading="lazy" style="height: 24px; width: auto;">
         </span>
         <button id="mobileMenuClose" class="gb-icon-btn" aria-label="Fechar">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5f6368" stroke-width="2">
@@ -523,7 +663,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
       <!-- Top Section: Brand & Social -->
       <div class="gblog-footer__top">
         <div class="gblog-brand">
-          <img src="/static/logo-dp.png" alt="${escapeAttr(siteName)}" style="height: 28px; width: auto; filter: grayscale(100%); opacity: 0.6;">
+          <img src="/static/logo-dp.png" alt="${escapeAttr(siteName)}" width="142" height="49" loading="lazy" style="height: 28px; width: auto; filter: grayscale(100%); opacity: 0.6;">
         </div>
 
         <div class="gblog-social">
@@ -589,6 +729,8 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
   ` : ''}
   
   ${headerScript}
+  <script src="/static/engagement.js?v=20260821-1" defer></script>
+  ${params.extraScriptsHtml || ''}
   
   
   </div>

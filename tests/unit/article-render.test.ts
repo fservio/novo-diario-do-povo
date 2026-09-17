@@ -61,18 +61,25 @@ describe('Article Page Rendering', () => {
     
     expect(articleCode).toContain('renderPublicLayout')
   })
+
+  it('preserves the featured image proportion on mobile', () => {
+    const editorialCss = readFileSync('public/static/editorial.css', 'utf-8')
+
+    expect(editorialCss).toMatch(/\.ed-article__hero img \{[^}]*height: auto;[^}]*object-fit: contain;/)
+    expect(editorialCss).toMatch(/\.ed-article__hero img \{ max-height: none; \}/)
+  })
 })
 
 describe('Article Route Integration', () => {
   it('should have paywall check in route', () => {
-    const indexCode = readFileSync('functions/index.ts', 'utf-8')
+    const indexCode = readFileSync('packages/core/web/routes-v1.ts', 'utf-8')
     
     expect(indexCode).toContain('checkPostAccess')
     expect(indexCode).toContain('isBlocked')
   })
   
   it('should use renderArticlePage in route', () => {
-    const indexCode = readFileSync('functions/index.ts', 'utf-8')
+    const indexCode = readFileSync('packages/core/web/routes-v1.ts', 'utf-8')
     
     expect(indexCode).toContain('renderArticlePage')
   })

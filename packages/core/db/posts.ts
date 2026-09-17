@@ -5,6 +5,12 @@
 
 import type { D1Database } from '@cloudflare/workers-types'
 import { renderMarkdownToHtml, sanitizeHtml } from '../render/sanitize'
+import { editorialDocumentHasText, renderEditorialDocumentToHtml, type EditorialContentFormat } from '../editorial-content'
+
+// Simple in-memory cache for total counts to reduce D1 read costs
+// This avoids expensive full table scans (COUNT(*)) on every admin list refresh
+const totalCountCache = new Map<string, { count: number; expires: number }>()
+const CACHE_TTL_MS = 10 * 60 * 1000 // 10 minutes
 
 export interface Post {
   id: number
@@ -14,17 +20,30 @@ export interface Post {
   excerpt: string | null
   content: string
   content_markdown: string | null // Markdown source (optional, for new editor)
+  content_json: string | null
+  content_format: EditorialContentFormat
+  content_version: number
   category_id: number
   author_id: number
   cover_media_id: number | null
   status: 'draft' | 'review' | 'published' | 'archived'
   template: string
+  opinion_type: 'news' | 'editorial' | 'article' | 'column'
+  opinion_featured: number
 
   // SEO
   seo_title: string | null
   seo_description: string | null
   seo_canonical: string | null
   seo_noindex: number
+
+  // Distribuição social
+  social_title: string | null
+  social_description: string | null
+  social_share_text: string | null
+  social_image_media_id: number | null
+  social_image_position_x: number
+  social_image_position_y: number
 
   // Paywall
   is_premium: number
@@ -47,6 +66,11 @@ export interface Post {
   author_name?: string
   author_avatar_url?: string
   cover_media_url?: string
+  cover_media_credits?: string | null
+  social_image_url?: string | null
+  social_image_mime_type?: string | null
+  social_image_width?: number | null
+  social_image_height?: number | null
   tags?: string[]
 }
 
@@ -60,11 +84,13 @@ export interface PostFilters {
   offset?: number
   missing_cover?: boolean
   is_headline?: number
+  opinion_type?: 'news' | 'editorial' | 'article' | 'column'
   slug?: string
   original_link?: string
   year?: number
   month?: number
   day?: number
+  includeCount?: boolean // Optional: only count if requested to save D1 costs
 }
 
 export interface CreatePostInput {
@@ -74,14 +100,23 @@ export interface CreatePostInput {
   excerpt?: string
   content: string
   content_markdown?: string
+  content_json?: string
   category_id: number
   author_id: number
   cover_media_id?: number
   template?: string
+  opinion_type?: 'news' | 'editorial' | 'article' | 'column'
+  opinion_featured?: number
   seo_title?: string
   seo_description?: string
   seo_canonical?: string
   seo_noindex?: number
+  social_title?: string
+  social_description?: string
+  social_share_text?: string
+  social_image_media_id?: number | null
+  social_image_position_x?: number
+  social_image_position_y?: number
   is_premium?: number
   paywall_tier?: string
   metering_exempt?: number
@@ -98,14 +133,24 @@ export interface UpdatePostInput {
   excerpt?: string
   content?: string
   content_markdown?: string
+  content_json?: string
+  expected_content_version?: number
   category_id?: number
   author_id?: number
   cover_media_id?: number
   template?: string
+  opinion_type?: 'news' | 'editorial' | 'article' | 'column'
+  opinion_featured?: number
   seo_title?: string
   seo_description?: string
   seo_canonical?: string
   seo_noindex?: number
+  social_title?: string
+  social_description?: string
+  social_share_text?: string
+  social_image_media_id?: number | null
+  social_image_position_x?: number
+  social_image_position_y?: number
   is_premium?: number
   paywall_tier?: string
   metering_exempt?: number
@@ -169,6 +214,7 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
     author_id,
     is_premium,
     is_headline,
+    opinion_type,
     search,
     missing_cover,
     slug,
@@ -176,6 +222,7 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
     year,
     month,
     day,
+    includeCount = false,
     limit = 20,
     offset = 0
   } = filters
@@ -206,6 +253,11 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
   if (is_headline !== undefined) {
     whereConditions.push('p.is_headline = ?')
     params.push(is_headline)
+  }
+
+  if (opinion_type !== undefined) {
+    whereConditions.push('p.opinion_type = ?')
+    params.push(opinion_type)
   }
 
   if (missing_cover) {
@@ -253,12 +305,22 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
 
   const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''
 
-  // Count total
-  const countResult = await db.prepare(
-    `SELECT COUNT(*) as count FROM posts p ${whereClause}`
-  ).bind(...params).first<{ count: number }>()
+  // Count total (Disabled by default to save D1 reads)
+  let total = 0
+  if (includeCount) {
+    const cacheKey = `count:${whereClause}:${params.join('|')}`
+    const cached = totalCountCache.get(cacheKey)
 
-  const total = countResult?.count || 0
+    if (cached && cached.expires > Date.now()) {
+      total = cached.count
+    } else {
+      const countResult = await db.prepare(
+        `SELECT COUNT(*) as count FROM posts p ${whereClause}`
+      ).bind(...params).first<{ count: number }>()
+      total = countResult?.count || 0
+      totalCountCache.set(cacheKey, { count: total, expires: Date.now() + CACHE_TTL_MS })
+    }
+  }
 
   // Get posts
   const query = `
@@ -267,11 +329,17 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
       c.name as category_name,
       a.name as author_name,
       ma.r2_key as author_avatar_url,
-      m.r2_key as cover_media_url
+      m.r2_key as cover_media_url,
+      m.credits as cover_media_credits,
+      sm.r2_key as social_image_url,
+      sm.mime_type as social_image_mime_type,
+      sm.width as social_image_width,
+      sm.height as social_image_height
     FROM posts p
     LEFT JOIN categories c ON c.id = p.category_id
     LEFT JOIN authors a ON a.id = p.author_id
     LEFT JOIN media m ON m.id = p.cover_media_id
+    LEFT JOIN media sm ON sm.id = p.social_image_media_id
     LEFT JOIN media ma ON ma.id = a.avatar_media_id
     ${whereClause}
     ORDER BY p.created_at DESC
@@ -295,11 +363,17 @@ export async function getPostById(db: D1Database, id: number): Promise<Post | nu
       c.name as category_name,
       a.name as author_name,
       ma.r2_key as author_avatar_url,
-      m.r2_key as cover_media_url
+      m.r2_key as cover_media_url,
+      m.credits as cover_media_credits,
+      sm.r2_key as social_image_url,
+      sm.mime_type as social_image_mime_type,
+      sm.width as social_image_width,
+      sm.height as social_image_height
     FROM posts p
     LEFT JOIN categories c ON c.id = p.category_id
     LEFT JOIN authors a ON a.id = p.author_id
     LEFT JOIN media m ON m.id = p.cover_media_id
+    LEFT JOIN media sm ON sm.id = p.social_image_media_id
     LEFT JOIN media ma ON ma.id = a.avatar_media_id
     WHERE p.id = ?
     LIMIT 1
@@ -330,11 +404,17 @@ export async function getPostBySlug(db: D1Database, slug: string): Promise<Post 
       c.name as category_name,
       a.name as author_name,
       ma.r2_key as author_avatar_url,
-      m.r2_key as cover_media_url
+      m.r2_key as cover_media_url,
+      m.credits as cover_media_credits,
+      sm.r2_key as social_image_url,
+      sm.mime_type as social_image_mime_type,
+      sm.width as social_image_width,
+      sm.height as social_image_height
     FROM posts p
     LEFT JOIN categories c ON c.id = p.category_id
     LEFT JOIN authors a ON a.id = p.author_id
     LEFT JOIN media m ON m.id = p.cover_media_id
+    LEFT JOIN media sm ON sm.id = p.social_image_media_id
     LEFT JOIN media ma ON ma.id = a.avatar_media_id
     WHERE p.slug = ?
     LIMIT 1
@@ -365,11 +445,17 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
   const baseSlug = input.slug || slugify(input.title)
   const slug = await generateUniqueSlug(db, baseSlug)
 
-  const hasMarkdown = input.content_markdown !== undefined && input.content_markdown !== null
-  const contentHtml = hasMarkdown
-    ? renderMarkdownToHtml(input.content_markdown || '')
-    : sanitizeHtml(input.content)
+  const hasVisualContent = Boolean(input.content_json?.trim())
+  const hasMarkdown = !hasVisualContent && input.content_markdown !== undefined && input.content_markdown !== null
+  if (hasVisualContent && !editorialDocumentHasText(input.content_json!)) throw new Error('Conteúdo é obrigatório.')
+  const contentHtml = hasVisualContent
+    ? renderEditorialDocumentToHtml(input.content_json!)
+    : hasMarkdown
+      ? renderMarkdownToHtml(input.content_markdown || '')
+      : sanitizeHtml(input.content)
   const contentMarkdownValue = hasMarkdown ? input.content_markdown : null
+  const contentJsonValue = hasVisualContent ? input.content_json : null
+  const contentFormat: EditorialContentFormat = hasVisualContent ? 'visual' : hasMarkdown ? 'markdown' : 'legacy'
   const hatValue = input.hat ? input.hat.trim().toUpperCase() : null
   const originalLink = input.original_link || null
 
@@ -380,16 +466,27 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
     input.excerpt || null,
     contentHtml,
     contentMarkdownValue,
+    contentJsonValue,
+    contentFormat,
+    1,
     input.category_id,
     input.author_id,
     input.cover_media_id || null,
     input.template || 'article', // template defaults to article
     'draft', // status defaults to draft
     0, // views
+    input.opinion_type || 'news',
+    input.opinion_featured || 0,
     input.seo_title || null,
     input.seo_description || null,
     input.seo_canonical || null,
     input.seo_noindex || 0,
+    input.social_title || null,
+    input.social_description || null,
+    input.social_share_text || null,
+    input.social_image_media_id || null,
+    input.social_image_position_x ?? 50,
+    input.social_image_position_y ?? 50,
     input.is_premium || 0,
     input.paywall_tier || null,
     input.metering_exempt || 0,
@@ -400,22 +497,17 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
     now // updated_at
   ]
 
-  console.log('[createPost] Bind values:', {
-    count: bindValues.length,
-    values: bindValues,
-    input: input
-  })
-
-  // Ensure the SQL statement has the correct number of placeholders (?)
-  // We added original_link, so we need one more ? and the column name
   const result = await db.prepare(`
     INSERT INTO posts (
-      title, hat, slug, excerpt, content, content_markdown,
+      title, hat, slug, excerpt, content, content_markdown, content_json, content_format, content_version,
       category_id, author_id, cover_media_id, template, status, views,
+      opinion_type, opinion_featured,
       seo_title, seo_description, seo_canonical, seo_noindex,
+      social_title, social_description, social_share_text, social_image_media_id,
+      social_image_position_x, social_image_position_y,
       is_premium, paywall_tier, metering_exempt, is_live, is_headline, original_link,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(...bindValues).run()
 
   const postId = result.meta.last_row_id
@@ -476,15 +568,31 @@ export async function updatePost(db: D1Database, id: number, input: UpdatePostIn
     values.push(input.excerpt || null)
   }
 
-  if (input.content_markdown !== undefined) {
+  if (input.content_json !== undefined) {
+    if (!editorialDocumentHasText(input.content_json)) throw new Error('Conteúdo é obrigatório.')
+    fields.push('content = ?')
+    values.push(renderEditorialDocumentToHtml(input.content_json))
+    fields.push('content_json = ?')
+    values.push(input.content_json)
+    fields.push('content_markdown = NULL')
+    fields.push("content_format = 'visual'")
+    fields.push('content_version = content_version + 1')
+  } else if (input.content_markdown !== undefined) {
     const markdown = input.content_markdown || ''
     fields.push('content = ?')
     values.push(renderMarkdownToHtml(markdown))
     fields.push('content_markdown = ?')
     values.push(input.content_markdown)
+    fields.push('content_json = NULL')
+    fields.push("content_format = 'markdown'")
+    fields.push('content_version = content_version + 1')
   } else if (input.content !== undefined) {
     fields.push('content = ?')
     values.push(sanitizeHtml(input.content))
+    fields.push('content_json = NULL')
+    fields.push('content_markdown = NULL')
+    fields.push("content_format = 'legacy'")
+    fields.push('content_version = content_version + 1')
   }
 
   if (input.category_id !== undefined) {
@@ -505,6 +613,16 @@ export async function updatePost(db: D1Database, id: number, input: UpdatePostIn
   if (input.template !== undefined) {
     fields.push('template = ?')
     values.push(input.template)
+  }
+
+  if (input.opinion_type !== undefined) {
+    fields.push('opinion_type = ?')
+    values.push(input.opinion_type)
+  }
+
+  if (input.opinion_featured !== undefined) {
+    fields.push('opinion_featured = ?')
+    values.push(input.opinion_featured)
   }
 
   if (input.seo_title !== undefined) {
@@ -557,13 +675,49 @@ export async function updatePost(db: D1Database, id: number, input: UpdatePostIn
     values.push(input.breaking_until || null)
   }
 
+  if (input.social_title !== undefined) {
+    fields.push('social_title = ?')
+    values.push(input.social_title || null)
+  }
+
+  if (input.social_description !== undefined) {
+    fields.push('social_description = ?')
+    values.push(input.social_description || null)
+  }
+
+  if (input.social_share_text !== undefined) {
+    fields.push('social_share_text = ?')
+    values.push(input.social_share_text || null)
+  }
+
+  if (input.social_image_media_id !== undefined) {
+    fields.push('social_image_media_id = ?')
+    values.push(input.social_image_media_id || null)
+  }
+
+  if (input.social_image_position_x !== undefined) {
+    fields.push('social_image_position_x = ?')
+    values.push(input.social_image_position_x)
+  }
+
+  if (input.social_image_position_y !== undefined) {
+    fields.push('social_image_position_y = ?')
+    values.push(input.social_image_position_y)
+  }
+
   fields.push('updated_at = ?')
   values.push(now)
 
   if (fields.length > 0) {
-    await db.prepare(
-      `UPDATE posts SET ${fields.join(', ')} WHERE id = ?`
-    ).bind(...values, id).run()
+    const where = input.expected_content_version !== undefined
+      ? 'id = ? AND content_version = ?'
+      : 'id = ?'
+    const result = await db.prepare(
+      `UPDATE posts SET ${fields.join(', ')} WHERE ${where}`
+    ).bind(...values, id, ...(input.expected_content_version !== undefined ? [input.expected_content_version] : [])).run()
+    if (input.expected_content_version !== undefined && (result.meta.changes || 0) === 0) {
+      throw new Error('CONTENT_VERSION_CONFLICT')
+    }
   }
 
   // Update tags
@@ -579,6 +733,111 @@ export async function updatePost(db: D1Database, id: number, input: UpdatePostIn
       `).bind(id, tagId, now).run()
     }
   }
+}
+
+export interface PostRevision {
+  id: number
+  post_id: number
+  title: string
+  excerpt: string | null
+  content: string
+  content_json: string | null
+  content_format: EditorialContentFormat
+  content_version: number
+  revision_type: 'manual' | 'autosave' | 'restore' | 'ai'
+  changed_by_user_id: number
+  changed_by_name?: string | null
+  created_at: string
+}
+
+export async function createPostRevision(
+  db: D1Database,
+  post: Post,
+  changedByUserId: number,
+  revisionType: PostRevision['revision_type'] = 'manual'
+): Promise<number> {
+  const result = await db.prepare(`
+    INSERT INTO post_revisions (
+      post_id, title, excerpt, content, content_json, content_format,
+      content_version, revision_type, changed_by_user_id, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    post.id, post.title, post.excerpt, post.content, post.content_json,
+    post.content_format || 'legacy', post.content_version || 1, revisionType,
+    changedByUserId, new Date().toISOString()
+  ).run()
+  return Number(result.meta.last_row_id || 0)
+}
+
+export async function listPostRevisions(db: D1Database, postId: number, limit = 12): Promise<PostRevision[]> {
+  const result = await db.prepare(`
+    SELECT r.*, u.name AS changed_by_name
+    FROM post_revisions r
+    LEFT JOIN users u ON u.id = r.changed_by_user_id
+    WHERE r.post_id = ?
+    ORDER BY r.created_at DESC, r.id DESC
+    LIMIT ?
+  `).bind(postId, Math.max(1, Math.min(50, limit))).all<PostRevision>()
+  return result.results || []
+}
+
+export async function restorePostRevision(
+  db: D1Database,
+  postId: number,
+  revisionId: number,
+  changedByUserId: number
+): Promise<void> {
+  const [post, revision] = await Promise.all([
+    getPostById(db, postId),
+    db.prepare('SELECT * FROM post_revisions WHERE id = ? AND post_id = ? LIMIT 1')
+      .bind(revisionId, postId).first<PostRevision>()
+  ])
+  if (!post || !revision) throw new Error('Revisão não encontrada.')
+  await createPostRevision(db, post, changedByUserId, 'restore')
+  await db.prepare(`
+    UPDATE posts
+    SET title = ?, excerpt = ?, content = ?, content_json = ?, content_markdown = NULL,
+        content_format = ?, content_version = content_version + 1, updated_at = ?
+    WHERE id = ?
+  `).bind(
+    revision.title,
+    revision.excerpt,
+    revision.content,
+    revision.content_json,
+    revision.content_json ? 'visual' : 'legacy',
+    new Date().toISOString(),
+    postId
+  ).run()
+}
+
+export async function autosaveVisualPost(db: D1Database, input: {
+  postId: number
+  contentJson: string
+  expectedVersion: number
+  title: string
+  hat?: string
+  excerpt?: string
+}): Promise<number> {
+  if (!editorialDocumentHasText(input.contentJson)) throw new Error('Conteúdo é obrigatório.')
+  const html = renderEditorialDocumentToHtml(input.contentJson)
+  const result = await db.prepare(`
+    UPDATE posts
+    SET title = ?, hat = ?, excerpt = ?, content = ?, content_json = ?,
+        content_markdown = NULL, content_format = 'visual',
+        content_version = content_version + 1, updated_at = ?
+    WHERE id = ? AND content_version = ?
+  `).bind(
+    input.title.trim().slice(0, 500),
+    input.hat?.trim().toUpperCase().slice(0, 60) || null,
+    input.excerpt?.trim().slice(0, 1_000) || null,
+    html,
+    input.contentJson,
+    new Date().toISOString(),
+    input.postId,
+    input.expectedVersion
+  ).run()
+  if ((result.meta.changes || 0) === 0) throw new Error('CONTENT_VERSION_CONFLICT')
+  return input.expectedVersion + 1
 }
 
 /**
@@ -629,6 +888,16 @@ export async function archivePost(db: D1Database, id: number): Promise<void> {
  * Deleta post
  */
 export async function deletePost(db: D1Database, id: number): Promise<void> {
-  // Tags serão deletadas automaticamente (CASCADE)
+  // Production databases may contain historical rows created before all cascade
+  // constraints were in place, so clear known dependents before deleting posts.
+  await db.prepare('DELETE FROM posts_tags WHERE post_id = ?').bind(id).run()
+  await db.prepare('DELETE FROM post_revisions WHERE post_id = ?').bind(id).run()
+  await db.prepare('DELETE FROM live_blog_updates WHERE post_id = ?').bind(id).run()
+  await db.prepare('DELETE FROM post_views WHERE post_id = ?').bind(id).run()
+  await db.prepare('DELETE FROM paywall_views WHERE post_id = ?').bind(id).run()
+  await db.prepare('DELETE FROM liveblog_entries WHERE liveblog_id IN (SELECT id FROM liveblogs WHERE post_id = ?)').bind(id).run()
+  await db.prepare('DELETE FROM liveblogs WHERE post_id = ?').bind(id).run()
+  await db.prepare('DELETE FROM hub_blocks WHERE hub_id IN (SELECT id FROM hubs WHERE post_id = ?)').bind(id).run()
+  await db.prepare('DELETE FROM hubs WHERE post_id = ?').bind(id).run()
   await db.prepare('DELETE FROM posts WHERE id = ?').bind(id).run()
 }

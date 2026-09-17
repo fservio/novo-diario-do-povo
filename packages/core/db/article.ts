@@ -14,13 +14,26 @@ export interface ArticlePost {
   content: string
   content_markdown: string | null
   published_at: string
+  updated_at: string
   featured_image_r2_key: string | null
   featured_image_credits: string | null
   featured_image_alt: string | null
+  featured_image_width?: number | null
+  featured_image_height?: number | null
+  featured_image_mime_type?: string | null
   seo_title: string | null
   seo_description: string | null
   seo_noindex: number
   seo_canonical: string | null
+  social_title: string | null
+  social_description: string | null
+  social_share_text: string | null
+  social_image_r2_key: string | null
+  social_image_mime_type: string | null
+  social_image_width: number | null
+  social_image_height: number | null
+  social_image_position_x: number
+  social_image_position_y: number
   category_id: number
   category_name: string
   category_slug: string
@@ -29,6 +42,8 @@ export interface ArticlePost {
   author_bio?: string | null
   author_avatar_r2_key?: string | null
   author_type?: 'staff' | 'columnist' | 'editorial' | 'contributor'
+  opinion_type?: 'news' | 'editorial' | 'article' | 'column'
+  opinion_featured?: number
   author_social_instagram?: string | null
   author_social_twitter?: string | null
   author_social_linkedin?: string | null
@@ -36,6 +51,7 @@ export interface ArticlePost {
   column_name?: string | null
   column_description?: string | null
   is_premium: number
+  paywall_tier?: 'hard' | 'metered' | 'free'
   template?: string
   is_live: number
 }
@@ -59,13 +75,22 @@ export interface RelatedPost {
 export async function findArticleBySlug(env: Env, slug: string): Promise<ArticlePost | null> {
   const result = await env.DB.prepare(`
     SELECT 
-      p.id, p.slug, p.title, p.hat, p.excerpt, p.content, p.content_markdown, p.published_at,
-      p.template,
+      p.id, p.slug, p.title, p.hat, p.excerpt, p.content, p.content_markdown, p.published_at, p.updated_at,
+      p.template, p.opinion_type, p.opinion_featured,
       m.r2_key as featured_image_r2_key,
       m.credits as featured_image_credits,
       m.alt as featured_image_alt,
+      m.width as featured_image_width,
+      m.height as featured_image_height,
+      m.mime_type as featured_image_mime_type,
       p.seo_title, p.seo_description, 
-      p.seo_noindex, p.seo_canonical, p.is_premium, p.is_live,
+      p.seo_noindex, p.seo_canonical, p.is_premium, p.is_live, p.paywall_tier,
+      p.social_title, p.social_description, p.social_share_text,
+      p.social_image_position_x, p.social_image_position_y,
+      ms.r2_key as social_image_r2_key,
+      ms.mime_type as social_image_mime_type,
+      ms.width as social_image_width,
+      ms.height as social_image_height,
       c.id as category_id,
       c.name as category_name,
       c.slug as category_slug,
@@ -84,6 +109,7 @@ export async function findArticleBySlug(env: Env, slug: string): Promise<Article
     JOIN categories c ON p.category_id = c.id
     LEFT JOIN authors a ON p.author_id = a.id
     LEFT JOIN media m ON p.cover_media_id = m.id
+    LEFT JOIN media ms ON p.social_image_media_id = ms.id
     LEFT JOIN media ma ON a.avatar_media_id = ma.id
     WHERE p.slug = ? AND p.status = 'published'
     LIMIT 1
@@ -129,82 +155,6 @@ export async function findRelatedPosts(
   return result.results || []
 }
 
-/**
- * Increment post views
- */
-export async function incrementPostViews(env: Env, postId: number): Promise<void> {
-  // Fire and forget insert to avoid blocking
-  // In a real high-scale app, this would go to a queue or aggregation table
-  try {
-    await env.DB.prepare('INSERT INTO post_views (post_id) VALUES (?)').bind(postId).run()
-  } catch (error) {
-    console.warn('Failed to track view for post', postId, error)
-  }
-}
-
-/**
- * Find most read posts (based on last 7 days views)
- */
-export async function findMostRead(env: Env, options: { limit: number; days?: number }): Promise<RelatedPost[]> {
-  const { limit, days = 7 } = options
-  const cutoff = new Date()
-  cutoff.setDate(cutoff.getDate() - days)
-  const cutoffIso = cutoff.toISOString()
-
-  // Query: Posts with most views in the last X days
-  const result = await env.DB.prepare(`
-    SELECT 
-      p.id, p.slug, p.title, p.published_at, p.hat,
-      COUNT(v.id) as views_count,
-      c.name as category_name,
-      m.r2_key as featured_image_r2_key,
-      a.name as author_name,
-      a.author_type,
-      ma.r2_key as author_avatar_r2_key
-    FROM posts p
-    JOIN categories c ON p.category_id = c.id
-    LEFT JOIN authors a ON p.author_id = a.id
-    LEFT JOIN media m ON p.cover_media_id = m.id
-    LEFT JOIN media ma ON a.avatar_media_id = ma.id
-    LEFT JOIN post_views v ON p.id = v.post_id
-    WHERE p.status = 'published'
-      AND p.seo_noindex = 0
-      AND v.created_at >= ?
-    GROUP BY p.id
-    ORDER BY views_count DESC, p.published_at DESC
-    LIMIT ?
-  `).bind(cutoffIso, limit).all<RelatedPost>()
-
-  // Fallback if no views data found yet (empty result or low counts), fill with latest
-  if (!result.results || result.results.length < limit) {
-    const existingIds = (result.results || []).map(p => p.id)
-    const needed = limit - existingIds.length
-
-    if (needed > 0) {
-      const fallback = await env.DB.prepare(`
-        SELECT 
-          p.id, p.slug, p.title, p.published_at, p.hat,
-          c.name as category_name,
-          m.r2_key as featured_image_r2_key,
-          a.name as author_name,
-          a.author_type
-        FROM posts p
-        JOIN categories c ON p.category_id = c.id
-        LEFT JOIN authors a ON p.author_id = a.id
-        LEFT JOIN media m ON p.cover_media_id = m.id
-        WHERE p.status = 'published'
-          AND p.seo_noindex = 0
-          AND p.id NOT IN (${existingIds.length ? existingIds.join(',') : '0'})
-        ORDER BY p.published_at DESC
-        LIMIT ?
-      `).bind(needed).all<RelatedPost>()
-
-      return [...(result.results || []), ...(fallback.results || [])]
-    }
-  }
-
-  return result.results || []
-}
 
 /**
  * Estimate reading time (words / 200 wpm)

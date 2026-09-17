@@ -24,7 +24,7 @@ function detectPkgManager() {
   return { pm: "npm", run: (s) => ["npm", ["run", "-s", ...s]] };
 }
 function run(cmd, args, { allowFail = false } = {}) {
-  const res = spawnSync(cmd, args, { stdio: "inherit", cwd: ROOT, env: process.env });
+  const res = spawnSync(cmd, args, { stdio: "inherit", cwd: ROOT, env: process.env, shell: process.platform === "win32" });
   if (res.status !== 0 && !allowFail) fail(`Comando falhou: ${cmd} ${args.join(" ")}`);
   return res.status ?? 1;
 }
@@ -215,6 +215,67 @@ function pr6Checks() {
   ok("✅ PR6 checks (Seção 28) completos!\n");
 }
 
+/** Seção 29 — checks do sistema editorial público */
+function editorialThemeChecks() {
+  console.log("\n🔍 Editorial 2026 Layout Checks (Seção 29)\n");
+
+  // 1) CSS and layout files exist
+  assertPath(path.join(ROOT, "public", "static", "editorial.css"), "CSS editorial.css");
+  assertPath(path.join(ROOT, "packages", "core", "web", "layout-editorial.ts"), "Layout Shell layout-editorial.ts");
+  assertPath(path.join(ROOT, "packages", "core", "web", "components", "editorial-card.ts"), "Editorial card component");
+  assertPath(path.join(ROOT, "packages", "core", "web", "components", "editorial-ad.ts"), "Editorial ad component");
+
+  // 2) Editorial layout exports the shell and loads its stylesheet
+  assertFileContains(
+    path.join(ROOT, "packages", "core", "web", "layout-editorial.ts"),
+    [
+      /export\s+function\s+renderEditorialLayout/,
+      /\/static\/editorial\.css/,
+      /\/static\/logo-dp\.png/
+    ],
+    "packages/core/web/layout-editorial.ts"
+  );
+
+  // 3) Core public pages route through the Editorial 2026 shell
+  assertFileContains(
+    path.join(ROOT, "packages", "core", "web", "home.ts"),
+    [
+      /import.*renderEditorialLayout/,
+      /['"]editorial['"]/
+    ],
+    "packages/core/web/home.ts"
+  );
+
+  assertFileContains(
+    path.join(ROOT, "packages", "core", "web", "category.ts"),
+    [
+      /import.*renderEditorialLayout/,
+      /['"]editorial['"]/
+    ],
+    "packages/core/web/category.ts"
+  );
+
+  assertFileContains(
+    path.join(ROOT, "packages", "core", "web", "article.ts"),
+    [
+      /import.*renderEditorialLayout/,
+      /['"]editorial['"]/
+    ],
+    "packages/core/web/article.ts"
+  );
+
+  // 4) Masthead must use the institutional logo
+  assertFileContains(
+    path.join(ROOT, "packages", "core", "web", "layout-editorial.ts"),
+    [
+      /<img\s+src=.*logo-dp\.png/
+    ],
+    "packages/core/web/layout-editorial.ts masthead"
+  );
+
+  ok("✅ Editorial 2026 layout checks completos!\n");
+}
+
 function checkCoverageThreshold() {
   const candidates = [
     path.join(ROOT, "coverage", "coverage-summary.json"),
@@ -237,6 +298,7 @@ function checkCoverageThreshold() {
   ok(`Node version OK: ${process.version}`);
 
   pr6Checks();
+  editorialThemeChecks();
 
   const { pm, run: pmRun } = detectPkgManager();
   ok(`Package manager: ${pm}`);
@@ -327,15 +389,15 @@ function checkCoverageThreshold() {
 
   // Verificar parâmetros corretos
   const hasName = postsCode.includes("name: 'content'");
-  const hasNonce = postsCode.includes("nonce: csrfToken");
+  const hasNonce = postsCode.includes("nonce: csrfToken") || postsCode.includes("nonce: cspNonce");
   
   if (!hasName) {
     fail("Parâmetro 'name: content' não encontrado");
   }
   if (!hasNonce) {
-    fail("Parâmetro 'nonce: csrfToken' não encontrado");
+    fail("Parâmetro 'nonce: csrfToken' ou 'nonce: cspNonce' não encontrado");
   }
-  ok("Parâmetros corretos: name='content', nonce=csrfToken");
+  ok("Parâmetros corretos: name='content', nonce=csrfToken/cspNonce");
 
   // 6) Verificar CSP nonce nos scripts
   if (!editorCode.includes('nonce="${') && !editorCode.includes('nonce="\${')) {

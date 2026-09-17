@@ -1,6 +1,21 @@
 import { Hono } from 'hono'
 import type { Env, AppContext } from '../types'
 import { getPostUrl } from '../utils/post'
+import { normalizePublicTheme, escapeHtml, escapeAttr } from './layout'
+import { renderEditorialLayout } from './layout-editorial'
+import { renderEditorialArticleCard } from './components/editorial-card'
+
+// Static Imports for performance
+import { findArticleBySlug, findRelatedPosts } from '../db/article'
+import { getHomeSections, getHomeData } from '../db/home'
+import { renderArticlePage } from './article'
+import { checkPostAccess } from '../paywall'
+import { getReaderContext } from '../paywall/helpers'
+import { getSetting, getSettings, logAudit, getMediaById, findTagBySlug } from '../db'
+import { renderHomePage } from './home'
+import { renderUltimasPage } from './ultimas'
+import { getCategoryPageData } from '../db/category'
+import { renderCategoryPage } from './category'
 
 const app = new Hono<{ Bindings: Env; Variables: AppContext }>()
 
@@ -9,29 +24,21 @@ const app = new Hono<{ Bindings: Env; Variables: AppContext }>()
 // ============================================================================
 
 // GET / - Home Page
-// GET / - Home Page
 app.get('/', async (c) => {
-    const { getHomeData } = await import('../db/home')
-    const { renderHomePage } = await import('./home')
-    const { getSetting, getMediaById } = await import('../db')
-    const { getReaderContext } = await import('../paywall/helpers')
-
     // Parallel fetch: Reader context, Home data, Settings
     const [
         readerContext,
         data,
-        googleAnalyticsId,
-        siteNameResult,
-        dailyCover
+        settings
     ] = await Promise.all([
         getReaderContext(c as any),
         getHomeData(c.env),
-        getSetting(c.env, 'google_analytics_id', 'public'),
-        getSetting(c.env, 'site_name', 'public'),
-        getSetting(c.env, 'daily_cover') as Promise<{ media_id: number } | null>
+        getSettings(c.env, ['google_analytics_id', 'site_name', 'daily_cover'], 'public')
     ])
 
-    const siteName = (siteNameResult as string) || 'Jornal'
+    const siteName = (settings['site_name'] as string) || 'Jornal Diário do Povo'
+    const googleAnalyticsId = settings['google_analytics_id'] as string
+    const dailyCover = settings['daily_cover'] as { media_id: number } | null
 
     let coverR2Key = ''
     let coverAlt = 'Capa do Dia'
@@ -59,11 +66,10 @@ app.get('/', async (c) => {
         coverAlt,
         coverAspectRatio,
         subscriber: readerContext.subscriber,
-        googleAnalyticsId: googleAnalyticsId as string
+        googleAnalyticsId: googleAnalyticsId
     })
 
     // Cache Control (CDN + Browser)
-    // Cache for 60 seconds public
     const headers = {
         'Cache-Control': 'public, max-age=60, s-maxage=60',
         'Content-Type': 'text/html; charset=UTF-8'
@@ -74,13 +80,15 @@ app.get('/', async (c) => {
 
 // GET /ultimas - Latest Posts
 app.get('/ultimas', async (c) => {
-    const { getSetting } = await import('../db')
-    const { renderUltimasPage } = await import('./ultimas')
-    const { getReaderContext } = await import('../paywall/helpers')
-
-    const googleAnalyticsId = await getSetting(c.env, 'google_analytics_id', 'public')
-    const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
-    const readerContext = await getReaderContext(c as any)
+    const [settings, readerContext] = await Promise.all([
+        getSettings(c.env, ['google_analytics_id', 'site_name', 'public_theme'], 'public'),
+        getReaderContext(c as any)
+    ])
+    const siteName = (settings['site_name'] as string) || 'Jornal Diário do Povo'
+    const googleAnalyticsId = settings['google_analytics_id'] as string
+    const themeSetting = (await getSetting(c.env, 'site.public_theme')) || settings['public_theme']
+    const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2' || themeSetting === 'minimal'
+    const theme = normalizePublicTheme(themeSetting)
 
     const page = parseInt(c.req.query('page') || '1')
     const limit = 30
@@ -102,17 +110,13 @@ app.get('/ultimas', async (c) => {
     let baseUrl = c.env.PUBLIC_BASE_URL || 'https://diario.dopovo.com.br'
     if (baseUrl.includes('.pages.dev')) baseUrl = 'https://diario.dopovo.com.br'
 
-    // Determine Theme
-    const themeSetting = await getSetting(c.env, 'public_theme')
-    const theme = (themeSetting === 'minimal' || themeSetting === '"minimal"') ? 'minimal' : 'default'
-
     const html = await renderUltimasPage(c, posts.results as any[], {
         baseUrl,
         siteName,
         page,
         limit,
         subscriber: readerContext.subscriber,
-        theme: theme as 'default' | 'minimal',
+        theme: isEditorial ? 'editorial' : theme as 'default' | 'minimal',
         googleAnalyticsId
     })
 
@@ -124,27 +128,20 @@ app.get('/categoria/:slug', async (c) => {
     const slug = c.req.param('slug')
     const page = parseInt(c.req.query('page') || '1', 10)
 
-    const { getCategoryPageData } = await import('../db/category')
-    const { getHomeSections } = await import('../db/home')
-    const { renderCategoryPage } = await import('./category')
-    const { getSetting, getMediaById } = await import('../db')
-    const { getReaderContext } = await import('../paywall/helpers')
+    const [readerContext, data, settings] = await Promise.all([
+        getReaderContext(c as any),
+        getCategoryPageData(c.env, slug, page, 20),
+        getSettings(c.env, ['google_analytics_id', 'site_name', 'daily_cover'], 'public')
+    ])
 
-    // Get reader context
-    const readerContext = await getReaderContext(c as any)
-
-    // Get category data with pagination
-    const data = await getCategoryPageData(c.env, slug, page, 20)
     if (!data) {
         return c.notFound()
     }
 
-    // Get CMS settings
-    const googleAnalyticsId = await getSetting(c.env, 'google_analytics_id', 'public')
-    const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
+    const siteName = (settings['site_name'] as string) || 'Jornal Diário do Povo'
+    const googleAnalyticsId = settings['google_analytics_id'] as string
+    const dailyCover = settings['daily_cover'] as { media_id: number } | null
 
-    // Daily Cover
-    const dailyCover = await getSetting(c.env, 'daily_cover') as { media_id: number } | null
     let coverR2Key = ''
     let coverAlt = 'Capa do Dia'
     let coverAspectRatio = '3/4'
@@ -195,28 +192,77 @@ app.get('/categoria/:slug', async (c) => {
 app.get('/tag/:slug', async (c) => {
     try {
         const slug = c.req.param('slug')
-        const { findTagBySlug, getSetting } = await import('../db')
-
         const tag = await findTagBySlug(c.env, slug)
         if (!tag) {
             return c.notFound()
         }
 
-        // Get posts by tag
-        const posts = await c.env.DB.prepare(`
-        SELECT p.* FROM posts p
-        INNER JOIN post_tags pt ON pt.post_id = p.id
-        WHERE pt.tag_id = ? AND p.status = 'published'
-        ORDER BY p.published_at DESC
-        LIMIT 30
-      `).bind(tag.id).all()
+        const [settings, posts] = await Promise.all([
+            getSettings(c.env, ['site_name', 'google_analytics_id'], 'public'),
+            c.env.DB.prepare(`
+                SELECT p.* FROM posts p
+                INNER JOIN posts_tags pt ON pt.post_id = p.id
+                WHERE pt.tag_id = ? AND p.status = 'published'
+                ORDER BY p.published_at DESC
+                LIMIT 30
+            `).bind(tag.id).all()
+        ])
 
-        const siteName = await getSetting(c.env, 'site_name', 'public') || 'Jornal'
+        const siteName = (settings['site_name'] as string) || 'Jornal Diário do Povo'
+        const googleAnalyticsId = settings['google_analytics_id'] as string
+        
         let baseUrl = c.env.PUBLIC_BASE_URL || 'https://diario.dopovo.com.br'
         if (baseUrl.includes('.pages.dev')) baseUrl = 'https://diario.dopovo.com.br'
 
-        const googleAnalyticsId = await getSetting(c.env, 'google_analytics_id', 'public')
         const nonce = c.get('cspNonce') || ''
+
+        const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
+        const isEditorial = themeSetting == null || themeSetting === 'editorial' || themeSetting === 'alltype_v2' || themeSetting === 'minimal'
+
+        if (isEditorial) {
+            const sections = await getHomeSections(c.env)
+            const navItems = sections
+                .filter(s => s.enabled)
+                .map(s => ({
+                    label: s.title,
+                    href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
+                    active: s.type === 'tag' && s.tagSlug === slug
+                }))
+
+            const bodyHtml = `
+              <header class="ed-page-header">
+                <p class="ed-kicker">Assunto</p>
+                <h1 class="ed-page-title">${escapeHtml(tag.name)}</h1>
+                ${tag.description ? `<p class="ed-page-description">${escapeHtml(tag.description)}</p>` : ''}
+              </header>
+
+              <section class="ed-listing">
+                    ${(posts.results || []).map((post: any) => renderEditorialArticleCard({
+                      title: post.title,
+                      hat: post.hat || tag.name,
+                      excerpt: post.excerpt,
+                      published_at: post.published_at,
+                      featured_image_r2_key: post.featured_image_r2_key,
+                      url: getPostUrl(post, baseUrl),
+                      size: 'standard'
+                    })).join('')}
+              </section>
+
+              ${(posts.results || []).length === 0 ? `<div class="ed-empty">Nenhum artigo encontrado com este assunto.</div>` : ''}
+            `
+
+            const html = renderEditorialLayout({
+                title: `${tag.name} | ${siteName}`,
+                description: tag.description || `Notícias sobre ${tag.name}`,
+                canonicalUrl: `${baseUrl}/tag/${tag.slug}`,
+                nonce,
+                siteName,
+                navItems,
+                bodyHtml,
+                baseUrl
+            })
+            return c.html(html)
+        }
 
         return c.html(`
         <!DOCTYPE html>
@@ -227,7 +273,7 @@ app.get('/tag/:slug', async (c) => {
             <title>${tag.name} | ${siteName}</title>
             <meta name="description" content="${tag.description || `Notícias sobre ${tag.name}`}">
             ${tag.seo_noindex ? '<meta name="robots" content="noindex, follow">' : ''}
-            <link href="/static/styles.css" rel="stylesheet">
+            <link href="/static/minimal.css" rel="stylesheet">
             ${googleAnalyticsId ? `
               <!-- Google Analytics (GA4) -->
               <script async src="https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}"></script>
@@ -274,165 +320,164 @@ app.get('/tag/:slug', async (c) => {
     }
 })
 
-
-// ============================================================================
-// Shared Article Handler
-// ============================================================================
 // ============================================================================
 // Shared Article Handler
 // ============================================================================
 const handleArticleRequest = async (c: any) => {
     const { slug } = c.req.param()
+    const requestId = c.get('requestId') || 'no-id'
 
-    // Dynamic imports
-    const { findArticleBySlug, findRelatedPosts, findMostRead, incrementPostViews } = await import('../db/article')
-    const { getHomeSections } = await import('../db/home')
-    const { renderArticlePage } = await import('./article')
-    const { checkPostAccess } = await import('../paywall')
-    const { getReaderContext } = await import('../paywall/helpers')
-    const { getSetting } = await import('../db')
-    const { logAudit } = await import('../db') // Using audit for event logging MVP
+    try {
+        // Parallel fetch primary data (post and reader)
+        const [post, readerContext] = await Promise.all([
+            findArticleBySlug(c.env, slug),
+            getReaderContext(c)
+        ])
 
-    // Find post
-    const post = await findArticleBySlug(c.env, slug)
+        if (!post || post.seo_noindex) {
+            return c.notFound()
+        }
 
-    if (!post || post.seo_noindex) {
-        return c.notFound()
+        // Parallel fetch all secondary data
+        const [
+            accessCheck,
+            settings,
+            sections,
+            relatedPosts
+        ] = await Promise.all([
+            checkPostAccess(c.env, {
+                id: post.id,
+                slug: post.slug,
+                is_premium: post.is_premium,
+                template: post.template,
+                paywall_tier: post.paywall_tier,
+                category: { id: post.category_id, name: post.category_name, slug: post.category_slug }
+            } as any, {
+                isSubscriber: readerContext.isSubscriber,
+                readerUserId: readerContext.readerId,
+                anonIdentifier: readerContext.anonIdentifier,
+                subscriber: readerContext.subscriber
+            }),
+            getSettings(c.env, [
+                'google_analytics_id',
+                'site_name',
+                'cover_of_day.r2_key',
+                'cover_of_day.alt',
+                'cover_of_day.aspect_ratio'
+            ], 'public'),
+            getHomeSections(c.env),
+            findRelatedPosts(c.env, post.id, post.category_id, { limit: 4 })
+        ])
+
+        const siteName = (settings['site_name'] as string) || 'Jornal Diário do Povo'
+        const googleAnalyticsId = settings['google_analytics_id'] as string
+        const coverR2Key = (settings['cover_of_day.r2_key'] as string) || ''
+        const coverAlt = (settings['cover_of_day.alt'] as string) || 'Capa do Dia'
+        const coverAspectRatio = (settings['cover_of_day.aspect_ratio'] as string) || '3/4'
+
+        // Server-side Tracking (MVP)
+        const eventLog = {
+            entityType: 'article',
+            entityId: post.id,
+            action: accessCheck.allowed ? 'view_allowed' : 'view_blocked',
+            actorType: 'user' as 'user',
+            actorId: readerContext.readerId || 0,
+            metadata: {
+                reason: accessCheck.reason,
+                paywallMode: accessCheck.paywallMode,
+                slug: post.slug
+            },
+            requestId: c.get('requestId')
+        }
+        c.executionCtx.waitUntil(logAudit(c.env, eventLog))
+
+        let baseUrl = c.env.PUBLIC_BASE_URL || 'https://diario.dopovo.com.br'
+        if (baseUrl.includes('.pages.dev')) baseUrl = 'https://diario.dopovo.com.br'
+
+        // Map nav items
+        const navItems = sections
+            .filter(s => s.enabled)
+            .map(s => ({
+                label: s.title,
+                href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
+                active: false
+            }))
+
+        // Generate Content Source (Teaser vs Full)
+        let contentSource = post.content_markdown || post.content || ''
+
+        // If blocked, slice content
+        if (!accessCheck.allowed) {
+            const teaserLimit = 800
+            contentSource = contentSource.slice(0, teaserLimit) + '...'
+        }
+
+        // Render article page
+        const html = await renderArticlePage(c, post, {
+            baseUrl,
+            siteName,
+            navItems,
+            coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null,
+            relatedPosts,
+            mostRead: [], // Analytics disabled
+            isBlocked: !accessCheck.allowed,
+            accessCheck,
+            googleAnalyticsId
+        }, contentSource)
+
+        if (!html) {
+            console.error(`[CRITICAL] renderArticlePage returned empty string for slug: ${slug}`)
+            return c.text('Erro Interno: Falha ao renderizar a página.', 500)
+        }
+
+        // Cache Control
+        const headers: Record<string, string> = {
+            'Content-Type': 'text/html; charset=UTF-8'
+        }
+
+        if (!accessCheck.allowed || post.is_premium) {
+            headers['Cache-Control'] = 'private, no-store'
+        } else {
+            headers['Cache-Control'] = 'public, max-age=60, s-maxage=60'
+        }
+
+        return c.body(html, 200, headers)
+    } catch (error: any) {
+        console.error(`[handleArticleRequest][${requestId}] Error processing slug: ${slug}`, error)
+        const showDebug = c.req.query('debug_err') === '1'
+        return c.json({
+            success: false,
+            error: 'Erro interno do servidor',
+            ...(showDebug && {
+                debug: error.message,
+                stack: error.stack,
+                requestId
+            })
+        }, 500)
     }
-
-    // Increment views (fire and forget)
-    c.executionCtx.waitUntil(incrementPostViews(c.env, post.id))
-
-    // Get reader context
-    const readerContext = await getReaderContext(c)
-
-    // Check access
-    const postForPaywall = {
-        id: post.id,
-        slug: post.slug,
-        is_premium: post.is_premium,
-        template: post.template,
-        paywall_tier: (post as any).paywall_tier,
-        category: { id: post.category_id, name: post.category_name, slug: post.category_slug }
-    }
-
-    const accessCheck = await checkPostAccess(c.env, postForPaywall as any, {
-        isSubscriber: readerContext.isSubscriber,
-        readerUserId: readerContext.readerId,
-        anonIdentifier: readerContext.anonIdentifier,
-        subscriber: readerContext.subscriber
-    })
-
-    // Server-side Tracking (MVP)
-    const eventLog = {
-        entityType: 'article',
-        entityId: post.id,
-        action: accessCheck.allowed ? 'view_allowed' : 'view_blocked',
-        actorType: 'user' as 'user', // Explicit cast to satisfy union type
-        actorId: readerContext.readerId || 0,
-        metadata: {
-            reason: accessCheck.reason,
-            paywallMode: accessCheck.paywallMode,
-            slug: post.slug
-        },
-        requestId: c.get('requestId')
-    }
-    // Fire and forget logging
-    c.executionCtx.waitUntil(logAudit(c.env, eventLog))
-
-
-    // Get CMS settings
-    const googleAnalyticsId = await getSetting(c.env, 'google_analytics_id', 'public')
-    const siteName = (await getSetting(c.env, 'site_name', 'public') as string) || 'Jornal'
-    const coverR2Key = (await getSetting(c.env, 'cover_of_day.r2_key', 'public') as string) || ''
-    const coverAlt = (await getSetting(c.env, 'cover_of_day.alt', 'public') as string) || 'Capa do Dia'
-    const coverAspectRatio = (await getSetting(c.env, 'cover_of_day.aspect_ratio', 'public') as string) || '3/4'
-
-    let baseUrl = c.env.PUBLIC_BASE_URL || 'https://diario.dopovo.com.br'
-    if (baseUrl.includes('.pages.dev')) baseUrl = 'https://diario.dopovo.com.br'
-
-    // Get nav sections
-    const sections = await getHomeSections(c.env)
-    const navItems = sections
-        .filter(s => s.enabled)
-        .map(s => ({
-            label: s.title,
-            href: s.type === 'tag' ? `/tag/${s.tagSlug}` : `/categoria/${s.slug}`,
-            active: false
-        }))
-
-    // Get related posts and most read
-    const relatedPosts = await findRelatedPosts(c.env, post.id, post.category_id, { limit: 4 })
-    const mostRead = await findMostRead(c.env, { limit: 6 })
-
-    // Generate Content Source (Teaser vs Full)
-    let contentSource = post.content_markdown || post.content || ''
-
-    // If blocked, slice content
-    if (!accessCheck.allowed) {
-        // Simple teaser logic: first 2 paragraphs or N chars
-        const teaserLimit = 800
-        contentSource = contentSource.slice(0, teaserLimit) + '...'
-        // TODO: Enhance slicing to respect markdown block boundaries if needed
-    }
-
-    // Render article page
-    const html = await renderArticlePage(c, post, {
-        baseUrl,
-        siteName,
-        navItems,
-        coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null,
-        relatedPosts,
-        mostRead,
-        isBlocked: !accessCheck.allowed,
-        accessCheck, // Pass rich object for UI rendering
-        googleAnalyticsId
-    }, contentSource) // Pass modified content source to renderer
-
-    if (!html) {
-        console.error(`[CRITICAL] renderArticlePage returned empty string for slug: ${slug}`)
-        return c.text('Erro Interno: Falha ao renderizar a página.', 500)
-    }
-
-    // Cache Control
-    const headers: Record<string, string> = {
-        'Content-Type': 'text/html; charset=UTF-8'
-    }
-
-    if (!accessCheck.allowed) {
-        // Blocked content (teaser) can be cached carefully OR no-stored if dynamic
-        // Since it depends on login state, safer to use private or no-store
-        headers['Cache-Control'] = 'private, no-store'
-    } else if (post.is_premium) {
-        // Premium allowed content MUST NOT be cached publicly
-        headers['Cache-Control'] = 'private, no-store'
-    } else {
-        // Free content can be cached
-        headers['Cache-Control'] = 'public, max-age=60, s-maxage=60'
-    }
-
-    return c.body(html, 200, headers)
 }
 
 // GET /noticia/:slug - Legacy/Short URL
 app.get('/noticia/:slug', async (c) => {
     const slug = c.req.param('slug')
-    const { findArticleBySlug } = await import('../db/article')
     const post = await findArticleBySlug(c.env, slug)
     if (!post) return c.notFound()
     return c.redirect(getPostUrl(post), 301)
 })
 app.get('/noticia/:slug/', async (c) => {
     const slug = c.req.param('slug')
-    const { findArticleBySlug } = await import('../db/article')
     const post = await findArticleBySlug(c.env, slug)
     if (!post) return c.notFound()
     return c.redirect(getPostUrl(post), 301)
 })
 
-// GET /:year/:month/:day/:slug - Date-based URL (Google News preferred)
-app.get('/:year/:month/:day/:slug', handleArticleRequest)
-app.get('/:year/:month/:day/:slug/', handleArticleRequest)
+// GET /:year/:month/:day/:slug - Date-based URL
+// Keep every date segment numeric so this public catch-all cannot shadow
+// four-segment application routes such as /admin/redacao-ia/pautas/:id.
+export const ARTICLE_DATE_ROUTE =
+    '/:year{[0-9][0-9][0-9][0-9]}/:month{[0-9][0-9]}/:day{[0-9][0-9]}/:slug'
+
+app.get(ARTICLE_DATE_ROUTE, handleArticleRequest)
+app.get(`${ARTICLE_DATE_ROUTE}/`, handleArticleRequest)
 
 export default app
-

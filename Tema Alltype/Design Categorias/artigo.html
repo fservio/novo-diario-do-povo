@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,wght@0,400..900;1,400..900&amp;family=Fira+Sans:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&amp;family=Literata:ital,wght@0,200..900;1,200..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .reading-surface {
+            background-color: #F2EFE7;
+            color: #111111;
+        }
+        .hairline-border {
+            border: 1px solid #2A2A2A;
+        }
+        .hairline-b {
+            border-bottom: 1px solid #2A2A2A;
+        }
+        .hairline-r {
+            border-right: 1px solid #2A2A2A;
+        }
+        .editorial-divider {
+            width: 1px;
+            background-color: #2A2A2A;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface": "#131313",
+                        "surface-container-low": "#1c1b1b",
+                        "inverse-on-surface": "#313030",
+                        "tertiary-fixed": "#e5e2e1",
+                        "on-surface": "#e5e2e1",
+                        "surface-bright": "#3a3939",
+                        "inverse-surface": "#e5e2e1",
+                        "on-primary": "#373017",
+                        "surface-dim": "#131313",
+                        "on-error-container": "#ffdad6",
+                        "outline-variant": "#4a463d",
+                        "secondary-container": "#474741",
+                        "on-secondary-fixed-variant": "#474741",
+                        "surface-container-lowest": "#0e0e0e",
+                        "surface-tint": "#d3c6a3",
+                        "primary-fixed-dim": "#d3c6a3",
+                        "surface-variant": "#353534",
+                        "on-tertiary-fixed": "#1c1b1b",
+                        "secondary-fixed": "#e5e2da",
+                        "on-tertiary-container": "#575655",
+                        "tertiary-container": "#cecbcb",
+                        "surface-container-high": "#2a2a2a",
+                        "on-primary-fixed-variant": "#4f462c",
+                        "surface-container": "#201f1f",
+                        "outline": "#969084",
+                        "error-container": "#93000a",
+                        "secondary-fixed-dim": "#c9c6bf",
+                        "on-secondary-fixed": "#1c1c17",
+                        "primary": "#f5e7c3",
+                        "on-tertiary": "#313030",
+                        "on-tertiary-fixed-variant": "#474646",
+                        "background": "#131313",
+                        "primary-container": "#d8cba8",
+                        "primary-fixed": "#efe2be",
+                        "on-surface-variant": "#cdc6b9",
+                        "on-primary-fixed": "#211b05",
+                        "error": "#ffb4ab",
+                        "surface-container-highest": "#353534",
+                        "tertiary-fixed-dim": "#c8c6c5",
+                        "on-primary-container": "#5e553a",
+                        "on-error": "#690005",
+                        "on-secondary": "#31312b",
+                        "inverse-primary": "#675e41",
+                        "on-background": "#e5e2e1",
+                        "tertiary": "#eae7e7",
+                        "secondary": "#c9c6bf",
+                        "on-secondary-container": "#b7b5ae"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "section-gap": "80px",
+                        "margin-mobile": "16px",
+                        "gutter": "1px",
+                        "margin-desktop": "40px"
+                    },
+                    "fontFamily": {
+                        "body-sm": ["Literata"],
+                        "label-caps": ["Fira Sans"],
+                        "headline-lg-mobile": ["Bodoni Moda"],
+                        "metadata": ["Fira Sans"],
+                        "display-xl": ["Bodoni Moda"],
+                        "headline-lg": ["Bodoni Moda"],
+                        "headline-md": ["Bodoni Moda"],
+                        "body-reading": ["Literata"]
+                    },
+                    "fontSize": {
+                        "body-sm": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600"}],
+                        "headline-lg-mobile": ["32px", {"lineHeight": "38px", "fontWeight": "600"}],
+                        "metadata": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "display-xl": ["84px", {"lineHeight": "90px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-lg": ["48px", {"lineHeight": "56px", "fontWeight": "600"}],
+                        "headline-md": ["32px", {"lineHeight": "40px", "fontWeight": "500"}],
+                        "body-reading": ["20px", {"lineHeight": "32px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-body-sm selection:bg-primary selection:text-on-primary-container">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface dark:bg-surface border-b border-outline-variant dark:border-outline-variant flex flex-col items-center w-full px-margin-desktop py-4">
+<div class="flex justify-between items-center w-full max-w-[1440px]">
+<div class="flex items-center gap-8">
+<span class="material-symbols-outlined text-primary cursor-pointer active:opacity-70">menu</span>
+<nav class="hidden md:flex gap-6">
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary transition-colors duration-200 cursor-pointer active:opacity-70" href="#">Opinião</a>
+<a class="font-label-caps text-label-caps text-primary border-b border-primary transition-colors duration-200 cursor-pointer active:opacity-70" href="#">Política</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary transition-colors duration-200 cursor-pointer active:opacity-70" href="#">Economia</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary transition-colors duration-200 cursor-pointer active:opacity-70" href="#">Cultura</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary transition-colors duration-200 cursor-pointer active:opacity-70" href="#">Mundo</a>
+</nav>
+</div>
+<h1 class="font-display-xl text-display-xl text-primary dark:text-primary uppercase tracking-tighter absolute left-1/2 -translate-x-1/2 text-[24px] md:text-[42px]">
+                JORNAL DIÁRIO DO POVO
+            </h1>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary cursor-pointer active:opacity-70">search</span>
+<button class="hidden md:block border border-primary px-4 py-1 font-label-caps text-label-caps text-primary hover:bg-primary hover:text-on-primary transition-all">ASSINAR</button>
+</div>
+</div>
+</header>
+<main class="pt-[120px] pb-section-gap flex flex-col items-center">
+<!-- Article Header (Dark Mode) -->
+<div class="w-full max-w-[1440px] px-margin-desktop mb-12">
+<div class="max-w-[1000px] mx-auto">
+<nav class="flex gap-2 items-center mb-6 font-label-caps text-label-caps text-primary uppercase">
+<span>Política</span>
+<span class="w-1 h-1 bg-primary rounded-full"></span>
+<span>Nacional</span>
+</nav>
+<h2 class="font-headline-lg text-headline-lg md:text-[64px] md:leading-[72px] mb-8 tracking-tight">
+                    A Reconfiguração Geopolítica do Continente e os Impactos no Mercado Interno Brasileiro.
+                </h2>
+<div class="flex flex-wrap items-center justify-between gap-6 py-6 border-y border-outline-variant">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full overflow-hidden bg-surface-container-high border border-outline-variant">
+<img alt="Autor profile" data-alt="A professional headshot of a senior Brazilian journalist with salt-and-pepper hair, wearing a clean charcoal suit. The lighting is dramatic and low-key, reflecting a serious editorial atmosphere with deep shadows and sharp focus on the intellectual expression. The overall style is minimalist and high-contrast, fitting a premium broadsheet publication's aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCk44B2LNv4AuR39wVcapQ2a-AHSEhA01Em_NcsRiAFsT9dAmt-BIia0TN9XYf12HxIODAZKMGFeTI6J2RBMEpJt4lRHAN1xoH4qrG9TOKEI5GP0o60v4v5UAbsE7DTm000tgnYDUHtf9wo1DgLsp2njXECcPpeU6CxKpDmvNDQM9h-pv2gJax2JX5JMw2viEJwqNoDqsF-jYleqioZwl2cELFqrXmCqgs5SrfCpANXf4-7lvJQAA4m9SUBJwz8dPaiO0sHKGcOhkH8"/>
+</div>
+<div>
+<p class="font-label-caps text-label-caps text-on-surface">POR RICARDO ALBUQUERQUE</p>
+<p class="font-metadata text-metadata text-on-surface-variant">Editor de Assuntos Internacionais</p>
+</div>
+</div>
+<div class="flex items-center gap-12 font-metadata text-metadata text-on-surface-variant">
+<div class="flex flex-col">
+<span class="font-label-caps text-[10px] text-primary">PUBLICADO EM</span>
+<span>24 DE MAIO DE 2024</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-caps text-[10px] text-primary">LEITURA</span>
+<span>12 MINUTOS</span>
+</div>
+<div class="flex gap-4">
+<span class="material-symbols-outlined cursor-pointer hover:text-primary transition-colors">bookmark</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-primary transition-colors">share</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Article Canvas (The "Paper" Container) -->
+<section class="reading-surface w-full flex flex-col items-center py-section-gap shadow-2xl">
+<div class="max-w-[720px] w-full px-margin-mobile md:px-0">
+<p class="font-body-reading text-body-reading first-letter:text-7xl first-letter:font-display-xl first-letter:mr-3 first-letter:float-left mb-8 leading-relaxed">
+                    No epicentro de uma transformação sem precedentes, o cenário político sul-americano enfrenta novos paradigmas que desafiam as estruturas tradicionais de poder. Enquanto as fronteiras se tornam cada vez mais porosas aos fluxos de capitais e influências externas, Brasília busca se posicionar como o fiel da balança em uma balança comercial cada vez mais pendente para o Oriente.
+                </p>
+<h3 class="font-headline-md text-headline-md mb-6 mt-12 italic border-l-4 border-[#111111] pl-6">
+                    A Necessidade de uma Nova Diplomacia Econômica
+                </h3>
+<p class="font-body-reading text-body-reading mb-8 leading-relaxed">
+                    Especialistas apontam que a manutenção do status quo não é mais uma opção viável. O crescimento das economias emergentes vizinhas impõe ao Brasil uma revisão de suas políticas de exportação e parcerias estratégicas. Não se trata apenas de números, mas de soberania tecnológica em um mundo saturado de dados.
+                </p>
+<!-- High-quality journalistic photo -->
+<figure class="my-16 -mx-4 md:-mx-24 group overflow-hidden">
+<img alt="Cenário Político Nacional" class="w-full grayscale group-hover:grayscale-0 transition-all duration-700" data-alt="A grand, architectural shot of the Brazilian Congress building at dusk, captured with a cinematic, wide-angle lens. The lighting is moody, with the glowing windows of the dome reflecting in the shallow pools of water. The color palette is dominated by cool blues and deep blacks, contrasted by warm amber lights from the interior. The image evokes a sense of monumental history and political gravity, styled like a Pulitzer-prize winning news photograph." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCh4WPnXN3JKIfJHXK9cVRW715RPvxIEd-E3BHdTWAnwzlqfnoBxlGHVf7q-ur3IMOOtttPxtUKqdOjeEYM5iE1TT3cvvWX2iU_hJUGztjKlhjbMLRTSXh8xVTans7pIqhcxWC_UXQbgbi2Pfip674VYbngdaMt237T7sKIMsm7fBR7tRN1uPH2FGptZ8HEGufgE-GZmmjuhEHeWPP6Su0LxzVmxh2Rkpoo_iPbdvIa3Zhg4-RJP8kHFJ4jCJLVzvHyE2q_vD4MUiQm"/>
+<figcaption class="mt-4 px-4 md:px-24 font-metadata text-metadata italic opacity-70">
+                        O Congresso Nacional sob nova perspectiva: Símbolo da estabilidade institucional diante das pressões externas. (Foto: Acervo Jornal Diário do Povo)
+                    </figcaption>
+</figure>
+<p class="font-body-reading text-body-reading mb-8 leading-relaxed">
+                    Dentro deste contexto, as reformas fiscais internas tornam-se ferramentas de política externa. Quando o mercado doméstico sinaliza solidez, o investidor internacional encontra o porto seguro necessário para ancorar projetos de infraestrutura de longo prazo. Contudo, o caminho é íngreme e repleto de nuances burocráticas.
+                </p>
+<blockquote class="my-16 border-y-2 border-[#111111] py-8 text-center">
+<p class="font-headline-md text-headline-md italic leading-tight">
+                        "O Brasil não é um país para amadores, mas é o destino inevitável para quem compreende o ritmo do Século XXI."
+                    </p>
+<cite class="block mt-4 font-label-caps text-label-caps not-italic opacity-60">— ARTHUR MENEZES, ANALISTA SÊNIOR</cite>
+</blockquote>
+<p class="font-body-reading text-body-reading mb-8 leading-relaxed">
+                    A transição energética também desempenha um papel fundamental. Com a maior matriz renovável do G20, o país tem a oportunidade de ditar as regras do "comércio verde". É uma janela de oportunidade que, se ignorada, pode fechar-se nas próximas décadas, deixando para trás o sonho de uma nação desenvolvida.
+                </p>
+<!-- Content End Marker -->
+<div class="flex items-center justify-center gap-4 mt-20 mb-8">
+<div class="h-[1px] bg-[#111111] flex-1"></div>
+<span class="material-symbols-outlined text-[#111111] scale-75">star</span>
+<div class="h-[1px] bg-[#111111] flex-1"></div>
+</div>
+<!-- Tags and Feedback -->
+<div class="flex flex-wrap gap-2 mb-20">
+<span class="px-3 py-1 bg-[#111111] text-[#F2EFE7] font-label-caps text-[10px]">MACROECONOMIA</span>
+<span class="px-3 py-1 border border-[#111111] text-[#111111] font-label-caps text-[10px]">GEOPOLÍTICA</span>
+<span class="px-3 py-1 border border-[#111111] text-[#111111] font-label-caps text-[10px]">AMÉRICA LATINA</span>
+</div>
+</div>
+</section>
+<!-- Newsletter Section -->
+<section class="w-full py-section-gap border-t border-outline-variant flex flex-col items-center bg-surface-container-low">
+<div class="max-w-[720px] w-full px-margin-mobile text-center">
+<span class="material-symbols-outlined text-primary mb-4 text-[48px]">mail</span>
+<h4 class="font-headline-md text-headline-md mb-4 uppercase tracking-tighter">O Essencial em seu E-mail</h4>
+<p class="font-body-sm text-on-surface-variant mb-8">
+                    Receba nossa curadoria editorial matinal com os principais acontecimentos que moldam o Brasil e o mundo, diretamente de nossa redação.
+                </p>
+<form class="flex flex-col md:flex-row gap-4">
+<input class="flex-1 bg-transparent border-b-2 border-outline-variant focus:border-primary focus:ring-0 transition-colors text-on-surface py-3 px-2 font-body-sm" placeholder="seu@email.com" type="email"/>
+<button class="bg-primary text-on-primary-container px-10 py-3 font-label-caps text-label-caps uppercase hover:bg-primary-container transition-all active:scale-95">
+                        INSCREVER-SE
+                    </button>
+</form>
+<p class="font-metadata text-[10px] mt-6 text-on-surface-variant opacity-50">
+                    Ao se inscrever, você concorda com nossos Termos de Uso e Política de Privacidade.
+                </p>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-container-lowest dark:bg-surface-container-lowest text-on-surface dark:text-on-surface w-full border-t border-outline-variant grid grid-cols-12 gap-gutter px-margin-desktop py-section-gap text-center md:text-left">
+<div class="col-span-12 md:col-span-4 mb-12 md:mb-0">
+<h2 class="font-headline-md text-headline-md text-primary mb-6">JORNAL DIÁRIO DO POVO</h2>
+<p class="font-body-sm text-on-surface-variant opacity-70 pr-12">
+                O compromisso com a verdade, a análise profunda e a independência editorial desde a fundação. Informação para quem decide.
+            </p>
+</div>
+<div class="col-span-6 md:col-span-2 space-y-4">
+<h5 class="font-label-caps text-label-caps text-primary mb-6">SEÇÕES</h5>
+<ul class="font-metadata text-metadata space-y-3">
+<li><a class="text-on-surface-variant hover:text-primary underline transition-opacity duration-200" href="#">Opinião</a></li>
+<li><a class="text-on-surface-variant hover:text-primary underline transition-opacity duration-200" href="#">Política</a></li>
+<li><a class="text-on-surface-variant hover:text-primary underline transition-opacity duration-200" href="#">Economia</a></li>
+<li><a class="text-on-surface-variant hover:text-primary underline transition-opacity duration-200" href="#">Cultura</a></li>
+</ul>
+</div>
+<div class="col-span-6 md:col-span-2 space-y-4">
+<h5 class="font-label-caps text-label-caps text-primary mb-6">INSTITUCIONAL</h5>
+<ul class="font-metadata text-metadata space-y-3">
+<li><a class="text-on-surface-variant hover:text-primary underline transition-opacity duration-200" href="#">Expediente</a></li>
+<li><a class="text-on-surface-variant hover:text-primary underline transition-opacity duration-200" href="#">Privacidade</a></li>
+<li><a class="text-on-surface-variant hover:text-primary underline transition-opacity duration-200" href="#">Termos de Uso</a></li>
+<li><a class="text-on-surface-variant hover:text-primary underline transition-opacity duration-200" href="#">Anuncie</a></li>
+</ul>
+</div>
+<div class="col-span-12 md:col-span-4 flex flex-col md:items-end justify-between mt-12 md:mt-0">
+<div class="flex gap-6 mb-8">
+<span class="material-symbols-outlined cursor-pointer hover:text-primary">social_leaderboard</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-primary">crossword</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-primary">photo_camera</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-primary">brand_family</span>
+</div>
+<p class="font-metadata text-metadata text-on-surface-variant max-w-[300px] md:text-right">
+                © 2024 JORNAL DIÁRIO DO POVO. TODOS OS DIREITOS RESERVADOS. PROPRIEDADE INTELECTUAL E RIGOR EDITORIAL.
+            </p>
+</div>
+</footer>
+<!-- SideNavBar (Simulated Drawer Component) -->
+<div class="fixed top-0 left-0 h-full w-80 bg-surface-container dark:bg-surface-container border-r border-outline-variant transform -translate-x-full transition-all duration-300 z-[60] py-8 px-6 flex flex-col" id="sideNav">
+<div class="flex justify-between items-center mb-12">
+<h3 class="font-headline-md text-headline-md text-on-surface">Portal do Leitor</h3>
+<span class="material-symbols-outlined cursor-pointer" onclick="toggleNav()">close</span>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-4 py-4 px-2 font-label-caps text-label-caps text-primary font-bold hover:bg-surface-bright transition-all" href="#">
+<span class="material-symbols-outlined">article</span> Últimas
+            </a>
+<a class="flex items-center gap-4 py-4 px-2 font-label-caps text-label-caps text-on-surface-variant hover:bg-surface-bright transition-all" href="#">
+<span class="material-symbols-outlined">public</span> Brasil
+            </a>
+<a class="flex items-center gap-4 py-4 px-2 font-label-caps text-label-caps text-on-surface-variant hover:bg-surface-bright transition-all" href="#">
+<span class="material-symbols-outlined">language</span> Internacional
+            </a>
+<a class="flex items-center gap-4 py-4 px-2 font-label-caps text-label-caps text-on-surface-variant hover:bg-surface-bright transition-all" href="#">
+<span class="material-symbols-outlined">sports_soccer</span> Esportes
+            </a>
+<a class="flex items-center gap-4 py-4 px-2 font-label-caps text-label-caps text-on-surface-variant hover:bg-surface-bright transition-all" href="#">
+<span class="material-symbols-outlined">memory</span> Tecnologia
+            </a>
+<a class="flex items-center gap-4 py-4 px-2 font-label-caps text-label-caps text-on-surface-variant hover:bg-surface-bright transition-all" href="#">
+<span class="material-symbols-outlined">workspace_premium</span> Assinar
+            </a>
+</nav>
+<div class="mt-auto border-t border-outline-variant pt-8">
+<div class="flex items-center gap-4 mb-6">
+<div class="w-10 h-10 bg-primary-container rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-container">person</span>
+</div>
+<div>
+<p class="font-label-caps text-xs">PREMIUM ACCESS</p>
+<p class="font-metadata">Leitor Convidado</p>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary-container py-3 font-label-caps text-label-caps uppercase hover:bg-primary-container transition-all">
+                Assinar Agora
+            </button>
+</div>
+</div>
+<div class="fixed inset-0 bg-black/60 z-50 hidden opacity-0 transition-opacity duration-300" id="overlay" onclick="toggleNav()"></div>
+<script>
+        function toggleNav() {
+            const nav = document.getElementById('sideNav');
+            const overlay = document.getElementById('overlay');
+            const isOpen = nav.classList.contains('translate-x-0');
+
+            if (isOpen) {
+                nav.classList.remove('translate-x-0');
+                nav.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+                overlay.classList.remove('opacity-100');
+            } else {
+                nav.classList.remove('-translate-x-full');
+                nav.classList.add('translate-x-0');
+                overlay.classList.remove('hidden');
+                setTimeout(() => overlay.classList.add('opacity-100'), 10);
+            }
+        }
+
+        document.querySelector('.material-symbols-outlined').addEventListener('click', toggleNav);
+
+        // Simple scroll interaction for progress bar
+        const progressContainer = document.createElement('div');
+        progressContainer.className = 'fixed top-[118px] left-0 w-full h-[2px] bg-transparent z-[51]';
+        const progressBar = document.createElement('div');
+        progressBar.className = 'h-full bg-primary w-0 transition-all duration-150';
+        progressContainer.appendChild(progressBar);
+        document.body.appendChild(progressContainer);
+
+        window.onscroll = function() {
+            let winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+            let height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            let scrolled = (winScroll / height) * 100;
+            progressBar.style.width = scrolled + "%";
+        };
+    </script>
+</body></html>

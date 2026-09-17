@@ -7,16 +7,13 @@ import type { Context } from 'hono'
 import type { Env, AppContext, AdminUser } from '../types'
 import { renderAdminLayout, renderCsrfInput, escapeHtml } from './ui'
 import {
-  createMedia,
   listMedia,
   getMediaById,
   updateMedia,
   softDeleteMedia,
-  isMediaInUse,
-  extractImageDimensions,
-  type CreateMediaInput,
-  type UpdateMediaInput
+  isMediaInUse
 } from '../db/media'
+import { uploadAdminImage } from '../media'
 
 /**
  * GET /admin/media - List media library
@@ -239,75 +236,40 @@ export async function handleMediaCreate(c: Context<{ Bindings: Env; Variables: A
       return c.html('<h1>400 Bad Request</h1><p>Nenhum arquivo enviado</p>', 400)
     }
 
-    // Cast to File after validation
-    const file = fileEntry as File
-
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif']
-    if (!allowedTypes.includes(file.type)) {
-      return c.html('<h1>400 Bad Request</h1><p>Tipo de arquivo não permitido</p>', 400)
-    }
-
-    // Validate file size (10MB)
-    const maxSize = 10 * 1024 * 1024
-    if (file.size > maxSize) {
-      return c.html('<h1>400 Bad Request</h1><p>Arquivo muito grande (máx 10MB)</p>', 400)
-    }
-
-    // Generate R2 key
-    const now = new Date()
-    const year = now.getFullYear()
-    const month = String(now.getMonth() + 1).padStart(2, '0')
-    const randomHex = Array.from(crypto.getRandomValues(new Uint8Array(8)))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('')
-
-    const ext = file.name.split('.').pop() || 'jpg'
-    const r2Key = `media/${year}/${month}/${randomHex}.${ext}`
-
-    // Read file as ArrayBuffer
-    const arrayBuffer = await file.arrayBuffer()
-
-    // Extract dimensions
-    const dimensions = extractImageDimensions(arrayBuffer, file.type)
-
-    // Upload to R2
-    await c.env.R2.put(r2Key, arrayBuffer, {
-      httpMetadata: {
-        contentType: file.type
-      }
+    const media = await uploadAdminImage(c.env, {
+      file: fileEntry as File,
+      alt: alt || (fileEntry as File).name,
+      credits,
+      userId: user.id,
+      purpose: 'media-library'
     })
 
-    // Save to database with rollback on failure
-    let mediaId: number
-    try {
-      mediaId = await createMedia(c.env, {
-        r2_key: r2Key,
-        filename: file.name,
-        mime_type: file.type,
-        size_bytes: file.size,
-        width: dimensions?.width,
-        height: dimensions?.height,
-        alt: alt || null,
-        credits: credits || null,
-        uploaded_by_user_id: user.id
-      })
-    } catch (dbError: any) {
-      // Rollback: delete from R2 if DB insert fails
-      console.error('DB insert failed, rolling back R2:', dbError)
-      try {
-        await c.env.R2.delete(r2Key)
-      } catch (r2Error) {
-        console.error('R2 rollback failed:', r2Error)
-      }
-      throw new Error(`Failed to save media: ${dbError.message}`)
-    }
-
     // Redirect to media detail
-    return c.redirect(`/admin/media/${mediaId}`, 302)
+    return c.redirect(`/admin/media/${media.id}`, 302)
   } catch (error: any) {
     console.error('Error uploading media:', error)
     return c.html(`<h1>500 Internal Server Error</h1><p>${escapeHtml(error.message)}</p>`, 500)
+  }
+}
+
+/** Upload assíncrono reutilizado por editores internos, incluindo campanhas. */
+export async function handleMediaApiUpload(c: Context<{ Bindings: Env; Variables: AppContext }>) {
+  const user = c.get('adminUser') as AdminUser
+  try {
+    const formData = await c.req.formData()
+    const file = formData.get('file')
+    if (!file || typeof file === 'string') return c.json({ success: false, error: 'Selecione uma imagem.' }, 400)
+    const media = await uploadAdminImage(c.env, {
+      file: file as File,
+      alt: String(formData.get('alt') || ''),
+      credits: String(formData.get('credits') || ''),
+      userId: user.id,
+      purpose: String(formData.get('purpose') || 'admin-inline-upload').slice(0, 80)
+    })
+    return c.json({ success: true, media: { ...media, url: `/i/${media.r2_key}` } })
+  } catch (error) {
+    console.error('[Media] Inline upload failed:', error)
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Não foi possível enviar a imagem.' }, 400)
   }
 }
 

@@ -28,10 +28,9 @@ export interface CategoryPost {
 export interface CategoryPageData {
   category: Category
   posts: CategoryPost[]
-  totalCount: number
   page: number
   pageSize: number
-  totalPages: number
+  hasNextPage: boolean
 }
 
 /**
@@ -49,29 +48,12 @@ export async function findCategoryBySlug(env: Env, slug: string): Promise<Catego
 }
 
 /**
- * Count published posts in category
- */
-export async function countPublishedPostsByCategory(env: Env, categoryId: number): Promise<number> {
-  const now = new Date().toISOString()
-
-  const result = await env.DB.prepare(`
-    SELECT COUNT(*) as count
-    FROM posts
-    WHERE category_id = ?
-      AND status = 'published'
-      AND published_at <= ?
-      AND seo_noindex = 0
-  `).bind(categoryId, now).first<{ count: number }>()
-
-  return result?.count || 0
-}
-
-/**
  * Find published posts by category with pagination
  */
 export async function findPublishedPostsByCategory(
   env: Env,
   categoryId: number,
+  category: Pick<Category, 'name' | 'slug'>,
   options: { limit: number; offset: number }
 ): Promise<CategoryPost[]> {
   const { limit, offset } = options
@@ -81,13 +63,10 @@ export async function findPublishedPostsByCategory(
     SELECT 
       p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at,
       m.r2_key as featured_image_r2_key,
-      c.name as category_name,
-      c.slug as category_slug,
-      u.name as author_name
+      a.name as author_name
     FROM posts p
-    JOIN categories c ON p.category_id = c.id
-    LEFT JOIN users u ON p.author_id = u.id
     LEFT JOIN media m ON p.cover_media_id = m.id
+    LEFT JOIN authors a ON p.author_id = a.id
     WHERE p.category_id = ?
       AND p.status = 'published'
       AND p.published_at <= ?
@@ -96,7 +75,11 @@ export async function findPublishedPostsByCategory(
     LIMIT ? OFFSET ?
   `).bind(categoryId, now, limit, offset).all<CategoryPost>()
 
-  return result.results || []
+  return (result.results || []).map(post => ({
+    ...post,
+    category_name: category.name,
+    category_slug: category.slug
+  }))
 }
 
 /**
@@ -134,32 +117,46 @@ export async function getCategoryPageData(
   page: number = 1,
   pageSize: number = 20
 ): Promise<CategoryPageData | null> {
+  const validRequestedPage = Math.max(1, page)
+  const normalizedPageSize = Math.min(Math.max(pageSize, 1), 30)
+  const cacheKey = `category-page:v4:${slug}:${validRequestedPage}:${normalizedPageSize}`
+
+  if (env.KV) {
+    const cached = await env.KV.get(cacheKey)
+    if (cached) {
+      try {
+        return JSON.parse(cached) as CategoryPageData
+      } catch {
+        await env.KV.delete(cacheKey).catch(() => {})
+      }
+    }
+  }
+
   // Find category
   const category = await findCategoryBySlug(env, slug)
   if (!category) {
     return null
   }
 
-  // Count total posts
-  const totalCount = await countPublishedPostsByCategory(env, category.id)
-  const totalPages = Math.ceil(totalCount / pageSize)
+  const offset = (validRequestedPage - 1) * normalizedPageSize
 
-  // Validate page number
-  const validPage = Math.max(1, Math.min(page, totalPages || 1))
-  const offset = (validPage - 1) * pageSize
-
-  // Get posts for current page
-  const posts = await findPublishedPostsByCategory(env, category.id, {
-    limit: pageSize,
+  // Fetch one extra row to know whether a next page exists without COUNT(*).
+  const postsPlusOne = await findPublishedPostsByCategory(env, category.id, category, {
+    limit: normalizedPageSize + 1,
     offset
   })
 
-  return {
+  const data = {
     category,
-    posts,
-    totalCount,
-    page: validPage,
-    pageSize,
-    totalPages
+    posts: postsPlusOne.slice(0, normalizedPageSize),
+    page: validRequestedPage,
+    pageSize: normalizedPageSize,
+    hasNextPage: postsPlusOne.length > normalizedPageSize
   }
+
+  if (env.KV) {
+    await env.KV.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 }).catch(() => {})
+  }
+
+  return data
 }

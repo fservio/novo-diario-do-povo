@@ -141,6 +141,57 @@ ${urls}
 </urlset>`
 }
 
+export async function generateFullSitemap(env: Env, _baseUrl?: string): Promise<string> {
+  const [postsResult, categoriesResult] = await Promise.all([
+    env.DB.prepare(`
+      SELECT p.slug, p.published_at, p.updated_at
+      FROM posts p
+      WHERE p.status = 'published'
+      AND p.seo_noindex = 0
+      ORDER BY p.published_at DESC
+      LIMIT 50000
+    `).all(),
+    env.DB.prepare(`
+      SELECT slug
+      FROM categories
+      WHERE is_active = 1
+      ORDER BY display_order ASC, name ASC
+    `).all()
+  ])
+
+  const homeUrl = `
+  <url>
+    <loc>${PROD_DOMAIN}/</loc>
+    <changefreq>hourly</changefreq>
+    <priority>1.0</priority>
+  </url>`
+
+  const categoryUrls = (categoriesResult.results || []).map((category: any) => `
+  <url>
+    <loc>${PROD_DOMAIN}/categoria/${escapeXml(category.slug)}</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.8</priority>
+  </url>`).join('')
+
+  const postUrls = (postsResult.results || []).map((post: any) => {
+    const lastModified = post.updated_at || post.published_at || new Date().toISOString()
+    return `
+  <url>
+    <loc>${getPostUrl(post, PROD_DOMAIN)}</loc>
+    <lastmod>${new Date(lastModified).toISOString()}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>`
+  }).join('')
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${homeUrl}
+${categoryUrls}
+${postUrls}
+</urlset>`
+}
+
 // ============================================================================
 // 4. Monthly Archive Sitemap
 // ============================================================================

@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Política | JORNAL DIÁRIO DO POVO</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,wght@0,400..900;1,400..900&amp;family=Fira+Sans:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&amp;family=Literata:ital,wght@0,200..900;1,200..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            background-color: #0B0B0B;
+            color: #e5e2e1;
+            -webkit-font-smoothing: antialiased;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for brutalist feel */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #0B0B0B; }
+        ::-webkit-scrollbar-thumb { background: #2A2A2A; }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-dim": "#131313",
+                      "on-surface-variant": "#cdc6b9",
+                      "surface-variant": "#353534",
+                      "surface-container-lowest": "#0e0e0e",
+                      "surface": "#131313",
+                      "on-error-container": "#ffdad6",
+                      "inverse-on-surface": "#313030",
+                      "on-secondary-fixed": "#1c1c17",
+                      "error-container": "#93000a",
+                      "background": "#131313",
+                      "on-tertiary-container": "#575655",
+                      "on-surface": "#e5e2e1",
+                      "on-secondary-container": "#b7b5ae",
+                      "secondary-container": "#474741",
+                      "on-secondary": "#31312b",
+                      "error": "#ffb4ab",
+                      "tertiary-fixed": "#e5e2e1",
+                      "surface-container-highest": "#353534",
+                      "surface-container": "#201f1f",
+                      "on-primary": "#373017",
+                      "surface-container-low": "#1c1b1b",
+                      "primary": "#f5e7c3",
+                      "surface-bright": "#3a3939",
+                      "on-tertiary-fixed-variant": "#474646",
+                      "inverse-primary": "#675e41",
+                      "primary-fixed": "#efe2be",
+                      "on-secondary-fixed-variant": "#474741",
+                      "on-primary-fixed": "#211b05",
+                      "on-error": "#690005",
+                      "surface-tint": "#d3c6a3",
+                      "on-tertiary-fixed": "#1c1b1b",
+                      "secondary": "#c9c6bf",
+                      "on-primary-fixed-variant": "#4f462c",
+                      "on-background": "#e5e2e1",
+                      "tertiary-fixed-dim": "#c8c6c5",
+                      "on-tertiary": "#313030",
+                      "secondary-fixed-dim": "#c9c6bf",
+                      "primary-fixed-dim": "#d3c6a3",
+                      "inverse-surface": "#e5e2e1",
+                      "outline-variant": "#4a463d",
+                      "surface-container-high": "#2a2a2a",
+                      "tertiary": "#eae7e7",
+                      "secondary-fixed": "#e5e2da",
+                      "outline": "#969084",
+                      "tertiary-container": "#cecbcb",
+                      "primary-container": "#d8cba8",
+                      "on-primary-container": "#5e553a"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "unit": "4px",
+                      "gutter": "1px",
+                      "margin-desktop": "40px",
+                      "margin-mobile": "16px",
+                      "section-gap": "80px"
+              },
+              "fontFamily": {
+                      "headline-lg-mobile": ["Bodoni Moda"],
+                      "display-xl": ["Bodoni Moda"],
+                      "body-reading": ["Literata"],
+                      "headline-lg": ["Bodoni Moda"],
+                      "metadata": ["Fira Sans"],
+                      "label-caps": ["Fira Sans"],
+                      "body-sm": ["Literata"],
+                      "headline-md": ["Bodoni Moda"]
+              },
+              "fontSize": {
+                      "headline-lg-mobile": ["32px", {"lineHeight": "38px", "fontWeight": "600"}],
+                      "display-xl": ["84px", {"lineHeight": "90px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "body-reading": ["20px", {"lineHeight": "32px", "fontWeight": "400"}],
+                      "headline-lg": ["48px", {"lineHeight": "56px", "fontWeight": "600"}],
+                      "metadata": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600"}],
+                      "body-sm": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "headline-md": ["32px", {"lineHeight": "40px", "fontWeight": "500"}]
+              }
+            },
+          },
+        }
+    </script>
+</head>
+<body class="bg-background selection:bg-primary selection:text-on-primary">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface border-b border-outline-variant flex flex-col items-center px-margin-desktop py-4">
+<div class="flex items-center justify-between w-full">
+<h1 class="font-display-xl text-headline-lg md:text-display-xl text-primary uppercase tracking-tighter">
+                JORNAL DIÁRIO DO POVO
+            </h1>
+<div class="flex items-center gap-6">
+<span class="material-symbols-outlined cursor-pointer text-on-surface-variant hover:text-primary transition-colors">menu</span>
+</div>
+</div>
+<nav class="hidden md:flex gap-8 mt-4">
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">Opinião</a>
+<a class="font-label-caps text-label-caps text-primary border-b border-primary transition-colors duration-200" href="#">Política</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">Economia</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">Cultura</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">Mundo</a>
+</nav>
+</header>
+<main class="pt-[160px] md:pt-[200px] min-h-screen">
+<!-- Editoria Hero Title -->
+<section class="px-margin-desktop mb-section-gap">
+<div class="border-b border-outline-variant pb-8">
+<p class="font-label-caps text-label-caps text-primary mb-4 tracking-[0.2em]">EDITORIA</p>
+<h2 class="font-display-xl text-[64px] md:text-[120px] leading-none uppercase italic">Política</h2>
+</div>
+</section>
+<!-- Content Grid Cluster -->
+<div class="px-margin-desktop grid grid-cols-1 md:grid-cols-12 gap-gutter bg-outline-variant">
+<!-- Feed Vertical (Left Column) -->
+<section class="md:col-span-8 bg-background flex flex-col">
+<!-- Featured Article -->
+<article class="p-8 border-b border-outline-variant hover:bg-surface-container-low transition-colors group cursor-pointer">
+<div class="flex flex-col gap-4">
+<div class="flex justify-between items-center">
+<span class="font-label-caps text-label-caps text-primary">PODER &amp; JUSTIÇA</span>
+<span class="font-metadata text-metadata text-on-surface-variant">Há 12 minutos</span>
+</div>
+<h3 class="font-headline-lg text-headline-lg group-hover:text-primary transition-colors">
+                            Reforma administrativa avança no Senado com emendas que alteram estabilidade de novos servidores
+                        </h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant max-w-2xl">
+                            Texto-base aprovado em comissão especial prevê critérios de desempenho mais rigorosos e abre precedente para contratações temporárias em áreas estratégicas do Governo Federal.
+                        </p>
+<div class="flex items-center gap-2 mt-4">
+<span class="font-metadata text-metadata text-on-surface">Por <strong class="uppercase">André Vasconcelos</strong></span>
+</div>
+</div>
+</article>
+<!-- Second Article (Two columns on desktop) -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter bg-outline-variant">
+<article class="bg-background p-8 hover:bg-surface-container-low transition-colors group cursor-pointer flex flex-col h-full">
+<span class="font-label-caps text-label-caps text-primary mb-4">CONGRESSO</span>
+<h3 class="font-headline-md text-headline-md mb-4 leading-tight group-hover:text-primary transition-colors">
+                            Articulação na Câmara tenta blindar fundos partidários de cortes orçamentários
+                        </h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6 flex-grow">
+                            Líderes de bancada discutem estratégia para manter repasses integrais diante da nova meta fiscal apresentada pela equipe econômica.
+                        </p>
+<span class="font-metadata text-metadata text-on-surface-variant italic">14:20 • Redação Capital</span>
+</article>
+<article class="bg-background p-8 hover:bg-surface-container-low transition-colors group cursor-pointer flex flex-col h-full">
+<span class="font-label-caps text-label-caps text-primary mb-4">RELAÇÕES EXTERNAS</span>
+<h3 class="font-headline-md text-headline-md mb-4 leading-tight group-hover:text-primary transition-colors">
+                            Itamaraty convoca embaixador após declarações sobre soberania amazônica
+                        </h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6 flex-grow">
+                            Incidente diplomático escala após cúpula climática; governo brasileiro exige retratação formal sobre comentários de gestão territorial.
+                        </p>
+<span class="font-metadata text-metadata text-on-surface-variant italic">13:45 • Por Heloísa Mendes</span>
+</article>
+</div>
+<!-- List Item -->
+<article class="p-8 border-t border-outline-variant hover:bg-surface-container-low transition-colors group cursor-pointer">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+<div class="md:col-span-1">
+<span class="font-label-caps text-label-caps text-on-surface-variant">ELEIÇÕES 2024</span>
+</div>
+<div class="md:col-span-3">
+<h3 class="font-headline-md text-headline-md mb-2 group-hover:text-primary transition-colors">
+                                Pesquisa aponta empate técnico em três capitais do Sudeste
+                            </h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                                Indecisos ainda somam 15% do eleitorado e podem definir o pleito em primeiro turno, segundo os dados consolidados.
+                            </p>
+</div>
+</div>
+</article>
+<article class="p-8 border-t border-outline-variant hover:bg-surface-container-low transition-colors group cursor-pointer">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+<div class="md:col-span-1">
+<span class="font-label-caps text-label-caps text-on-surface-variant">ESTADUAL</span>
+</div>
+<div class="md:col-span-3">
+<h3 class="font-headline-md text-headline-md mb-2 group-hover:text-primary transition-colors">
+                                Governadores buscam consenso sobre novo pacto federativo
+                            </h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                                Reunião em Brasília foca na redistribuição de impostos e dívidas estaduais com a União.
+                            </p>
+</div>
+</div>
+</article>
+</section>
+<!-- Sidebar (Right Column) -->
+<aside class="md:col-span-4 bg-background border-l border-outline-variant p-8">
+<div class="sticky top-[240px]">
+<section class="mb-12">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant border-b border-outline-variant pb-2 mb-6">COLUNISTAS DA SEÇÃO</h4>
+<div class="space-y-8">
+<div class="group cursor-pointer">
+<p class="font-label-caps text-label-caps text-primary mb-1">MÁRIO SÉRGIO CONTI</p>
+<h5 class="font-headline-md text-body-reading leading-tight group-hover:underline">A fadiga do centro e o retorno das polaridades estéreis</h5>
+</div>
+<div class="group cursor-pointer">
+<p class="font-label-caps text-label-caps text-primary mb-1">ELIANE BRUM</p>
+<h5 class="font-headline-md text-body-reading leading-tight group-hover:underline">O que Brasília não enxerga sobre o chão da floresta</h5>
+</div>
+<div class="group cursor-pointer">
+<p class="font-label-caps text-label-caps text-primary mb-1">CONRADO HÜBNER</p>
+<h5 class="font-headline-md text-body-reading leading-tight group-hover:underline">A liturgia do cargo e o silêncio dos tribunais superiores</h5>
+</div>
+</div>
+</section>
+<section>
+<h4 class="font-label-caps text-label-caps text-on-surface-variant border-b border-outline-variant pb-2 mb-6">MAIS LIDAS EM POLÍTICA</h4>
+<ol class="space-y-6">
+<li class="flex gap-4 group cursor-pointer">
+<span class="font-display-xl text-headline-lg text-outline-variant group-hover:text-primary transition-colors italic">01</span>
+<p class="font-metadata text-on-surface-variant self-center leading-snug">O plano secreto para a anistia dos envolvidos no 8 de janeiro.</p>
+</li>
+<li class="flex gap-4 group cursor-pointer">
+<span class="font-display-xl text-headline-lg text-outline-variant group-hover:text-primary transition-colors italic">02</span>
+<p class="font-metadata text-on-surface-variant self-center leading-snug">Crise no ministério: braço direito de ministro pede exoneração imediata.</p>
+</li>
+<li class="flex gap-4 group cursor-pointer">
+<span class="font-display-xl text-headline-lg text-outline-variant group-hover:text-primary transition-colors italic">03</span>
+<p class="font-metadata text-on-surface-variant self-center leading-snug">Dólar dispara após sinalização de intervenção em estatais.</p>
+</li>
+</ol>
+</section>
+</div>
+</aside>
+</div>
+</main>
+<!-- Footer -->
+<footer class="mt-section-gap w-full bg-surface-container-lowest border-t border-outline-variant grid grid-cols-12 gap-gutter px-margin-desktop py-section-gap text-center md:text-left">
+<div class="col-span-12 md:col-span-4 mb-8 md:mb-0">
+<h2 class="font-headline-md text-headline-md text-primary mb-4">JORNAL DIÁRIO DO POVO</h2>
+<p class="font-metadata text-metadata text-on-surface-variant max-w-xs">A voz do rigor editorial e da profundidade analítica desde 1924. Compromisso com a verdade e o interesse público.</p>
+</div>
+<div class="col-span-6 md:col-span-2 space-y-2">
+<p class="font-label-caps text-label-caps text-on-surface mb-4">NAVEGAÇÃO</p>
+<a class="block font-metadata text-metadata text-on-surface-variant hover:text-primary underline transition-opacity" href="#">Expediente</a>
+<a class="block font-metadata text-metadata text-on-surface-variant hover:text-primary underline transition-opacity" href="#">Anuncie</a>
+<a class="block font-metadata text-metadata text-on-surface-variant hover:text-primary underline transition-opacity" href="#">Fale Conosco</a>
+</div>
+<div class="col-span-6 md:col-span-2 space-y-2">
+<p class="font-label-caps text-label-caps text-on-surface mb-4">LEGAL</p>
+<a class="block font-metadata text-metadata text-on-surface-variant hover:text-primary underline transition-opacity" href="#">Privacidade</a>
+<a class="block font-metadata text-metadata text-on-surface-variant hover:text-primary underline transition-opacity" href="#">Termos de Uso</a>
+</div>
+<div class="col-span-12 md:col-span-4 mt-8 md:mt-0 flex flex-col items-center md:items-end justify-between">
+<p class="font-metadata text-metadata text-on-surface-variant text-right">
+                © 2024 JORNAL DIÁRIO DO POVO. TODOS OS DIREITOS RESERVADOS. PROPRIEDADE INTELECTUAL E RIGOR EDITORIAL.
+            </p>
+<div class="flex gap-4 mt-6">
+<span class="material-symbols-outlined text-on-surface-variant hover:text-primary cursor-pointer">public</span>
+<span class="material-symbols-outlined text-on-surface-variant hover:text-primary cursor-pointer">article</span>
+<span class="material-symbols-outlined text-on-surface-variant hover:text-primary cursor-pointer">rss_feed</span>
+</div>
+</div>
+</footer>
+<!-- Atmosphere Micro-interaction -->
+<script>
+        document.addEventListener('mousemove', (e) => {
+            const spotlight = document.createElement('div');
+            // This script could be used for a subtle grain or spotlight effect if desired
+        });
+        
+        // Simple hover effect for "The Inlay" reading surface feeling
+        const articles = document.querySelectorAll('article');
+        articles.forEach(article => {
+            article.addEventListener('mouseenter', () => {
+                article.style.backgroundColor = '#111111';
+            });
+            article.addEventListener('mouseleave', () => {
+                article.style.backgroundColor = 'transparent';
+            });
+        });
+    </script>
+</body></html>

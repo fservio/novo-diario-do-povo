@@ -59,12 +59,14 @@ const STATIC_PAGES: Record<string, { title: string; content: string }> = {
         <li>Personalizar conteúdo e anúncios</li>
         <li>Enviar newsletters (caso tenha optado)</li>
       </ul>
+      <p>Quando você se inscreve na newsletter, o endereço informado é ativado imediatamente para os envios. A inscrição pode ser cancelada a qualquer momento pelo link presente nas mensagens.</p>
       
       <h2>3. Proteção de Dados</h2>
       <p>Utilizamos medidas de segurança robustas para proteger suas informações. Não vendemos seus dados pessoais para terceiros.</p>
       
       <h2>4. Cookies e Publicidade</h2>
       <p>Utilizamos cookies para análise de tráfego e para exibir publicidade relevante. Você pode gerenciar suas preferências de cookies nas configurações do seu navegador.</p>
+      <p>Também podemos armazenar, no seu próprio navegador, preferências anônimas de exibição para limitar a frequência de campanhas, evitar repetições e não mostrar novamente chamadas que você já fechou ou concluiu.</p>
       
       <h2>5. Seus Direitos</h2>
       <p>Você tem o direito de solicitar o acesso, correção ou exclusão de seus dados pessoais a qualquer momento. Entre em contato conosco para exercer esses direitos.</p>

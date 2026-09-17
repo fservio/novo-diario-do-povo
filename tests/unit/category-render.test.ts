@@ -27,9 +27,8 @@ describe('Category Page Rendering', () => {
   it('should have listing ad slots in source', () => {
     const categoryCode = readFileSync('packages/core/web/category.ts', 'utf-8')
     
-    expect(categoryCode).toContain('listing_top')
-    expect(categoryCode).toContain('listing_infeed_1')
-    expect(categoryCode).toContain('listing_infeed_2')
+    expect(categoryCode).toContain('category_top_leaderboard')
+    expect(categoryCode).toContain('category_infeed')
   })
   
   it('should not contain Tailwind CDN', () => {
@@ -42,5 +41,26 @@ describe('Category Page Rendering', () => {
     const categoryCode = readFileSync('packages/core/web/category.ts', 'utf-8')
     
     expect(categoryCode).toContain('renderPublicLayout')
+  })
+
+  it('renders the editorial category as a hierarchical cover', () => {
+    const categoryCode = readFileSync('packages/core/web/category.ts', 'utf-8')
+
+    expect(categoryCode).toContain('ed-category-heading')
+    expect(categoryCode).toContain('ed-category-cover')
+    expect(categoryCode).toContain('ed-category-cover__lead')
+    expect(categoryCode).toContain('ed-category-cover__secondary')
+    expect(categoryCode).toContain('ed-category-latest')
+  })
+
+  it('keeps the category description in metadata instead of the editorial header', () => {
+    const categoryCode = readFileSync('packages/core/web/category.ts', 'utf-8')
+    const editorialBranch = categoryCode.slice(
+      categoryCode.indexOf('if (isEditorial)'),
+      categoryCode.indexOf('const bodyHtml = isAllType')
+    )
+
+    expect(editorialBranch).not.toContain('ed-page-description')
+    expect(editorialBranch).toContain('description: category.description')
   })
 })

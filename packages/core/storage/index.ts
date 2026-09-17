@@ -116,6 +116,13 @@ export async function serveMedia(env: Env, r2Key: string, request: Request): Pro
   const height = url.searchParams.get('h')
   const quality = url.searchParams.get('q') || '85'
   const isProcessed = url.searchParams.has('processed')
+  const focalXParam = url.searchParams.get('fp-x')
+  const focalYParam = url.searchParams.get('fp-y')
+  const focalX = focalXParam === null ? Number.NaN : Number(focalXParam)
+  const focalY = focalYParam === null ? Number.NaN : Number(focalYParam)
+  const gravity = Number.isFinite(focalX) && Number.isFinite(focalY)
+    ? { x: Math.max(0, Math.min(1, focalX)), y: Math.max(0, Math.min(1, focalY)) }
+    : undefined
 
   // Se houver parâmetros de redimensionamento e NÃO for o fetch interno de processamento
   if ((width || height) && !isProcessed) {
@@ -149,6 +156,7 @@ export async function serveMedia(env: Env, r2Key: string, request: Request): Pro
           quality: parseInt(quality),
           format: 'auto', // AVIF/WebP negotiation
           fit: 'cover',
+          ...(gravity ? { gravity } : {}),
         }
       }
     })
@@ -170,6 +178,21 @@ export async function serveMedia(env: Env, r2Key: string, request: Request): Pro
   const object = await env.R2.get(r2Key)
 
   if (!object) {
+    if (env.CF_ENV === 'dev') {
+      const productionUrl = new URL(`/i/${r2Key}`, 'https://diario.dopovo.com.br')
+      productionUrl.search = url.search
+      const productionResponse = await fetch(productionUrl.toString(), {
+        headers: {
+          'User-Agent': 'localhost-production-media-sync/1.0',
+          'Accept': request.headers.get('Accept') || '*/*',
+        },
+      })
+
+      if (productionResponse.ok) {
+        return productionResponse
+      }
+    }
+
     return new Response('Not Found', { status: 404 })
   }
 

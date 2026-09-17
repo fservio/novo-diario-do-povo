@@ -1,382 +1,177 @@
-
 import type { Context } from 'hono'
 import { getSetting } from '../../db'
+import { renderPortalIcon, renderSubscriberShell } from './ui'
 
 export async function renderAccountPage(c: Context) {
-    const siteName = await getSetting(c.env, 'site_name', 'public') || 'Diário do Povo'
-    const nonce = c.get('cspNonce')
+  const siteName = await getSetting(c.env, 'site_name', 'public') || 'Diário do Povo'
+  const nonce = c.get('cspNonce') || ''
+  const icon = (name: string) => `<span class="portal-icon">${renderPortalIcon(name)}</span>`
 
-    return `
-    <!DOCTYPE html>
-    <html lang="pt-BR">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Meus Dados | ${siteName}</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-        <style>
-            :root {
-                --primary: #2b5375;
-                --primary-light: #8cb9e1;
-                --primary-dark: #1d3a52;
-                --bg: #f8fafc;
-                --text-main: #1e293b;
-                --text-muted: #64748b;
-                --white: #ffffff;
-                --danger: #ef4444;
-                --radius: 1rem;
-            }
+  const bodyHtml = `
+    <header class="portal-page-intro">
+      <div>
+        <p class="portal-kicker">Dados pessoais</p>
+        <h1 class="portal-title">Minha conta</h1>
+        <p class="portal-description">Mantenha seus dados atualizados para receber comunicações e acessar sua assinatura com segurança.</p>
+      </div>
+      <a href="/portal" class="portal-button portal-button-secondary">${icon('home')} Ver assinatura</a>
+    </header>
 
-            * { box-sizing: border-box; margin: 0; padding: 0; }
+    <div id="portalMessage" class="portal-error hidden" role="alert" aria-live="polite"></div>
 
-            body {
-                font-family: 'Inter', sans-serif;
-                background-color: var(--bg);
-                color: var(--text-main);
-                min-height: 100vh;
-                line-height: 1.5;
-            }
+    <div id="loading" class="portal-loading" aria-live="polite">
+      <div><div class="portal-loading-spinner"></div><p>Carregando seus dados...</p></div>
+    </div>
 
-            /* Navigation */
-            .portal-nav {
-                background: var(--white);
-                border-bottom: 1px solid #e2e8f0;
-                height: 72px;
-                position: sticky;
-                top: 0;
-                z-index: 100;
-                box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-            }
+    <div id="accountContent" class="hidden">
+      <div class="portal-account-grid">
+        <section class="portal-card" aria-labelledby="personal-data-title">
+          <div class="portal-card-header">
+            <div><h2 id="personal-data-title" class="portal-card-title">Informações pessoais</h2><p class="portal-card-description">Dados usados na identificação da sua conta.</p></div>
+            <span class="portal-icon" style="color:var(--portal-muted)">${renderPortalIcon('user')}</span>
+          </div>
 
-            .nav-container {
-                max-width: 1100px;
-                margin: 0 auto;
-                height: 100%;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                padding: 0 1.5rem;
-            }
+          <form id="accountForm">
+            <div class="portal-form-grid">
+              <div class="portal-field portal-field-full">
+                <label for="name">Nome completo</label>
+                <input type="text" id="name" name="name" autocomplete="name" placeholder="Seu nome completo" required>
+              </div>
 
-            .nav-logo img {
-                height: 32px;
-                width: auto;
-            }
+              <div class="portal-field portal-field-full">
+                <label for="email">E-mail de acesso</label>
+                <input type="email" id="email" name="email" autocomplete="username" disabled>
+                <p class="portal-field-help">Por segurança, o e-mail de acesso não pode ser alterado nesta página.</p>
+              </div>
 
-            .nav-actions {
-                display: flex;
-                align-items: center;
-                gap: 1.5rem;
-            }
+              <div class="portal-field">
+                <label for="phone">Telefone</label>
+                <input type="tel" id="phone" name="phone" inputmode="tel" autocomplete="tel" maxlength="15" placeholder="(00) 00000-0000">
+              </div>
 
-            .nav-link {
-                text-decoration: none;
-                color: var(--text-muted);
-                font-size: 0.875rem;
-                font-weight: 500;
-                transition: color 0.2s;
-            }
-
-            .nav-link:hover, .nav-link.active {
-                color: var(--primary);
-            }
-
-            .logout-btn {
-                background: none;
-                border: none;
-                color: var(--text-muted);
-                font-size: 0.875rem;
-                cursor: pointer;
-                padding: 0.5rem;
-                transition: color 0.2s;
-            }
-
-            .logout-btn:hover {
-                color: var(--danger);
-            }
-
-            /* Content */
-            .main-content {
-                max-width: 700px;
-                margin: 2.5rem auto;
-                padding: 0 1.5rem;
-            }
-
-            .page-header {
-                margin-bottom: 2rem;
-            }
-
-            .page-header h1 {
-                font-size: 1.875rem;
-                font-weight: 800;
-                color: var(--primary);
-                letter-spacing: -0.025em;
-            }
-
-            /* Cards */
-            .card {
-                background: var(--white);
-                border: 1px solid #e2e8f0;
-                border-radius: var(--radius);
-                padding: 2rem;
-                margin-bottom: 1.5rem;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-            }
-
-            .card-title {
-                font-size: 1.125rem;
-                font-weight: 700;
-                margin-bottom: 1.5rem;
-                color: var(--text-main);
-            }
-
-            /* Form Styles */
-            .form-group {
-                margin-bottom: 1.25rem;
-            }
-
-            .form-group label {
-                display: block;
-                font-size: 0.75rem;
-                font-weight: 700;
-                color: var(--text-main);
-                margin-bottom: 0.5rem;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-            }
-
-            .form-control {
-                width: 100%;
-                padding: 0.75rem 1rem;
-                font-size: 1rem;
-                border: 1px solid #cbd5e1;
-                border-radius: 0.5rem;
-                background: #fcfdfe;
-                transition: all 0.2s;
-                color: var(--text-main);
-            }
-
-            .form-control:focus {
-                outline: none;
-                border-color: var(--primary);
-                box-shadow: 0 0 0 4px rgba(43, 83, 117, 0.1);
-                background: white;
-            }
-
-            .form-control:disabled {
-                background: #f1f5f9;
-                color: #94a3b8;
-                cursor: not-allowed;
-            }
-
-            .btn-save {
-                background: var(--primary);
-                color: white;
-                padding: 0.75rem 1.5rem;
-                border-radius: 0.5rem;
-                font-weight: 600;
-                border: none;
-                cursor: pointer;
-                transition: all 0.2s;
-                font-size: 0.9375rem;
-            }
-
-            .btn-save:hover {
-                background: var(--primary-dark);
-                transform: translateY(-1px);
-            }
-
-            .btn-save:disabled {
-                opacity: 0.7;
-                cursor: not-allowed;
-            }
-
-            /* Loading */
-            .loading-state {
-                text-align: center;
-                padding: 4rem 1rem;
-            }
-
-            .spinner {
-                width: 2rem;
-                height: 2rem;
-                border: 3px solid #e2e8f0;
-                border-top-color: var(--primary);
-                border-radius: 50%;
-                animation: spin 0.8s linear infinite;
-                margin: 0 auto 1rem;
-            }
-
-            @keyframes spin {
-                to { transform: rotate(360deg); }
-            }
-
-            .hidden { display: none !important; }
-
-            .alert-success {
-                background: #ecfdf5;
-                color: #065f46;
-                padding: 1rem;
-                border-radius: 0.5rem;
-                margin-top: 1rem;
-                font-size: 0.875rem;
-                font-weight: 500;
-                border: 1px solid #d1fae5;
-                display: none;
-            }
-        </style>
-    </head>
-    <body>
-        <nav class="portal-nav">
-            <div class="nav-container">
-                <a href="/" class="nav-logo">
-                    <img src="/static/logo-dp.png" alt="${siteName}">
-                </a>
-                <div class="nav-actions">
-                    <a href="/portal" class="nav-link">Minha Assinatura</a>
-                    <a href="/portal/account" class="nav-link active">Meus Dados</a>
-                    <button id="logoutBtn" class="logout-btn">Sair</button>
-                </div>
-            </div>
-        </nav>
-
-        <main class="main-content">
-            <div class="page-header">
-                <h1>Perfil de Usuário</h1>
-                <p class="text-sm text-gray-400">Suas informações de cadastro e segurança.</p>
-            </div>
-            
-            <div id="loading" class="loading-state">
-                <div class="spinner"></div>
-                <p class="text-gray-500">Buscando seus dados...</p>
+              <div class="portal-field">
+                <label for="cpf">CPF</label>
+                <input type="text" id="cpf" name="cpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00">
+              </div>
             </div>
 
-            <div id="accountContent" class="hidden">
-                <div class="card">
-                    <div class="card-title">Informações Pessoais</div>
-                    <form id="accountForm">
-                        <div class="form-group">
-                            <label for="name">Nome Completo</label>
-                            <input type="text" id="name" name="name" class="form-control" placeholder="Seu nome">
-                        </div>
-                        <div class="form-group">
-                            <label for="email">E-mail (exclusivo para acesso)</label>
-                            <input type="email" id="email" name="email" disabled class="form-control">
-                        </div>
-                        <div class="form-group">
-                            <label for="phone">Telefone (WhatsApp)</label>
-                            <input type="text" id="phone" name="phone" class="form-control" placeholder="(00) 00000-0000">
-                        </div>
-                        <div class="form-group">
-                            <label for="cpf">CPF</label>
-                            <input type="text" id="cpf" name="cpf" maxlength="14" class="form-control" placeholder="000.000.000-00">
-                        </div>
-                        
-                        <div class="flex justify-end pt-4">
-                            <button type="submit" id="saveBtn" class="btn-save">Salvar Alterações</button>
-                        </div>
-
-                        <div id="successAlert" class="alert-success">
-                            ✓ Alterações salvas com sucesso!
-                        </div>
-                    </form>
-                </div>
-
-                <div class="card">
-                    <div class="card-title">Segurança e Acesso</div>
-                    <p class="text-sm text-gray-500 mb-4">Mantenha sua conta segura alterando sua senha periodicamente.</p>
-                    <button disabled class="btn-save" style="background: transparent; color: var(--primary); border: 1px solid var(--primary); opacity: 0.5;">Alterar Senha (Em Breve)</button>
-                </div>
+            <div class="portal-form-actions">
+              <button type="submit" id="saveBtn" class="portal-button">Salvar alterações</button>
             </div>
-        </main>
 
-        <script nonce="${nonce}">
-            async function loadAccount() {
-                try {
-                    const res = await fetch('/api/portal/me');
-                    if (res.status === 401) {
-                        window.location.href = '/portal/login?next=' + encodeURIComponent(window.location.pathname);
-                        return;
-                    }
-                    const data = await res.json();
-                    if (data.success) {
-                        const { subscriber } = data;
-                        document.getElementById('name').value = subscriber.name || '';
-                        document.getElementById('email').value = subscriber.email || '';
-                        document.getElementById('phone').value = subscriber.phone || '';
-                        document.getElementById('cpf').value = subscriber.cpf || '';
-                        
-                        document.getElementById('loading').classList.add('hidden');
-                        document.getElementById('accountContent').classList.remove('hidden');
-                    }
-                } catch (e) {
-                    console.error(e);
-                }
-            }
+            <div id="successAlert" class="portal-success" role="status">${icon('check')} Dados atualizados com sucesso.</div>
+          </form>
+        </section>
 
-            document.getElementById('accountForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const btn = document.getElementById('saveBtn');
-                const sAlert = document.getElementById('successAlert');
-                btn.disabled = true;
-                btn.textContent = 'Salvando...';
-                sAlert.style.display = 'none';
+        <aside class="portal-stack" aria-label="Segurança da conta">
+          <section class="portal-card security-card">
+            <div class="security-seal">${icon('shield')}</div>
+            <h3>Conta protegida</h3>
+            <p>Sua senha e seus dados pessoais são tratados em ambiente seguro.</p>
+            <button type="button" id="logoutBtn" class="portal-button portal-button-danger">${icon('logout')} Sair da conta</button>
+          </section>
 
-                const formData = {
-                    name: document.getElementById('name').value,
-                    phone: document.getElementById('phone').value,
-                    cpf: document.getElementById('cpf').value
-                };
+          <section class="portal-card">
+            <div class="portal-card-header"><div><h2 class="portal-card-title">Precisa de ajuda?</h2><p class="portal-card-description">Nossa equipe pode orientar você.</p></div></div>
+            <a href="/contato" class="portal-button portal-button-secondary">Falar com atendimento ${icon('arrow')}</a>
+          </section>
+        </aside>
+      </div>
+    </div>
+  `
 
-                try {
-                    const res = await fetch('/api/portal/account', {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(formData)
-                    });
-                    const data = await res.json();
-                    if (data.success) {
-                        sAlert.style.display = 'block';
-                        setTimeout(() => { sAlert.style.display = 'none'; }, 4000);
-                    } else {
-                        alert('Erro ao salvar: ' + (data.error || 'Desconhecido'));
-                    }
-                } catch (err) {
-                    alert('Erro de conexão');
-                } finally {
-                    btn.disabled = false;
-                    btn.textContent = 'Salvar Alterações';
-                }
-            });
+  const script = `
+    const messageBox = document.getElementById('portalMessage');
 
-            // Masks
-            document.getElementById('cpf').addEventListener('input', function (e) {
-                let v = e.target.value.replace(/\D/g, '');
-                if (v.length > 11) v = v.substring(0, 11);
-                v = v.replace(/(\d{3})(\d)/, '$1.$2');
-                v = v.replace(/(\d{3})(\d)/, '$1.$2');
-                v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-                e.target.value = v;
-            });
+    function showError(message) {
+      messageBox.textContent = message;
+      messageBox.classList.remove('hidden');
+    }
 
-            document.getElementById('phone').addEventListener('input', function (e) {
-                let v = e.target.value.replace(/\D/g, '');
-                if (v.length > 11) v = v.substring(0, 11);
-                v = v.replace(/^(\d{2})(\d)/g, '($1) $2');
-                v = v.replace(/(\d)(\d{4})$/, '$1-$2');
-                e.target.value = v;
-            });
+    async function loadAccount() {
+      try {
+        const response = await fetch('/api/portal/me');
+        if (response.status === 401) {
+          window.location.href = '/portal/login?next=' + encodeURIComponent(window.location.pathname);
+          return;
+        }
+        if (!response.ok) throw new Error('account');
+        const data = await response.json();
+        if (!data.success) throw new Error('account');
 
-            document.getElementById('logoutBtn').addEventListener('click', async () => {
-                await fetch('/api/portal/auth/logout', { method: 'POST' });
-                window.location.href = '/portal/login';
-            });
+        const subscriber = data.subscriber || {};
+        document.getElementById('name').value = subscriber.name || '';
+        document.getElementById('email').value = subscriber.email || '';
+        document.getElementById('phone').value = subscriber.phone || '';
+        document.getElementById('cpf').value = subscriber.cpf || '';
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('accountContent').classList.remove('hidden');
+      } catch (error) {
+        document.getElementById('loading').classList.add('hidden');
+        showError('Não foi possível carregar seus dados. Atualize a página para tentar novamente.');
+      }
+    }
 
-            loadAccount();
-        </script>
-    </body>
-    </html>
-    `
+    document.getElementById('accountForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const button = document.getElementById('saveBtn');
+      const success = document.getElementById('successAlert');
+      button.disabled = true;
+      button.textContent = 'Salvando...';
+      success.style.display = 'none';
+      messageBox.classList.add('hidden');
+
+      try {
+        const response = await fetch('/api/portal/account', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: document.getElementById('name').value,
+            phone: document.getElementById('phone').value,
+            cpf: document.getElementById('cpf').value
+          })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.error || 'update');
+        success.style.display = 'flex';
+        window.setTimeout(() => { success.style.display = 'none'; }, 4000);
+      } catch (error) {
+        showError('Não foi possível salvar as alterações. Confira os dados e tente novamente.');
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Salvar alterações';
+      }
+    });
+
+    document.getElementById('cpf').addEventListener('input', (event) => {
+      let value = event.target.value.replace(/\\D/g, '').slice(0, 11);
+      value = value.replace(/(\\d{3})(\\d)/, '$1.$2');
+      value = value.replace(/(\\d{3})(\\d)/, '$1.$2');
+      value = value.replace(/(\\d{3})(\\d{1,2})$/, '$1-$2');
+      event.target.value = value;
+    });
+
+    document.getElementById('phone').addEventListener('input', (event) => {
+      let value = event.target.value.replace(/\\D/g, '').slice(0, 11);
+      value = value.replace(/^(\\d{2})(\\d)/, '($1) $2');
+      value = value.replace(/(\\d)(\\d{4})$/, '$1-$2');
+      event.target.value = value;
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await fetch('/api/portal/auth/logout', { method: 'POST' });
+      window.location.href = '/portal/login';
+    });
+
+    loadAccount();
+  `
+
+  return renderSubscriberShell({
+    title: 'Minha conta',
+    siteName,
+    activeTab: 'account',
+    bodyHtml,
+    nonce,
+    script
+  })
 }

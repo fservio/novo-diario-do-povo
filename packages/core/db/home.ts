@@ -37,7 +37,7 @@ export interface HomeData {
   hotRail: HomePost[]
   explainers: HomePost[]
   categoryBlocks: CategoryBlock[]
-  mostRead: HomePost[]
+  mostRead: any[] // Legacy: keeping as empty array for template compatibility
   topColumns: HomePost[]
   sections: HomeSection[]  // Add sections to home data
 }
@@ -131,9 +131,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
 
   const now = new Date().toISOString()
 
-  // 2. Parallel First Phase: Hero, Sections, MostRead, TopColumns
-  // Hero is needed for exclusions in Dual/HotRail, so we fetch it alongside independent queries
-
+  // 2. Parallel First Phase: Hero, Sections, TopColumns
   const heroPromise = env.DB.prepare(`
     SELECT 
       p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at, 
@@ -153,24 +151,6 @@ export async function getHomeData(env: Env): Promise<HomeData> {
   `).bind(now).first<HomePost>()
 
   const sectionsPromise = getHomeSections(env)
-
-  // Most Read (Fallback to specific categories or just latest for now as per original code) OR generic latest
-  const mostReadPromise = env.DB.prepare(`
-    SELECT 
-      p.id, p.slug, p.title, p.hat, p.published_at,
-      m.r2_key as featured_image_r2_key,
-      c.name as category_name, c.slug as category_slug,
-      a.name as author_name
-    FROM posts p
-    INNER JOIN categories c ON p.category_id = c.id
-    INNER JOIN authors a ON p.author_id = a.id
-    LEFT JOIN media m ON p.cover_media_id = m.id
-    WHERE p.status = 'published' 
-      AND p.published_at <= ?
-      AND p.seo_noindex = 0
-    ORDER BY p.published_at DESC
-    LIMIT 10
-  `).bind(now).all<HomePost>()
 
   const topColumnsPromise = env.DB.prepare(`
     SELECT * FROM (
@@ -217,15 +197,13 @@ export async function getHomeData(env: Env): Promise<HomeData> {
   `).bind(now).all<HomePost>()
 
   // Await Phase 1
-  const [heroResult, sections, mostReadResult, topColumnsResult] = await Promise.all([
+  const [heroResult, sections, topColumnsResult] = await Promise.all([
     heroPromise,
     sectionsPromise,
-    mostReadPromise,
     topColumnsPromise
   ])
 
   // 3. Parallel Second Phase
-  // Dependent on Hero ID (for exclusion) and Sections (for categories/tags)
   const heroId = heroResult?.id || 0
   const enabledSections = sections.filter(s => s.enabled)
   const categorySections = enabledSections.filter(s => !s.type || s.type === 'category')
@@ -290,7 +268,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
           INNER JOIN categories c ON p.category_id = c.id
           INNER JOIN authors a ON p.author_id = a.id
           LEFT JOIN media m ON p.cover_media_id = m.id
-          INNER JOIN post_tags pt ON pt.post_id = p.id
+          INNER JOIN posts_tags pt ON pt.post_id = p.id
           WHERE p.status = 'published' 
             AND p.published_at <= ?
             AND p.seo_noindex = 0
@@ -321,48 +299,64 @@ export async function getHomeData(env: Env): Promise<HomeData> {
     `).bind(now).all<HomePost>()
   })()
 
-  const categoryBlocksPromise = Promise.all(categorySections.map(async (section) => {
+  const categoryBlocksPromise = (async () => {
+    if (categorySections.length === 0) return [] as Array<CategoryBlock | null>
+
     try {
-      // Get category info
-      const category = await env.DB.prepare(
-        'SELECT id, name, slug FROM categories WHERE slug = ? LIMIT 1'
-      ).bind(section.slug).first<{ id: number; name: string; slug: string }>()
+      const categorySlugs = [...new Set(categorySections.map(section => section.slug))]
+      const placeholders = categorySlugs.map(() => '?').join(',')
+      const categoriesResult = await env.DB.prepare(`
+        SELECT id, name, slug
+        FROM categories
+        WHERE slug IN (${placeholders})
+      `).bind(...categorySlugs).all<{ id: number; name: string; slug: string }>()
 
-      if (!category) return null
+      const categoriesBySlug = new Map(
+        (categoriesResult.results || []).map(category => [category.slug, category])
+      )
 
-      // Get posts for this category
-      const postsResult = await env.DB.prepare(`
-        SELECT 
-          p.id, p.slug, p.title, p.excerpt, p.published_at, 
-          m.r2_key as featured_image_r2_key,
-          c.name as category_name, c.slug as category_slug,
-          a.name as author_name
-        FROM posts p
-        INNER JOIN categories c ON p.category_id = c.id
-        INNER JOIN authors a ON p.author_id = a.id
-        LEFT JOIN media m ON p.cover_media_id = m.id
-        WHERE p.status = 'published' 
-          AND p.published_at <= ?
-          AND p.seo_noindex = 0
-          AND c.slug = ?
-        ORDER BY p.published_at DESC
-        LIMIT 12
-      `).bind(now, section.slug).all<HomePost>()
+      const postsBySlug = new Map<string, HomePost[]>()
+      await Promise.all(categorySections.map(async (section) => {
+        const category = categoriesBySlug.get(section.slug)
+        if (!category) return
 
-      const posts = postsResult.results || []
-      if (posts.length === 0) return null
+        const postsResult = await env.DB.prepare(`
+          SELECT 
+            p.id, p.slug, p.title, p.excerpt, p.published_at, 
+            m.r2_key as featured_image_r2_key,
+            c.name as category_name, c.slug as category_slug,
+            a.name as author_name
+          FROM posts p
+          INNER JOIN categories c ON p.category_id = c.id
+          INNER JOIN authors a ON p.author_id = a.id
+          LEFT JOIN media m ON p.cover_media_id = m.id
+          WHERE p.category_id = ?
+            AND p.status = 'published'
+            AND p.published_at <= ?
+            AND p.seo_noindex = 0
+          ORDER BY p.published_at DESC
+          LIMIT 12
+        `).bind(category.id, now).all<HomePost>()
 
-      return {
-        slug: section.slug,
-        name: section.title,
-        lead: posts[0],
-        list: posts.slice(1)
-      } as CategoryBlock
+        postsBySlug.set(section.slug, postsResult.results || [])
+      }))
+
+      return categorySections.map((section) => {
+        const posts = postsBySlug.get(section.slug) || []
+        if (posts.length === 0) return null
+
+        return {
+          slug: section.slug,
+          name: section.title,
+          lead: posts[0],
+          list: posts.slice(1)
+        } as CategoryBlock
+      })
     } catch (e) {
-      console.error(`Error loading category block ${section.slug}`, e)
-      return null
+      console.error('Error loading category blocks', e)
+      return [] as Array<CategoryBlock | null>
     }
-  }))
+  })()
 
   const [dualFeaturesResult, hotRailResult, explainersResult, categoryBlocksRaw] = await Promise.all([
     dualFeaturesPromise,
@@ -379,16 +373,16 @@ export async function getHomeData(env: Env): Promise<HomeData> {
     hotRail: hotRailResult.results || [],
     explainers: explainersResult.results || [],
     categoryBlocks,
-    mostRead: mostReadResult.results || [],
+    mostRead: [] as any[], // Analytics disabled
     topColumns: topColumnsResult.results || [],
     sections: enabledSections
   }
 
   // 4. Save to Cache
   if (env.CF_ENV !== 'dev' && env.CACHE) {
-    // Fire and forget (awaiting to ensure completion in worker limit)
     try {
-      await env.CACHE.put('home_data_v3', JSON.stringify(data), { expirationTtl: 60 })
+      // Cache for 3600 seconds (1 hour) to significantly reduce D1 load
+      await env.CACHE.put('home_data_v3', JSON.stringify(data), { expirationTtl: 3600 })
     } catch (e) {
       console.error('Cache write error:', e)
     }
