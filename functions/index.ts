@@ -220,6 +220,26 @@ app.put('/api/n8n/internal-links/:id{[0-9]+}', async (c) => {
 
 
 app.get('/api/n8n/internal-links/queue', async (c) => {
+  const before = c.req.query('before')
+  if (before !== undefined) {
+    const cursor = Number(before)
+    if (!Number.isSafeInteger(cursor) || cursor < 1) return c.json({ error: 'INVALID_CURSOR' }, 400)
+    const limit = Number(c.req.query('limit') || '50')
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) return c.json({ error: 'INVALID_LIMIT' }, 400)
+    const page = await c.env.DB.prepare(`
+      WITH page AS MATERIALIZED (
+        SELECT id, status, seo_noindex FROM posts WHERE id < ? ORDER BY id DESC LIMIT ?
+      )
+      SELECT page.id, (page.status = 'published' AND COALESCE(page.seo_noindex, 0) = 0
+        AND links.post_id IS NULL) AS pending
+      FROM page LEFT JOIN post_internal_links links ON links.post_id = page.id
+      ORDER BY page.id DESC
+    `).bind(cursor, limit).all<{ id: number; pending: number }>()
+    return c.json({
+      ids: page.results.filter(row => row.pending).map(row => row.id),
+      next: page.results.at(-1)?.id ?? null
+    })
+  }
   const cursor = Number(c.req.query('after') || '0')
   if (!Number.isSafeInteger(cursor) || cursor < 0) return c.json({ error: 'INVALID_CURSOR' }, 400)
   const page = await c.env.DB.prepare(`
@@ -1026,7 +1046,14 @@ app.get('/admin', async (c) => {
     const csrfToken = getCookie(c, 'admin_csrf')
 
     // Get stats
-    const publishedToday = await getPublishedToday(c.env)
+    const [publishedToday, internalLinks] = await Promise.all([
+      getPublishedToday(c.env),
+      c.env.DB.prepare(`
+        SELECT COUNT(*) AS articles, COALESCE(SUM(json_array_length(l.links_json)), 0) AS links
+        FROM post_internal_links l CROSS JOIN posts p ON p.id = l.post_id
+        WHERE p.status = 'published' AND json_array_length(l.links_json) > 0
+      `).first<{ articles: number; links: number }>().catch((): null => null)
+    ])
     const postsCount = await c.env.DB.prepare('SELECT COUNT(*) as count FROM posts WHERE status = ?')
       .bind('published')
       .first<{ count: number }>()
@@ -1054,6 +1081,11 @@ app.get('/admin', async (c) => {
         <h2 id="dashboard-overview-title" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Indicadores gerais</h2>
         <div class="stats-grid dashboard-stats-today">
           ${renderPublishedToday(publishedToday)}
+          <article class="stat-card">
+            <div class="stat-top"><span class="stat-label">Links internos</span></div>
+            <strong class="stat-value">${internalLinks ? internalLinks.links.toLocaleString('pt-BR') : '—'}</strong>
+            <p class="dashboard-today-note">${internalLinks ? internalLinks.articles.toLocaleString('pt-BR') + ' matérias publicadas com links' : 'Contagem indisponível'}</p>
+          </article>
           <article class="stat-card">
             <div class="stat-top">
               <span class="stat-label">Matérias publicadas</span>
