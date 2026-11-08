@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { FAVICON_LINKS } from './favicon'
 import type { Env, AppContext } from '../types'
 import { getPostUrl } from '../utils/post'
 import { normalizePublicTheme, escapeHtml, escapeAttr } from './layout'
@@ -7,6 +8,7 @@ import { renderEditorialArticleCard } from './components/editorial-card'
 
 // Static Imports for performance
 import { findArticleBySlug, findRelatedPosts } from '../db/article'
+import { getInstagramRanking } from '../instagram/ranking'
 import { getHomeSections, getHomeData } from '../db/home'
 import { renderArticlePage } from './article'
 import { checkPostAccess } from '../paywall'
@@ -18,6 +20,22 @@ import { getCategoryPageData } from '../db/category'
 import { renderCategoryPage } from './category'
 
 const app = new Hono<{ Bindings: Env; Variables: AppContext }>()
+app.get('/busca', async c => (await import('./search')).handlePublicSearch(c))
+app.get('/guias',async c=>(await import('./guides')).handleGuidesPage(c))
+app.get('/guias/:slug',async c=>(await import('./guides')).handleGuidePage(c))
+app.get('/sitemap-guias.xml',async c=>(await import('./guides')).handleGuidesSitemap(c))
+app.get('/jogos/extra-extra',async c=>(await import('./extra-extra')).handleExtraExtraPage(c))
+app.get('/meu-dia',async c=>{
+    const {handleDailyPage}=await import('./meu-dia')
+    return handleDailyPage(c)
+})
+app.get('/agenda/sugerir',async c=>(await import('./culture-suggestions')).handleCultureSuggestionPage(c))
+app.post('/agenda/sugerir',async c=>(await import('./culture-suggestions')).handleCultureSuggestionSubmit(c))
+app.get('/agenda/:slug/calendario.ics',async c=>(await import('./culture')).handleCultureCalendar(c))
+app.get('/agenda/:slug',async c=>{
+    const {handleCulturalEventPage}=await import('./culture')
+    return handleCulturalEventPage(c)
+})
 
 // ============================================================================
 // V1 Public Routes (Google Blog Style)
@@ -71,7 +89,7 @@ app.get('/', async (c) => {
 
     // Cache Control (CDN + Browser)
     const headers = {
-        'Cache-Control': 'public, max-age=60, s-maxage=60',
+        'Cache-Control': 'no-store',
         'Content-Type': 'text/html; charset=UTF-8'
     }
 
@@ -268,6 +286,7 @@ app.get('/tag/:slug', async (c) => {
         <!DOCTYPE html>
         <html lang="pt-BR">
         <head>
+            ${FAVICON_LINKS}
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>${tag.name} | ${siteName}</title>
@@ -326,6 +345,7 @@ app.get('/tag/:slug', async (c) => {
 const handleArticleRequest = async (c: any) => {
     const { slug } = c.req.param()
     const requestId = c.get('requestId') || 'no-id'
+    const started = performance.now()
 
     try {
         // Parallel fetch primary data (post and reader)
@@ -333,6 +353,7 @@ const handleArticleRequest = async (c: any) => {
             findArticleBySlug(c.env, slug),
             getReaderContext(c)
         ])
+        const articleDataReady = performance.now()
 
         if (!post || post.seo_noindex) {
             return c.notFound()
@@ -343,7 +364,8 @@ const handleArticleRequest = async (c: any) => {
             accessCheck,
             settings,
             sections,
-            relatedPosts
+            relatedPosts,
+            mostRead
         ] = await Promise.all([
             checkPostAccess(c.env, {
                 id: post.id,
@@ -366,8 +388,10 @@ const handleArticleRequest = async (c: any) => {
                 'cover_of_day.aspect_ratio'
             ], 'public'),
             getHomeSections(c.env),
-            findRelatedPosts(c.env, post.id, post.category_id, { limit: 4 })
+            findRelatedPosts(c.env, post.id, post.category_id, { limit: 4 }),
+            getInstagramRanking(c.env)
         ])
+        const dependenciesReady = performance.now()
 
         const siteName = (settings['site_name'] as string) || 'Jornal Diário do Povo'
         const googleAnalyticsId = settings['google_analytics_id'] as string
@@ -419,7 +443,7 @@ const handleArticleRequest = async (c: any) => {
             navItems,
             coverOfDay: coverR2Key ? { r2Key: coverR2Key, alt: coverAlt, aspectRatio: coverAspectRatio } : null,
             relatedPosts,
-            mostRead: [], // Analytics disabled
+            mostRead,
             isBlocked: !accessCheck.allowed,
             accessCheck,
             googleAnalyticsId
@@ -432,7 +456,12 @@ const handleArticleRequest = async (c: any) => {
 
         // Cache Control
         const headers: Record<string, string> = {
-            'Content-Type': 'text/html; charset=UTF-8'
+            'Content-Type': 'text/html; charset=UTF-8',
+            'Server-Timing': [
+                `article;dur=${(articleDataReady - started).toFixed(1)}`,
+                `dependencies;dur=${(dependenciesReady - articleDataReady).toFixed(1)}`,
+                `render;dur=${(performance.now() - dependenciesReady).toFixed(1)}`
+            ].join(', ')
         }
 
         if (!accessCheck.allowed || post.is_premium) {

@@ -98,6 +98,10 @@ export async function securityHeaders(c: Context<{ Bindings: Env; Variables: App
 
   const scriptSourcesWithPrefix = adsScriptHosts.map(h => h.startsWith('http') ? h : `https://${h}`)
   const frameSourcesWithPrefix = adsFrameHosts.map(h => h.startsWith('http') ? h : `https://${h}`)
+  if (c.req.path === '/admin/gerar-materias') {
+    const { GENERATE_POSTS_FORM_ORIGIN } = await import('../admin/generate-posts')
+    frameSourcesWithPrefix.push(GENERATE_POSTS_FORM_ORIGIN)
+  }
   const connectSourcesWithPrefix = adsConnectHosts.map(h => h.startsWith('http') ? h : `https://${h}`)
   const imgSourcesWithPrefix = adsImgHosts.map(h => h.startsWith('http') ? h : `https://${h}`)
 
@@ -139,7 +143,9 @@ export async function securityHeaders(c: Context<{ Bindings: Env; Variables: App
 
   // Cache-Control for specific paths
   const path = c.req.path
-  if (path.startsWith('/admin') || path.startsWith('/api/admin/') || path === '/api/newsletter/subscribe' || path === '/api/engagement/events' || path.startsWith('/portal') || path.startsWith('/conta') || path.startsWith('/newsletter/unsubscribe/')) {
+  if (path === '/' || /^\/api\/public\/posts\/[^/]+\/live-updates$/.test(path)) {
+    c.header('Cache-Control', 'no-store')
+  } else if (path.startsWith('/api/n8n/guides/') || path === '/api/n8n/seo' || path.startsWith('/api/n8n/seo/') || path === '/agenda/sugerir' || path === '/agenda/sugerir' || path.startsWith('/admin') || path.startsWith('/api/admin/') || path === '/api/newsletter/subscribe' || path === '/api/engagement/events' || path.startsWith('/portal') || path.startsWith('/conta') || path.startsWith('/newsletter/unsubscribe/')) {
     c.header('Cache-Control', 'private, no-store, max-age=0')
   } else if (path.startsWith('/static/') || path.startsWith('/i/')) {
     c.header('Cache-Control', 'public, max-age=31536000, immutable')

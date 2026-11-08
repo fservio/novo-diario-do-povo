@@ -25,6 +25,7 @@ export interface Env {
   ALLOW_ADMIN_BOOTSTRAP?: string
   N8N_WEBHOOK_SECRET: string
   N8N_API_KEY: string
+  N8N_INTERNAL_LINKS_PILOT_KEY?: string
   R2_BUCKET_NAME: string
   PUBLIC_BASE_URL: string
   CF_ENV: 'dev' | 'staging' | 'prod'
@@ -53,6 +54,12 @@ export interface Env {
   OPENAI_API_KEY?: string
   OPENAI_MODEL?: string
   VIDEO_JOBS_SECRET?: string
+  INSTAGRAM_APP_ID?: string
+  INSTAGRAM_APP_SECRET?: string
+  INSTAGRAM_GRAPH_VERSION?: string
+  INSTAGRAM_TOKEN_SECRET?: string
+  INSTAGRAM_REDIRECT_URI?: string
+  INSTAGRAM_WEBHOOK_VERIFY_TOKEN?: string
   WHATSAPP_ACCESS_TOKEN?: string
   WHATSAPP_APP_SECRET?: string
   WHATSAPP_VERIFY_TOKEN?: string
@@ -189,6 +196,8 @@ export interface Category {
   parent_id?: number
   seo_title?: string
   seo_description?: string
+  seo_primary_keyword?: string
+  seo_secondary_keywords?: string[]
   is_active: number
   display_order: number
   created_at: string
@@ -231,6 +240,8 @@ export interface Post {
   opinion_featured?: number
   seo_title?: string
   seo_description?: string
+  seo_primary_keyword?: string
+  seo_secondary_keywords?: string[]
   seo_canonical?: string
   seo_noindex: number
   is_premium: number
@@ -328,8 +339,10 @@ export const createPostSchema = z.object({
   template: z.enum(['article', 'liveblog', 'hub', 'story']).default('article'),
   opinion_type: z.enum(['news', 'editorial', 'article', 'column']).default('news'),
   opinion_featured: z.number().int().min(0).max(1).default(0),
-  seo_title: z.string().max(70).optional(),
-  seo_description: z.string().max(160).optional(),
+  seo_title: z.string().max(200).optional(),
+  seo_description: z.string().max(500).optional(),
+  seo_primary_keyword: z.string().trim().max(120).optional(),
+  seo_secondary_keywords: z.array(z.string().trim().min(1).max(120)).max(5).optional(),
   is_premium: z.number().int().min(0).max(1).default(0),
   paywall_tier: z.enum(['hard', 'metered', 'free']).optional(),
   tags: z.array(z.number().int().positive()).optional(),

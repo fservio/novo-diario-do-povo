@@ -1,0 +1,32 @@
+services:
+  story-renderer:
+    build: .
+    image: diario-story-renderer:1
+    restart: unless-stopped
+    env_file: .env
+    read_only: true
+    tmpfs:
+      - /work:size=384m,uid=10001,gid=10001,mode=0700,noexec,nosuid,nodev
+      - /tmp:size=8m,uid=10001,gid=10001,mode=0700,noexec,nosuid,nodev
+    mem_limit: 1g
+    memswap_limit: 1g
+    cpus: 1.0
+    pids_limit: 64
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: local
+      options:
+        max-size: 1m
+        max-file: '2'
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [n8n]
+    # No ports, bind mounts or persistent media volumes.
+networks:
+  n8n:
+    external: true
+    name: ${N8N_NETWORK:-root_default}

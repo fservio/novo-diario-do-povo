@@ -56,6 +56,18 @@ export function renderAdSlot(params: {
   const isAdSenseInArticle = slot.provider === 'adsense' && (slot.name.includes('inread') || slot.adsense_format === 'in-article' || slot.adsense_format === 'fluid')
   const adsenseFormat = isAdSenseInArticle ? 'fluid' : (slot.adsense_format || 'auto')
   const adsenseLayout = isAdSenseInArticle ? 'in-article' : ''
+  // Horizontal units must keep their booked sizes: full-width responsive
+  // AdSense can otherwise turn a 90px banner into a square after first paint.
+  const horizontalSizes = Array.isArray(sizes) ? sizes.filter(size =>
+    Array.isArray(size) && size.length === 2 && size.every(value => Number.isInteger(value) && value > 0 && value <= 2000)
+  ).sort((a, b) => a[0] - b[0]) : []
+  const isFixedHorizontal = adsenseFormat === 'horizontal' && horizontalSizes.length > 0
+  const reservedHeight = isFixedHorizontal ? Math.max(slot.min_height, ...horizontalSizes.map(size => size[1])) : slot.min_height
+  const sizingClass = `ad-slot--fixed-${Number(slot.id) || 0}`
+  const sizingRules = isFixedHorizontal ? `<style>
+    .${sizingClass} > .adsbygoogle { width: ${horizontalSizes[0][0]}px; height: ${horizontalSizes[0][1]}px; max-width: 100%; margin-inline: auto; }
+    ${horizontalSizes.slice(1).map(size => `@container (min-width: ${size[0]}px) { .${sizingClass} > .adsbygoogle { width: ${size[0]}px; height: ${size[1]}px; } }`).join('\n')}
+  </style>` : ''
 
   if (slot.provider === 'custom' && slot.custom_code) {
     return `<div class="ad-slot" 
@@ -68,23 +80,24 @@ export function renderAdSlot(params: {
   }
 
   if (slot.provider === 'adsense' && slot.adsense_slot_id) {
-    return `<div class="ad-slot ad-slot--adsense"
+    return `${sizingRules}<div class="ad-slot ad-slot--adsense${isFixedHorizontal ? ` ${sizingClass}` : ''}"
       data-ad-slot="${escapeHtml(slot.name)}"
       data-provider="adsense"
       data-sizes='${sizesStr}'
       data-lazy="${isLazy}"
       data-adsense-slot="${escapeHtml(slot.adsense_slot_id)}"
       data-adsense-format="${escapeHtml(adsenseFormat)}"
+      ${isFixedHorizontal ? 'data-adsense-fixed-size="1"' : ''}
       ${adsenseLayout ? `data-adsense-layout="${escapeHtml(adsenseLayout)}"` : ''}
-      style="min-height: ${slot.min_height}px; display: block; width: 100%; text-align: center;"
+      style="min-height: ${reservedHeight}px; display: block; width: 100%; text-align: center;${isFixedHorizontal ? ' container-type: inline-size;' : ''}"
     >
       <ins class="adsbygoogle"
-        style="display: block; width: 100%; min-height: ${slot.min_height}px;"
+        style="display: block;${isFixedHorizontal ? '' : ` width: 100%; min-height: ${slot.min_height}px;` }"
         data-ad-client=""
         data-ad-slot="${escapeHtml(slot.adsense_slot_id)}"
-        data-ad-format="${escapeHtml(adsenseFormat)}"
+        ${isFixedHorizontal ? '' : `data-ad-format="${escapeHtml(adsenseFormat)}"`}
         ${adsenseLayout ? `data-ad-layout="${escapeHtml(adsenseLayout)}"` : ''}
-        data-full-width-responsive="true"></ins>
+        data-full-width-responsive="${isFixedHorizontal ? 'false' : 'true'}"></ins>
     </div>`
   }
 
@@ -235,6 +248,8 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
     const provider = el.dataset.provider;
     const name = el.dataset.adSlot;
     if (el.dataset.adInitialized === '1') return;
+    // Responsive ads cannot be requested in a hidden or zero-width container.
+    if (el.getBoundingClientRect().width <= 0) return;
     el.dataset.adInitialized = '1';
 
     if (provider === 'adsense' && (providerMode === 'adsense' || providerMode === 'both')) {
@@ -246,19 +261,20 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
       }
       ins.className = 'adsbygoogle';
       ins.style.display = 'block';
-      ins.style.width = '100%';
-      if (el.style.minHeight && !ins.style.minHeight) {
+      const isFixedSize = el.dataset.adsenseFixedSize === '1';
+      if (!isFixedSize) ins.style.width = '100%';
+      if (!isFixedSize && el.style.minHeight && !ins.style.minHeight) {
         ins.style.minHeight = el.style.minHeight;
       }
       ins.dataset.adClient = adsenseClientId;
       ins.dataset.adSlot = el.dataset.adsenseSlot || '';
       const adsenseFormat = el.dataset.adsenseFormat || 'auto';
       const isInArticle = adsenseFormat === 'in-article' || el.dataset.adsenseLayout === 'in-article' || name.indexOf('inread') !== -1;
-      ins.dataset.adFormat = isInArticle ? 'fluid' : adsenseFormat;
+      if (!isFixedSize) ins.dataset.adFormat = isInArticle ? 'fluid' : adsenseFormat;
       if (isInArticle) {
         ins.dataset.adLayout = 'in-article';
       }
-      ins.dataset.fullWidthResponsive = 'true';
+      ins.dataset.fullWidthResponsive = isFixedSize ? 'false' : 'true';
       loadAdSenseScript(function() {
         try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (e) {}
       });
@@ -279,7 +295,42 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
   function startAds() {
     if (adsStarted) return;
     adsStarted = true;
-    document.querySelectorAll('.ad-slot').forEach(initAdSlot);
+    const slots = Array.from(document.querySelectorAll('.ad-slot[data-provider="adsense"], .ad-slot[data-provider="gam"]'));
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (!entry.isIntersecting) return;
+          initAdSlot(entry.target);
+          if (entry.target.dataset.adInitialized === '1') observer.unobserve(entry.target);
+        });
+      }, { rootMargin: '300px 0px', threshold: 0 });
+      slots.forEach(function(el) {
+        if (el.dataset.lazy === '1' || el.getBoundingClientRect().width <= 0) {
+          observer.observe(el);
+        } else {
+          initAdSlot(el);
+        }
+      });
+    } else {
+      // Older browsers still receive ads; avoid requesting units far below the fold.
+      const pending = new Set(slots);
+      const checkSlots = function() {
+        pending.forEach(function(el) {
+          const rect = el.getBoundingClientRect();
+          if (rect.width > 0 && (el.dataset.lazy !== '1' || (rect.top <= window.innerHeight + 300 && rect.bottom >= -300))) {
+            initAdSlot(el);
+            if (el.dataset.adInitialized === '1') pending.delete(el);
+          }
+        });
+        if (!pending.size) {
+          window.removeEventListener('scroll', checkSlots);
+          window.removeEventListener('resize', checkSlots);
+        }
+      };
+      window.addEventListener('scroll', checkSlots, { passive: true });
+      window.addEventListener('resize', checkSlots);
+      checkSlots();
+    }
   }
 
   function scheduleStartAds() {
@@ -300,17 +351,14 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
       window.requestIdleCallback(startAds, { timeout: 4000 });
     }
 
-    if (document.readyState === 'complete') {
-      startAfterLoad();
-    } else {
-      window.addEventListener('load', startAfterLoad, { once: true });
-    }
+    startAfterLoad();
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', scheduleStartAds);
-  } else {
+  // Keep third-party ad frames out of the page's initial load.
+  if (document.readyState === 'complete') {
     scheduleStartAds();
+  } else {
+    window.addEventListener('load', scheduleStartAds, { once: true });
   }
 })();
 </script>`

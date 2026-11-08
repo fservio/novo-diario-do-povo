@@ -1,3 +1,5 @@
+import { FAVICON_LINKS } from '../favicon'
+
 export function escapePortalHtml(value: string | null | undefined): string {
   if (value == null) return ''
   return String(value)
@@ -48,6 +50,7 @@ export function renderSubscriberAuthLayout(params: {
   return `<!doctype html>
 <html lang="pt-BR">
 <head>
+  ${FAVICON_LINKS}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
@@ -103,6 +106,7 @@ export function renderSubscriberShell(params: {
   return `<!doctype html>
 <html lang="pt-BR">
 <head>
+  ${FAVICON_LINKS}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">

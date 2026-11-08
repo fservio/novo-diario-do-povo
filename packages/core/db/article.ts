@@ -67,6 +67,8 @@ export interface RelatedPost {
   author_name?: string
   author_type?: string
   author_avatar_r2_key?: string
+  reading_path?: 'next' | 'origin' | null
+  excerpt?: string | null
 }
 
 /**
@@ -119,7 +121,8 @@ export async function findArticleBySlug(env: Env, slug: string): Promise<Article
 }
 
 /**
- * Find related posts by category
+ * Prioritize explicit links, then fill from the category's last 24 hours.
+ * Limit both candidate sets before joining metadata or sorting them together.
  */
 export async function findRelatedPosts(
   env: Env,
@@ -129,28 +132,62 @@ export async function findRelatedPosts(
 ): Promise<RelatedPost[]> {
   const { limit } = options
   const now = new Date().toISOString()
+  // A space lower bound includes both SQLite and ISO timestamps in the index.
+  // julianday then enforces the exact interval without excluding either format.
+  const since = new Date(Date.parse(now) - 24 * 60 * 60 * 1000).toISOString()
+  const indexSince = since.replace('T', ' ').slice(0, 19)
 
   const result = await env.DB.prepare(`
+    WITH related_ids AS (
+      SELECT related_post_id AS id FROM post_related_articles WHERE post_id = ?2
+      UNION
+      SELECT post_id AS id FROM post_related_articles WHERE related_post_id = ?2
+    ), explicit AS MATERIALIZED (
+      SELECT p.id, p.published_at, 0 AS priority
+      FROM related_ids r CROSS JOIN posts p ON p.id = r.id
+      WHERE p.id != ?2 AND p.status = 'published'
+        AND p.published_at >= ?6 AND p.published_at <= ?3 AND p.seo_noindex = 0
+        AND julianday(p.published_at) BETWEEN julianday(?5) AND julianday(?3)
+      ORDER BY julianday(p.published_at) DESC
+      LIMIT ?4
+    ), category_latest AS MATERIALIZED (
+      SELECT p.id, p.published_at, 1 AS priority
+      FROM posts p
+      WHERE p.category_id = ?1 AND p.id != ?2
+        AND p.status = 'published' AND p.seo_noindex = 0
+        AND p.published_at >= ?6 AND p.published_at <= ?3
+        AND julianday(p.published_at) BETWEEN julianday(?5) AND julianday(?3)
+        AND p.id NOT IN (SELECT id FROM explicit)
+      ORDER BY julianday(p.published_at) DESC
+      LIMIT ?4
+    ), candidates AS (
+      SELECT * FROM explicit
+      UNION ALL
+      SELECT * FROM category_latest
+    ), selected AS MATERIALIZED (
+      SELECT * FROM candidates
+      ORDER BY priority, julianday(published_at) DESC
+      LIMIT ?4
+    )
     SELECT 
-      p.id, p.slug, p.title, p.published_at, p.hat,
+      p.id, p.slug, p.title, p.published_at, p.hat, p.excerpt,
+      CASE
+        WHEN p.original_link LIKE '%/ia/relacionada/v1/' || CAST(?2 AS INTEGER) THEN 'next'
+        WHEN (SELECT original_link FROM posts WHERE id=?2) LIKE '%/ia/relacionada/v1/' || p.id THEN 'origin'
+        ELSE NULL
+      END AS reading_path,
       c.name as category_name,
       m.r2_key as featured_image_r2_key,
       a.name as author_name,
       a.author_type,
       ma.r2_key as author_avatar_r2_key
-    FROM posts p
+    FROM selected s CROSS JOIN posts p ON p.id = s.id
     JOIN categories c ON p.category_id = c.id
     LEFT JOIN authors a ON p.author_id = a.id
     LEFT JOIN media m ON p.cover_media_id = m.id
     LEFT JOIN media ma ON a.avatar_media_id = ma.id
-    WHERE p.category_id = ?
-      AND p.id != ?
-      AND p.status = 'published'
-      AND p.published_at <= ?
-      AND p.seo_noindex = 0
-    ORDER BY p.published_at DESC
-    LIMIT ?
-  `).bind(categoryId, postId, now, limit).all<RelatedPost>()
+    ORDER BY s.priority, julianday(s.published_at) DESC
+  `).bind(categoryId, postId, now, limit, since, indexSince).all<RelatedPost>()
 
   return result.results || []
 }

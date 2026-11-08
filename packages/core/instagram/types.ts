@@ -16,6 +16,9 @@ export interface InstagramSourcePost {
   content: string
   content_markdown: string | null
   published_at: string | null
+  status: string
+  scheduled_at: string | null
+  instagram_publication_id: number | null
   created_at: string
   category_name: string | null
   author_name: string | null
@@ -60,6 +63,8 @@ export interface InstagramPublication {
   article_content: string
   article_content_markdown: string | null
   article_published_at: string | null
+  article_status?: string
+  article_scheduled_at?: string | null
   article_created_at: string
   category_name: string | null
   author_name: string | null
@@ -100,6 +105,10 @@ export interface InstagramPublicationAttempt {
 }
 
 export interface InstagramRuntimeConfig {
+  directConnected?: boolean
+  directUsername?: string
+  directExpiresAt?: string
+  directRedirectUri?: string
   captionWebhookUrl: string
   publishWebhookUrl: string
   accountLabel: string

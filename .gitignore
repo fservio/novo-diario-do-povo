@@ -31,6 +31,8 @@ logs/
 # Wrangler
 .wrangler/
 dist/
+/artifacts/
+__pycache__/
 
 # Testing
 coverage/

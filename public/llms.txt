@@ -1,0 +1,32 @@
+# Jornal Diário do Povo
+
+> Jornal com foco no Piauí e cobertura do Brasil e do mundo. Publica notícias, análises, opinião e informação de interesse público em português do Brasil.
+
+O domínio oficial é https://diario.dopovo.com.br/. Para informações recentes, consulte as últimas notícias ou o RSS. Cada matéria informa seu título, autoria e data de publicação. Ao citar uma matéria, use sua URL canônica e preserve a atribuição ao jornal e às fontes identificadas no texto. Diferencie notícias, artigos de opinião, colunas e editoriais.
+
+Este arquivo orienta a navegação pelo conteúdo público. Não altera as regras do robots.txt, os controles de acesso ou os direitos sobre o conteúdo.
+
+## Notícias e cobertura
+
+- [Página inicial](https://diario.dopovo.com.br/): Destaques da cobertura do jornal.
+- [Últimas notícias](https://diario.dopovo.com.br/ultimas): Publicações mais recentes em ordem cronológica.
+- [Piauí](https://diario.dopovo.com.br/categoria/piaui): Notícias do estado e assuntos de interesse da população piauiense.
+- [Política](https://diario.dopovo.com.br/categoria/politica): Cobertura política e institucional.
+- [Economia](https://diario.dopovo.com.br/categoria/economia): Economia, negócios e serviços.
+- [Mundo](https://diario.dopovo.com.br/categoria/mundo): Acontecimentos internacionais.
+- [Cidades](https://diario.dopovo.com.br/categoria/cidades): Cotidiano e temas urbanos.
+- [Esporte](https://diario.dopovo.com.br/categoria/esporte): Notícias esportivas.
+- [Opinião](https://diario.dopovo.com.br/opiniao): Editoriais, artigos e colunas; representam gêneros distintos da cobertura factual.
+
+## Recursos para descoberta
+
+- [RSS de notícias](https://diario.dopovo.com.br/rss.xml): Feed público em XML, com títulos, resumos, datas e links das matérias recentes.
+- [Índice de sitemaps](https://diario.dopovo.com.br/sitemap-index.xml): Descoberta das páginas e dos arquivos de notícias.
+- [Sitemap de notícias](https://diario.dopovo.com.br/sitemap-news.xml): URLs de notícias publicadas recentemente.
+- [Catálogo ARD](https://diario.dopovo.com.br/.well-known/ard.json): Descrição dos recursos públicos de leitura disponíveis para agentes.
+- [Regras de rastreamento](https://diario.dopovo.com.br/robots.txt): Diretivas para robôs e endereço do sitemap.
+
+## Optional
+
+- [Assinatura](https://diario.dopovo.com.br/assinar): Informações sobre assinatura e acesso.
+- [WhatsApp](https://diario.dopovo.com.br/whatsapp): Canal oficial do jornal.

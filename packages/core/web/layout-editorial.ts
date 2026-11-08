@@ -1,5 +1,8 @@
 import { escapeAttr, escapeHtml } from './layout'
+import { FAVICON_LINKS } from './favicon'
 import { renderSocialMetaTags, type SocialMeta } from './social'
+import editorialCss from '../../../public/static/editorial.css?raw'
+import engagementCss from '../../../public/static/engagement.css?raw'
 
 export type EditorialNavItem = {
   label: string
@@ -28,6 +31,7 @@ function renderEditorialHeader(params: {
           <p>${escapeHtml(editionDate)}</p>
           <p class="ed-utility__mission">Jornalismo local, independente e responsável</p>
           <div class="ed-utility__links">
+            <a href="/meu-dia">Meu dia</a>
             <a href="/opiniao">Opinião</a>
             <a href="/conta">Minha conta</a>
           </div>
@@ -43,6 +47,9 @@ function renderEditorialHeader(params: {
           <img src="/static/logo-dp.png" alt="${escapeAttr(params.siteName)}" width="500" height="181" fetchpriority="high">
         </a>
         <div class="ed-masthead__actions">
+          <a class="ed-search-link" href="/busca" aria-label="Buscar notícias" title="Buscar notícias">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg>
+          </a>
           <a class="ed-account-link" href="/conta">Entrar</a>
           <a class="ed-subscribe" href="/assinar">Assine</a>
         </div>
@@ -81,7 +88,10 @@ function renderEditorialHeader(params: {
           <nav aria-label="Navegação principal">
             <a class="ed-menu-drawer__latest" href="/ultimas"><span aria-hidden="true"></span>Últimas notícias</a>
             <ul class="ed-menu-drawer__list">
-              ${params.navItems.map(item => `
+              <li><a href="/busca">Busca<span aria-hidden="true">→</span></a></li>
+              <li><a href="/meu-dia" ${params.navItems.some(item=>item.href==='/meu-dia'&&item.active)?'aria-current="page"':''}>Meu dia<span aria-hidden="true">→</span></a></li>
+              <li><a href="/jogos/extra-extra" ${params.navItems.some(item=>item.href==='/jogos/extra-extra'&&item.active)?'aria-current="page"':''}>Extra! Extra!<span aria-hidden="true">→</span></a></li>
+              ${params.navItems.filter(item=>!['/busca','/meu-dia','/jogos/extra-extra'].includes(item.href)).map(item => `
                 <li><a href="${escapeAttr(item.href)}" ${item.active ? 'aria-current="page"' : ''}>${escapeHtml(item.label)}<span aria-hidden="true">→</span></a></li>
               `).join('')}
             </ul>
@@ -219,6 +229,7 @@ export function renderEditorialLayout(params: {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  ${FAVICON_LINKS}
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(params.title)}</title>
@@ -227,8 +238,8 @@ export function renderEditorialLayout(params: {
   ${renderSocialMetaTags(openGraph)}
   <meta name="theme-color" content="#123d5a">
   ${params.lcpPreloadUrl ? `<link rel="preload" as="image" href="${escapeAttr(params.lcpPreloadUrl)}"${params.lcpSrcSet ? ` imagesrcset="${escapeAttr(params.lcpSrcSet)}" imagesizes="(max-width: 760px) 100vw, 760px"` : ''} fetchpriority="high">` : ''}
-  <link rel="stylesheet" href="/static/editorial.css?v=20260821-hero1">
-  <link rel="stylesheet" href="/static/engagement.css?v=20260821-1">
+  <style data-source="/static/editorial.css">${editorialCss}</style>
+  <style data-source="/static/engagement.css">${engagementCss}</style>
   ${params.extraHeadHtml || ''}
   ${params.googleAnalyticsId ? `
     <script async src="https://www.googletagmanager.com/gtag/js?id=${escapeAttr(params.googleAnalyticsId)}"></script>

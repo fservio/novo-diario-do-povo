@@ -63,7 +63,7 @@
 
 ## 📦 Pré-requisitos
 
-- **Node.js** 20+ 
+- **Node.js 24** para desenvolvimento e testes com SQLite integrado
 - **npm** ou **pnpm**
 - **Cloudflare Account** (free tier funciona)
 - **Wrangler CLI** instalado globalmente
@@ -76,19 +76,20 @@ npm install -g wrangler
 
 ## 🔧 Instalação
 
-### 1. Clonar/Inicializar Repositório
+### 1. Clonar o repositório
 
 ```bash
-cd /home/user/webapp
-git init
-git add .
-git commit -m "Initial commit"
+git clone https://github.com/fservio/novo-diario-do-povo.git
+cd novo-diario-do-povo
 ```
 
 ### 2. Instalar Dependências
 
 ```bash
-npm install
+npm ci
+npm test
+npm run typecheck
+npm run build
 ```
 
 ### 3. Configurar Environment Variables
@@ -213,24 +214,11 @@ pm2 restart jornal
 
 ### Deploy para Cloudflare Pages
 
+O projeto de produção é `novo-diario-do-povo`, na branch `Versão-1.2`.
+A implantação `6bf9bd50` inclui imagens responsivas no corpo das matérias e os tempos de resposta por etapa. O histórico de implantações fica no Cloudflare Pages. A pasta local `artifacts/` guarda pacotes intermediários e fica fora do Git.
+
 ```bash
-# 1. Configurar project name no meta_info
-meta_info(action="write", key="cloudflare_project_name", value="jornal")
-
-# 2. Setup Cloudflare API (se ainda não configurado)
-# Configurar via Deploy tab no dashboard
-
-# 3. Criar projeto Pages
-wrangler pages project create jornal \
-  --production-branch main \
-  --compatibility-date 2024-01-01
-
-# 4. Deploy
-npm run deploy:prod
-
-# URLs geradas:
-# - Production: https://jornal.pages.dev
-# - Branch: https://main.jornal.pages.dev
+npm run deploy:prod -- --branch "Versão-1.2"
 ```
 
 ### Configurar Secrets (Production)

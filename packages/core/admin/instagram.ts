@@ -19,6 +19,9 @@ import {
 } from '../instagram'
 import type { InstagramPublication, InstagramPublicationAttempt, InstagramSourcePost, InstagramStoryVariant } from '../instagram'
 import { getPostUrl } from '../utils/post'
+import { formatPublicationScheduleInput } from '../post-scheduling'
+import { getAudioStory } from '../instagram/audio'
+import { audioEditor, audioPreview } from '../instagram/audio-ui'
 import { escapeHtml, renderAdminIcon, renderAdminLayout, renderCsrfInput } from './ui'
 
 function formatDate(value: string | null | undefined): string {
@@ -86,7 +89,7 @@ function previewCard(publication: InstagramPublication, baseUrl: string): string
 function storyShareUrl(publication: InstagramPublication, baseUrl: string): string {
   const url = new URL(getPostUrl({
     slug: publication.slug,
-    published_at: publication.article_published_at,
+    published_at: publication.article_published_at || publication.article_scheduled_at,
     created_at: publication.article_created_at
   }, baseUrl))
   url.searchParams.set('utm_source', 'instagram')
@@ -131,7 +134,7 @@ export async function handleInstagramList(c: Context) {
   const bodyHtml = `
     <div class="page-intro">
       <div><p class="page-kicker">Distribuição social</p><h1 class="page-title">Instagram</h1><p class="page-description">Criação, revisão e publicação das chamadas editoriais do Diário.</p></div>
-      <a class="btn" href="/admin/instagram/new"><span class="admin-icon">${renderAdminIcon('instagram')}</span> Criar publicação</a>
+      <div><a class="btn btn-outline" href="/admin/instagram/audience">Audiência e comente LINK</a> <a class="btn" href="/admin/instagram/new"><span class="admin-icon">${renderAdminIcon('instagram')}</span> Criar publicação</a></div>
     </div>
     ${notice(c.req.query('message'), c.req.query('error'))}
 
@@ -139,13 +142,13 @@ export async function handleInstagramList(c: Context) {
       <article><span>Em preparação</span><strong>${stats.draft || 0}</strong><small>Artes ainda em construção</small></article>
       <article><span>Revisão editorial</span><strong>${inReview}</strong><small>Legenda ou aprovação pendente</small></article>
       <article><span>Fila de publicação</span><strong>${queued}</strong><small>Agendados e em processamento</small></article>
-      <article><span>Publicados</span><strong>${stats.published || 0}</strong><small>Histórico confirmado pela Meta</small></article>
+      <article><span>Publicados</span><strong>${stats.published || 0}</strong><small>Histórico confirmado pelo Instagram</small></article>
     </div>
 
     <section class="card instagram-queue">
       <div class="newsletter-section-head">
         <div><p class="page-kicker">Mesa social</p><h2>Publicações recentes</h2></div>
-        <span class="newsletter-provider ${config.publishReady ? 'is-ready' : ''}"><i></i>${config.publishReady ? `${escapeHtml(config.accountLabel)} conectado ao n8n` : 'Publicação protegida'}</span>
+        <span class="newsletter-provider ${config.publishReady ? 'is-ready' : ''}"><i></i>${config.publishReady ? (config.directConnected ? `@${escapeHtml(config.directUsername)} conectado ao Instagram` : `${escapeHtml(config.accountLabel)} conectado ao n8n`) : 'Publicação protegida'}</span>
       </div>
       ${publications.length ? `<div class="newsletter-table-wrap"><table><thead><tr><th>Chamada</th><th>Status</th><th>Destino</th><th>Atualização</th><th></th></tr></thead><tbody>
         ${publications.map(item => `<tr>
@@ -157,17 +160,21 @@ export async function handleInstagramList(c: Context) {
         </tr>`).join('')}
       </tbody></table></div>` : `<div class="newsletter-empty"><span class="admin-icon">${renderAdminIcon('instagram')}</span><h3>A mesa social está pronta</h3><p>Escolha uma matéria publicada e transforme-a em uma chamada visual do Diário.</p><a class="btn" href="/admin/instagram/new">Selecionar matéria</a></div>`}
     </section>
-    ${!config.captionReady || !config.publishReady ? `<div class="instagram-protected-note"><span class="admin-icon">${renderAdminIcon('shield')}</span><div><strong>Ambiente protegido</strong><p>A criação e a revisão funcionam normalmente. Configure os webhooks do n8n em <a href="/admin/integrations">Integrações</a> para liberar IA e publicação.</p></div></div>` : ''}`
+    ${!config.captionReady || !config.publishReady ? `<div class="instagram-protected-note"><span class="admin-icon">${renderAdminIcon('shield')}</span><div><strong>Ambiente protegido</strong><p>A criação e a revisão funcionam normalmente. Conecte a conta em <a href="/admin/integrations">Integrações</a> para publicar diretamente. A geração de legenda por IA é opcional.</p></div></div>` : ''}`
 
   return c.html(renderAdminLayout({ title: 'Instagram', user, bodyHtml, activeTab: 'instagram', csrfToken }))
 }
 
 export async function handleInstagramNew(c: Context) {
-  const posts = await listInstagramSourcePosts(c.env as Env)
+  const requestedPost = c.req.query('post')
+  const postId = requestedPost ? Number(requestedPost) : undefined
+  if (requestedPost && (!Number.isInteger(postId) || Number(postId) < 1)) return c.notFound()
+  const posts = await listInstagramSourcePosts(c.env as Env, 80, postId)
+  if (postId && posts[0]?.instagram_publication_id) return c.redirect(`/admin/instagram/${posts[0].instagram_publication_id}`, 303)
   const csrfToken = c.get('csrfToken') || ''
   const bodyHtml = `
     <div class="page-intro instagram-new-intro">
-      <div><a class="newsletter-back" href="/admin/instagram">← Voltar à mesa social</a><p class="page-kicker">Nova publicação</p><h1 class="page-title">Escolha a matéria</h1><p class="page-description">Somente matérias publicadas e com imagem de capa podem gerar uma arte.</p></div>
+      <div><a class="newsletter-back" href="/admin/instagram">← Voltar à mesa social</a><p class="page-kicker">Nova publicação</p><h1 class="page-title">Escolha a matéria</h1><p class="page-description">Prepare o Instagram de matérias publicadas ou agendadas. A imagem de capa é necessária para criar a arte.</p></div>
       <input class="form-control instagram-source-search" type="search" placeholder="Buscar por título ou editoria" data-instagram-search>
     </div>
     ${notice(undefined, c.req.query('error'))}
@@ -176,11 +183,12 @@ export async function handleInstagramNew(c: Context) {
         const image = post.cover_media_url ? `/i/${escapeHtml(post.cover_media_url)}?w=520&h=650&q=85` : ''
         return `<article class="instagram-source-card ${image ? '' : 'is-disabled'}" data-search="${escapeHtml(`${post.title} ${post.hat || ''} ${post.category_name || ''}`.toLowerCase())}">
           <div class="instagram-source-image">${image ? `<img src="${image}" alt="" loading="lazy">` : `<span class="admin-icon">${renderAdminIcon('media')}</span>`}<span>4:5</span></div>
-          <div class="instagram-source-copy"><p>${escapeHtml(post.hat || post.category_name || 'Notícia')}</p><h2>${escapeHtml(post.title)}</h2><small>${formatDate(post.published_at || post.created_at)}${post.author_name ? ` · ${escapeHtml(post.author_name)}` : ''}</small>
-            <form method="post" action="/admin/instagram">${renderCsrfInput(csrfToken)}<input type="hidden" name="post_id" value="${post.id}"><button class="btn btn-outline" type="submit" ${image ? '' : 'disabled'}>${image ? 'Usar esta matéria' : 'Imagem necessária'}</button></form>
+          <div class="instagram-source-copy"><p>${escapeHtml(post.hat || post.category_name || 'Notícia')}</p><h2>${escapeHtml(post.title)}</h2><small>${post.status === 'draft' ? 'Agendada para ' : ''}${formatDate(post.scheduled_at || post.published_at || post.created_at)}${post.author_name ? ` · ${escapeHtml(post.author_name)}` : ''}</small>
+            ${post.instagram_publication_id ? `<a class="btn btn-outline" href="/admin/instagram/${post.instagram_publication_id}">Abrir publicação</a>` : `<form method="post" action="/admin/instagram">${renderCsrfInput(csrfToken)}<input type="hidden" name="post_id" value="${post.id}"><button class="btn btn-outline" type="submit" ${image ? '' : 'disabled'}>${image ? 'Usar esta matéria' : 'Imagem necessária'}</button></form>`}
           </div>
         </article>`
       }).join('')}
+      ${!posts.length ? '<p class="page-description">Nenhuma matéria publicada ou agendada encontrada.</p>' : ''}
     </div>
     <script src="/static/admin-instagram.js?v=20260821-focal1" defer></script>`
   return c.html(renderAdminLayout({ title: 'Nova publicação no Instagram', user: c.get('adminUser'), bodyHtml, activeTab: 'instagram', csrfToken }))
@@ -219,6 +227,7 @@ export async function handleInstagramDetail(c: Context) {
     getInstagramRuntimeConfig(env)
   ])
   if (!publication || !story) return c.notFound()
+  const audio = await getAudioStory(env, id)
   const csrfToken = c.get('csrfToken') || ''
   const user = c.get('adminUser')
   const isDirector = normalizeRole(user.role) === 'director'
@@ -226,6 +235,9 @@ export async function handleInstagramDetail(c: Context) {
   const canApprove = !locked && Boolean(publication.caption?.trim()) && Boolean(publication.photo_credit?.trim())
   const canDispatch = isDirector && Boolean(publication.approved_at) && ['approved', 'failed'].includes(publication.status) && config.publishReady
   const trackedStoryUrl = storyShareUrl(publication, env.PUBLIC_BASE_URL)
+  const articlePending = publication.article_status === 'draft' && publication.article_scheduled_at
+  const earliestSocialDate = articlePending ? new Date(new Date(publication.article_scheduled_at!).getTime() + 60000).toISOString() : ''
+  const suggestedSocialDate = articlePending ? formatPublicationScheduleInput(new Date(Math.max(new Date(earliestSocialDate).getTime(), Date.now() + 180000)).toISOString()) : ''
 
   const bodyHtml = `
     <div class="page-intro instagram-detail-intro">
@@ -237,14 +249,17 @@ export async function handleInstagramDetail(c: Context) {
       </div>
     </div>
     ${notice(c.req.query('message'), c.req.query('error'))}
+    ${articlePending ? notice(`Matéria agendada para ${formatDate(publication.article_scheduled_at)} (Fortaleza). Prepare feed, Story e legenda agora. Para divulgar no Instagram, escolha um horário a partir de ${formatDate(earliestSocialDate)} para dar tempo de a matéria entrar no ar.`) : ''}
 
     <div class="instagram-format-tabs" role="tablist" aria-label="Formato da publicação">
       <button type="button" role="tab" aria-selected="true" data-instagram-format-tab="feed"><strong>Feed</strong><span>1080 × 1350 · 4:5</span></button>
       <button type="button" role="tab" aria-selected="false" data-instagram-format-tab="story"><strong>Story</strong><span>1080 × 1920 · 9:16</span></button>
+      <button type="button" role="tab" aria-selected="false" data-instagram-format-tab="audio"><strong>Story com áudio</strong><span>MP4 · 9:16</span></button>
     </div>
 
     <div class="instagram-workspace">
       <main>
+        ${audioEditor(publication, story, audio, csrfToken)}
         <form class="card instagram-editor-card" method="post" action="/admin/instagram/${publication.id}/edit" data-instagram-editor data-instagram-format-panel="feed">
           ${renderCsrfInput(csrfToken)}
           <div class="newsletter-section-head"><div><p class="page-kicker">Composição</p><h2>Texto da arte</h2></div><span class="instagram-format-chip">1080 × 1350 · 4:5</span></div>
@@ -285,6 +300,7 @@ export async function handleInstagramDetail(c: Context) {
       </main>
 
       <aside class="instagram-review-column">
+        ${audioPreview()}
         <section class="card instagram-preview-card" data-instagram-format-panel="feed"><div class="instagram-preview-head"><div><p class="page-kicker">Prévia</p><h2>Feed vertical</h2></div><span>4:5</span></div>${previewCard(publication, env.PUBLIC_BASE_URL)}</section>
 
         <section class="card instagram-preview-card instagram-story-preview-card" data-instagram-format-panel="story" hidden><div class="instagram-preview-head"><div><p class="page-kicker">Prévia exata</p><h2>Story</h2></div><span>9:16</span></div>${storyPreviewCard(publication, story, env.PUBLIC_BASE_URL)}<p class="instagram-story-safe-note">As faixas pontilhadas não aparecem no JPG. Elas protegem a marca, os textos e a área do adesivo de link.</p></section>
@@ -297,8 +313,8 @@ export async function handleInstagramDetail(c: Context) {
         </section>
 
         <section class="card instagram-publish-card" data-instagram-format-panel="feed">
-          <div class="instagram-publish-status ${config.publishReady ? 'is-ready' : ''}"><i></i><div><strong>${config.publishReady ? `${escapeHtml(config.accountLabel)} pronto no n8n` : 'Publicação ainda protegida'}</strong><p>${config.publishReady ? 'A peça aprovada será rasterizada e enviada pela API oficial.' : 'Configure o webhook de publicação em Integrações.'}</p></div></div>
-          ${safeExternalUrl(publication.permalink) ? `<a class="btn" href="${escapeHtml(safeExternalUrl(publication.permalink))}" target="_blank" rel="noopener">Ver publicação <span class="admin-icon">${renderAdminIcon('external')}</span></a>` : !locked || publication.status === 'failed' ? `<form method="post" action="/admin/instagram/${publication.id}/publish" onsubmit="return confirm('Confirma o encaminhamento desta versão aprovada ao n8n?')">${renderCsrfInput(csrfToken)}<div class="form-group"><label for="scheduled-at">Agendar <span>opcional</span></label><input class="form-control" id="scheduled-at" type="datetime-local" name="scheduled_at"></div><button class="btn" type="submit" ${canDispatch ? '' : 'disabled'}>Publicar ou agendar <span class="admin-icon">${renderAdminIcon('arrow')}</span></button></form>` : ''}
+          <div class="instagram-publish-status ${config.publishReady ? 'is-ready' : ''}"><i></i><div><strong>${config.publishReady ? (config.directConnected ? `@${escapeHtml(config.directUsername)} conectado diretamente` : `${escapeHtml(config.accountLabel)} pronto no n8n`) : 'Publicação ainda protegida'}</strong><p>${config.publishReady ? (config.directConnected ? 'O JPEG aprovado será publicado diretamente no Instagram.' : 'A peça aprovada será rasterizada e enviada pela API oficial.') : 'Conecte a conta do Instagram em Integrações.'}</p></div></div>
+          ${safeExternalUrl(publication.permalink) ? `<a class="btn" href="${escapeHtml(safeExternalUrl(publication.permalink))}" target="_blank" rel="noopener">Ver publicação <span class="admin-icon">${renderAdminIcon('external')}</span></a>` : !locked || publication.status === 'failed' ? `<form method="post" action="/admin/instagram/${publication.id}/publish" ${config.directConnected ? `data-instagram-direct-publish data-publication-id="${publication.id}" data-publication-version="${publication.version}"` : `onsubmit="return confirm('Confirma o encaminhamento desta versão aprovada ao n8n?')"`}>${renderCsrfInput(csrfToken)}<div class="form-group"><label for="scheduled-at">Agendar — horário de Fortaleza <span>${articlePending ? "obrigatório enquanto a matéria estiver agendada" : "opcional"}</span></label><input class="form-control" id="scheduled-at" type="datetime-local" name="scheduled_at" ${articlePending ? `required min="${formatPublicationScheduleInput(earliestSocialDate)}" value="${suggestedSocialDate}"` : ""}></div><button class="btn" type="submit" ${canDispatch ? '' : 'disabled'}>Publicar ou agendar <span class="admin-icon">${renderAdminIcon('arrow')}</span></button></form>` : ''}
           ${!isDirector ? '<small>A publicação final é restrita a diretores.</small>' : ''}
           ${publication.last_error ? `<div class="instagram-last-error"><strong>Última falha</strong><p>${escapeHtml(publication.last_error)}</p></div>` : ''}
         </section>
@@ -306,9 +322,11 @@ export async function handleInstagramDetail(c: Context) {
         <section class="card instagram-story-manual-card" data-instagram-format-panel="story" hidden>
           <p class="page-kicker">Distribuição manual</p><h2>Pronto para o aplicativo</h2><p>Baixe o JPG, publique-o como Story e cole o link rastreável no adesivo de link do Instagram.</p><button class="btn btn-outline" type="button" data-story-copy-link data-story-url="${escapeHtml(trackedStoryUrl)}">Copiar link da matéria</button><small data-story-copy-status aria-live="polite"></small>
         </section>
+        ${publication.status==='published'?`<section class="card"><h2>Audiência e comente LINK</h2><p>Acompanhe os resultados desta matéria e ative a resposta por Direct aos leitores.</p><a class="btn btn-outline" href="/admin/instagram/audience#comente-link">Abrir audiência e respostas</a></section>`:''}
       </aside>
     </div>
-    <script src="/static/admin-instagram.js?v=20260821-focal3" defer></script>`
+    <script src="/static/admin-instagram-http.js?v=20261027-csrf1" defer></script>
+    <script src="/static/admin-instagram.js?v=20261103-direct1" defer></script>`
 
   return c.html(renderAdminLayout({ title: 'Instagram · Revisão', user, bodyHtml, activeTab: 'instagram', csrfToken }))
 }
@@ -422,6 +440,8 @@ export async function handleInstagramPublish(c: Context) {
   const body = editorialBody(c)
   try {
     if (normalizeRole(c.get('adminUser').role) !== 'director') throw new Error('A publicação final é restrita a diretores.')
+    const config = await getInstagramRuntimeConfig(c.env as Env)
+    if (config.directUsername) throw new Error('Use o botão com JavaScript habilitado para enviar o JPEG diretamente ao Instagram.')
     const scheduledAt = parseFortalezaSchedule(String(body.scheduled_at || ''))
     await dispatchInstagramPublication(c.env as Env, id, scheduledAt)
     return c.redirect(`/admin/instagram/${id}?message=${encodeURIComponent(scheduledAt ? 'Publicação agendada no n8n.' : 'Publicação encaminhada ao n8n.')}`, 303)

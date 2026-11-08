@@ -5,6 +5,21 @@ import { serveMedia } from '../../packages/core/storage'
 describe('Recorte focal de mídia', () => {
   afterEach(() => vi.unstubAllGlobals())
 
+  it('requests WebP for compatible browsers even without resize parameters', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('imagem', {
+      headers: { 'Content-Type': 'image/webp' }
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    const response = await serveMedia({} as Env, 'media/capa.jpg',
+      new Request('https://diario.dopovo.com.br/i/media/capa.jpg', {
+        headers: { Accept: 'image/webp,image/jpeg;q=0.8' }
+      }))
+
+    expect(fetchMock.mock.calls[0][1].cf.image.format).toBe('webp')
+    expect(response.headers.get('Content-Type')).toBe('image/webp')
+    expect(response.headers.get('Vary')).toContain('Accept')
+  })
+
   it('repassa as coordenadas relativas para o gravity do Cloudflare', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('imagem'))
     vi.stubGlobal('fetch', fetchMock)

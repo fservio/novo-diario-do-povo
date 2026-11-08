@@ -1,3 +1,5 @@
+import {getPublishedToday,renderPublishedToday} from '../packages/core/admin/dashboard-today'
+import {completePublicMenu} from '../packages/core/middleware/public-menu'
 /**
  * Main Application Entry Point
  * Hono + Cloudflare Pages Functions
@@ -11,6 +13,7 @@ import {
   securityHeaders,
   errorHandler
 } from '../packages/core/middleware'
+import { invalidateHomeAfterEditorialWrite } from '../packages/core/middleware/home-cache'
 import { bootstrapAdmin } from '../packages/core/auth'
 
 import type { CreatePostInput } from '../packages/core/db/posts'
@@ -74,6 +77,8 @@ app.use('*', async (c, next) => {
 
 app.use('*', loggingMiddleware)
 app.use('*', securityHeaders)
+app.use('*', invalidateHomeAfterEditorialWrite)
+app.use('*', completePublicMenu)
 
 // ============================================================================
 // n8n Integration Routes
@@ -85,6 +90,14 @@ app.use('/api/n8n/*', async (c, next) => {
 
   if (!apiKeyHeader) {
     return c.json({ success: false, error: 'Unauthorized: Missing Key' }, 401)
+  }
+
+  const pilotKey = c.env.N8N_INTERNAL_LINKS_PILOT_KEY
+  if (pilotKey && apiKeyHeader === pilotKey) {
+    if (c.req.method === 'POST' && /^\/api\/n8n\/internal-links\/[0-9]+\/plan$/.test(c.req.path)) {
+      return next()
+    }
+    return c.json({ success: false, error: 'Unauthorized: Pilot Key Scope' }, 401)
   }
 
   // Check DB setting first (new method)
@@ -104,6 +117,22 @@ app.use('/api/n8n/*', async (c, next) => {
 })
 
 // POST /api/n8n/media - Upload media
+app.route('/api/n8n/seo', (await import('../packages/core/seo-automation')).createSeoAutomationRouter())
+app.post('/api/n8n/guides/:operation',async c=>(await import('../packages/core/web/n8n-guides')).handleN8nGuides(c))
+app.post('/api/n8n/news-extractor/:operation',async c=>(await import('../packages/core/web/n8n-news-extractor')).handleN8nExtractor(c))
+app.post('/api/n8n/meu-dia',async c=>{
+  const {handleDailyEditionSave}=await import('../packages/core/web/meu-dia')
+  return handleDailyEditionSave(c)
+})
+app.post('/api/n8n/culture/events',async c=>{
+  const {handleCulturalEventsSave}=await import('../packages/core/web/culture')
+  return handleCulturalEventsSave(c)
+})
+app.get('/api/n8n/culture/events',async c=>{
+  const {handleCulturalEventsList}=await import('../packages/core/web/culture')
+  return handleCulturalEventsList(c)
+})
+
 app.post('/api/n8n/media', async (c) => {
   try {
     const { createMedia, extractImageDimensions } = await import('../packages/core/db/media')
@@ -170,10 +199,69 @@ app.post('/api/n8n/media', async (c) => {
   }
 })
 
+app.get('/api/n8n/internal-links/:id{[0-9]+}', async (c) => {
+  const { proposeLinkInput } = await import('../packages/core/seo/internal-links')
+  const data = await proposeLinkInput(c.env.DB, Number(c.req.param('id')))
+  return data ? c.json(data) : c.json({ error: 'POST_NOT_FOUND' }, 404)
+})
+
+app.put('/api/n8n/internal-links/:id{[0-9]+}', async (c) => {
+  const { saveInternalLinks } = await import('../packages/core/seo/internal-links')
+  const body = await c.req.json().catch((): null => null)
+  if (!body || typeof body.revision !== 'string' || typeof body.batch !== 'string' ||
+      !body.batch.trim() || body.batch.length > 100 || !Array.isArray(body.links) || body.links.length > 5 ||
+      !body.links.every((link: any) => link && Number.isSafeInteger(link.paragraph) && link.paragraph >= 0 &&
+        Number.isSafeInteger(link.targetId) && link.targetId > 0 && typeof link.anchor === 'string' && link.anchor.length <= 200)) {
+    return c.json({ error: 'INVALID_LINK_PLAN' }, 400)
+  }
+  const saved = await saveInternalLinks(c.env.DB, Number(c.req.param('id')), body.revision, body.batch, body.links)
+  return saved ? c.json({ saved }) : c.json({ error: 'STALE_OR_INVALID_LINK_PLAN' }, 409)
+})
+
+
+app.get('/api/n8n/internal-links/queue', async (c) => {
+  const cursor = Number(c.req.query('after') || '0')
+  if (!Number.isSafeInteger(cursor) || cursor < 0) return c.json({ error: 'INVALID_CURSOR' }, 400)
+  const page = await c.env.DB.prepare(`
+    SELECT id FROM posts WHERE id > ? AND status = 'published' AND COALESCE(seo_noindex, 0) = 0
+    ORDER BY id LIMIT 50
+  `).bind(cursor).all<{ id: number }>()
+  return c.json({ ids: page.results.map(row => row.id), next: page.results.at(-1)?.id ?? null })
+})
+
+app.post('/api/n8n/internal-links/:id{[0-9]+}/plan', async (c) => {
+  const { proposeLinkInput, renderInternalLinks, linkTargets } = await import('../packages/core/seo/internal-links')
+  const id = Number(c.req.param('id'))
+  const data = await proposeLinkInput(c.env.DB, id)
+  if (!data) return c.json({ error: 'POST_NOT_FOUND' }, 404)
+  const { revision, budget, paragraphs, candidates } = data
+  if (!budget || !paragraphs.length || !candidates.length) return c.json({ id, revision, links: [] })
+  const { requestInternalLinkPlan } = await import('../packages/core/editorial-ai/openai')
+  const plan = await requestInternalLinkPlan(c.env, JSON.stringify(data))
+  const allowed = new Set(candidates.map(candidate => candidate.id))
+  const proposals = plan.data.links.filter(link => allowed.has(link.targetId))
+  const targets = await linkTargets(c.env.DB, proposals.map(link => link.targetId))
+  const selectedParagraphs = new Set<number>()
+  const selectedTargets = new Set<number>()
+  const links = proposals.filter(link => {
+    if (selectedParagraphs.size >= budget || selectedParagraphs.has(link.paragraph) || selectedTargets.has(link.targetId)) return false
+    const paragraph = paragraphs.find(item => item.paragraph === link.paragraph)
+    if (!paragraph) return false
+    const html = '<p>' + paragraph.text + '</p>'
+    if (renderInternalLinks(html, [{ paragraph: 0, anchor: link.anchor, targetId: link.targetId }], targets) === html) return false
+    selectedParagraphs.add(link.paragraph)
+    selectedTargets.add(link.targetId)
+    return true
+  })
+  return c.json({ id, revision, links })
+})
+
+
 // POST /api/n8n/posts - Create post
 app.post('/api/n8n/posts', async (c) => {
   try {
-    const { createPost, getPostById } = await import('../packages/core/db/posts')
+    const { getPostById } = await import('../packages/core/db/posts')
+    const { createImportedPost } = await import('../packages/core/db/imported-posts')
     const body = await c.req.json() as any // Cast mostly to any to allow flexible input, validated below
 
     // Basic validation
@@ -195,6 +283,8 @@ app.post('/api/n8n/posts', async (c) => {
       template: body.template || 'article',
       seo_title: body.seo_title,
       seo_description: body.seo_description,
+      seo_primary_keyword: body.seo_primary_keyword,
+      seo_secondary_keywords: body.seo_secondary_keywords,
       social_title: body.social_title,
       social_description: body.social_description,
       social_share_text: body.social_share_text,
@@ -208,10 +298,10 @@ app.post('/api/n8n/posts', async (c) => {
       original_link: body.original_link
     }
 
-    const postId = await createPost(c.env.DB, input)
+    const { id: postId, reused } = await createImportedPost(c.env.DB, input)
 
     // If status is 'published', we need to publish it
-    if (body.status === 'published') {
+    if (!reused && body.status === 'published') {
       const { publishPost } = await import('../packages/core/db/posts')
       await publishPost(c.env.DB, postId)
     }
@@ -223,9 +313,10 @@ app.post('/api/n8n/posts', async (c) => {
       success: true,
       data: {
         id: postId,
+        reused,
         slug: post?.slug,
         status: post?.status,
-        url: post ? getPostUrl(post, c.env.PUBLIC_BASE_URL) : ''
+        url: post ? getPostUrl(post, 'https://diario.dopovo.com.br') : ''
       }
     })
   } catch (error: any) {
@@ -268,6 +359,11 @@ app.get('/api/n8n/posts', async (c) => {
 })
 
 // PATCH /api/n8n/posts/:id - Update post
+app.post('/api/n8n/posts/:id/related', async (c) => {
+  const { handleN8nRelatedArticle } = await import('../packages/core/web/n8n-related')
+  return handleN8nRelatedArticle(c)
+})
+
 app.patch('/api/n8n/posts/:id', async (c) => {
   try {
     const { updatePost } = await import('../packages/core/db/posts')
@@ -532,19 +628,26 @@ app.get('/ads.txt', async (c) => {
 })
 
 app.get('/sitemap-index.xml', async (c) => {
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <sitemap>
-    <loc>${c.env.PUBLIC_BASE_URL}/sitemap.xml</loc>
-    <lastmod>${new Date().toISOString()}</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>${c.env.PUBLIC_BASE_URL}/sitemap-news.xml</loc>
-    <lastmod>${new Date().toISOString()}</lastmod>
-  </sitemap>
-</sitemapindex>`
+  const { generateSitemapIndex } = await import('../packages/core/seo')
+  const xml = await generateSitemapIndex(c.env)
 
   return c.text(xml, 200, { 'Content-Type': 'application/xml' })
+})
+
+app.get('/sitemap-categories.xml', async (c) => {
+  const { generateCategorySitemap } = await import('../packages/core/seo')
+  return c.text(await generateCategorySitemap(c.env), 200, { 'Content-Type': 'application/xml' })
+})
+
+app.get('/sitemap/archive/:year/:file', async (c) => {
+  const { year, file } = c.req.param()
+  const month = file.match(/^([0-9]{2})\.xml$/)?.[1] || ''
+  if (!/^[0-9]{4}$/.test(year) || !/^(0[1-9]|1[0-2])$/.test(month)) return c.notFound()
+  const pageText = c.req.query('page') || '1'
+  const page = Number(pageText)
+  if (!/^[1-9][0-9]*$/.test(pageText) || !Number.isSafeInteger(page) || !Number.isSafeInteger((page - 1) * 10000)) return c.notFound()
+  const { generateMonthlyPostSitemap } = await import('../packages/core/seo')
+  return c.text(await generateMonthlyPostSitemap(c.env, year, month, page), 200, { 'Content-Type': 'application/xml' })
 })
 
 app.get('/sitemap.xml', async (c) => {
@@ -648,7 +751,14 @@ app.use('/admin/instagram/*', async (c, next) => {
   return csrfProtection(c, next)
 })
 
+app.use('/api/admin/instagram/*', async (c, next) => {
+  const { csrfProtection } = await import('../packages/core/middleware')
+  return csrfProtection(c, next)
+})
+
 // Editorial AI forms change source, dossier and review state.
+app.use('/admin/news-extractor',async(c,next)=>{const {csrfProtection}=await import('../packages/core/middleware');return csrfProtection(c,next)})
+app.use('/admin/news-extractor/*',async(c,next)=>{const {csrfProtection}=await import('../packages/core/middleware');return csrfProtection(c,next)})
 app.use('/admin/redacao-ia', async (c, next) => {
   const { csrfProtection } = await import('../packages/core/middleware')
   return csrfProtection(c, next)
@@ -916,6 +1026,7 @@ app.get('/admin', async (c) => {
     const csrfToken = getCookie(c, 'admin_csrf')
 
     // Get stats
+    const publishedToday = await getPublishedToday(c.env)
     const postsCount = await c.env.DB.prepare('SELECT COUNT(*) as count FROM posts WHERE status = ?')
       .bind('published')
       .first<{ count: number }>()
@@ -941,7 +1052,8 @@ app.get('/admin', async (c) => {
 
       <section aria-labelledby="dashboard-overview-title">
         <h2 id="dashboard-overview-title" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Indicadores gerais</h2>
-        <div class="stats-grid">
+        <div class="stats-grid dashboard-stats-today">
+          ${renderPublishedToday(publishedToday)}
           <article class="stat-card">
             <div class="stat-top">
               <span class="stat-label">Matérias publicadas</span>
@@ -1208,6 +1320,30 @@ app.post('/admin/categories/:id{[0-9]+}/toggle', async (c) => {
 // ============================================================================
 
 // GET /admin/posts - Lista de posts
+app.use('/admin/guias',async(c,next)=>(await import('../packages/core/middleware')).csrfProtection(c,next))
+app.use('/admin/guias/*',async(c,next)=>(await import('../packages/core/middleware')).csrfProtection(c,next))
+app.get('/admin/guias',async c=>(await import('../packages/core/admin/guides')).handleGuidesAdmin(c))
+app.post('/admin/guias',async c=>(await import('../packages/core/admin/guides')).handleGuideAdminSave(c))
+app.post('/admin/guias/import',async c=>(await import('../packages/core/admin/guides')).handleGuideAdminSave(c,'import'))
+app.get('/admin/guias/:id',async c=>(await import('../packages/core/admin/guides')).handleGuideAdmin(c))
+app.get('/admin/guias/:id/preview',async c=>(await import('../packages/core/web/guides')).handleGuidePreview(c))
+app.post('/admin/guias/:id/:operation',async c=>(await import('../packages/core/admin/guides')).handleGuideAdminSave(c))
+app.use('/admin/meu-dia',async(c,next)=>(await import('../packages/core/middleware')).csrfProtection(c,next))
+app.get('/admin/meu-dia',async c=>(await import('../packages/core/admin/daily-edition')).handleDailyAdmin(c))
+app.post('/admin/meu-dia',async c=>(await import('../packages/core/admin/daily-edition')).handleDailyAdminSave(c))
+app.use('/admin/culture/*',async(c,next)=>(await import('../packages/core/middleware')).csrfProtection(c,next))
+app.get('/admin/culture/events',async c=>(await import('../packages/core/admin/culture-events')).handleCultureEventsAdmin(c))
+app.get('/admin/culture/events/:slug',async c=>(await import('../packages/core/admin/culture-events')).handleCultureEventAdmin(c))
+app.post('/admin/culture/events/:slug',async c=>(await import('../packages/core/admin/culture-events')).handleCultureEventAdminSave(c))
+app.get('/admin/culture/suggestions',async c=>(await import('../packages/core/admin/culture')).handleCultureSuggestionsAdmin(c))
+app.get('/admin/culture/suggestions/:id',async c=>(await import('../packages/core/admin/culture')).handleCultureSuggestionReview(c))
+app.post('/admin/culture/suggestions/:id',async c=>(await import('../packages/core/admin/culture')).handleCultureSuggestionDecision(c))
+
+app.get('/admin/gerar-materias', async (c) => {
+  const { handleGeneratePosts } = await import('../packages/core/admin/generate-posts')
+  return handleGeneratePosts(c)
+})
+
 app.get('/admin/posts', async (c) => {
   const { renderPostsListPage } = await import('../packages/core/admin/posts')
   const { listPosts } = await import('../packages/core/db/posts')
@@ -1225,8 +1361,10 @@ app.get('/admin/posts', async (c) => {
   const month = c.req.query('month') ? parseInt(c.req.query('month')!) : undefined
   const day = c.req.query('day') ? parseInt(c.req.query('day')!) : undefined
 
-  const limit = parseInt(c.req.query('limit') || '20')
-  const page = parseInt(c.req.query('page') || '1')
+  const requestedLimit = Number(c.req.query('limit') || '20')
+  const requestedPage = Number(c.req.query('page') || '1')
+  const limit = Number.isSafeInteger(requestedLimit) && requestedLimit > 0 ? Math.min(requestedLimit, 100) : 20
+  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 && requestedPage <= Math.floor(Number.MAX_SAFE_INTEGER / limit) ? requestedPage : 1
   const offset = (page - 1) * limit
 
   // Get posts
@@ -1239,8 +1377,16 @@ app.get('/admin/posts', async (c) => {
     month,
     day,
     limit,
-    offset
+    offset,
+    includeCount: true
   })
+
+  const lastPage = Math.max(1, Math.ceil(total / limit))
+  if (page > lastPage) {
+    const query = new URLSearchParams(c.req.query())
+    query.set('page', String(lastPage))
+    return c.redirect(`/admin/posts?${query.toString()}`)
+  }
 
   // Get categories and authors for filters
   const categories = await findAllCategories(c.env)
@@ -1258,6 +1404,13 @@ app.get('/admin/posts', async (c) => {
     csrfToken
   }))
 })
+
+app.get('/admin/posts/seo/automation', async c =>
+  (await import('../packages/core/admin/seo-automation')).handleSeoAutomationStatus(c))
+app.get('/admin/posts/:id{[0-9]+}/seo/history', async c =>
+  (await import('../packages/core/admin/seo-automation')).handleSeoHistory(c))
+app.post('/admin/posts/:id{[0-9]+}/seo/revisions/:revisionId{[0-9]+}/restore', async c =>
+  (await import('../packages/core/admin/seo-automation')).handleSeoRestore(c))
 
 // GET /admin/posts/new - Form criar post
 app.get('/admin/posts/new', async (c) => {
@@ -1298,7 +1451,8 @@ app.get('/admin/posts/new', async (c) => {
     user,
     csrfToken,
     cspNonce,
-    defaultAuthorId
+    defaultAuthorId,
+    defaultTemplate: c.req.query('template') === 'liveblog' ? 'liveblog' : undefined
   }))
 })
 
@@ -1445,7 +1599,7 @@ app.get('/admin/posts/:id', async (c) => {
 
 // POST /admin/posts/:id - Atualizar post
 app.post('/admin/posts/:id', async (c) => {
-  const { updatePostSchema } = await import('../packages/core/admin/posts')
+  const { updatePostSchema, buildAdminPostUpdatePayload } = await import('../packages/core/admin/posts')
   const { createPostRevision, getPostById, updatePost } = await import('../packages/core/db/posts')
   const { logAudit, ensureAuthorForAdminUser, validateAuthorId } = await import('../packages/core/db')
 
@@ -1518,9 +1672,7 @@ app.post('/admin/posts/:id', async (c) => {
       return c.redirect(`/admin/posts/${id}?error=content_conflict`, 303)
     }
 
-    const updatePayload = data.content_json?.trim()
-      ? { ...data, content_json: data.content_json, content_markdown: undefined as string | undefined, expected_content_version: expectedVersion }
-      : { ...data, ...(data.content !== undefined ? { content_markdown: data.content } : {}) }
+    const updatePayload = buildAdminPostUpdatePayload(data, currentPost, expectedVersion)
 
     // Update
     await createPostRevision(c.env.DB, currentPost, user.id, 'manual')
@@ -1540,6 +1692,10 @@ app.post('/admin/posts/:id', async (c) => {
     return c.redirect(`/admin/posts/${id}`, 303)
   } catch (error) {
     console.error('[Admin Posts] Update error:', error)
+    if (error && typeof error === 'object' && 'code' in error &&
+      ['SEO_VERSION_CONFLICT', 'SEO_SOURCE_CONFLICT'].includes(String(error.code))) {
+      return c.redirect(`/admin/posts/${id}?error=seo_conflict`, 303)
+    }
     if (error instanceof Error && error.message === 'CONTENT_VERSION_CONFLICT') {
       return c.redirect(`/admin/posts/${id}?error=content_conflict`, 303)
     }
@@ -1724,8 +1880,12 @@ app.post('/admin/posts/:id/schedule', async (c) => {
   const id = parseInt(c.req.param('id'))
 
   try {
-    const formData = await c.req.parseBody()
-    const data = scheduleSchema.parse(formData)
+    const formData = c.get('parsedBody') || await c.req.parseBody()
+    const validation = scheduleSchema.safeParse(formData)
+    if (!validation.success) {
+      return c.redirect(`/admin/posts/${id}?error=${encodeURIComponent(validation.error.issues[0]?.message || 'Confira a data e hora do agendamento.')}`, 303)
+    }
+    const data = validation.data
 
     await schedulePost(c.env.DB, id, data.scheduled_at)
 
@@ -1739,10 +1899,24 @@ app.post('/admin/posts/:id/schedule', async (c) => {
       requestId
     })
 
-    return c.redirect(`/admin/posts/${id}`, 303)
+    return c.redirect(`/admin/posts/${id}?message=post_scheduled`, 303)
   } catch (error) {
     console.error('[Admin Posts] Schedule error:', error)
-    return c.redirect(`/admin/posts/${id}?error=1`, 303)
+    const message = error instanceof Error ? error.message : 'Não foi possível agendar a matéria.'
+    return c.redirect(`/admin/posts/${id}?error=${encodeURIComponent(message)}`, 303)
+  }
+})
+
+app.post('/admin/posts/:id/cancel-schedule', async (c) => {
+  const id = Number(c.req.param('id'))
+  try {
+    const { cancelPostSchedule } = await import('../packages/core/db/posts')
+    const { logAudit } = await import('../packages/core/db')
+    await cancelPostSchedule(c.env.DB, id)
+    await logAudit(c.env, { entityType: 'post', entityId: id, action: 'schedule_cancelled', actorType: 'user', actorId: c.get('adminUser').id, requestId: c.get('requestId') })
+    return c.redirect(`/admin/posts/${id}?message=schedule_cancelled`, 303)
+  } catch (error) {
+    return c.redirect(`/admin/posts/${id}?error=${encodeURIComponent(error instanceof Error ? error.message : 'Não foi possível cancelar o agendamento.')}`, 303)
   }
 })
 
@@ -1785,13 +1959,10 @@ app.get('/admin/live', async (c) => {
   const user = c.get('adminUser')
   const csrfToken = c.get('csrfToken')
 
-  const { posts: activeLiveBlogs } = await listPosts(c.env.DB, {
-    status: 'published'
-  })
-
-  // Filter manually for template === 'liveblog'
-  const active = activeLiveBlogs.filter(p => p.template === 'liveblog' && p.is_live === 1)
-  const recent = activeLiveBlogs.filter(p => p.template === 'liveblog' && p.is_live === 0).slice(0, 10)
+  const [{ posts: active }, { posts: recent }] = await Promise.all([
+    listPosts(c.env.DB, { status: 'published', template: 'liveblog', is_live: 1, limit: 100 }),
+    listPosts(c.env.DB, { status: 'published', template: 'liveblog', is_live: 0, limit: 10 })
+  ])
 
   return c.html(renderLiveCentralDashboard({
     activeLiveBlogs: active,
@@ -1823,7 +1994,8 @@ app.get('/admin/live/:id', async (c) => {
     updates,
     user,
     csrfToken,
-    cspNonce
+    cspNonce,
+    error: c.req.query('error')
   }))
 })
 
@@ -2231,12 +2403,16 @@ app.get('/api/public/posts/:slug/live-updates', async (c) => {
   const { findPostBySlug, findLiveUpdates } = await import('../packages/core/db')
 
   const post = await findPostBySlug(c.env, slug)
-  if (!post) {
+  c.header('Cache-Control', 'no-store')
+  if (!post || post.status !== 'published' || post.template !== 'liveblog') {
     return c.json({ success: false, error: 'Post not found' }, 404)
   }
 
   const updates = await findLiveUpdates(c.env, post.id)
-  return c.json({ success: true, data: updates })
+  const { renderLiveBlogTimeline } = await import('../packages/core/web/liveblog')
+  const { renderMarkdownToHtml } = await import('../packages/core/render/sanitize')
+  const articleContent = post.content_markdown ? renderMarkdownToHtml(post.content_markdown) : post.content || ''
+  return c.json({ success: true, data: updates, is_live: post.is_live === 1, html: renderLiveBlogTimeline(updates, post.is_live === 1, articleContent) })
 })
 
 // LiveBlog Updates (Admin - Create)
@@ -2251,13 +2427,24 @@ app.post('/api/admin/posts/:id/live-updates', async (c) => {
     let body: any
     const contentType = c.req.header('content-type') || ''
 
-    if (contentType.includes('application/json')) {
+    if (c.get('parsedBody')) {
+      body = c.get('parsedBody')
+    } else if (contentType.includes('application/json')) {
       body = await c.req.json()
     } else {
       body = await c.req.parseBody()
     }
 
     const postId = parseInt(id)
+    const { getPostById } = await import('../packages/core/db/posts')
+    const post = await getPostById(c.env.DB, postId)
+    if (!post || post.template !== 'liveblog') return c.notFound()
+    const markdown = body.content_markdown ?? body.content
+    if (typeof markdown !== 'string' || !markdown.trim()) {
+      if (redirectUrl) return c.redirect(`${redirectUrl}?error=content_required`, 303)
+      return c.json({ success: false, error: 'O conteúdo da atualização é obrigatório.' }, 400)
+    }
+    const { renderMarkdownToHtml } = await import('../packages/core/render/sanitize')
 
     // Resolve author_id correctly (authors table ID, not users table ID)
     const { ensureAuthorForAdminUser } = await import('../packages/core/db')
@@ -2268,9 +2455,9 @@ app.post('/api/admin/posts/:id/live-updates', async (c) => {
       post_id: postId,
       author_id: authorId,
       title: body.title as string,
-      content: body.content as string,
-      content_markdown: (body.content_markdown || body.content) as string,
-      is_pinned: body.is_pinned ? 1 : 0
+      content: renderMarkdownToHtml(markdown),
+      content_markdown: markdown,
+      is_pinned: body.is_pinned === '1' || body.is_pinned === 1 || body.is_pinned === true ? 1 : 0
     })
 
     await logAudit(c.env, {
@@ -3040,6 +3227,10 @@ app.get('/admin/redacao-ia', async (c) => {
   return renderEditorialAiDashboard(c)
 })
 
+app.get('/admin/news-extractor',async c=>(await import('../packages/core/admin/news-extractor')).handleExtractorAdmin(c))
+app.post('/admin/news-extractor/commands',async c=>(await import('../packages/core/admin/news-extractor')).handleExtractorAdminSave(c))
+app.post('/admin/news-extractor/retry',async c=>(await import('../packages/core/admin/news-extractor')).handleExtractorAdminSave(c))
+
 app.get('/admin/redacao-ia/fontes', async (c) => {
   const { renderEditorialSourcesPage } = await import('../packages/core/admin/editorial-ai')
   return renderEditorialSourcesPage(c)
@@ -3529,6 +3720,30 @@ app.get('/admin/instagram', async (c) => {
   return handleInstagramList(c)
 })
 
+app.post('/admin/instagram/connect', async c => (await import('../packages/core/instagram/direct')).handleInstagramConnect(c))
+app.get('/admin/instagram/connect/callback', async c => (await import('../packages/core/instagram/direct')).handleInstagramConnectCallback(c))
+app.post('/admin/instagram/disconnect', async c => (await import('../packages/core/instagram/direct')).handleInstagramDisconnect(c))
+app.get('/admin/instagram/audience', async c => (await import('../packages/core/admin/instagram-audience')).handleInstagramAudience(c))
+app.get('/admin/instagram/campaigns', async c => (await import('../packages/core/admin/instagram-campaigns')).handleInstagramCampaigns(c))
+app.post('/admin/instagram/campaigns', async c => (await import('../packages/core/admin/instagram-campaigns')).handleInstagramCampaignSave(c))
+app.post('/admin/instagram/campaigns/:id{[0-9]+}/state', async c => (await import('../packages/core/admin/instagram-campaigns')).handleInstagramCampaignState(c))
+app.post('/admin/instagram/audience/sync', async c => (await import('../packages/core/admin/instagram-audience')).handleInstagramAudienceSync(c))
+app.post('/admin/instagram/audience/pause', async c => (await import('../packages/core/admin/instagram-audience')).handleInstagramLinkPause(c))
+app.post('/admin/instagram/:id{[0-9]+}/link', async c => (await import('../packages/core/admin/instagram-audience')).handleInstagramLinkCampaign(c))
+app.use('/webhooks/instagram', async (c,next) => {
+  const {bodyLimit}=await import('hono/body-limit')
+  return bodyLimit({maxSize:256*1024,onError:c=>c.text('Payload too large',413)})(c,next)
+})
+app.get('/webhooks/instagram', async c => (await import('../packages/core/instagram/links')).handleInstagramWebhook(c))
+app.post('/webhooks/instagram', async c => (await import('../packages/core/instagram/links')).handleInstagramWebhook(c))
+app.get('/ir/instagram/:token', async c => (await import('../packages/core/instagram/links')).handleInstagramArticleLink(c))
+app.use('/api/admin/instagram/:id{[0-9]+}/publish-direct', async (c, next) => {
+  const { bodyLimit } = await import('hono/body-limit')
+  return bodyLimit({ maxSize: 9 * 1024 * 1024, onError: c => c.json({ error: 'A imagem excede o tamanho permitido.' }, 413) })(c, next)
+})
+app.post('/api/admin/instagram/:id{[0-9]+}/publish-direct', async c => (await import('../packages/core/instagram/direct')).handleInstagramDirectPublish(c))
+app.get('/instagram/media/:token', async c => (await import('../packages/core/instagram/direct')).handleInstagramDirectImage(c))
+
 app.get('/admin/instagram/new', async (c) => {
   const { handleInstagramNew } = await import('../packages/core/admin/instagram')
   return handleInstagramNew(c)
@@ -3578,6 +3793,39 @@ app.get('/artes/editoriais/:token', async (c) => {
 app.get('/artes/stories/:token', async (c) => {
   const { handleInstagramStoryArtwork } = await import('../packages/core/web/instagram')
   return handleInstagramStoryArtwork(c)
+})
+
+app.post('/admin/instagram/:id{[0-9]+}/audio/generate', async c => {
+  const { handleAudioGenerate } = await import('../packages/core/instagram/audio')
+  return handleAudioGenerate(c)
+})
+app.get('/api/admin/instagram/:id{[0-9]+}/audio/session', async c => {
+  const { handleAudioSession } = await import('../packages/core/instagram/audio')
+  return handleAudioSession(c)
+})
+app.post('/api/admin/instagram/:id{[0-9]+}/audio/generate', async c => {
+  const { handleAudioGenerate } = await import('../packages/core/instagram/audio')
+  return handleAudioGenerate(c)
+})
+app.get('/api/admin/instagram/:id{[0-9]+}/audio/status', async c => {
+  const { handleAudioStatus } = await import('../packages/core/instagram/audio')
+  return handleAudioStatus(c)
+})
+app.get('/admin/instagram/:id{[0-9]+}/audio/status', async c => {
+  const { handleAudioStatus } = await import('../packages/core/instagram/audio')
+  return handleAudioStatus(c)
+})
+app.get('/admin/instagram/:id{[0-9]+}/audio/:kind', async c => {
+  const { handleAudioMedia } = await import('../packages/core/instagram/audio')
+  return handleAudioMedia(c)
+})
+app.post('/api/story-audio/claim', async c => {
+  const { handleAudioClaim } = await import('../packages/core/instagram/audio')
+  return handleAudioClaim(c)
+})
+app.on(['GET','PUT','POST'], '/api/story-audio/jobs/:job/:kind', async c => {
+  const { handleAudioJob } = await import('../packages/core/instagram/audio')
+  return handleAudioJob(c)
 })
 
 // Authenticated n8n callback for caption and Meta publication status.
@@ -3720,6 +3968,7 @@ app.post('/admin/subscribers/:id{[0-9]+}/grant-complimentary', async (c) => {
 
 app.get('/i/:key{.+}', async (c) => {
   const key = c.req.param('key')
+  if (key.startsWith('private/')) return c.notFound()
   const w = c.req.query('w')
   const h = c.req.query('h')
   const fit = c.req.query('fit')

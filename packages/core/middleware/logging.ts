@@ -3,6 +3,7 @@
  */
 
 import type { Context, Next } from 'hono'
+import { html } from 'hono/html'
 import { generateRequestId, createLogger } from '../types'
 
 export async function loggingMiddleware(c: Context, next: Next): Promise<void> {
@@ -62,6 +63,16 @@ export function errorHandler(error: Error, c: Context) {
     error: error.message,
     stack: error.stack,
   })
+
+  if (/D1(?:_ERROR| DB).*?(?:overloaded|Too many resources consumed)/i.test(error.message)) {
+    c.header('Retry-After', '15')
+    c.header('Cache-Control', 'no-store')
+    const message = 'O site está temporariamente ocupado. Aguarde alguns segundos e tente novamente.'
+    if (['GET', 'HEAD'].includes(c.req.method) && !c.req.path.startsWith('/api/') && c.req.header('Accept')?.includes('text/html')) {
+      return c.html(html`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Tente novamente em instantes · Diário do Povo</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f6f4ee;color:#153b4b;font:17px/1.6 system-ui,sans-serif}main{box-sizing:border-box;width:min(560px,100%);padding:32px}h1{font-size:clamp(26px,6vw,36px);line-height:1.2}a{display:inline-block;background:#153b4b;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none}small{display:block;margin-top:24px;color:#53646c;overflow-wrap:anywhere}</style></head><body><main><p>DIÁRIO DO POVO</p><h1>Voltamos em instantes</h1><p>${message}</p><a href="">Tentar novamente</a><small>Referência: ${requestId}</small></main></body></html>`, 503)
+    }
+    return c.json({ success: false, error: message, code: 'DB_TEMPORARILY_BUSY', requestId }, 503)
+  }
 
   // Não expor detalhes internos em produção, exceto se for dev ou flag de debug
   const isDev = c.env?.CF_ENV !== 'prod'

@@ -117,10 +117,9 @@ describe('Posts Repository SQL', () => {
     
     it('schedulePost valida data futura', async () => {
       const { schedulePost } = await import('../../packages/core/db/posts')
-      const source = schedulePost.toString()
-      
-      // Deve ter validação de data futura
-      expect(source).toMatch(/new Date.*<=.*new Date/i)
+      const prepare = vi.fn()
+      await expect(schedulePost({ prepare } as any, 1, '2000-01-01T00:00:00.000Z')).rejects.toThrow('futuras')
+      expect(prepare).not.toHaveBeenCalled()
     })
     
     it('schedulePost atualiza scheduled_at', async () => {

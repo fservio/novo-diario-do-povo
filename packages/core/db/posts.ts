@@ -4,6 +4,8 @@
  */
 
 import type { D1Database } from '@cloudflare/workers-types'
+import { mergeSeoMetadata, readSeoMetadata, seoSnapshot, saveSeoMetadata, SeoAutomationError, seoMetadataPartialSchema } from '../seo-automation'
+import { normalizePublicationSchedule } from '../post-scheduling'
 import { renderMarkdownToHtml, sanitizeHtml } from '../render/sanitize'
 import { editorialDocumentHasText, renderEditorialDocumentToHtml, type EditorialContentFormat } from '../editorial-content'
 
@@ -34,6 +36,10 @@ export interface Post {
   // SEO
   seo_title: string | null
   seo_description: string | null
+  seo_primary_keyword?: string | null
+  seo_secondary_keywords?: string[] | string | null
+  seo_version?: number
+  seo_updated_at?: string | null
   seo_canonical: string | null
   seo_noindex: number
 
@@ -75,6 +81,8 @@ export interface Post {
 }
 
 export interface PostFilters {
+  template?: string
+  is_live?: number
   status?: string
   category_id?: number
   author_id?: number
@@ -109,6 +117,8 @@ export interface CreatePostInput {
   opinion_featured?: number
   seo_title?: string
   seo_description?: string
+  seo_primary_keyword?: string
+  seo_secondary_keywords?: string[]
   seo_canonical?: string
   seo_noindex?: number
   social_title?: string
@@ -135,6 +145,7 @@ export interface UpdatePostInput {
   content_markdown?: string
   content_json?: string
   expected_content_version?: number
+  expected_seo_version?: number
   category_id?: number
   author_id?: number
   cover_media_id?: number
@@ -143,6 +154,8 @@ export interface UpdatePostInput {
   opinion_featured?: number
   seo_title?: string
   seo_description?: string
+  seo_primary_keyword?: string
+  seo_secondary_keywords?: string[]
   seo_canonical?: string
   seo_noindex?: number
   social_title?: string
@@ -229,6 +242,15 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
 
   let whereConditions: string[] = []
   let params: any[] = []
+
+  if (filters.template) {
+    whereConditions.push('p.template = ?')
+    params.push(filters.template)
+  }
+  if (filters.is_live !== undefined) {
+    whereConditions.push('p.is_live = ?')
+    params.push(filters.is_live)
+  }
 
   if (status) {
     whereConditions.push('p.status = ?')
@@ -342,7 +364,7 @@ export async function listPosts(db: D1Database, filters: PostFilters = {}): Prom
     LEFT JOIN media sm ON sm.id = p.social_image_media_id
     LEFT JOIN media ma ON ma.id = a.avatar_media_id
     ${whereClause}
-    ORDER BY p.created_at DESC
+    ORDER BY p.created_at DESC, p.id DESC
     LIMIT ? OFFSET ?
   `
 
@@ -440,6 +462,8 @@ export async function getPostBySlug(db: D1Database, slug: string): Promise<Post 
  */
 export async function createPost(db: D1Database, input: CreatePostInput): Promise<number> {
   const now = new Date().toISOString()
+  const seoInput = Object.fromEntries(['seo_title','seo_description','seo_primary_keyword','seo_secondary_keywords'].filter(key => (input as any)[key] !== undefined).map(key => [key,(input as any)[key]]))
+  input = {...input,...seoMetadataPartialSchema.parse(seoInput)}
 
   // Gera slug único
   const baseSlug = input.slug || slugify(input.title)
@@ -511,6 +535,10 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
   `).bind(...bindValues).run()
 
   const postId = result.meta.last_row_id
+  if (postId && (input.seo_primary_keyword !== undefined || input.seo_secondary_keywords !== undefined)) {
+    const metadata = mergeSeoMetadata({}, Object.fromEntries(['seo_title','seo_description','seo_primary_keyword','seo_secondary_keywords'].filter(key => (input as any)[key] !== undefined).map(key => [key,(input as any)[key]])))
+    await db.prepare('UPDATE posts SET seo_primary_keyword=?,seo_secondary_keywords=? WHERE id=?').bind(metadata.seo_primary_keyword || null, JSON.stringify(metadata.seo_secondary_keywords), postId).run()
+  }
 
   if (!postId) {
     console.error('[createPost] ERROR: No post ID returned!', {
@@ -541,6 +569,34 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
  */
 export async function updatePost(db: D1Database, id: number, input: UpdatePostInput): Promise<void> {
   const now = new Date().toISOString()
+  const seoKeys = ['seo_title','seo_description','seo_primary_keyword','seo_secondary_keywords']
+  const hasSeo = seoKeys.some(key => (input as any)[key] !== undefined)
+  let seoBase: any = null, nextSeo: any = null
+  if (hasSeo) {
+    seoBase = await db.prepare('SELECT * FROM posts WHERE id=?').bind(id).first<any>()
+    if (!seoBase) throw new SeoAutomationError(404,'POST_NOT_FOUND')
+    if (input.expected_seo_version !== undefined && (seoBase.seo_version || 0) !== input.expected_seo_version) throw new SeoAutomationError(409,'SEO_VERSION_CONFLICT')
+    nextSeo = mergeSeoMetadata(seoBase, Object.fromEntries(seoKeys.filter(key => (input as any)[key] !== undefined).map(key => [key,(input as any)[key]])))
+    input = {...input}
+    // A full editor form may submit unchanged editorial values together with SEO.
+    for (const key of Object.keys(input)) {
+      if (seoKeys.includes(key) || key.startsWith('expected_')) continue
+      const value = (input as any)[key]
+      if (value === undefined) { delete (input as any)[key]; continue }
+      if (key === 'tags') {
+        const tags = await db.prepare('SELECT tag_id FROM posts_tags WHERE post_id=? ORDER BY tag_id').bind(id).all<any>()
+        if (JSON.stringify((value || []).slice().sort((a:number,b:number)=>a-b)) === JSON.stringify((tags.results || []).map(t => t.tag_id))) delete input.tags
+      } else if (key === 'content') {
+        if (sanitizeHtml(value) === seoBase.content) delete input.content
+      } else if (key === 'content_json' || key === 'content_markdown') {
+        if ((value || null) === (seoBase[key] || null)) delete (input as any)[key]
+      } else if (value === seoBase[key] || (value === '' && seoBase[key] === null)) delete (input as any)[key]
+    }
+    if (!Object.keys(input).some(key => !seoKeys.includes(key) && !key.startsWith('expected_'))) {
+      await saveSeoMetadata(db,id,nextSeo,{expectedSeoVersion:input.expected_seo_version,expectedSnapshot:seoSnapshot(seoBase),actor:'editor'})
+      return
+    }
+  }
 
   // Build dynamic UPDATE
   const fields: string[] = []
@@ -625,14 +681,10 @@ export async function updatePost(db: D1Database, id: number, input: UpdatePostIn
     values.push(input.opinion_featured)
   }
 
-  if (input.seo_title !== undefined) {
-    fields.push('seo_title = ?')
-    values.push(input.seo_title || null)
-  }
-
-  if (input.seo_description !== undefined) {
-    fields.push('seo_description = ?')
-    values.push(input.seo_description || null)
+  const seoChanged = hasSeo && JSON.stringify(readSeoMetadata(seoBase)) !== JSON.stringify(nextSeo)
+  if (seoChanged) {
+    fields.push('seo_title = ?','seo_description = ?','seo_primary_keyword = ?','seo_secondary_keywords = ?','seo_version = COALESCE(seo_version,0) + 1','seo_updated_at = ?')
+    values.push(nextSeo.seo_title || null,nextSeo.seo_description || null,nextSeo.seo_primary_keyword || null,JSON.stringify(nextSeo.seo_secondary_keywords),now)
   }
 
   if (input.seo_canonical !== undefined) {
@@ -712,9 +764,21 @@ export async function updatePost(db: D1Database, id: number, input: UpdatePostIn
     const where = input.expected_content_version !== undefined
       ? 'id = ? AND content_version = ?'
       : 'id = ?'
-    const result = await db.prepare(
-      `UPDATE posts SET ${fields.join(', ')} WHERE ${where}`
-    ).bind(...values, id, ...(input.expected_content_version !== undefined ? [input.expected_content_version] : [])).run()
+    const guard = hasSeo ? Object.entries(seoSnapshot(seoBase)) : []
+    const guardedWhere = where + guard.map(([key]) => ` AND ${key} IS ?`).join('')
+    const params = [...values,id,...(input.expected_content_version !== undefined ? [input.expected_content_version] : []),...guard.map(([,value]) => value)]
+    let result
+    if (seoChanged) {
+      const operationKey = crypto.randomUUID()
+      const batch = await db.batch([
+        db.prepare(`INSERT INTO post_seo_revisions(post_id,operation_key,before_json,after_json,source_snapshot,evidence_json,reason,actor,created_at)
+          SELECT id,?,?,?,?,?,'Edição no CMS','editor',? FROM posts WHERE ${guardedWhere}`)
+          .bind(operationKey,JSON.stringify(readSeoMetadata(seoBase)),JSON.stringify(nextSeo),JSON.stringify(seoSnapshot(seoBase)),'{}',now,id,...(input.expected_content_version !== undefined ? [input.expected_content_version] : []),...guard.map(([,value])=>value)),
+        db.prepare(`UPDATE posts SET ${fields.join(', ')} WHERE ${guardedWhere}`).bind(...params)
+      ])
+      result = batch[1]
+    } else result = await db.prepare(`UPDATE posts SET ${fields.join(', ')} WHERE ${guardedWhere}`).bind(...params).run()
+    if (hasSeo && !result.meta.changes) throw new SeoAutomationError(409,'SEO_SOURCE_CONFLICT')
     if (input.expected_content_version !== undefined && (result.meta.changes || 0) === 0) {
       throw new Error('CONTENT_VERSION_CONFLICT')
     }
@@ -844,11 +908,15 @@ export async function autosaveVisualPost(db: D1Database, input: {
  * Publica post
  */
 export async function publishPost(db: D1Database, id: number): Promise<void> {
+  const { publicationLinksRequired, hasPublicationLink, publicationLinkError } = await import('../seo/internal-links')
+  if (await publicationLinksRequired(db) && !await hasPublicationLink(db, id)) {
+    throw new Error(publicationLinkError)
+  }
   const now = new Date().toISOString()
 
   await db.prepare(`
     UPDATE posts 
-    SET status = 'published', published_at = ?, updated_at = ?
+    SET status = 'published', published_at = ?, scheduled_at = NULL, updated_at = ?
     WHERE id = ?
   `).bind(now, now, id).run()
 }
@@ -858,17 +926,20 @@ export async function publishPost(db: D1Database, id: number): Promise<void> {
  */
 export async function schedulePost(db: D1Database, id: number, scheduledAt: string): Promise<void> {
   const now = new Date().toISOString()
-
-  // Valida que scheduledAt é futuro
-  if (new Date(scheduledAt) <= new Date()) {
-    throw new Error('scheduled_at must be in the future')
-  }
-
-  await db.prepare(`
+  const normalized = normalizePublicationSchedule(scheduledAt)
+  const result = await db.prepare(`
     UPDATE posts 
-    SET status = 'published', scheduled_at = ?, updated_at = ?
-    WHERE id = ?
-  `).bind(scheduledAt, now, id).run()
+    SET status = 'draft', published_at = NULL, scheduled_at = ?, updated_at = ?
+    WHERE id = ? AND status IN ('draft', 'review')
+  `).bind(normalized, now, id).run()
+  if (!result.meta.changes) throw new Error('Somente rascunhos ou matérias em revisão podem ser agendados.')
+}
+
+export async function cancelPostSchedule(db: D1Database, id: number): Promise<void> {
+  const result = await db.prepare(`
+    UPDATE posts SET scheduled_at = NULL, updated_at = ? WHERE id = ? AND status = 'draft' AND scheduled_at IS NOT NULL
+  `).bind(new Date().toISOString(), id).run()
+  if (!result.meta.changes) throw new Error('Esta matéria não possui um agendamento pendente.')
 }
 
 /**
@@ -879,7 +950,7 @@ export async function archivePost(db: D1Database, id: number): Promise<void> {
 
   await db.prepare(`
     UPDATE posts 
-    SET status = 'archived', updated_at = ?
+    SET status = 'archived', scheduled_at = NULL, updated_at = ?
     WHERE id = ?
   `).bind(now, id).run()
 }

@@ -44,6 +44,7 @@ export async function renderIntegrationsPage(c: Context<{ Bindings: Env; Variabl
     ${error ? `<div class="newsletter-notice newsletter-notice--error" role="alert">${escapeHtml(error)}</div>` : ''}
 
     <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2rem;">
+      <div class="card"><h3>NewsExtractor</h3><p>Cadastre fontes RSS, envie artigos individuais e acompanhe as coletas pela redação.</p><a class="btn" href="/admin/news-extractor">Gerenciar coleta de fontes</a></div>
       <!-- n8n Card -->
       <div class="card">
         <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem;">
@@ -130,15 +131,19 @@ export async function renderIntegrationsPage(c: Context<{ Bindings: Env; Variabl
       <div class="card integration-instagram-card">
         <div class="integration-instagram-head">
           <div class="integration-instagram-icon">IG</div>
-          <div><p class="page-kicker">Distribuição social</p><h3>Instagram via n8n</h3><span class="newsletter-provider ${instagramConfig.publishReady ? 'is-ready' : ''}"><i></i>${instagramConfig.publishReady ? 'Publicação configurada' : 'Configuração incompleta'}</span></div>
+          <div><p class="page-kicker">Distribuição social</p><h3>Instagram · Publicação</h3><span class="newsletter-provider ${instagramConfig.publishReady ? 'is-ready' : ''}"><i></i>${instagramConfig.publishReady ? 'Publicação configurada' : 'Configuração incompleta'}</span></div>
         </div>
-        <p class="integration-instagram-copy">O CMS mantém a revisão editorial. O n8n gera a legenda, rasteriza a arte e publica pela API oficial da Meta.</p>
+        <p class="integration-instagram-copy">Conecte a conta profissional pelo Instagram Login para publicar o JPEG aprovado diretamente pelo Diário. A geração de legenda pelo n8n continua opcional.</p>
+        <p>${instagramConfig.directConnected ? `Conta conectada: @${escapeHtml(instagramConfig.directUsername)} · token válido até ${escapeHtml(instagramConfig.directExpiresAt)}` : 'Conta ainda não conectada ou autorização expirada.'}</p>
+        <form method="post" action="/admin/instagram/connect">${renderCsrfInput(csrfToken)}<button class="btn" type="submit">Conectar ou renovar Instagram</button></form>
+        ${instagramConfig.directUsername ? `<form method="post" action="/admin/instagram/disconnect">${renderCsrfInput(csrfToken)}<button class="btn btn-outline" type="submit">Desconectar conta</button></form>` : ''}
+        <p><small>URL de retorno para cadastrar no aplicativo: <code>${escapeHtml(instagramConfig.directRedirectUri)}</code></small></p>
         <form method="post" action="/admin/integrations/instagram" class="integration-instagram-form">
           ${renderCsrfInput(csrfToken)}
           <div class="form-group"><label for="instagram-account-label">Conta de destino</label><input class="form-control" id="instagram-account-label" name="account_label" maxlength="100" value="${escapeHtml(instagramConfig.accountLabel)}" placeholder="@diariodopovo"></div>
           <div class="form-group"><label for="instagram-caption-webhook">Webhook de legenda</label><input class="form-control" id="instagram-caption-webhook" name="caption_webhook_url" type="url" value="${escapeHtml(instagramConfig.captionWebhookUrl)}" placeholder="https://n8n.exemplo.com/webhook/instagram-caption"><small>Deve responder com caption, hashtags e alt_text.</small></div>
-          <div class="form-group"><label for="instagram-publish-webhook">Webhook de publicação</label><input class="form-control" id="instagram-publish-webhook" name="publish_webhook_url" type="url" value="${escapeHtml(instagramConfig.publishWebhookUrl)}" placeholder="https://n8n.exemplo.com/webhook/instagram-publish"><small>Recebe a arte aprovada e devolve o resultado da Meta.</small></div>
-          <div class="integration-instagram-security"><span>Segurança</span><p>As chamadas usam a chave do n8n e o segredo de webhook já protegidos no ambiente.</p></div>
+          <div class="form-group"><label for="instagram-publish-webhook">Webhook de publicação legado (opcional)</label><input class="form-control" id="instagram-publish-webhook" name="publish_webhook_url" type="url" value="${escapeHtml(instagramConfig.publishWebhookUrl)}" placeholder="https://n8n.exemplo.com/webhook/instagram-publish"><small>Recebe a arte aprovada e devolve o resultado da Meta.</small></div>
+          <div class="integration-instagram-security"><span>Segurança</span><p>O token do Instagram fica criptografado no servidor. Os webhooks opcionais usam as credenciais do n8n.</p></div>
           <button class="btn" type="submit">Salvar integração do Instagram</button>
         </form>
       </div>

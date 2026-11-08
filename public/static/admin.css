@@ -1078,7 +1078,9 @@ textarea.form-control { min-height: 120px; line-height: 1.6; resize: vertical; }
 .instagram-last-error p { margin: 0.15rem 0 0; font-size: 0.63rem; }
 
 /* Instagram format variants */
-.instagram-format-tabs { display: inline-grid; grid-template-columns: repeat(2,minmax(170px,1fr)); gap: .4rem; margin: 0 0 1rem; padding: .35rem; border: 1px solid var(--border); border-radius: 12px; background: #edf2f4; }
+.instagram-format-tabs { display: inline-grid; grid-template-columns: repeat(3,minmax(150px,1fr)); gap: .4rem; margin: 0 0 1rem; padding: .35rem; border: 1px solid var(--border); border-radius: 12px; background: #edf2f4; }
+[data-instagram-format-panel][hidden], [data-audio-download][hidden], [data-audio-video][hidden], [data-audio-player][hidden] { display: none !important; }
+[data-audio-player] { width: 100%; }
 .instagram-format-tabs button { display: flex; min-height: 54px; align-items: flex-start; flex-direction: column; justify-content: center; padding: .65rem .95rem; border: 0; border-radius: 9px; background: transparent; color: var(--text-muted); cursor: pointer; text-align: left; }
 .instagram-format-tabs button strong { color: inherit; font-family: Georgia,"Times New Roman",serif; font-size: 1rem; }
 .instagram-format-tabs button span { margin-top: .12rem; font-size: .6rem; font-weight: 700; letter-spacing: .04em; }

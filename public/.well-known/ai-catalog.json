@@ -1,0 +1,34 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "Jornal Diário do Povo",
+    "documentationUrl": "https://diario.dopovo.com.br/llms.txt",
+    "logoUrl": "https://diario.dopovo.com.br/static/logo-dp.png"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:diario.dopovo.com.br:news:rss",
+      "displayName": "Notícias recentes do Diário do Povo",
+      "type": "application/rss+xml",
+      "url": "https://diario.dopovo.com.br/rss.xml",
+      "description": "Feed público de leitura com títulos, resumos, datas e links de notícias do Piauí, do Brasil e do mundo.",
+      "tags": ["notícias", "Piauí", "Brasil", "mundo", "pt-BR"],
+      "representativeQueries": [
+        "Quais são as notícias mais recentes do Diário do Povo?",
+        "Onde encontro títulos, datas e links das últimas notícias do jornal?"
+      ]
+    },
+    {
+      "identifier": "urn:air:diario.dopovo.com.br:news:sitemaps",
+      "displayName": "Índice público de notícias e editorias",
+      "type": "application/xml",
+      "url": "https://diario.dopovo.com.br/sitemap-index.xml",
+      "description": "Índice de sitemaps para descobrir URLs públicas do jornal, incluindo editorias e arquivos de notícias.",
+      "tags": ["sitemap", "notícias", "arquivo", "pt-BR"],
+      "representativeQueries": [
+        "Onde posso descobrir as URLs públicas de notícias do Diário do Povo?",
+        "Como encontro os sitemaps das editorias e dos arquivos do jornal?"
+      ]
+    }
+  ]
+}

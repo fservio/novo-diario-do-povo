@@ -8,32 +8,35 @@ import { getPostUrl } from '../utils/post'
 
 // Hardcoded production domain to ensure compliance
 const PROD_DOMAIN = 'https://diario.dopovo.com.br'
+export const SITEMAP_PAGE_SIZE = 10000
 
 // ============================================================================
 // 1. Sitemap Index (Central Hub)
 // ============================================================================
 
 export async function generateSitemapIndex(env: Env): Promise<string> {
-  const lastMod = new Date().toISOString()
 
   // Get available months for archives
   const months = await listPostMonths(env)
 
-  const archiveSitemaps = months.map(m => `
+  const archiveSitemaps = months.flatMap(m => {
+    const pages = Math.max(1, Math.ceil(Number(m.total || 0) / SITEMAP_PAGE_SIZE))
+    return Array.from({ length: pages }, (_, index) => `
   <sitemap>
-    <loc>${PROD_DOMAIN}/sitemap/archive/${m.year}/${m.month}.xml</loc>
-    <lastmod>${lastMod}</lastmod>
-  </sitemap>`).join('')
+    <loc>${PROD_DOMAIN}/sitemap/archive/${m.year}/${m.month}.xml${index ? `?page=${index + 1}` : ''}</loc>
+  </sitemap>`)
+  }).join('')
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap>
     <loc>${PROD_DOMAIN}/sitemap-news.xml</loc>
-    <lastmod>${lastMod}</lastmod>
   </sitemap>
   <sitemap>
     <loc>${PROD_DOMAIN}/sitemap-categories.xml</loc>
-    <lastmod>${lastMod}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>${PROD_DOMAIN}/sitemap-guias.xml</loc>
   </sitemap>
 ${archiveSitemaps}
 </sitemapindex>`
@@ -63,13 +66,14 @@ export async function generateNewsSitemap(env: Env): Promise<string> {
     INNER JOIN categories c ON c.id = p.category_id
     LEFT JOIN media m ON p.cover_media_id = m.id
     WHERE p.status = 'published'
-    AND p.published_at >= ?
+    AND datetime(p.published_at) >= datetime(?)
+    AND datetime(p.published_at) <= datetime('now')
     AND p.seo_noindex = 0
     ORDER BY p.published_at DESC
     LIMIT 1000
   `).bind(timeWindow.toISOString()).all()
 
-  const urls = (recentPosts.results || []).map((post: any) => {
+  const urls = (recentPosts.results || []).filter((post: any) => isSitemapCanonical(post)).map((post: any) => {
     const url = getPostUrl(post, PROD_DOMAIN)
 
     // Format date with timezone -03:00 (Sao Paulo)
@@ -84,18 +88,18 @@ export async function generateNewsSitemap(env: Env): Promise<string> {
       const imgUrl = `${PROD_DOMAIN}/i/${post.featured_image_key}`
       imageTag = `
     <image:image>
-      <image:loc>${imgUrl}</image:loc>
+      <image:loc>${escapeXml(imgUrl)}</image:loc>
       ${post.featured_image_alt ? `<image:title>${escapeXml(post.featured_image_alt)}</image:title>` : ''}
     </image:image>`
     }
 
     return `
   <url>
-    <loc>${url}</loc>
+    <loc>${escapeXml(url)}</loc>
     <news:news>
       <news:publication>
         <news:name>${escapeXml(siteName)}</news:name>
-        <news:language>pt-br</news:language>
+        <news:language>pt</news:language>
       </news:publication>
       <news:publication_date>${isoDate}</news:publication_date>
       <news:title>${escapeXml(post.title)}</news:title>
@@ -121,7 +125,7 @@ export async function generateCategorySitemap(env: Env): Promise<string> {
 
   const urls = (categories.results || []).map((c: any) => `
   <url>
-    <loc>${PROD_DOMAIN}/categoria/${c.slug}</loc>
+    <loc>${PROD_DOMAIN}/categoria/${escapeXml(c.slug)}</loc>
     <changefreq>hourly</changefreq>
     <priority>0.9</priority>
   </url>`).join('')
@@ -142,61 +146,19 @@ ${urls}
 }
 
 export async function generateFullSitemap(env: Env, _baseUrl?: string): Promise<string> {
-  const [postsResult, categoriesResult] = await Promise.all([
-    env.DB.prepare(`
-      SELECT p.slug, p.published_at, p.updated_at
-      FROM posts p
-      WHERE p.status = 'published'
-      AND p.seo_noindex = 0
-      ORDER BY p.published_at DESC
-      LIMIT 50000
-    `).all(),
-    env.DB.prepare(`
-      SELECT slug
-      FROM categories
-      WHERE is_active = 1
-      ORDER BY display_order ASC, name ASC
-    `).all()
-  ])
-
-  const homeUrl = `
-  <url>
-    <loc>${PROD_DOMAIN}/</loc>
-    <changefreq>hourly</changefreq>
-    <priority>1.0</priority>
-  </url>`
-
-  const categoryUrls = (categoriesResult.results || []).map((category: any) => `
-  <url>
-    <loc>${PROD_DOMAIN}/categoria/${escapeXml(category.slug)}</loc>
-    <changefreq>hourly</changefreq>
-    <priority>0.8</priority>
-  </url>`).join('')
-
-  const postUrls = (postsResult.results || []).map((post: any) => {
-    const lastModified = post.updated_at || post.published_at || new Date().toISOString()
-    return `
-  <url>
-    <loc>${getPostUrl(post, PROD_DOMAIN)}</loc>
-    <lastmod>${new Date(lastModified).toISOString()}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.7</priority>
-  </url>`
-  }).join('')
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${homeUrl}
-${categoryUrls}
-${postUrls}
-</urlset>`
+  // Preserve the submitted legacy endpoint while discovering the entire archive.
+  // A flat list of 50,000 articles plus home/categories exceeds Google's limit.
+  return generateSitemapIndex(env)
 }
 
 // ============================================================================
 // 4. Monthly Archive Sitemap
 // ============================================================================
 
-export async function generateMonthlyPostSitemap(env: Env, year: string, month: string): Promise<string> {
+export async function generateMonthlyPostSitemap(env: Env, year: string, month: string, page = 1): Promise<string> {
+  if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger((page - 1) * SITEMAP_PAGE_SIZE)) {
+    throw new Error('Invalid sitemap page')
+  }
   // Construct date range for SQLite (ISO 8601 strings)
   const validMonth = month.padStart(2, '0')
   const startDate = `${year}-${validMonth}-01T00:00:00`
@@ -216,18 +178,19 @@ export async function generateMonthlyPostSitemap(env: Env, year: string, month: 
 
     const posts = await env.DB.prepare(`
       SELECT 
-        p.slug, p.updated_at, p.published_at, 
+        p.slug, p.updated_at, p.published_at, p.seo_canonical,
         m.r2_key as featured_image_key,
         m.alt as featured_image_alt
       FROM posts p
       LEFT JOIN media m ON p.cover_media_id = m.id
       WHERE p.status = 'published' 
       AND p.seo_noindex = 0
-      AND p.published_at >= ?
-      AND p.published_at < ?
-      ORDER BY p.published_at DESC
-      LIMIT 50000
-    `).bind(startDate, endDate).all()
+      AND datetime(p.published_at) >= datetime(?)
+      AND datetime(p.published_at) < datetime(?)
+      AND datetime(p.published_at) <= datetime('now')
+      ORDER BY p.published_at DESC, p.id DESC
+      LIMIT ? OFFSET ?
+    `).bind(startDate, endDate, SITEMAP_PAGE_SIZE, (page - 1) * SITEMAP_PAGE_SIZE).all()
 
     console.log(`[Sitemap] Found ${posts.results?.length || 0} posts for ${year}-${month}`)
 
@@ -250,7 +213,7 @@ export async function generateMonthlyPostSitemap(env: Env, year: string, month: 
       }
     }
 
-    const urls = (posts.results || []).map((p: any) => {
+    const urls = (posts.results || []).filter((post: any) => isSitemapCanonical(post)).map((p: any) => {
       try {
         const url = getPostUrl(p, PROD_DOMAIN)
         const lastMod = p.updated_at ? safeIsoDate(p.updated_at, p.published_at) : safeIsoDate(p.published_at, null)
@@ -260,13 +223,13 @@ export async function generateMonthlyPostSitemap(env: Env, year: string, month: 
           const imgUrl = `${PROD_DOMAIN}/i/${p.featured_image_key}`
           imageTag = `
       <image:image>
-        <image:loc>${imgUrl}</image:loc>
+        <image:loc>${escapeXml(imgUrl)}</image:loc>
       </image:image>`
         }
 
         return `
     <url>
-      <loc>${url}</loc>
+      <loc>${escapeXml(url)}</loc>
       <lastmod>${lastMod}</lastmod>
       <changefreq>monthly</changefreq>
       <priority>0.5</priority>
@@ -286,21 +249,24 @@ ${urls}
 
   } catch (error) {
     console.error(`[Sitemap] Critical error generating archive ${year}-${month}:`, error)
-    // Return empty valid sitemap or error XML
-    return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>`
+    // Let the route return an error so crawlers retry instead of accepting an empty archive.
+    throw error
   }
 }
 
 // Helper: List available months
-async function listPostMonths(env: Env): Promise<Array<{ year: string, month: string }>> {
+async function listPostMonths(env: Env): Promise<Array<{ year: string, month: string, total?: number }>> {
   const result = await env.DB.prepare(`
-    SELECT DISTINCT strftime('%Y', published_at) as year, strftime('%m', published_at) as month
+    SELECT strftime('%Y', published_at) as year, strftime('%m', published_at) as month, COUNT(*) as total
     FROM posts
     WHERE status = 'published' AND seo_noindex = 0
+    AND strftime('%Y', published_at) IS NOT NULL
+    AND datetime(published_at) <= datetime('now')
+    GROUP BY strftime('%Y', published_at), strftime('%m', published_at)
     ORDER BY year DESC, month DESC
   `).all()
 
-  return (result.results || []) as Array<{ year: string, month: string }>
+  return (result.results || []) as Array<{ year: string, month: string, total?: number }>
 }
 
 // ============================================================================
@@ -507,6 +473,12 @@ export function generateBreadcrumbJsonLd(
 // ============================================================================
 // Helpers
 // ============================================================================
+
+// Do not advertise an alternate article as canonical in a sitemap.
+function isSitemapCanonical(post: { slug: string; published_at?: string; seo_canonical?: string | null }): boolean {
+  const canonical = post.seo_canonical?.trim()
+  return !canonical || canonical.replace(/\/$/, '') === getPostUrl(post, PROD_DOMAIN).replace(/\/$/, '')
+}
 
 function escapeXml(text: string): string {
   if (!text) return ''

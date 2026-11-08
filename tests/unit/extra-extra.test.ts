@@ -1,0 +1,12 @@
+import {describe,it,expect} from 'vitest'
+import {createGame,startGame,jumpGame,throwPaper,stepGame,pauseGame,resumeGame,deliveryTarget,ROUTE_SECONDS,RIDER_X} from '../../public/static/extra-extra-engine.js'
+const running=()=>{const game=createGame(960,()=>.5);startGame(game);return game}
+const advance=(game:any,seconds:number)=>{for(let i=0;i<seconds*100;i++)stepGame(game,.01)}
+describe('Extra! Extra!',()=>{
+ it('só permite pular durante a partida e impede salto duplo',()=>{const game=createGame();expect(jumpGame(game)).toBe(false);startGame(game);expect(jumpGame(game)).toBe(true);expect(jumpGame(game)).toBe(false);advance(game,1);expect(game.jump).toBe(0);expect(jumpGame(game)).toBe(true)})
+ it('entrega somente dentro da janela, não pontua a mesma casa duas vezes e soma sequências',()=>{const game=running();game.houses=[{x:RIDER_X+50,delivered:false,missed:false,color:0}];expect(deliveryTarget(game)).toBeTruthy();expect(throwPaper(game)).toBe(true);expect(game.score).toBe(100);advance(game,.3);expect(throwPaper(game)).toBe(false);expect(game.deliveries).toBe(1);game.cooldown=0;game.houses.push({x:RIDER_X+100,delivered:false,missed:false,color:1});expect(throwPaper(game)).toBe(true);expect(game.score).toBe(225)})
+ it('desconta chance na colisão, protege contra dano duplo e permite saltar um cone',()=>{const game=running();game.obstacles=[{x:RIDER_X+2,type:0,hit:false},{x:RIDER_X+4,type:0,hit:false}];stepGame(game,.01);expect(game.lives).toBe(2);game.obstacles=[{x:RIDER_X+2,type:0,hit:false}];game.invincible=0;game.jump=80;stepGame(game,.01);expect(game.lives).toBe(2)})
+ it('casa perdida desconta chance e encerra a rota na terceira perda',()=>{const game=running();for(let i=0;i<3;i++){game.invincible=0;game.houses.push({x:RIDER_X,delivered:false,missed:false});stepGame(game,.01)}expect(game.mode).toBe('over');expect(game.lives).toBe(0);expect(jumpGame(game)).toBe(false)})
+ it('pausa o relógio e a física e reinicia sem carregar a pontuação anterior',()=>{const game=running();game.score=250;pauseGame(game);advance(game,3);expect(game.time).toBe(0);expect(throwPaper(game)).toBe(false);resumeGame(game);stepGame(game,.01);expect(game.time).toBeGreaterThan(0);startGame(game);expect(game.score).toBe(0);expect(game.lives).toBe(3)})
+ it('encerra aos 90 segundos e não avança a simulação depois disso',()=>{const game=running();game.time=ROUTE_SECONDS-.01;stepGame(game,.02);expect(game.mode).toBe('over');const scroll=game.scroll;stepGame(game,.02);expect(game.scroll).toBe(scroll)})
+})

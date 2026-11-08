@@ -70,7 +70,7 @@ describe('Admin Posts Integration Flow', () => {
       const mockDB = {
         prepare: () => ({
           bind: () => ({
-            run: async () => ({ meta: { last_row_id: 1 } })
+            run: async () => ({ meta: { last_row_id: 1, changes: 1 } })
           })
         })
       }
@@ -173,7 +173,7 @@ describe('Admin Posts Integration Flow', () => {
         expect(true).toBe(false) // Não deve chegar aqui
       } catch (error) {
         expect(error).toBeDefined()
-        expect((error as Error).message).toContain('future')
+        expect((error as Error).message).toContain('futuras')
       }
     })
     

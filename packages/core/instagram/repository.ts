@@ -16,6 +16,8 @@ const PUBLICATION_SELECT = `
     p.content AS article_content,
     p.content_markdown AS article_content_markdown,
     p.published_at AS article_published_at,
+    p.status AS article_status,
+    p.scheduled_at AS article_scheduled_at,
     p.created_at AS article_created_at,
     c.name AS category_name,
     a.name AS author_name,
@@ -33,11 +35,12 @@ const PUBLICATION_SELECT = `
   LEFT JOIN users approver ON approver.id = ip.approved_by_user_id
 `
 
-export async function listInstagramSourcePosts(env: Env, limit = 80): Promise<InstagramSourcePost[]> {
+export async function listInstagramSourcePosts(env: Env, limit = 80, postId?: number): Promise<InstagramSourcePost[]> {
   const result = await env.DB.prepare(`
     SELECT
       p.id, p.slug, p.title, p.hat, p.excerpt, p.content, p.content_markdown,
-      p.published_at, p.created_at,
+      p.published_at, p.created_at, p.status, p.scheduled_at,
+      (SELECT ip.id FROM instagram_publications ip WHERE ip.post_id = p.id ORDER BY ip.created_at DESC, ip.id DESC LIMIT 1) AS instagram_publication_id,
       c.name AS category_name,
       a.name AS author_name,
       m.r2_key AS cover_media_url,
@@ -47,10 +50,13 @@ export async function listInstagramSourcePosts(env: Env, limit = 80): Promise<In
     LEFT JOIN categories c ON c.id = p.category_id
     LEFT JOIN authors a ON a.id = p.author_id
     LEFT JOIN media m ON m.id = p.cover_media_id
-    WHERE p.status = 'published'
-    ORDER BY COALESCE(p.published_at, p.created_at) DESC
+    WHERE (p.status = 'published' OR (p.status = 'draft' AND p.scheduled_at IS NOT NULL))
+      ${postId ? 'AND p.id = ?' : ''}
+    ORDER BY CASE WHEN p.status = 'draft' THEN 0 ELSE 1 END,
+      CASE WHEN p.status = 'draft' THEN p.scheduled_at END ASC,
+      COALESCE(p.published_at, p.created_at) DESC
     LIMIT ?
-  `).bind(limit).all<InstagramSourcePost>()
+  `).bind(...(postId ? [postId, limit] : [limit])).all<InstagramSourcePost>()
   return result.results || []
 }
 
@@ -109,15 +115,17 @@ export async function createInstagramPublication(env: Env, input: {
   storyRenderToken: string
 }): Promise<number> {
   const source = await env.DB.prepare(`
-    SELECT p.id, p.title, p.hat, p.excerpt, p.status, p.cover_media_id, c.name AS category_name
+    SELECT p.id, p.title, p.hat, p.excerpt, p.status, p.scheduled_at, p.cover_media_id, c.name AS category_name
     FROM posts p
     LEFT JOIN categories c ON c.id = p.category_id
     WHERE p.id = ? LIMIT 1
   `).bind(input.postId).first<{
     id: number; title: string; hat: string | null; excerpt: string | null
-    status: string; cover_media_id: number | null; category_name: string | null
+    status: string; scheduled_at: string | null; cover_media_id: number | null; category_name: string | null
   }>()
-  if (!source || source.status !== 'published') throw new Error('Selecione uma matéria publicada.')
+  if (!source || !(source.status === 'published' || (source.status === 'draft' && source.scheduled_at))) {
+    throw new Error('Selecione uma matéria publicada ou agendada.')
+  }
   if (!source.cover_media_id) throw new Error('A matéria precisa ter uma imagem de capa.')
 
   const now = new Date().toISOString()

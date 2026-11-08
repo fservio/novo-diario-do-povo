@@ -8,8 +8,12 @@ import type { Env, AppContext } from '../types'
 import { escapeHtml, renderAdminIcon, renderAdminLayout, type AdminUser } from './ui'
 import { renderVisualEditor } from './visual-editor'
 import { renderSocialSharingPanel } from './social-sharing'
-import { renderMarkdownToHtml } from '../render/sanitize'
+import { renderSeoAutomationPanel } from './seo-automation'
+import { seoMetadataShape } from '../seo-automation'
+import { renderMarkdownToHtml, sanitizeHtml } from '../render/sanitize'
+import { renderEditorialDocumentToHtml } from '../editorial-content'
 import { z } from 'zod'
+import { normalizePublicationSchedule, formatPublicationScheduleInput } from '../post-scheduling'
 import {
   listPosts,
   getPostById,
@@ -44,8 +48,14 @@ const postSchemaShape = {
   template: z.enum(['article', 'liveblog', 'hub', 'story']).optional().or(z.literal('').transform((): string | undefined => undefined)),
   opinion_type: z.enum(['news', 'editorial', 'article', 'column']).default('news'),
   opinion_featured: z.coerce.number().int().min(0).max(1).optional(),
-  seo_title: z.string().max(200).optional(),
-  seo_description: z.string().max(500).optional(),
+  seo_title: seoMetadataShape.seo_title.optional(),
+  seo_description: seoMetadataShape.seo_description.optional(),
+  seo_primary_keyword: seoMetadataShape.seo_primary_keyword.optional(),
+  seo_secondary_keywords: z.preprocess(
+    value => typeof value === 'string' ? value.split(/\r?\n/).map(term => term.trim()).filter(Boolean) : value,
+    seoMetadataShape.seo_secondary_keywords.optional()
+  ),
+  expected_seo_version: z.coerce.number().int().nonnegative().optional(),
   seo_canonical: z.string().url().optional().or(z.literal('')),
   seo_noindex: z.coerce.number().int().min(0).max(1).optional(),
   social_title: z.string().max(90).optional(),
@@ -69,11 +79,30 @@ const createPostSchema = z.object(postSchemaShape).refine(
 
 const updatePostSchema = z.object(postSchemaShape).partial()
 
+/** Preserve an unchanged article body when the editor submits a new representation of it. */
+export function buildAdminPostUpdatePayload(data: z.infer<typeof updatePostSchema>, post: Post, expectedVersion: number) {
+  if (data.content_json?.trim()) {
+    // Opening a legacy/Markdown article in the visual editor is not itself an editorial change.
+    if (!post.content_json && renderEditorialDocumentToHtml(data.content_json) === post.content) {
+      return { ...data, content: undefined, content_json: undefined, content_markdown: undefined, expected_content_version: expectedVersion }
+    }
+    return { ...data, content_json: data.content_json, content_markdown: undefined, expected_content_version: expectedVersion }
+  }
+  if (data.content !== undefined && sanitizeHtml(data.content) === post.content) {
+    // The ordinary form used to alias this HTML to content_markdown, converting legacy articles.
+    return { ...data, content: undefined, content_markdown: undefined, expected_content_version: expectedVersion }
+  }
+  return { ...data, ...(data.content !== undefined ? { content_markdown: data.content } : {}), expected_content_version: expectedVersion }
+}
+
 const scheduleSchema = z.object({
-  scheduled_at: z.string().refine((val) => {
-    const date = new Date(val)
-    return date > new Date()
-  }, 'Data deve ser no futuro')
+  scheduled_at: z.string().transform((value, ctx) => {
+    try { return normalizePublicationSchedule(value) }
+    catch (error) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: error instanceof Error ? error.message : 'Data inválida.' })
+      return z.NEVER
+    }
+  })
 })
 
 // ============================================================================
@@ -132,7 +161,7 @@ function renderPostsListPage(params: {
     const q = new URLSearchParams()
     const all = { ...filters, ...newFilters }
     Object.entries(all).forEach(([k, v]) => {
-      if (v !== undefined && v !== '' && v !== null) q.set(k, String(v))
+      if (k !== 'offset' && k !== 'includeCount' && v !== undefined && v !== '' && v !== null) q.set(k, String(v))
     })
     return q.toString()
   }
@@ -246,7 +275,7 @@ function renderPostsListPage(params: {
               <td><span class="badge badge-neutral">${escapeHtml(post.category_name || 'Geral')}</span></td>
               <td>
                 ${post.status === 'published' ? '<span class="badge badge-success">Publicado</span>' :
-      post.status === 'draft' ? '<span class="badge badge-neutral">Rascunho</span>' :
+      post.status === 'draft' ? (post.scheduled_at ? '<span class="badge badge-warning">Agendada</span>' : '<span class="badge badge-neutral">Rascunho</span>') :
         post.status === 'review' ? '<span class="badge badge-warning">Revisão</span>' :
           '<span class="badge badge-danger">Arquivado</span>'
     }
@@ -321,6 +350,7 @@ function renderPostFormPage(params: {
   error?: string
   message?: string
   defaultAuthorId?: number
+  defaultTemplate?: 'liveblog'
   revisions?: PostRevision[]
 }): string {
   const { post, categories, authors, tags, user, csrfToken, cspNonce, error, message, defaultAuthorId } = params
@@ -334,10 +364,17 @@ function renderPostFormPage(params: {
       : post?.content || '<p></p>'
   const errorMessage = error === 'content_conflict'
     ? 'Esta matéria foi alterada em outra aba ou por outro usuário. Recarregue a página antes de continuar.'
+    : error === 'seo_conflict'
+      ? 'Os metadados SEO foram alterados depois que esta página foi aberta. Recarregue a matéria antes de salvar.'
+    : error === 'seo_restore_failed'
+      ? 'Não foi possível restaurar os metadados SEO. Confira o histórico e tente novamente.'
     : error === 'revision_restore_failed'
       ? 'Não foi possível restaurar a versão selecionada.'
       : error
-  const successMessage = message === 'revision_restored' ? 'Versão restaurada com sucesso.' : message
+  const successMessage = message === 'revision_restored' ? 'Versão restaurada com sucesso.'
+    : message === 'seo_restored' ? 'Metadados SEO restaurados. A alteração foi registrada no histórico.'
+    : message === 'post_scheduled' ? 'Matéria agendada. Será publicada automaticamente em até um minuto após o horário escolhido.'
+      : message === 'schedule_cancelled' ? 'Agendamento cancelado. A matéria continua como rascunho.' : message
 
   const statusBadge = (status?: string) => {
     const palette: Record<string, string> = {
@@ -347,14 +384,14 @@ function renderPostFormPage(params: {
       archived: 'background: rgba(239, 68, 68, 0.1); color: #ef4444;'
     }
     const style = palette[status || 'draft'] || palette.draft
-    return `<span style="display: inline-flex; align-items: center; justify-content: center; padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; ${style}">${status || 'draft'}</span>`
+    return `<span style="display: inline-flex; align-items: center; justify-content: center; padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; ${style}">${post?.scheduled_at && status === 'draft' ? 'Agendada' : status || 'draft'}</span>`
   }
 
   const formatDateTime = (value?: string | null) => {
     if (!value) return '—'
     try {
       return new Date(value).toLocaleString('pt-BR', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
+        timeZone: 'America/Fortaleza', day: '2-digit', month: '2-digit', year: 'numeric',
         hour: '2-digit', minute: '2-digit'
       })
     } catch {
@@ -390,6 +427,9 @@ function renderPostFormPage(params: {
         <a href="/admin/posts/${post.id}/preview" target="_blank" rel="noopener" class="btn btn-outline">
           ${adminIcon('external')} Visualizar
         </a>
+        ${post.status === 'published' || (post.status === 'draft' && post.scheduled_at) ? `
+          <a href="/admin/instagram/new?post=${post.id}" class="btn btn-outline">${adminIcon('instagram')} Instagram da matéria</a>
+        ` : ''}
         <form method="post" action="/admin/redacao-ia/pautas/post/${post.id}" style="display: inline-flex;">
           ${renderCsrfInput(csrfToken)}
           <button type="submit" class="btn btn-outline">
@@ -400,6 +440,19 @@ function renderPostFormPage(params: {
           ${adminIcon('video')} Criar roteiro em vídeo
         </a>
       </div>
+      ${post.status === 'draft' || post.status === 'review' ? `
+        <div style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
+          <form method="post" action="/admin/posts/${post.id}/schedule" style="display: flex; gap: 0.75rem; align-items: end; flex-wrap: wrap;">
+            ${renderCsrfInput(csrfToken)}
+            <div class="form-group" style="margin: 0;"><label for="scheduled_at">Publicar em — horário de Fortaleza (UTC−3)</label>
+              <input class="form-control" type="datetime-local" id="scheduled_at" name="scheduled_at" required min="${formatPublicationScheduleInput(new Date(Date.now() + 60000).toISOString())}" value="${formatPublicationScheduleInput(post.scheduled_at)}">
+            </div>
+            <button class="btn btn-outline" type="submit">${post.scheduled_at ? 'Alterar agendamento' : 'Agendar publicação'}</button>
+          </form>
+          <p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.75rem;">Salve as alterações da matéria antes de agendar. A publicação ocorre automaticamente em até um minuto após o horário escolhido.</p>
+          ${post.scheduled_at ? `<form method="post" action="/admin/posts/${post.id}/cancel-schedule">${renderCsrfInput(csrfToken)}<button class="btn btn-ghost" type="submit">Cancelar agendamento</button></form>` : ''}
+        </div>
+      ` : ''}
     </div>
   ` : ''
 
@@ -618,17 +671,17 @@ function renderPostFormPage(params: {
           <label>Layout do Post</label>
           <select name="template" class="form-control">
             <option value="article" ${post?.template === 'article' ? 'selected' : ''}>Artigo Padrão</option>
-            <option value="liveblog" ${post?.template === 'liveblog' ? 'selected' : ''}>Liveblog (Tempo Real)</option>
+            <option value="liveblog" ${(post?.template || params.defaultTemplate) === 'liveblog' ? 'selected' : ''}>Liveblog (Tempo Real)</option>
             <option value="hub" ${post?.template === 'hub' ? 'selected' : ''}>Hub Editorial</option>
             <option value="story" ${post?.template === 'story' ? 'selected' : ''}>Story</option>
           </select>
-          <div id="liveToggle" style="margin-top: 1rem; display: ${post?.template === 'liveblog' ? 'block' : 'none'};">
+          <div id="liveToggle" style="margin-top: 1rem; display: ${(post?.template || params.defaultTemplate) === 'liveblog' ? 'block' : 'none'};">
             <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; color: var(--danger); font-weight: 700;">
               <input 
                 type="checkbox" 
                 name="is_live" 
                 value="1"
-                ${post?.is_live ? 'checked' : ''}
+                ${(post ? post.is_live : params.defaultTemplate === 'liveblog') ? 'checked' : ''}
                 style="width: auto; margin: 0;"
               >
               <span>🔴 AO VIVO (Publicar pulso e habilitar tempo real)</span>
@@ -793,60 +846,7 @@ function renderPostFormPage(params: {
       
       ${renderSocialSharingPanel({ post, csrfToken, cspNonce })}
 
-      <!-- SEO -->
-      <details style="margin-bottom: 1.5rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow: hidden;">
-        <summary style="cursor: pointer; font-weight: 700; padding: 1rem; background: var(--bg-main); font-size: 0.875rem; display: flex; align-items: center; gap: 0.5rem;">
-          🔍 SEO & Metadados
-        </summary>
-        <div style="padding: 2rem; background: var(--white); display: flex; flex-direction: column; gap: 1.5rem;">
-          <div class="form-group" style="margin-bottom: 0;">
-            <label>Título SEO (Meta Title)</label>
-            <input 
-              type="text" 
-              name="seo_title" 
-              class="form-control"
-              value="${escapeHtml(post?.seo_title || '')}"
-              maxlength="200"
-              placeholder="Como aparecerá no Google..."
-            >
-          </div>
-          
-          <div class="form-group" style="margin-bottom: 0;">
-            <label>Descrição SEO (Meta Description)</label>
-            <textarea 
-              name="seo_description" 
-              class="form-control"
-              rows="3"
-              maxlength="500"
-              placeholder="Breve descrição para motores de busca..."
-            >${escapeHtml(post?.seo_description || '')}</textarea>
-          </div>
-          
-          <div class="form-group" style="margin-bottom: 0;">
-            <label>URL Canônica (opcional)</label>
-            <input 
-              type="url" 
-              name="seo_canonical" 
-              class="form-control"
-              value="${escapeHtml(post?.seo_canonical || '')}"
-              placeholder="https://exemplo.com/url-original"
-            >
-          </div>
-          
-          <div class="form-group" style="margin-bottom: 0;">
-            <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; font-weight: 600; color: var(--text-main);">
-              <input 
-                type="checkbox" 
-                name="seo_noindex" 
-                value="1"
-                ${post?.seo_noindex ? 'checked' : ''}
-                style="width: 1.125rem; height: 1.125rem; accent-color: var(--primary);"
-              >
-              <span>🚫 Noindex (não indexar nos buscadores)</span>
-            </label>
-          </div>
-        </div>
-      </details>
+      ${renderSeoAutomationPanel({ post, csrfToken })}
       
       <!-- Paywall -->
       <details style="margin-bottom: 2rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow: hidden;">

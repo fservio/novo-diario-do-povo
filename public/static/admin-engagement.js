@@ -8,7 +8,7 @@
   var previewCampaign = preview ? preview.querySelector('.engagement-admin-preview__campaign') : null;
   var typeInputs = Array.from(form.querySelectorAll('input[name="campaign_type"]'));
   var formatInput = form.querySelector('[name="display_format"]');
-  var postInput = form.querySelector('[data-post-id]');
+  var postInput = form.querySelector('input[name="post_id"][data-post-id]');
   var postSearch = form.querySelector('[data-post-search]');
   var postPicker = form.querySelector('[data-post-picker]');
   var postCombobox = form.querySelector('.engagement-post-combobox');

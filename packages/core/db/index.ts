@@ -219,7 +219,7 @@ export async function findLiveUpdates(
     FROM live_blog_updates u
     LEFT JOIN authors a ON a.id = u.author_id
     WHERE u.post_id = ?
-    ORDER BY u.is_pinned DESC, u.published_at DESC
+    ORDER BY u.is_pinned DESC, u.published_at DESC, u.id DESC
     LIMIT ? OFFSET ?
   `).bind(postId, limit, offset).all<LiveBlogUpdate>()
 

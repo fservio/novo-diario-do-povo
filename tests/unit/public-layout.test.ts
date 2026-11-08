@@ -21,6 +21,9 @@ describe('Editorial 2026 public system', () => {
     })
 
     expect(html).toContain('/static/editorial.css')
+    expect(html).not.toMatch(/<link[^>]+rel="stylesheet"[^>]+(?:editorial|engagement)\.css/)
+    expect(html).toContain('.ed-article__title')
+    expect(html).toContain('data-source="/static/engagement.css"')
     expect(html).toContain('class="ed-container ed-masthead"')
     expect(html).toContain('aria-current="page"')
     expect(html).toContain('id="conteudo"')

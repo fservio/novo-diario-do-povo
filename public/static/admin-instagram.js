@@ -24,7 +24,7 @@
   formatTabs.forEach(button => button.addEventListener('click', () => activateFormat(button.dataset.instagramFormatTab)))
   if (formatTabs.length) {
     const requestedFormat = new URLSearchParams(window.location.search).get('format')
-    activateFormat(requestedFormat === 'story' ? 'story' : 'feed')
+    activateFormat(['story', 'audio'].includes(requestedFormat) ? requestedFormat : 'feed')
   }
 
   const preview = document.querySelector('[data-instagram-preview]')
@@ -261,6 +261,37 @@
     }
     scheduleCanvasPreview()
 
+    const approvedArtwork = JSON.stringify(artworkValues())
+    const approvedFields = Array.from(document.querySelectorAll('[id^=instagram-]')).filter(el => 'value' in el && el.id !== 'instagram-format').map(el => [el, el.value])
+    const directForm = document.querySelector('[data-instagram-direct-publish]')
+    directForm?.addEventListener('submit', async event => {
+      event.preventDefault()
+      if (!directForm.reportValidity() || directForm.dataset.sending === '1') return
+      if (!window.confirm('Publicar ou agendar esta versão aprovada diretamente no Instagram?')) return
+      const button = directForm.querySelector('button[type="submit"]')
+      directForm.dataset.sending = '1'
+      button.disabled = true
+      try {
+        // Unsaved editorial changes must never be sent as an approved version.
+        if (JSON.stringify(artworkValues()) !== approvedArtwork || approvedFields.some(([el, value]) => el.value !== value)) throw new Error('Salve e aprove as alterações antes de publicar.')
+        const [cover, logo] = await assets
+        const canvas = document.createElement('canvas')
+        renderArtwork(canvas, cover, logo)
+        const image = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', .92))
+        if (!image) throw new Error('Não foi possível gerar o JPEG.')
+        const payload = new FormData()
+        payload.set('image', image, 'feed.jpg')
+        payload.set('version', directForm.dataset.publicationVersion)
+        payload.set('scheduled_at', directForm.querySelector('[name="scheduled_at"]').value)
+        const response = await fetch('/api/admin/instagram/' + directForm.dataset.publicationId + '/publish-direct', {
+          method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': directForm.querySelector('[name="csrf"]').value }, body: payload
+        })
+        const result = await window.DiarioInstagramHttp.readJson(response)
+        window.location.assign(result.redirect)
+      } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível enviar o feed.') }
+      finally { directForm.dataset.sending = ''; button.disabled = false }
+    })
+
     downloadButton.addEventListener('click', async () => {
       const titleInput = document.querySelector('#instagram-title')
       const creditInput = document.querySelector('#instagram-photo-credit')
@@ -427,11 +458,11 @@
       yPercent: Number(document.querySelector('#instagram-story-position-y')?.value || 50)
     })
 
-    const renderStoryArtwork = (canvas, cover, logo) => {
+    const renderStoryArtwork = (canvas, cover, logo, override, audioMode = false) => {
       canvas.width = 1080
       canvas.height = 1920
       const context = canvas.getContext('2d')
-      const values = storyArtworkValues()
+      const values = override || storyArtworkValues()
       storyDrawCover(context, cover, values.xPercent, values.yPercent)
 
       const wash = context.createLinearGradient(0, 0, 0, 1920)
@@ -463,7 +494,7 @@
       const subtitleLineHeight = 40
       const totalHeight = 7 + 26 + 28 + 20 + titleLines.length * titleLineHeight
         + (subtitleLines.length ? 27 + subtitleLines.length * subtitleLineHeight : 0) + 54
-      let y = Math.max(500, 1395 - totalHeight)
+      let y = Math.max(500, (audioMode ? 1320 : 1395) - totalHeight)
 
       context.fillStyle = '#d1a85d'
       context.fillRect(64, y, 82, 7)
@@ -496,21 +527,146 @@
 
       context.strokeStyle = 'rgba(255,255,255,.28)'
       context.beginPath()
-      context.moveTo(64, 1452)
-      context.lineTo(1016, 1452)
+      context.moveTo(64, audioMode ? 1375 : 1452)
+      context.lineTo(1016, audioMode ? 1375 : 1452)
       context.stroke()
       context.fillStyle = '#fff'
       context.font = '800 15px Arial, sans-serif'
       context.letterSpacing = '1.4px'
-      context.fillText('JORNALDIARIODOPOVO.COM.BR', 64, 1493)
+      context.fillText('JORNALDIARIODOPOVO.COM.BR', 64, audioMode ? 1700 : 1493)
       context.fillStyle = '#d1d9de'
       context.font = '400 12px Arial, sans-serif'
       context.letterSpacing = '.4px'
-      context.textAlign = 'right'
-      context.fillText(values.credit ? `Foto: ${values.credit}` : 'Crédito não informado', 1016, 1493)
+      context.textAlign = audioMode ? 'left' : 'right'
+      if (audioMode) {
+        context.font = '400 18px Arial, sans-serif'
+        context.fillText(`Foto: ${values.credit}`, 70, 1420, 940)
+        context.fillText(`Áudio: ${values.audioCredit}`, 70, 1645, 940)
+        context.fillStyle = 'rgba(255,255,255,.20)'
+        context.fillRect(70, 1595, 940, 6)
+        context.fillStyle = '#e2bd78'
+        context.font = '800 22px Arial, sans-serif'
+        context.fillText('◖ ))  COM ÁUDIO', 64, 435)
+      } else context.fillText(values.credit ? `Foto: ${values.credit}` : 'Crédito não informado', 1016, 1493)
       context.textAlign = 'left'
       context.letterSpacing = '0px'
       return values
+    }
+
+    const audioForm = document.querySelector('[data-audio-editor]')
+    if (audioForm) {
+      const audioCanvas = document.querySelector('[data-audio-canvas]')
+      const player = audioForm.querySelector('[data-audio-player]')
+      const fileInput = audioForm.querySelector('[name="audio"]')
+      const button = audioForm.querySelector('[data-audio-generate]')
+      const status = audioForm.querySelector('[data-audio-status]')
+      const durationLabel = audioForm.querySelector('[data-audio-duration]')
+      const download = document.querySelector('[data-audio-download]')
+      const video = document.querySelector('[data-audio-video]')
+      const base = `/admin/instagram/${audioForm.dataset.publicationId}/audio`
+      const apiBase = `/api/admin/instagram/${audioForm.dataset.publicationId}/audio`
+      const readJson = response => window.DiarioInstagramHttp.readJson(response)
+      let duration = 0, blobUrl, dirty = false, assets, queued = false, previewFrame
+      const values = () => {
+        const get = name => audioForm.elements.namedItem(name).value.trim()
+        return { hat: get('hat') || 'Notícia', title: get('title'), subtitle: get('subtitle'), credit: get('photo_credit'),
+          audioCredit: get('audio_credit'), xPercent: Number(get('image_position_x')), yPercent: Number(get('image_position_y')), cta: 'Ouça a notícia' }
+      }
+      const loadAssets = () => assets || (assets = Promise.all([loadStoryImage(audioForm.dataset.cover), loadStoryImage('/static/logo-dp.png')]))
+      const paint = async (canvas, placeholder) => {
+        const [cover, logo] = await loadAssets()
+        renderStoryArtwork(canvas, cover, logo, values(), true)
+        if (placeholder) {
+          const ctx = canvas.getContext('2d')
+          ctx.strokeStyle = 'rgba(255,255,255,.65)'; ctx.lineWidth = 3
+          for (let i = 0; i < 94; i++) {
+            const height = 8 + 65 * Math.abs(Math.sin(i * .7) * Math.sin(i * .19))
+            ctx.beginPath(); ctx.moveTo(70 + i * 10, 1520 - height / 2); ctx.lineTo(70 + i * 10, 1520 + height / 2); ctx.stroke()
+          }
+        }
+      }
+      const repaint = () => {
+        cancelAnimationFrame(previewFrame)
+        previewFrame = requestAnimationFrame(() => paint(audioCanvas, true).catch(() => { status.textContent = 'Não foi possível carregar a foto para a prévia.' }))
+      }
+      audioForm.addEventListener('input', () => {
+        dirty = true; download.hidden = true; video.hidden = true
+        status.textContent = 'Alterações na composição. Salve e gere um novo MP4 para aplicá-las.'
+        repaint()
+      })
+      fileInput.addEventListener('change', () => {
+        const file = fileInput.files[0]
+        duration = 0
+        if (blobUrl) URL.revokeObjectURL(blobUrl)
+        if (!file) { player.src = `${base}/source`; player.hidden = audioForm.dataset.hasAudio !== 'true'; return }
+        if (file.size > 30 * 1024 * 1024 || !/\.(wav|mp3)$/i.test(file.name)) {
+          status.textContent = 'Selecione um WAV ou MP3 de até 30 MB.'; fileInput.value = ''; return
+        }
+        blobUrl = URL.createObjectURL(file); player.src = blobUrl; player.hidden = false
+        audioForm.querySelector('[data-audio-filename]').textContent = file.name
+        durationLabel.textContent = 'Lendo a duração…'
+      })
+      player.addEventListener('loadedmetadata', () => {
+        duration = player.duration
+        durationLabel.textContent = Number.isFinite(duration)
+          ? `${duration.toFixed(1)} segundos${duration > 45 ? ' · Acima de 45 segundos. O áudio será mantido inteiro, sem cortes.' : ''}`
+          : 'Não foi possível medir o áudio.'
+      })
+      player.addEventListener('error', () => { if (fileInput.files.length) { duration = 0; status.textContent = 'Não foi possível reproduzir o arquivo. Confira se é um WAV ou MP3 válido.' } })
+      const poll = async () => {
+        try {
+          const response = await fetch(`${apiBase}/status`, { cache: 'no-store', headers: { Accept: 'application/json' } })
+          const data = await readJson(response), job = data.job
+          if (job && !dirty) {
+            queued = ['queued', 'rendering'].includes(job.status)
+            status.textContent = ({ queued: 'Na fila de geração. Você pode sair desta tela.', rendering: 'Gerando o vídeo com áudio…',
+              ready: `MP4 pronto · ${Number(job.duration_seconds).toFixed(1)} segundos`, failed: job.last_error || 'A geração falhou. Tente novamente.' })[job.status]
+            if (job.status === 'ready') {
+              if (video.getAttribute('src') !== job.download_url) video.src = job.download_url
+              video.hidden = false; download.href = job.download_url + '&download=1'; download.hidden = false
+            }
+          }
+        } catch { if (!dirty) status.textContent = 'Não foi possível consultar a geração. Tentando novamente…' }
+        setTimeout(poll, queued ? 5000 : 20000)
+      }
+      audioForm.addEventListener('submit', async event => {
+        event.preventDefault()
+        if (!audioForm.reportValidity()) return
+        if (fileInput.files.length && (!Number.isFinite(duration) || duration <= 0 || duration > 180)) {
+          status.textContent = 'Aguarde a leitura do áudio. O limite operacional é de 180 segundos, sem cortes.'; return
+        }
+        button.disabled = true; status.textContent = 'Enviando a composição e o áudio…'
+        const revision = values()
+        const form = new FormData(audioForm)
+        const controls = Array.from(audioForm.querySelectorAll('input,textarea,button'))
+        controls.forEach(control => { control.disabled = true })
+        try {
+          const sessionResponse = await fetch(`${apiBase}/session`, { cache: 'no-store', headers: { Accept: 'application/json' } })
+          const session = await readJson(sessionResponse)
+          if (!session.csrf) throw new Error('Não foi possível validar a sessão de edição. Tente novamente.')
+          form.set('csrf', session.csrf)
+          const canvas = document.createElement('canvas')
+          await paint(canvas, false)
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'))
+          if (!blob) throw new Error('Não foi possível preparar a arte.')
+          form.set('artwork', blob, 'artwork.png'); form.set('duration_seconds', String(duration))
+          const response = await fetch(`${apiBase}/generate`, { method: 'POST', body: form,
+            headers: { Accept: 'application/json', 'X-CSRF-Token': session.csrf } })
+          const data = await readJson(response)
+          audioForm.elements.namedItem('version').value = data.version
+          dirty = JSON.stringify(revision) !== JSON.stringify(values())
+          queued = true
+          fileInput.value = ''
+          if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null }
+          player.src = `${base}/source?v=${data.version}`
+          player.hidden = false; audioForm.dataset.hasAudio = 'true'
+          download.hidden = true; video.hidden = true
+          status.textContent = dirty ? 'Versão enviada. Há novas alterações ainda não salvas.' : 'Na fila de geração. Você pode sair desta tela.'
+          history.replaceState(null, '', `?format=audio`)
+        } catch (error) { status.textContent = error.message || 'Não foi possível gerar o vídeo.' }
+        finally { controls.forEach(control => { control.disabled = false }); button.disabled = false }
+      })
+      repaint(); poll()
     }
 
     let storyCanvas

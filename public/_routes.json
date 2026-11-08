@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "include": ["/*"],
+  "exclude": [
+    "/static/*",
+    "/llms.txt",
+    "/.well-known/ard.json",
+    "/.well-known/ai-catalog.json",
+    "/ai-catalog.json"
+  ]
+}

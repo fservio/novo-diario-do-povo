@@ -3,6 +3,8 @@
  * Layout SSR e formulários
  */
 
+import { FAVICON_LINKS } from '../web/favicon'
+
 export interface AdminUser {
   id: number
   email: string
@@ -119,6 +121,7 @@ export function renderAdminLayout(
   return `<!doctype html>
 <html lang="pt-BR">
 <head>
+  ${FAVICON_LINKS}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
@@ -127,7 +130,7 @@ export function renderAdminLayout(
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/admin.css?v=20260822-whatsapp1">
+  <link rel="stylesheet" href="/static/admin.css?v=20261027-story-audio1">
 </head>
 <body>
   <a class="skip-link" href="#admin-content">Ir para o conteúdo</a>
@@ -147,8 +150,12 @@ export function renderAdminLayout(
         <a class="${isActive('dashboard')}" href="/admin"${current('dashboard')}>${icon('dashboard')}Visão geral</a>
 
         <div class="nav-label">Publicação</div>
+        ${['admin','director','editor'].includes(actualUser.role) ? `<a class="${isActive('culture')}" href="/admin/meu-dia"${current('culture')}>${icon('cover')}Meu dia e Agenda</a>` : ''}
+        ${['admin','director','editor'].includes(actualUser.role) ? `<a class="${isActive('guides')}" href="/admin/guias"${current('guides')}>${icon('cover')}Guias do Diário</a>` : ''}
         <a class="${isActive('posts')}" href="/admin/posts"${current('posts')}>${icon('posts')}Matérias</a>
+        <a class="${isActive('generate-posts')}" href="/admin/gerar-materias"${current('generate-posts')}>${icon('ai')}Gerar matérias</a>
         <a class="${isActive('redacao-ia')}" href="/admin/redacao-ia"${current('redacao-ia')}>${icon('ai')}Redação IA</a>
+        ${['admin','director','editor'].includes(actualUser.role) ? `<a class="${isActive('news-extractor')}" href="/admin/news-extractor"${current('news-extractor')}>${icon('integrations')}NewsExtractor</a>` : ''}
         <a class="${isActive('video-ia')}" href="/admin/video-ia"${current('video-ia')}>${icon('video')}Vídeo IA</a>
         <a class="${isActive('daily-cover')}" href="/admin/daily-cover"${current('daily-cover')}>${icon('cover')}Capa do dia</a>
         <a class="${isActive('live')}" href="/admin/live"${current('live')}>${icon('live')}Central ao vivo</a>
@@ -220,6 +227,7 @@ export function renderLoginPage(error?: string): string {
   return `<!doctype html>
 <html lang="pt-BR">
 <head>
+  ${FAVICON_LINKS}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">

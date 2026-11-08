@@ -138,10 +138,19 @@ export function renderLiveControlPanel(params: {
   user: AdminUser
   csrfToken: string
   cspNonce: string
+  error?: string
 }) {
   const { post, updates, user, csrfToken, cspNonce } = params
+  const errorMessage = params.error === 'content_required'
+    ? 'Escreva o conteúdo da atualização antes de publicar.'
+    : params.error === 'create_failed'
+      ? 'Não foi possível publicar a atualização. Tente novamente.'
+      : params.error === 'delete_failed'
+        ? 'Não foi possível excluir a atualização. Tente novamente.'
+        : ''
 
   const bodyHtml = `
+    ${errorMessage ? `<div role="alert" class="card" style="color: var(--danger); margin-bottom: var(--space-6);">${errorMessage}</div>` : ''}
     <div style="margin-bottom: var(--space-12);">
       <a href="/admin/live" style="color: var(--text-muted); text-decoration: none; font-size: 1rem; font-weight: 700; display: inline-flex; align-items: center; gap: var(--space-2); transition: color 0.2s; padding: var(--space-4) 0;">
         <span style="font-size: 1.5rem; line-height: 1;">←</span> Retornar à Central de Coberturas

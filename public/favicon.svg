@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Diário do Povo">
+  <rect width="64" height="64" rx="12" fill="#123d5a"/>
+  <g fill="#fff" fill-rule="evenodd">
+    <path d="M7 16h10c10 0 15 6 15 16s-5 16-15 16H7V16Zm7 7v18h3c5 0 8-3 8-9s-3-9-8-9h-3Z"/>
+    <path d="M36 16h11c8 0 12 4 12 11s-4 11-12 11h-4v10h-7V16Zm7 7v8h4c3 0 5-1 5-4s-2-4-5-4h-4Z"/>
+  </g>
+</svg>

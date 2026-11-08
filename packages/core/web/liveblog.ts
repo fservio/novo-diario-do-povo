@@ -5,9 +5,17 @@
 
 import type { LiveBlogUpdate } from '../db'
 import { escapeHtml } from '../admin/ui'
+import { sanitizeHtml } from '../render/sanitize'
 
-export function renderLiveBlogTimeline(updates: LiveBlogUpdate[], isLive: boolean = true) {
+export function renderLiveBlogTimeline(updates: LiveBlogUpdate[], isLive: boolean = true, articleContent: string = '') {
+  const content = sanitizeHtml(articleContent)
+  const hasContent = !!content.replace(/<[^>]*>/g, '').trim() || /<img\b/i.test(content)
+  return `<section id="liveblog-feed" aria-live="polite">${hasContent ? `<div id="articleBody" class="article-content">${content}</div>` : ''}${renderTimelineContent(updates, isLive, hasContent)}</section>`
+}
+
+function renderTimelineContent(updates: LiveBlogUpdate[], isLive: boolean, hasContent: boolean) {
   if (updates.length === 0) {
+    if (hasContent) return `<div class="liveblog-status-banner ${isLive ? 'is-live' : 'is-ended'}">${isLive ? '<span class="pulse-dot"></span> <strong>AO VIVO:</strong> Acompanhe as últimas atualizações em tempo real' : '🏁 <strong>COBERTURA ENCERRADA</strong>'}</div>`
     return `
       <div class="liveblog-status-banner ${isLive ? 'is-live' : 'is-ended'}">
         ${isLive ? '🔴 AO VIVO: Aguardando atualizações...' : '🏁 Cobertura encerrada. Nenhuma atualização postada.'}
@@ -49,7 +57,7 @@ export function renderLiveUpdate(update: LiveBlogUpdate, isLive: boolean = true)
         ${update.is_pinned ? '<div class="pinned-label">📌 Destaque</div>' : ''}
         ${update.title ? `<h3 class="update-title">${escapeHtml(update.title)}</h3>` : ''}
         <div class="update-body">
-          ${update.content}
+          ${sanitizeHtml(update.content)}
         </div>
         <div class="update-footer">
           <span class="update-author">Por ${escapeHtml(update.author_name || 'Redação')}</span>
@@ -59,51 +67,50 @@ export function renderLiveUpdate(update: LiveBlogUpdate, isLive: boolean = true)
   `
 }
 
-export function renderLiveBlogScript(postSlug: string) {
+export function renderLiveBlogScript(postSlug: string, nonce: string) {
   return `
-    <script>
+    <script nonce="${escapeHtml(nonce)}">
       (function() {
-        const postSlug = '${postSlug}';
-        let knownUpdateIds = new Set();
-        
-        // Initialize with IDs already on page
-        document.querySelectorAll('.live-update').forEach(el => {
-          const id = el.id.replace('update-', '');
-          if (id) knownUpdateIds.add(parseInt(id));
-        });
+        const postSlug = ${JSON.stringify(postSlug).replace(/</g, '\\u003c')};
+        let snapshot = null;
+        let pending = false;
+        let timer;
 
         async function checkForUpdates() {
+          if (pending) return;
+          pending = true;
           try {
-            const res = await fetch(\`/api/public/posts/\${postSlug}/live-updates\`);
+            const res = await fetch(\`/api/public/posts/\${encodeURIComponent(postSlug)}/live-updates\`, { cache: 'no-store' });
+            if (!res.ok) return;
             const json = await res.json();
-            if (json.success && json.data.length > 0) {
-              const newUpdates = json.data.filter(u => !knownUpdateIds.has(u.id));
-              
-              if (newUpdates.length > 0) {
-                showNotification(newUpdates[0]);
-                // Add new IDs to set
-                newUpdates.forEach(u => knownUpdateIds.add(u.id));
+            if (json.success && typeof json.html === 'string') {
+              const nextSnapshot = JSON.stringify([json.is_live, json.data, json.html]);
+              const feed = document.getElementById('liveblog-feed');
+              if (feed && nextSnapshot !== snapshot) {
+                feed.outerHTML = json.html;
+                snapshot = nextSnapshot;
+              }
+              if (!json.is_live) {
+                clearInterval(timer);
+                window.removeEventListener('focus', checkForUpdates);
               }
             }
           } catch (e) {
             console.error('[LiveBlog] Erro ao verificar atualizações:', e);
+          } finally {
+            pending = false;
           }
         }
-
-        function showNotification(update) {
-          if (document.querySelector('.new-updates-banner')) return;
-
-          const banner = document.createElement('div');
-          banner.className = 'new-updates-banner';
-          banner.innerHTML = 'Novas atualizações disponíveis. <a href="javascript:location.reload()" style="color: white; text-decoration: underline; margin-left: 0.5rem; font-weight: 800;">Clique para carregar</a>';
-          document.body.prepend(banner);
+        function start() {
+          timer = setInterval(checkForUpdates, 15000);
+          window.addEventListener('focus', checkForUpdates);
+          checkForUpdates();
         }
-
-        // Poll every 15 seconds
-        setInterval(checkForUpdates, 15000);
-        
-        // Re-check on focus
-        window.addEventListener('focus', checkForUpdates);
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', start, { once: true });
+        } else {
+          start();
+        }
       })();
     </script>
   `

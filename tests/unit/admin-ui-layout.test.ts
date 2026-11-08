@@ -18,7 +18,7 @@ describe('Admin UI layout', () => {
       csrfToken: 'csrf-test'
     })
 
-    expect(html).toContain('/static/admin.css?v=20260822-whatsapp1')
+    expect(html).toMatch(/\/static\/admin\.css\?v=[^"<>]+/)
     expect(html).toContain('aria-label="Navegação administrativa"')
     expect(html).toContain('id="admin-nav-toggle"')
     expect(html).toContain('href="/admin/redacao-ia"')

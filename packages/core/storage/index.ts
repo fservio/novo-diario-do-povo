@@ -116,6 +116,13 @@ export async function serveMedia(env: Env, r2Key: string, request: Request): Pro
   const height = url.searchParams.get('h')
   const quality = url.searchParams.get('q') || '85'
   const isProcessed = url.searchParams.has('processed')
+  const acceptsWebP = (request.headers.get('Accept') || '').split(',').some(entry => {
+    const [type, ...parameters] = entry.trim().toLowerCase().split(';')
+    return type.trim() === 'image/webp'
+      && !parameters.some(parameter => /^q\s*=\s*0(?:\.0*)?$/.test(parameter.trim()))
+  })
+  const negotiatesWebP = /\.(?:jpe?g|png)$/i.test(r2Key)
+  const convertToWebP = acceptsWebP && negotiatesWebP
   const focalXParam = url.searchParams.get('fp-x')
   const focalYParam = url.searchParams.get('fp-y')
   const focalX = focalXParam === null ? Number.NaN : Number(focalXParam)
@@ -124,8 +131,7 @@ export async function serveMedia(env: Env, r2Key: string, request: Request): Pro
     ? { x: Math.max(0, Math.min(1, focalX)), y: Math.max(0, Math.min(1, focalY)) }
     : undefined
 
-  // Se houver parâmetros de redimensionamento e NÃO for o fetch interno de processamento
-  if ((width || height) && !isProcessed) {
+  if ((width || height || convertToWebP) && !isProcessed) {
     const resizedUrl = new URL(request.url)
     resizedUrl.searchParams.set('processed', 'true')
 
@@ -147,19 +153,29 @@ export async function serveMedia(env: Env, r2Key: string, request: Request): Pro
 
     // Dispara o Image Resizing do Cloudflare via fetch recursivo
     // Nota: O Cloudflare detecta esse fetch interno e aplica as transformações na resposta
-    return (fetch as any)(resizedUrl.toString(), {
+    const transformed: Response | null = await (fetch as any)(resizedUrl.toString(), {
       headers: newHeaders,
       cf: {
         image: {
           width: width ? parseInt(width) : undefined,
           height: height ? parseInt(height) : undefined,
           quality: parseInt(quality),
-          format: 'auto', // AVIF/WebP negotiation
+          ...(convertToWebP ? { format: 'webp' } : {}),
           fit: 'cover',
           ...(gravity ? { gravity } : {}),
         }
       }
-    })
+    }).catch((): null => null)
+    if (transformed?.ok) {
+      if (!negotiatesWebP) return transformed
+      const response = new Response(transformed.body, transformed)
+      response.headers.set('Cloudflare-CDN-Cache-Control', 'no-store')
+      response.headers.set('Cache-Control', 'private, max-age=86400')
+      const vary = (response.headers.get('Vary') || '').split(',').map(value => value.trim().toLowerCase())
+      if (!vary.includes('accept') && !vary.includes('*')) response.headers.append('Vary', 'Accept')
+      return response
+    }
+    await transformed?.body?.cancel().catch(() => {})
   }
 
   // Se for uma imagem estática (logo, etc) servida via /i/static/
@@ -201,7 +217,11 @@ export async function serveMedia(env: Env, r2Key: string, request: Request): Pro
   headers.set('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream')
   headers.set('Cache-Control', 'public, max-age=31536000, immutable')
   headers.set('ETag', object.httpEtag)
-  headers.set('Vary', 'Accept') // Importante para format: auto
+  headers.set('Vary', 'Accept')
+  if (negotiatesWebP && !isProcessed) {
+    headers.set('Cloudflare-CDN-Cache-Control', 'no-store')
+    headers.set('Cache-Control', 'private, max-age=86400')
+  }
 
   // Suporte a range requests (vídeos)
   if (object.range && 'offset' in object.range) {

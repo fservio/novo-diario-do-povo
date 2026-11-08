@@ -7,6 +7,17 @@ export type SocialImageMeta = {
   alt: string
 }
 
+export const ARTICLE_PLACEHOLDER_PATH='/static/article-placeholder-v1.png'
+export function resolveSocialImage(image:SocialImageMeta|undefined):SocialImageMeta|undefined{
+  if(!image)return image
+  try{
+    const url=new URL(image.url)
+    if(url.pathname!=='/static/logo-dp.png')return image
+    const square=new URL(ARTICLE_PLACEHOLDER_PATH,url.origin).href
+    return {...image,url:square,secureUrl:square,type:'image/png',width:1200,height:1200,alt:'Logo do Diário do Povo'}
+  }catch{return image}
+}
+
 export type SocialMeta = {
   title: string
   description: string
@@ -49,7 +60,7 @@ export function appendSiteName(title: string, siteName: string): string {
 export function renderSocialMetaTags(meta: SocialMeta): string {
   const type = meta.type || 'website'
   const locale = meta.locale || 'pt_BR'
-  const image = meta.image
+  const image = resolveSocialImage(meta.image)
 
   return `
   <meta property="og:locale" content="${escapeMeta(locale)}">

@@ -104,6 +104,8 @@ select:focus-visible {
 .ed-menu-button__icon i { width: 23px; height: 1px; background: currentColor; }
 .ed-menu-button__label { font-size: 12px; font-weight: 750; letter-spacing: .065em; text-transform: uppercase; }
 .ed-masthead__actions { justify-self: end; display: flex; align-items: center; gap: 20px; }
+.ed-search-link { display: inline-grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px; }
+.ed-search-link:focus-visible { outline: 2px solid currentColor; outline-offset: -3px; }
 .ed-account-link { color: white; font-size: 12px; font-weight: 750; letter-spacing: .055em; text-decoration: none; text-transform: uppercase; }
 .ed-account-link:hover { text-decoration: underline; text-underline-offset: 4px; }
 .ed-subscribe {
@@ -640,7 +642,7 @@ select:focus-visible {
 .ed-column-about > p:last-child { margin: 0; color: var(--ed-muted); font-family: var(--ed-serif); font-size: 17px; line-height: 1.55; }
 
 /* Ads, newsletter, commercial and account surfaces */
-.ed-ad { min-height: 122px; margin: 32px 0; padding: 18px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f5f4f1; overflow: hidden; contain: layout paint; }
+.ed-ad { min-height: 122px; margin: 32px 0; padding: 18px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f5f4f1; overflow: visible; contain: layout; }
 .ed-ad__label { margin-bottom: 8px; color: #7b7f82; font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
 .ed-newsletter { margin-top: 48px; padding: 32px; display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 38px; background: var(--ed-navy); color: white; }
 .ed-newsletter h2 { margin: 0 0 8px; font-family: var(--ed-serif); font-size: 30px; line-height: 1.1; }

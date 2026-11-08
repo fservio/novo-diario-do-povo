@@ -1,3 +1,4 @@
+import {ARTICLE_PLACEHOLDER_PATH} from './social'
 /**
  * Article Page Renderer
  * Modern, Clean, Typography-focused
@@ -11,11 +12,18 @@ import { getPostUrl } from '../utils/post'
 import { renderAdSlot, findActiveSlotsByTemplate, generateAdsLoaderScript } from '../ads'
 import { generateArticleJsonLd, generateLiveBlogJsonLd, generateBreadcrumbJsonLd } from '../seo'
 import { renderMarkdownToHtml, sanitizeHtml } from '../render/sanitize'
+import { sizeArticleImages } from './article-images'
+import { renderWhatsAppChannelCta } from './components/whatsapp-channel'
+import whatsappChannelCss from '../../../public/static/whatsapp-channel.css?raw'
 import { renderLiveBlogTimeline, renderLiveBlogScript } from './liveblog'
 import { findLiveUpdates, getSetting } from '../db'
 import { getActiveCategories } from '../db/categories-cache'
 import { renderEditorialLayout } from './layout-editorial'
 import { renderEditorialArticleCard } from './components/editorial-card'
+import { renderReadingPath, removeLegacyReadingLink } from './components/reading-path'
+import { renderReaderTools, readerToolsScript } from './components/reader-tools'
+import { renderDailyInvite } from './meu-dia'
+import dailyCss from '../../../public/static/meu-dia.css?raw'
 import { renderEditorialAd } from './components/editorial-ad'
 import {
   appendSiteName,
@@ -467,7 +475,7 @@ export function buildArticleSocialMeta(
     ? `${baseUrl}/i/${post.social_image_r2_key}`
     : coverImage
       ? `${baseUrl}/i/${post.featured_image_r2_key}?w=1200&h=630&fit=cover&q=90&fp-x=${focalX}&fp-y=${focalY}`
-      : `${baseUrl}/static/logo-dp.png`
+      : `${baseUrl}${ARTICLE_PLACEHOLDER_PATH}`
 
   return {
     title: socialTitle,
@@ -479,9 +487,9 @@ export function buildArticleSocialMeta(
       url: imageUrl,
       secureUrl: imageUrl,
       type: customImage ? post.social_image_mime_type : coverImage ? null : 'image/png',
-      width: customImage ? post.social_image_width || 1200 : coverImage ? 1200 : null,
-      height: customImage ? post.social_image_height || 630 : coverImage ? 630 : null,
-      alt: customImage ? `Arte de compartilhamento: ${post.title}` : post.featured_image_alt || post.title
+      width: customImage ? post.social_image_width || 1200 : 1200,
+      height: customImage ? post.social_image_height || 630 : coverImage ? 630 : 1200,
+      alt: customImage ? `Arte de compartilhamento: ${post.title}` : coverImage ? post.featured_image_alt || post.title : 'Logo do Diário do Povo'
     },
     article: {
       publishedTime: toIsoDate(post.published_at),
@@ -591,7 +599,10 @@ export async function renderArticlePage(
   },
   contentSource?: string
 ): Promise<string> {
-  const { baseUrl, siteName, navItems, coverOfDay, relatedPosts, mostRead, isBlocked, accessCheck, googleAnalyticsId } = options
+  const { baseUrl, siteName, navItems, coverOfDay, relatedPosts: allRelatedPosts, mostRead, isBlocked, accessCheck, googleAnalyticsId } = options
+  const readingPost = !isBlocked && post.template !== 'liveblog' ? allRelatedPosts.find(item => item.reading_path === 'next' || item.reading_path === 'origin') : undefined
+  const readingCard = readingPost ? renderReadingPath(readingPost,baseUrl) : ''
+  const relatedPosts = readingPost ? allRelatedPosts.filter(item=>item.id!==readingPost.id) : allRelatedPosts
 
   // Determine Theme early to pass down
   const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
@@ -609,14 +620,32 @@ export async function renderArticlePage(
   const canonicalUrl = post.seo_canonical || getPostUrl(post, baseUrl)
   const openGraph = buildArticleSocialMeta(post, baseUrl, siteName, canonicalUrl)
   const shareToolbar = renderArticleShareToolbar(post, baseUrl, siteName)
-  const shareScript = renderArticleShareScript(nonce)
+  const readerTools = renderReaderTools(post,canonicalUrl,!isBlocked && post.template!=='liveblog')
+  const dailyInvite = !isBlocked ? renderDailyInvite() : ''
+  const shareScript = renderArticleShareScript(nonce) + readerToolsScript
 
   // Use passed contentSource (teaser) OR full content
   const contentRaw = contentSource || post.content_markdown || post.content || ''
 
-  const contentHtml = (post.content_markdown && post.content_markdown.length > 0) || looksLikeMarkdown(contentRaw)
+  let contentHtml = (post.content_markdown && post.content_markdown.length > 0) || looksLikeMarkdown(contentRaw)
     ? renderMarkdownToHtml(contentRaw)
     : sanitizeHtml(contentRaw)
+  if (!isBlocked) {
+    try {
+      const { applyStoredInternalLinks } = await import('../seo/internal-links')
+      contentHtml = await applyStoredInternalLinks(c.env.DB, post.id, post.content || '', contentHtml)
+    } catch (error) {
+      console.warn('[Internal links] Could not load links', post.id, error)
+    }
+  }
+  if (readingPost?.reading_path === 'origin') contentHtml = removeLegacyReadingLink(contentHtml,getPostUrl(readingPost,baseUrl))
+
+  const [sizedContent, adSlots, adsScript] = await Promise.all([
+    sizeArticleImages(c.env, contentHtml),
+    findActiveSlotsByTemplate(c.env, 'article'),
+    generateAdsLoaderScript(c.env, nonce)
+  ])
+  contentHtml = sizedContent
 
   const readingTime = estimateReadingTime(contentHtml)
 
@@ -625,12 +654,11 @@ export async function renderArticlePage(
   if (post.featured_image_r2_key) {
     preloadHeadHtml += `<link rel="preload" as="image" href="/i/${escapeAttr(post.featured_image_r2_key)}?w=1200" 
       imagesrcset="/i/${escapeAttr(post.featured_image_r2_key)}?w=400 400w, /i/${escapeAttr(post.featured_image_r2_key)}?w=800 800w, /i/${escapeAttr(post.featured_image_r2_key)}?w=1200 1200w"
-      imagesizes="(max-width: 768px) 100vw, 800px"
+      imagesizes="(max-width: 768px) 100vw, ${isEditorial ? '1080px' : '800px'}"
       fetchpriority="high">`
   }
 
   // Get ad slots
-  const adSlots = await findActiveSlotsByTemplate(c.env, 'article')
   const adTop = adSlots.find(s => s.name === 'article_top')
   const adInread1 = adSlots.find(s => s.name === 'article_inread_1')
   const adInread2 = adSlots.find(s => s.name === 'article_inread_2')
@@ -644,9 +672,6 @@ export async function renderArticlePage(
   const adInread1Html = adInread1 && !isBlocked ? renderAdSlot({ slot: adInread1, page: pageContext, user: userContext }) : ''
   const adInread2Html = adInread2 && !isBlocked ? renderAdSlot({ slot: adInread2, page: pageContext, user: userContext }) : ''
   const adFooterHtml = adFooter ? renderAdSlot({ slot: adFooter, page: pageContext, user: userContext }) : ''
-
-  // Ads loader script
-  const adsScript = await generateAdsLoaderScript(c.env, nonce)
 
   // Split content for ad insertion
   let contentWithAds = contentHtml
@@ -695,6 +720,8 @@ export async function renderArticlePage(
   ], baseUrl)
 
   const extraHeadHtml = `
+    <style>${dailyCss}</style>
+    <style data-source="/static/whatsapp-channel.css">${whatsappChannelCss}</style>
     ${preloadHeadHtml}
     ${post.seo_noindex ? '<meta name="robots" content="noindex, follow">' : ''}
     <script type="application/ld+json" nonce="${nonce}">
@@ -703,7 +730,7 @@ export async function renderArticlePage(
     <script type="application/ld+json" nonce="${nonce}">
       ${breadcrumbJsonLd}
     </script>
-    ${isLiveBlog && post.is_live ? renderLiveBlogScript(post.slug) : ''}
+    ${isLiveBlog && post.is_live ? renderLiveBlogScript(post.slug, nonce) : ''}
   `
 
   // Build body HTML
@@ -769,10 +796,14 @@ export async function renderArticlePage(
 
       <div class="ed-article__layout">
         <div class="ed-article__content">
-          ${isLiveBlog ? renderLiveBlogTimeline(liveUpdates, post.is_live === 1) : `
+          ${renderWhatsAppChannelCta()}
+          ${readerTools}
+          ${isLiveBlog ? renderLiveBlogTimeline(liveUpdates, post.is_live === 1, contentWithAds) : `
             <div id="articleBody" class="${isBlocked ? 'article-content teaser-mode' : 'article-content'}">
               ${contentWithAds}
             </div>
+            ${readingCard}
+            ${dailyInvite}
             ${isBlocked && accessCheck ? renderEditorialPaywallGate(accessCheck) : ''}
             ${opinionType === 'article' ? `
               <div class="contributor-disclaimer" style="margin-top:3rem;padding:1.5rem;background:var(--ed-soft);border-left:4px solid var(--ed-red);font-family:var(--ed-sans);font-size:14px;color:var(--ed-muted)">
@@ -782,12 +813,13 @@ export async function renderArticlePage(
           `}
         </div>
 
-        <aside class="ed-article__rail" aria-label="Mais lidas">
-          <h2>Mais lidas</h2>
+        ${mostRead.length ? `<aside class="ed-article__rail" aria-label="Mais vistas no Instagram">
+          <h2>Mais vistas no Instagram</h2>
+          <p>Publicações dos últimos 30 dias, por visualizações no Instagram.</p>
           <div class="ed-share">
             ${mostRead.slice(0, 5).map((item, index) => `<a href="${getPostUrl(item, baseUrl)}"><strong>${index + 1}.</strong> ${escapeHtml(item.title)}</a>`).join('')}
           </div>
-        </aside>
+        </aside>` : ''}
       </div>
 
       ${relatedPosts.length > 0 ? `
@@ -834,9 +866,13 @@ export async function renderArticlePage(
       ${adTopHtml ? `<div class="container mb-8">${adTopHtml}</div>` : ''}
       
       ${renderArticleHeader(post, readingTime, shareToolbar)}
+      <div class="container">${renderWhatsAppChannelCta()}</div>
       
       <!-- Content -->
-      ${isLiveBlog ? renderLiveBlogTimeline(liveUpdates, post.is_live === 1) : renderArticleContent(contentWithAds, isBlocked, nonce, post.author_type, accessCheck)}
+      <div class="container">${readerTools}</div>
+      ${isLiveBlog ? renderLiveBlogTimeline(liveUpdates, post.is_live === 1, contentWithAds) : renderArticleContent(contentWithAds, isBlocked, nonce, post.author_type, accessCheck)}
+      ${readingCard ? `<div class="container">${readingCard}</div>` : ''}
+      ${dailyInvite ? `<div class="container">${dailyInvite}</div>` : ''}
       
       ${!isBlocked ? `
         <!-- Footer Navigation: Next + Related + Most Read -->
@@ -863,7 +899,8 @@ export async function renderArticlePage(
           <!-- 3. Most Read (Grid) -->
           ${mostRead && mostRead.length > 0 ? `
              <div class="mb-12">
-              <h3 class="gb-section__title mb-6 ${isAllType ? 'font-black uppercase' : ''}" style="${isAllType ? 'font-family: var(--alltype-font-ui);' : ''}">Mais Lidas</h3>
+              <h3 class="gb-section__title mb-6 ${isAllType ? 'font-black uppercase' : ''}" style="${isAllType ? 'font-family: var(--alltype-font-ui);' : ''}">Mais vistas no Instagram</h3>
+              <p>Publicações dos últimos 30 dias, por visualizações no Instagram.</p>
               <div class="${isAllType ? 'alltype-grid grid-cols-1 md:grid-cols-4' : 'gb-grid'}" ${!isAllType ? 'style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));"' : ''}>
                 ${mostRead.slice(0, 4).map(p => renderArticleCard(p, baseUrl, { isAllType })).join('')}
               </div>

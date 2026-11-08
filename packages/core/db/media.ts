@@ -310,13 +310,37 @@ export async function isMediaInUse(env: Env, id: number): Promise<boolean> {
 }
 
 /**
- * Extract image dimensions from buffer (simple PNG/JPEG parser)
+ * Extract dimensions from PNG, JPEG and WebP headers.
  */
 export function extractImageDimensions(
   buffer: ArrayBuffer,
   mimeType: string
 ): { width: number; height: number } | null {
   const bytes = new Uint8Array(buffer)
+
+  if (mimeType === 'image/webp' && bytes.length >= 25) {
+    const header = String.fromCharCode(...bytes.subarray(0, 16))
+    if (header.startsWith('RIFF') && header.slice(8, 12) === 'WEBP') {
+      const chunk = header.slice(12, 16)
+      if (chunk === 'VP8X' && bytes.length >= 30) {
+        return {
+          width: 1 + (bytes[24] | bytes[25] << 8 | bytes[26] << 16),
+          height: 1 + (bytes[27] | bytes[28] << 8 | bytes[29] << 16)
+        }
+      }
+      if (chunk === 'VP8L' && bytes[20] === 0x2f) {
+        const size = new DataView(buffer).getUint32(21, true)
+        return { width: 1 + (size & 0x3fff), height: 1 + ((size >>> 14) & 0x3fff) }
+      }
+      if (chunk === 'VP8 ' && bytes.length >= 30 &&
+          bytes[23] === 0x9d && bytes[24] === 0x01 && bytes[25] === 0x2a) {
+        const view = new DataView(buffer)
+        const width = view.getUint16(26, true) & 0x3fff
+        const height = view.getUint16(28, true) & 0x3fff
+        if (width && height) return { width, height }
+      }
+    }
+  }
 
   // PNG: signature + IHDR chunk
   if (mimeType === 'image/png' && bytes.length >= 24) {

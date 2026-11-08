@@ -1,0 +1,160 @@
+{
+  "name": "Diário do Povo — Links contextuais de uma matéria",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "id": "input",
+      "name": "Entrada",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "plan",
+      "name": "Gerar plano",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://diario.dopovo.com.br/api/n8n/internal-links/' + Number($json.id) + '/plan' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 65000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "h4xlwytBvEYpPQUE",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "id": "persist",
+      "name": "Gravar em produção?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "explicit-write",
+              "leftValue": "={{ $('Entrada').item.json.apply !== false && $json.links.length > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "write",
+      "name": "Validar e gravar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        -100
+      ],
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ 'https://diario.dopovo.com.br/api/n8n/internal-links/' + $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({revision: $json.revision, batch: $('Entrada').item.json.batch || ('n8n-' + $execution.id), links: $json.links}) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "h4xlwytBvEYpPQUE",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "id": "report",
+      "name": "Resultado sem gravação",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        720,
+        100
+      ],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Entrada": {
+      "main": [
+        [
+          {
+            "node": "Gerar plano",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar plano": {
+      "main": [
+        [
+          {
+            "node": "Gravar em produção?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gravar em produção?": {
+      "main": [
+        [
+          {
+            "node": "Validar e gravar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Resultado sem gravação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

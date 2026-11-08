@@ -50,6 +50,20 @@ function article(overrides: Partial<ArticlePost> = {}): ArticlePost {
 }
 
 describe('Open Graph editorial', () => {
+  it('usa uma imagem quadrada com a marca completa quando não há foto de destaque',()=>{
+    const meta=buildArticleSocialMeta(article({featured_image_r2_key:null}),'https://diario.dopovo.com.br','Diário do Povo','https://diario.dopovo.com.br/materia')
+    expect(meta.image).toMatchObject({url:'https://diario.dopovo.com.br/static/article-placeholder-v1.png',width:1200,height:1200,type:'image/png'})
+    const html=renderSocialMetaTags(meta)
+    expect(html).toContain('property="og:image:width" content="1200"')
+    expect(html).toContain('property="og:image:height" content="1200"')
+    expect(html).not.toContain('content="https://diario.dopovo.com.br/static/logo-dp.png"')
+  })
+  it('normaliza o fallback dos layouts antigos sem substituir fotos de matérias',()=>{
+    const meta={title:'Teste',description:'Descrição',url:'https://diario.dopovo.com.br/teste',siteName:'Diário do Povo',image:{url:'https://diario.dopovo.com.br/static/logo-dp.png',alt:'Marca'}}
+    expect(renderSocialMetaTags(meta)).toContain('article-placeholder-v1.png')
+    expect(renderSocialMetaTags({...meta,image:{url:'https://diario.dopovo.com.br/i/foto.jpg',alt:'Foto'}})).toContain('/i/foto.jpg')
+    expect(renderSocialMetaTags({...meta,image:{url:'https://diario.dopovo.com.br/i/foto.jpg',alt:'Foto'}})).not.toContain('article-placeholder-v1.png')
+  })
   it('gera um conjunto único, completo e identificado com a marca', () => {
     const meta = buildArticleSocialMeta(
       article(),

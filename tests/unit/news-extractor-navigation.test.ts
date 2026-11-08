@@ -1,0 +1,7 @@
+import {describe,it,expect} from 'vitest'
+import {Hono} from 'hono'
+import {attachExtractorNavigation} from '../../packages/core/admin/news-extractor'
+describe('collector navigation on preserved production pages',()=>{
+ it('adds the shortcut to a legacy page and preserves response headers',async()=>{const app=new Hono();app.use('*',async(c,next)=>{c.set('adminUser',{role:'editor'});await next()});app.use('/admin/*',attachExtractorNavigation);app.get('/admin/integrations',c=>{c.header('Cache-Control','private, no-store');return c.html('<main><nav><a href="/admin/redacao-ia">Redação IA</a></nav></main>')});const r=await app.request('/admin/integrations');const html=await r.text();expect(r.headers.get('Cache-Control')).toBe('private, no-store');expect(html).toContain('href="/admin/news-extractor"');expect(html).toContain('Gerenciar coleta de fontes')})
+ it('does not duplicate an existing shortcut or expose it to writers',async()=>{for(const role of ['editor','writer']){const app=new Hono();app.use('*',async(c,next)=>{c.set('adminUser',{role});await next()});app.use('/admin/*',attachExtractorNavigation);app.get('/admin/posts',c=>c.html('<nav><a href="/admin/redacao-ia">Redação IA</a>'+(role==='editor'?'<a href="/admin/news-extractor">NewsExtractor</a>':'')+'</nav>'));const html=await (await app.request('/admin/posts')).text();expect((html.match(/href="\/admin\/news-extractor"/g)||[]).length).toBe(role==='editor'?1:0)}})
+})

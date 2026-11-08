@@ -1,4 +1,5 @@
 import { escapeHtml, escapeAttr } from './layout'
+import { FAVICON_LINKS } from './favicon'
 import { renderAlltypeHeader } from './components/header'
 import { renderAlltypeFooter } from './components/footer'
 
@@ -40,6 +41,7 @@ export function renderAlltypeLayout(params: {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  ${FAVICON_LINKS}
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(title)}</title>

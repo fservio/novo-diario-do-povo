@@ -1,10 +1,11 @@
 import type { Context } from 'hono'
+import { FAVICON_LINKS } from './favicon'
 import type { Env } from '../types'
 import { addConfirmedNewsletterRecipient, unsubscribeNewsletterRecipient } from '../newsletter'
 import { randomHex } from '../utils'
 
 function page(content: string): string {
-  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Preferências de newsletter | Diário do Povo</title><style>
+  return `<!doctype html><html lang="pt-BR"><head>${FAVICON_LINKS}<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Preferências de newsletter | Diário do Povo</title><style>
   *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:#eef1f3;color:#182b38;font-family:Arial,sans-serif}.box{width:min(520px,100%);padding:42px;background:#fff;border-top:4px solid #b78a3d;box-shadow:0 18px 50px rgba(10,35,52,.1);text-align:center}.logo{width:170px;height:auto;margin-bottom:28px}.kicker{color:#a5762d;font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase}h1{margin:10px 0 12px;font-family:Georgia,serif;font-size:32px;line-height:1.08}p{color:#61717a;font-size:14px;line-height:1.6}button,a{display:inline-block;margin-top:16px;padding:12px 18px;border:0;background:#173f5f;color:#fff;font-weight:700;text-decoration:none;cursor:pointer}
   </style></head><body><main class="box"><img class="logo" src="/static/logo-dp.png" alt="Diário do Povo">${content}</main></body></html>`
 }

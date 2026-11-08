@@ -8,7 +8,7 @@ import {
   setInstagramPublicationState
 } from './repository'
 import { stripArticleText } from './renderer'
-import type { InstagramRuntimeConfig } from './types'
+import type { InstagramRuntimeConfig, InstagramPublication } from './types'
 
 const CONFIG_KEYS = [
   'instagram.caption_webhook_url',
@@ -41,13 +41,19 @@ export async function getInstagramRuntimeConfig(env: Env): Promise<InstagramRunt
   const settings = await getSettings(env, CONFIG_KEYS, 'private')
   const captionWebhookUrl = safeWebhookUrl(settings['instagram.caption_webhook_url'])
   const publishWebhookUrl = safeWebhookUrl(settings['instagram.publish_webhook_url'])
+  const direct = await env.DB.prepare('SELECT username,expires_at FROM instagram_connections WHERE id=1').first<{ username: string; expires_at: string }>()
+  const directConnected = Boolean(direct && direct.expires_at > new Date().toISOString())
   const accountLabel = String(settings['instagram.account_label'] || '@diariodopovo').trim().slice(0, 100)
   return {
+    directConnected,
+    directUsername: direct?.username,
+    directExpiresAt: direct?.expires_at,
+    directRedirectUri: env.INSTAGRAM_REDIRECT_URI || `${env.PUBLIC_BASE_URL.replace(/\/$/, '')}/admin/instagram/connect/callback`,
     captionWebhookUrl,
     publishWebhookUrl,
     accountLabel,
     captionReady: Boolean(captionWebhookUrl),
-    publishReady: Boolean(publishWebhookUrl)
+    publishReady: direct ? directConnected : Boolean(publishWebhookUrl)
   }
 }
 
@@ -117,7 +123,7 @@ export async function requestInstagramCaption(env: Env, id: number): Promise<voi
         content: stripArticleText(publication.article_content_markdown || publication.article_content),
         url: getPostUrl({
           slug: publication.slug,
-          published_at: publication.article_published_at,
+          published_at: publication.article_published_at || publication.article_scheduled_at,
           created_at: publication.article_created_at
         }, env.PUBLIC_BASE_URL)
       },
@@ -151,12 +157,25 @@ export async function requestInstagramCaption(env: Env, id: number): Promise<voi
   }
 }
 
+export function validateInstagramPublicationTiming(publication: Pick<InstagramPublication, 'article_status' | 'article_scheduled_at'>, scheduledAt?: string): void {
+  if (!publication.article_status || publication.article_status === 'published') return
+  if (publication.article_status !== 'draft' || !publication.article_scheduled_at) {
+    throw new Error('A matéria precisa estar publicada ou agendada antes de divulgar no Instagram.')
+  }
+  const earliest = new Date(publication.article_scheduled_at).getTime() + 60000
+  const socialDate = scheduledAt ? new Date(scheduledAt).getTime() : NaN
+  if (!Number.isFinite(earliest) || !Number.isFinite(socialDate) || socialDate < earliest || socialDate <= Date.now()) {
+    throw new Error('Agende o Instagram para pelo menos um minuto depois do horário da matéria, ou aguarde a publicação no site.')
+  }
+}
+
 export async function dispatchInstagramPublication(env: Env, id: number, scheduledAt?: string): Promise<void> {
   const [publication, config] = await Promise.all([
     getInstagramPublication(env, id),
     getInstagramRuntimeConfig(env)
   ])
   if (!publication) throw new Error('Publicação não encontrada.')
+  validateInstagramPublicationTiming(publication, scheduledAt)
   if (!publication.approved_at || !['approved', 'failed'].includes(publication.status)) {
     throw new Error('A publicação precisa de aprovação editorial antes do envio.')
   }
@@ -241,6 +260,9 @@ export async function applyInstagramN8nCallback(env: Env, id: number, payload: R
     })
     return
   }
+
+  const directJob = await env.DB.prepare('SELECT id FROM instagram_direct_jobs WHERE publication_id=? LIMIT 1').bind(id).first()
+  if (directJob) throw new Error('Esta publicação usa a integração direta; retorno do n8n recusado.')
 
   const allowed = new Set(['scheduled', 'publishing', 'published', 'failed'])
   const rawStatus = String(payload.status || '').toLowerCase()

@@ -1,0 +1,36 @@
+services:
+  news-extractor:
+    build: .
+    image: diario-news-extractor:1
+    restart: unless-stopped
+    read_only: true
+    env_file:
+      - .env
+    environment:
+      CACHE_PATH: /data/articles.sqlite
+      TRENDS_RSS_URL: https://trends.google.com.br/trending/rss?geo=BR
+    volumes:
+      - extraction-cache:/data
+    tmpfs:
+      - /tmp:size=32m,uid=10001,gid=10001,mode=0700,noexec,nosuid,nodev
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 0.5
+    pids_limit: 64
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: local
+      options: { max-size: 1m, max-file: '2' }
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [n8n]
+volumes:
+  extraction-cache:
+networks:
+  n8n:
+    external: true
+    name: ${N8N_NETWORK:-root_default}

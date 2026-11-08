@@ -4,6 +4,7 @@
  */
 
 import { renderScript } from '../admin/ui'
+import { FAVICON_LINKS } from './favicon'
 import { renderSocialMetaTags, type SocialMeta } from './social'
 
 const STATIC_ASSET_VERSION = '20260504'
@@ -401,6 +402,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  ${FAVICON_LINKS}
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(title)}</title>
@@ -509,24 +511,15 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
       width: 100%;
     }
     @media (max-width: 768px) {
-      .ad-slot { min-height: 100px !important; }
+      /* Preserve each slot's reserved height and let responsive creatives grow.
+         Fixed 100px wrappers clipped taller AdSense ads on mobile. */
       .ad-slot[data-ad-slot="home_top_leaderboard"] {
-        height: 100px !important;
-        min-height: 100px !important;
-        max-height: 100px !important;
         margin: 12px 0 !important;
-        overflow: hidden !important;
       }
-      .ad-slot[data-ad-slot="home_top_leaderboard"] .adsbygoogle {
-        height: 100px !important;
-        min-height: 100px !important;
-      }
-      .ad-slot[data-ad-slot^="article_top"],
-      .ad-slot[data-ad-slot^="article_footer"] {
-        height: 100px !important;
-        min-height: 100px !important;
-        max-height: 100px !important;
-        overflow: hidden !important;
+      .ad-slot[data-provider="adsense"] {
+        height: auto;
+        max-height: none;
+        overflow: visible;
       }
     }
     /* Critical Typography */
@@ -633,6 +626,8 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
       </div>
       
       <nav style="display: flex; flex-direction: column; gap: 8px;">
+        <a href="/meu-dia" class="mobile-nav-link">Meu dia</a>
+        <a href="/jogos/extra-extra" class="mobile-nav-link">Extra! Extra!</a>
         ${categories.map(cat => `
           <a href="/categoria/${encodeURIComponent(cat.slug)}" class="mobile-nav-link">
             ${escapeHtml(cat.name)}

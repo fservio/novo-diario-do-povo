@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { renderWhatsAppLanding } from '../../packages/core/web/whatsapp'
+import { WHATSAPP_CHANNEL_URL } from '../../packages/core/web/components/whatsapp-channel'
 import { normalizeWhatsAppTopics, verifyWhatsAppSignature } from '../../packages/core/whatsapp/service'
 
 describe('Canal editorial do WhatsApp', () => {
@@ -32,10 +34,14 @@ describe('Canal editorial do WhatsApp', () => {
     expect(routes).toContain("app.post('/admin/whatsapp/campanhas/:id{[0-9]+}/enviar'")
   })
 
-  it('apresenta cobertura do Piauí, Brasil e mundo', () => {
-    const landing = readFileSync(new URL('../../packages/core/web/whatsapp.ts', import.meta.url), 'utf8')
-    expect(landing).toContain('do Piauí, do Brasil e do mundo')
-    expect(landing).toContain("['brasil', 'Brasil'")
-    expect(landing).toContain("['mundo', 'Mundo'")
+  it('abre o canal sem exigir formulário, credenciais ou consulta ao banco', async () => {
+    const html = await renderWhatsAppLanding({ html: (value: string) => value } as any) as unknown as string
+    expect(html).toContain('O Piauí, o Brasil e o mundo')
+    expect(html.split(`href="${WHATSAPP_CHANNEL_URL}"`).length - 1).toBe(2)
+    expect(html).toContain('Toque em “Seguir”')
+    expect(html).toContain('Outros seguidores não veem seu número.')
+    expect(html).toContain('Se um administrador já tiver seu contato salvo')
+    expect(html).not.toContain('<form')
+    expect(html).not.toContain('respondendo SAIR')
   })
 })

@@ -801,6 +801,8 @@ export async function renderHomePage(
   const nonce = c.get('cspNonce') || ''
   const { renderAdSlot, generateAdsLoaderScript, findActiveSlotsByTemplate } = await import('../ads')
   const { baseUrl, siteName, coverR2Key, coverAlt, coverAspectRatio } = params
+  const homeTitle = `${siteName} — Notícias do Piauí, Brasil e mundo`
+  const homeDescription = 'Acompanhe no Diário do Povo as notícias do Piauí, do Brasil e do mundo, com informação, análises e serviço público para o seu dia a dia.'
 
   // Determine Theme
   const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
@@ -909,8 +911,8 @@ export async function renderHomePage(
     `
 
     return renderEditorialLayout({
-      title: `${siteName} — Notícias de Fortaleza, Ceará e Brasil`,
-      description: 'Notícias, análises e serviço público com independência editorial e compromisso com a comunidade.',
+      title: homeTitle,
+      description: homeDescription,
       baseUrl,
       siteName,
       navItems,
@@ -1095,8 +1097,8 @@ export async function renderHomePage(
   }
 
   return renderPublicLayout({
-    title: `${siteName} - Notícias e Análises`,
-    description: "Cobertura completa",
+    title: homeTitle,
+    description: homeDescription,
     canonicalUrl: baseUrl,
     nonce,
     siteName,
