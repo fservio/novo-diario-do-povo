@@ -399,6 +399,10 @@ app.post('/api/n8n/posts', async (c) => {
               if (/logo_(?:color|white)/i.test(parsed.pathname)) return null
               return 'Governo do Piauí'
             }
+            if (host === 'camara.leg.br' || host.endsWith('.camara.leg.br')) {
+              if (/logo|brasao|favicon/i.test(parsed.pathname)) return null
+              return 'Agência Câmara'
+            }
             return null
           } catch {
             return null
