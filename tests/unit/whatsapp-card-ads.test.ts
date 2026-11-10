@@ -23,7 +23,7 @@ describe('WhatsApp channel card protection against auto ads', () => {
     expect(renderWhatsAppChannelCta()).toContain('data-no-auto-ads')
   })
 
-  it('removes auto-placed ads that land inside protected zones', async () => {
+  it('removes auto-placed ads anywhere but keeps CMS ad slots', async () => {
     const env = createEnv({
       'ads.provider_mode': 'adsense',
       'ads.consent.enabled': false,
@@ -33,11 +33,18 @@ describe('WhatsApp channel card protection against auto ads', () => {
     const html = await generateAdsLoaderScript(env, 'nonce')
     const code = html.replace(/^[\s\S]*?<script[^>]*>/, '').replace(/<\/script>[\s\S]*$/, '')
     const removed: string[] = []
-    const protectedAd = { closest: () => ({ remove: () => removed.push('wrapper') }), remove: () => removed.push('ins') }
+    const autoAd = {
+      closest: (selector: string) => selector === '.ad-slot' ? null : { remove: () => removed.push('auto-wrapper') },
+      remove: () => removed.push('auto')
+    }
+    const cmsAd = {
+      closest: (selector: string) => selector === '.ad-slot' ? {} : null,
+      remove: () => removed.push('cms-slot-removed-by-mistake')
+    }
     let observerCallback: (() => void) | null = null
     const document: any = {
       documentElement: {},
-      querySelectorAll: (selector: string) => selector.includes('data-no-auto-ads') ? [protectedAd] : [],
+      querySelectorAll: (selector: string) => selector.includes('google-auto-placed') ? [autoAd, cmsAd] : [],
       addEventListener: () => {},
       readyState: 'complete',
       createElement: () => ({}),
@@ -56,9 +63,11 @@ describe('WhatsApp channel card protection against auto ads', () => {
       disconnect() {}
     }
     runInNewContext(code, { window, document, MutationObserver: FakeObserver, setTimeout, console, IntersectionObserver: undefined })
-    expect(removed).toContain('wrapper')
+    expect(removed).toContain('auto-wrapper')
+    expect(removed).not.toContain('cms-slot-removed-by-mistake')
     removed.length = 0
     observerCallback?.()
-    expect(removed).toContain('wrapper')
+    expect(removed).toContain('auto-wrapper')
+    expect(removed).not.toContain('cms-slot-removed-by-mistake')
   })
 })

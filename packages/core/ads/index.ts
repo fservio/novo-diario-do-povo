@@ -293,16 +293,20 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
     }
   }
 
-  // Zonas protegidas (ex.: card do canal do WhatsApp) nunca podem receber anúncios automáticos do Google.
-  (function guardProtectedZones() {
+  // Somente os espaços definidos pelo CMS (.ad-slot) podem exibir anúncios.
+  // Qualquer anúncio automático do Google (Auto ads: in-page, âncora, vinheta) é removido assim que aparece.
+  (function guardAdPositions() {
     try {
-      const selector = '[data-no-auto-ads] .google-auto-placed, [data-no-auto-ads] ins.adsbygoogle';
+      const selector = '.google-auto-placed, ins.adsbygoogle';
       let queued = false;
       function purge() {
         queued = false;
         const nodes = document.querySelectorAll(selector);
         if (!nodes || !nodes.forEach) return;
-        nodes.forEach(function(node) { (node.closest('.google-auto-placed') || node).remove(); });
+        nodes.forEach(function(node) {
+          if (node.closest('.ad-slot')) return;
+          (node.closest('.google-auto-placed') || node).remove();
+        });
       }
       function schedule() {
         if (queued) return;
