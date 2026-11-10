@@ -9,12 +9,14 @@ import { renderAdminLayout, escapeHtml, maskSecretValue, renderAdminIcon, render
 import { getSetting, setSetting } from '../db'
 import { normalizeRole } from '../db/users'
 import { getNewsletterRuntimeConfig } from '../newsletter'
+import { TRUSTED_IMAGE_SOURCES_KEY, getTrustedImageSources, normalizeSourceDomain, type TrustedImageSource } from '../media-sources'
 
 export async function renderSettingsListPage(c: Context<{ Bindings: Env; Variables: AppContext }>): Promise<Response> {
   const user = c.get('adminUser') as AdminUser
   const csrfToken = c.get('csrfToken') || ''
   const newsletterConfig = await getNewsletterRuntimeConfig(c.env)
   const canManageSettings = normalizeRole(user.role) === 'director'
+  const trustedSources = await getTrustedImageSources(c.env)
 
   // Get all settings
   const publicSettings = await c.env.DB.prepare(
@@ -24,6 +26,15 @@ export async function renderSettingsListPage(c: Context<{ Bindings: Env; Variabl
   const privateSettings = await c.env.DB.prepare(
     "SELECT key, scope, version, updated_at FROM settings WHERE scope = ? AND key NOT LIKE 'newsletter.%' ORDER BY key"
   ).bind('private').all<any>()
+
+  const sourceDisabledAttr = canManageSettings ? '' : 'disabled'
+  const renderTrustedSourceRow = (source: Partial<TrustedImageSource>, index: number) => `
+    <tr>
+      <td><input class="form-control" name="domain_${index}" value="${escapeHtml(source.domain || '')}" placeholder="exemplo.gov.br" maxlength="253" autocomplete="off" ${sourceDisabledAttr}></td>
+      <td><input class="form-control" name="credit_${index}" value="${escapeHtml(source.credit || '')}" placeholder="Nome do crédito exibido" maxlength="120" autocomplete="off" ${sourceDisabledAttr}></td>
+      <td style="text-align:center;"><input type="checkbox" name="enabled_${index}" value="1" ${source.domain && source.enabled !== false ? 'checked' : ''} ${sourceDisabledAttr} aria-label="Ativa"></td>
+    </tr>
+  `
 
   const renderSettingRow = (setting: any) => `
     <tr>
@@ -106,6 +117,21 @@ export async function renderSettingsListPage(c: Context<{ Bindings: Env; Variabl
           <p class="newsletter-secret-help">Por segurança, a senha não é armazenada no banco nem pode ser consultada por esta tela.</p>
           <button class="btn" type="submit" ${canManageSettings ? '' : 'disabled title="Apenas diretores podem alterar estas configurações"'}>Salvar configurações</button>
         </div>
+      </form>
+    </section>
+
+    <section class="card" style="margin-top: 1.25rem; padding: 1.5rem;">
+      <p class="page-kicker">Imagens</p>
+      <h2>Fontes com foto autorizada</h2>
+      <p>Matérias importadas pelo n8n só recebem automaticamente a foto da fonte quando o domínio estiver nesta lista. Para liberar uma fonte nova, preencha uma linha em branco. Para suspender, desmarque "Ativa" ou apague o domínio.</p>
+      <p style="color: #b45309; font-weight: 600;">Cadastre apenas fontes cujas imagens você tem direito de usar. A responsabilidade pelos direitos de uso é do editor.</p>
+      <form method="post" action="/admin/settings/media-sources">
+        ${renderCsrfInput(csrfToken)}
+        <table style="margin: 1rem 0;">
+          <thead><tr><th>Domínio</th><th>Crédito exibido</th><th style="text-align:center;">Ativa</th></tr></thead>
+          <tbody>${[...trustedSources, ...Array.from({ length: 5 }, () => ({}))].map((source, index) => renderTrustedSourceRow(source as Partial<TrustedImageSource>, index)).join('')}</tbody>
+        </table>
+        <button class="btn" type="submit" ${canManageSettings ? '' : 'disabled title="Apenas diretores podem alterar estas configurações"'}>Salvar fontes</button>
       </form>
     </section>
 
@@ -361,5 +387,37 @@ export async function handleNewsletterSettingsUpdate(
   } catch (error) {
     console.error('[Newsletter Settings] Save error:', error)
     return c.redirect(`/admin/settings?error=${encodeURIComponent('Não foi possível salvar as configurações de newsletter.')}`, 303)
+  }
+}
+
+export async function handleMediaSourcesUpdate(
+  c: Context<{ Bindings: Env; Variables: AppContext }>
+): Promise<Response> {
+  const user = c.get('adminUser') as AdminUser
+  if (normalizeRole(user.role) !== 'director') {
+    return c.html('<h1>Acesso negado</h1><p>Apenas diretores podem alterar as fontes com foto autorizada.</p>', 403)
+  }
+  const formData = (c.get('parsedBody') || await c.req.parseBody()) as Record<string, string>
+  const sources: TrustedImageSource[] = []
+  const seen = new Set<string>()
+  for (let index = 0; index < 200; index++) {
+    const hasRow = ('domain_' + index) in formData || ('credit_' + index) in formData
+    if (!hasRow) break
+    const rawDomain = String(formData['domain_' + index] ?? '').trim()
+    const credit = String(formData['credit_' + index] ?? '').trim()
+    if (!rawDomain && !credit) continue
+    const domain = normalizeSourceDomain(rawDomain)
+    if (!domain) return c.redirect(`/admin/settings?error=${encodeURIComponent('Domínio inválido ou amplo demais: ' + rawDomain)}`, 303)
+    if (!credit) return c.redirect(`/admin/settings?error=${encodeURIComponent('Informe o crédito da fonte ' + domain)}`, 303)
+    if (seen.has(domain)) continue
+    seen.add(domain)
+    sources.push({ domain, credit: credit.slice(0, 120), enabled: formData['enabled_' + index] === '1' })
+  }
+  try {
+    await setSetting(c.env, TRUSTED_IMAGE_SOURCES_KEY, sources, 'public', user.id)
+    return c.redirect(`/admin/settings?message=${encodeURIComponent('Fontes com foto autorizada salvas.')}`, 303)
+  } catch (error) {
+    console.error('[Media Sources] Save error:', error)
+    return c.redirect(`/admin/settings?error=${encodeURIComponent('Não foi possível salvar as fontes.')}`, 303)
   }
 }

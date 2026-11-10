@@ -312,7 +312,7 @@ app.post('/api/n8n/posts', async (c) => {
     } else if (typeof body.tags === 'string' || Array.isArray(body.tags)) {
       try {
         const rawList = Array.isArray(body.tags) ? body.tags : String(body.tags).split(',')
-        const names = [...new Set(rawList.map((t: unknown) => String(t || '').trim()).filter((t: string) => t.length >= 2 && t.length <= 60))].slice(0, 6)
+        const names: string[] = [...new Set<string>(rawList.map((t: unknown) => String(t || '').trim()).filter((t: string) => t.length >= 2 && t.length <= 60))].slice(0, 6)
         const ids: number[] = []
         for (const name of names) {
           const tagSlug = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
@@ -376,45 +376,21 @@ app.post('/api/n8n/posts', async (c) => {
 
     const { id: postId, reused } = await createImportedPost(c.env.DB, input)
 
-    // Automatically extract and attach source og:image / image_url ONLY for approved public agency sources (Agência Brasil, Agência SP)
+    // Automatically extract and attach source og:image / image_url ONLY for sources authorized in the CMS (settings: media.trusted_image_sources)
     const existingForCover = reused && c.env?.DB ? await getPostById(c.env.DB, postId) : null
     if ((!reused || !existingForCover?.cover_media_id) && !input.cover_media_id && c.env?.R2 && c.env?.DB) {
       try {
-        const getApprovedPublicSourceCredit = (urlStr: string): string | null => {
-          try {
-            const parsed = new URL(urlStr)
-            const host = parsed.hostname.toLowerCase().replace(/^www\./, '')
-            if (host === 'agenciabrasil.ebc.com.br' || host.endsWith('.ebc.com.br') || host === 'ebc.com.br') {
-              return 'Agência Brasil'
-            }
-            if (host === 'agenciasp.sp.gov.br' || host.endsWith('.agenciasp.sp.gov.br')) {
-              if (/logo-agenciasp/i.test(parsed.pathname)) return null
-              return 'Agência SP'
-            }
-            if (host === 'ce.gov.br' || host.endsWith('.ce.gov.br') || host === 'ceara.gov.br' || host.endsWith('.ceara.gov.br')) {
-              if (/logotipo-governo-do-ceara/i.test(parsed.pathname)) return null
-              return 'Governo do Ceará'
-            }
-            if (host === 'pi.gov.br' || host.endsWith('.pi.gov.br')) {
-              if (/logo_(?:color|white)/i.test(parsed.pathname)) return null
-              return 'Governo do Piauí'
-            }
-            if (host === 'camara.leg.br' || host.endsWith('.camara.leg.br')) {
-              if (/logo|brasao|favicon/i.test(parsed.pathname)) return null
-              return 'Agência Câmara'
-            }
-            return null
-          } catch {
-            return null
-          }
-        }
+        const { getTrustedImageSources, matchTrustedImageSource } = await import('../packages/core/media-sources')
+        const trustedImageSources = await getTrustedImageSources(c.env)
+        const getApprovedPublicSourceCredit = (urlStr: string, isImage = false): string | null =>
+          matchTrustedImageSource(trustedImageSources, urlStr, isImage)
         let candidateImgUrl =
           typeof body.image_url === 'string' &&
           /^https?:\/\//i.test(body.image_url.trim()) &&
-          Boolean(getApprovedPublicSourceCredit(body.image_url.trim()))
+          Boolean(getApprovedPublicSourceCredit(body.image_url.trim(), true))
             ? body.image_url.trim()
             : null
-        let candidateCredit = candidateImgUrl ? getApprovedPublicSourceCredit(candidateImgUrl) : null
+        let candidateCredit = candidateImgUrl ? getApprovedPublicSourceCredit(candidateImgUrl, true) : null
         if (!candidateImgUrl) {
           const sourceLinks: string[] = []
           if (typeof body.original_link === 'string' && getApprovedPublicSourceCredit(body.original_link.trim())) {
@@ -440,7 +416,7 @@ app.post('/api/n8n/posts', async (c) => {
               if (ogMatch?.[1]) {
                 const rawUrl = ogMatch[1].replace(/&amp;/g, '&').trim()
                 const resolvedUrl = new URL(rawUrl, pageUrl).toString()
-                const resolvedCredit = getApprovedPublicSourceCredit(resolvedUrl)
+                const resolvedCredit = getApprovedPublicSourceCredit(resolvedUrl, true)
                 if (resolvedCredit) {
                   candidateImgUrl = resolvedUrl
                   candidateCredit = resolvedCredit
@@ -2458,6 +2434,12 @@ app.post('/api/admin/media/upload', async (c) => {
 app.post('/admin/settings/newsletter', async (c) => {
   const { handleNewsletterSettingsUpdate } = await import('../packages/core/admin/settings')
   return handleNewsletterSettingsUpdate(c)
+})
+
+// POST /admin/settings/media-sources
+app.post('/admin/settings/media-sources', async (c) => {
+  const { handleMediaSourcesUpdate } = await import('../packages/core/admin/settings')
+  return handleMediaSourcesUpdate(c)
 })
 
 // POST /admin/settings/:scope/:key
