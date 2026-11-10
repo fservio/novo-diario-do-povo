@@ -376,19 +376,31 @@ app.post('/api/n8n/posts', async (c) => {
 
     const { id: postId, reused } = await createImportedPost(c.env.DB, input)
 
-    // Automatically extract and attach source og:image / image_url when cover_media_id is missing
+    // Automatically extract and attach source og:image / image_url ONLY for Agência Brasil sources
     if (!reused && !input.cover_media_id && c.env?.R2 && c.env?.DB) {
       try {
-        let candidateImgUrl = typeof body.image_url === 'string' && /^https?:\/\//i.test(body.image_url.trim()) ? body.image_url.trim() : null
-        let sourceHost = ''
+        const isAgenciaBrasilUrl = (urlStr: string): boolean => {
+          try {
+            const host = new URL(urlStr).hostname.toLowerCase().replace(/^www\./, '')
+            return host === 'agenciabrasil.ebc.com.br' || host.endsWith('.ebc.com.br') || host === 'ebc.com.br'
+          } catch {
+            return false
+          }
+        }
+        let candidateImgUrl =
+          typeof body.image_url === 'string' &&
+          /^https?:\/\//i.test(body.image_url.trim()) &&
+          isAgenciaBrasilUrl(body.image_url.trim())
+            ? body.image_url.trim()
+            : null
         if (!candidateImgUrl) {
           const sourceLinks: string[] = []
-          if (typeof body.original_link === 'string' && /^https?:\/\//i.test(body.original_link) && !body.original_link.includes('trends.google.com')) {
+          if (typeof body.original_link === 'string' && isAgenciaBrasilUrl(body.original_link.trim())) {
             sourceLinks.push(body.original_link.trim())
           }
           const hrefMatches = String(body.content || '').matchAll(/href=["'](https?:\/\/[^"']+)["']/gi)
           for (const m of hrefMatches) {
-            if (m[1] && !m[1].includes('trends.google.com') && !m[1].includes('diario.dopovo.com.br')) {
+            if (m[1] && isAgenciaBrasilUrl(m[1])) {
               sourceLinks.push(m[1])
             }
           }
@@ -405,16 +417,18 @@ app.post('/api/n8n/posts', async (c) => {
                 || htmlSnippet.match(/<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["'](?:og:image|twitter:image)["']/i)
               if (ogMatch?.[1]) {
                 const rawUrl = ogMatch[1].replace(/&amp;/g, '&').trim()
-                candidateImgUrl = new URL(rawUrl, pageUrl).toString()
-                sourceHost = new URL(pageUrl).hostname.replace(/^www\./, '')
-                break
+                const resolvedUrl = new URL(rawUrl, pageUrl).toString()
+                if (isAgenciaBrasilUrl(resolvedUrl)) {
+                  candidateImgUrl = resolvedUrl
+                  break
+                }
               }
             } catch {
               // Ignore individual source fetch failure
             }
           }
         }
-        if (candidateImgUrl && /^https?:\/\//i.test(candidateImgUrl)) {
+        if (candidateImgUrl && /^https?:\/\//i.test(candidateImgUrl) && isAgenciaBrasilUrl(candidateImgUrl)) {
           const imgRes = await fetch(candidateImgUrl, {
             headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', 'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8' },
             redirect: 'follow',
@@ -442,7 +456,7 @@ app.post('/api/n8n/posts', async (c) => {
                   width: dimensions?.width || 1200,
                   height: dimensions?.height || 675,
                   alt: body.title || null,
-                  credits: sourceHost ? `Reprodução / ${sourceHost}` : 'Reprodução',
+                  credits: 'Agência Brasil',
                   uploaded_by_user_id: 1
                 })
                 if (mediaId) {
