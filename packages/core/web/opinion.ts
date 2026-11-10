@@ -127,16 +127,16 @@ export async function renderOpinionPage(
   options: OpinionPageOptions
 ): Promise<string> {
   const { baseUrl, siteName, navItems, googleAnalyticsId } = options
-  const [posts, columnists] = await Promise.all([
+  const [posts, columnists, columns] = await Promise.all([
     listPublishedOpinionPosts(c.env),
-    listOpinionColumnists(c.env)
+    listOpinionColumnists(c.env),
+    listPublishedOpinionPosts(c.env, 36, true)
   ])
 
   const lead = posts[0] || null
   const secondary = posts.slice(1, 3)
   const editorials = posts.filter(post => post.opinion_type === 'editorial').slice(0, 3)
   const articles = posts.filter(post => post.opinion_type === 'article').slice(0, 4)
-  const columns = posts.filter(post => post.opinion_type === 'column').slice(0, 4)
   const jsonLd = JSON.stringify({
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',

@@ -23,6 +23,8 @@ const app = new Hono<{ Bindings: Env; Variables: AppContext }>()
 app.get('/busca', async c => (await import('./search')).handlePublicSearch(c))
 app.get('/guias',async c=>(await import('./guides')).handleGuidesPage(c))
 app.get('/guias/:slug',async c=>(await import('./guides')).handleGuidePage(c))
+app.get('/tempo',async c=>(await import('./weather')).handleWeatherPage(c))
+app.get('/tempo/:city',async c=>(await import('./weather')).handleWeatherPage(c))
 app.get('/sitemap-guias.xml',async c=>(await import('./guides')).handleGuidesSitemap(c))
 app.get('/jogos/extra-extra',async c=>(await import('./extra-extra')).handleExtraExtraPage(c))
 app.get('/meu-dia',async c=>{
@@ -295,12 +297,8 @@ app.get('/tag/:slug', async (c) => {
             <link href="/static/minimal.css" rel="stylesheet">
             ${googleAnalyticsId ? `
               <!-- Google Analytics (GA4) -->
-              <script async src="https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}"></script>
               <script nonce="${nonce}">
-                window.dataLayer = window.dataLayer || [];
-                function gtag(){dataLayer.push(arguments);}
-                gtag('js', new Date());
-                gtag('config', '${googleAnalyticsId}');
+                window.diarioConsent?.analytics(${JSON.stringify(googleAnalyticsId).replace(/</g,'\\u003c')});
               </script>
             ` : ''}
         </head>

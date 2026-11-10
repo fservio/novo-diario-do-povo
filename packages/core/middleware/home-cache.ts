@@ -1,14 +1,20 @@
 import type { MiddlewareHandler } from 'hono'
 import type { Env, AppContext } from '../types'
 
-export const HOME_DATA_CACHE_KEY = 'home_data_v3'
+export const HOME_DATA_CACHE_KEY = 'home_data_v4'
 export const HOME_CACHE_REVISION_SETTING = 'home.cache_revision'
 
 // Read the revision directly from D1: KV invalidation can take time to propagate.
 export async function getHomeDataCacheKey(env: Env): Promise<string> {
-  const revision = await env.DB.prepare('SELECT value_json FROM settings WHERE key = ?')
-    .bind(HOME_CACHE_REVISION_SETTING).first<{ value_json: string }>()
-  return `${HOME_DATA_CACHE_KEY}:${revision?.value_json || 'initial'}`
+  const revision = await env.DB.prepare(`SELECT
+    (SELECT value_json FROM settings WHERE key=?) AS editorial,
+    (SELECT json_extract(value_json,'$.lineup') FROM settings WHERE key='home.ai_edition') AS lineup,
+    (SELECT json_extract(value_json,'$.sections') FROM settings WHERE key='home.ai_edition') AS sections,
+    (SELECT json_extract(value_json,'$.id') FROM settings WHERE key='home.hero_pin' AND json_extract(value_json,'$.until')>?) AS pin`)
+    .bind(HOME_CACHE_REVISION_SETTING,new Date().toISOString()).first<{editorial:string|null;lineup:string|null;sections:string|null;pin:number|null}>()
+  const editorialKey = `${HOME_DATA_CACHE_KEY}:${revision?.editorial || 'initial'}`
+  const editionKey=revision?.lineup ? `${editorialKey}:${revision.lineup}:${revision.sections||'{}'}` : editorialKey
+  return revision?.pin?`${editionKey}:pin:${revision.pin}`:editionKey
 }
 
 // Keep the long read cache, but expire it after editorial writes have completed.
@@ -24,6 +30,7 @@ export const invalidateHomeAfterEditorialWrite: MiddlewareHandler<{
     || /^\/api\/admin\/(posts|categories|tags|live-updates)(\/|$)/.test(path)
     || /^\/admin\/live\/\d+\/toggle-status$/.test(path)
     || path === '/api/admin/settings'
+    || (path === '/api/n8n/tempo-editorial/editorial-publish' && c.res.headers.get('X-Home-Changed')==='1')
     || /^\/admin\/redacao-ia\/pautas\/\d+\/(aplicar|aprovar)$/.test(path)
   if (!changesHome) return
   const location = c.res.headers.get('Location')

@@ -25,6 +25,9 @@ export const guideResearchSchema=z.object({
  if(research.sources.some(source=>!opened.has(source.url)))ctx.addIssue({code:'custom',message:'Fonte sem abertura comprovada'})
  if(research.claims.some(claim=>!sources.has(claim.source_url)))ctx.addIssue({code:'custom',message:'Afirmação sem fonte no dossiê'})
 })
+export const guideDraftResearchSchema=guideResearchSchema.or(z.object({
+ opened_urls:z.tuple([]),sources:z.tuple([]),claims:z.tuple([])
+}))
 export type GuideBrief=z.infer<typeof guideBriefSchema>
 export type GuideDocument=z.infer<typeof guideDocumentSchema>
 export type GuideResearch=z.infer<typeof guideResearchSchema>

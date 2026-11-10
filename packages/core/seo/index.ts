@@ -69,11 +69,12 @@ export async function generateNewsSitemap(env: Env): Promise<string> {
     AND datetime(p.published_at) >= datetime(?)
     AND datetime(p.published_at) <= datetime('now')
     AND p.seo_noindex = 0
+    AND p.slug NOT LIKE 'previsao-do-tempo-%'
     ORDER BY p.published_at DESC
     LIMIT 1000
   `).bind(timeWindow.toISOString()).all()
 
-  const urls = (recentPosts.results || []).filter((post: any) => isSitemapCanonical(post)).map((post: any) => {
+  const urls = (recentPosts.results || []).filter((post: any) => isSitemapCanonical(post) && !isAutomatedWeatherBulletin(post)).map((post: any) => {
     const url = getPostUrl(post, PROD_DOMAIN)
 
     // Format date with timezone -03:00 (Sao Paulo)
@@ -478,6 +479,10 @@ export function generateBreadcrumbJsonLd(
 function isSitemapCanonical(post: { slug: string; published_at?: string; seo_canonical?: string | null }): boolean {
   const canonical = post.seo_canonical?.trim()
   return !canonical || canonical.replace(/\/$/, '') === getPostUrl(post, PROD_DOMAIN).replace(/\/$/, '')
+}
+
+function isAutomatedWeatherBulletin(post: { slug?: string | null }): boolean {
+  return typeof post.slug === 'string' && /^previsao-do-tempo-/i.test(post.slug.trim())
 }
 
 function escapeXml(text: string): string {

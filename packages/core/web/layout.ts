@@ -564,7 +564,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
         }
 
         function sendFCP() {
-          if (fcpValue !== null && !fcpSent && typeof gtag === 'function') {
+          if (fcpValue !== null && !fcpSent && window.diarioConsent?.allows('analytics') && typeof gtag === 'function') {
             fcpSent = true;
             gtag('event', 'web_vitals_fcp', {
               value: Math.round(fcpValue),
@@ -577,17 +577,9 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
         }
 
         function loadGA() {
-          if (loaded) return;
+          if (loaded || !window.diarioConsent?.allows('analytics')) return;
           loaded = true;
-          const script = document.createElement('script');
-          script.src = 'https://www.googletagmanager.com/gtag/js?id=' + gaId;
-          script.async = true;
-          document.head.appendChild(script);
-          
-          window.dataLayer = window.dataLayer || [];
-          window.gtag = function(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', gaId);
+          window.diarioConsent.analytics(gaId);
           console.log('Third-party scripts (GA) loaded.');
           
           // Send FCP if it was already captured
@@ -600,6 +592,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
         });
         
         // Fallback after 6s
+        window.addEventListener('diario:cookie-consent', loadGA);
         setTimeout(loadGA, 6000);
       })();
     </script>
@@ -724,7 +717,7 @@ export function renderPublicLayout(params: PublicLayoutParams): string {
   ` : ''}
   
   ${headerScript}
-  <script src="/static/engagement.js?v=20260821-1" defer></script>
+  <script src="/static/engagement.js?v=20261109-1" defer></script>
   ${params.extraScriptsHtml || ''}
   
   

@@ -125,13 +125,16 @@ export function validateSeoOutput(raw, job) {
   if(typeof parsed.reason!=='string'||!parsed.reason.trim()||parsed.reason.length>1500)return review('Justificativa ausente ou inválida.')
   const fullText=[job.title,job.excerpt,job.content_text].filter(Boolean).join(' '),source=normalize(fullText)
   if(!Array.isArray(parsed.support))return review('Trechos de sustentação ausentes.')
-  for(const term of terms){const support=parsed.support.find(s=>normalize(s.term)===normalize(term));if(!support||typeof support.quote!=='string'||support.quote.length<12||support.quote.length>700||!source.includes(normalize(support.quote))||!queryMatchesContent(term,support.quote))return review('Palavra-chave sem sustentação literal: '+term)}
+  const segments=[job.title,job.excerpt,...String(job.content_text||'').split(/(?<=[.!?])\s+/)].map(s=>String(s||'').trim()).filter(s=>s.length>=12&&s.length<=700)
+  for(const term of terms){const support=parsed.support.find(s=>normalize(s.term)===normalize(term));if(!support||typeof support.quote!=='string'||support.quote.length<12||support.quote.length>700||!source.includes(normalize(support.quote)))return review('Palavra-chave sem sustentação literal: '+term);if(!queryMatchesContent(term,support.quote)){const fallback=source.includes(normalize(term))&&segments.find(s=>source.includes(normalize(s))&&queryMatchesContent(term,s));if(!fallback)return review('Palavra-chave sem sustentação literal: '+term);support.quote=fallback}}
   const metaText=parsed.seo_title+' '+parsed.seo_description
   if(/(?:^|[^\p{L}])(?:hoje|ontem|amanhã|amanha|agora)(?=$|[^\p{L}])/iu.test(metaText)||/última hora/i.test(metaText))return review('Metadados contêm referência temporal relativa.')
   const temporal=temporalReviewReason(metaText,job)
   if(temporal)return review(temporal)
-  const numbers=new Set((fullText.match(/\d+(?:[.,]\d+)*/g)||[]).map(n=>n.replace(/[.,]/g,'')))
-  if((metaText.match(/\d+(?:[.,]\d+)*/g)||[]).some(n=>!numbers.has(n.replace(/[.,]/g,''))))return review('Metadados contêm número não sustentado no conteúdo.')
+  const cleanNum=n=>n.replace(/[.,]/g,'').replace(/^0+(?=\d)/,'')
+  const numbers=new Set((fullText.match(/\d+(?:[.,]\d+)*/g)||[]).flatMap(n=>{const c=cleanNum(n),p=n.split(/[.,]/);return p.length>2?[c,cleanNum(p[0]),cleanNum(p[0]+p[1].slice(0,1)),cleanNum(p[0]+p[1].slice(0,2))]:[c]}))
+  for(const [w,d]of [['um','1'],['uma','1'],['dois','2'],['duas','2'],['tres','3'],['quatro','4'],['cinco','5'],['seis','6'],['sete','7'],['oito','8'],['nove','9'],['dez','10'],['onze','11'],['doze','12'],['treze','13'],['quatorze','14'],['catorze','14'],['quinze','15'],['dezesseis','16'],['dezessete','17'],['dezoito','18'],['dezenove','19'],['vinte','20'],['trinta','30'],['quarenta','40'],['cinquenta','50'],['cem','100'],['mil','1000'],['primeiro','1'],['primeira','1'],['segundo','2'],['segunda','2'],['terceiro','3'],['terceira','3'],['quarto','4'],['quarta','4'],['quinto','5'],['quinta','5'],['sexto','6'],['sexta','6'],['setimo','7'],['setima','7'],['oitavo','8'],['oitava','8'],['nono','9'],['nona','9'],['decimo','10'],['decima','10']])if(new RegExp('(?:^| )'+w+'(?: |$)').test(source))numbers.add(d)
+  if((metaText.match(/\d+(?:[.,]\d+)*/g)||[]).some(n=>!numbers.has(cleanNum(n))))return review('Metadados contêm número não sustentado no conteúdo.')
   if(!Array.isArray(parsed.used_sources)||!parsed.used_sources.includes('content')||parsed.used_sources.some(s=>!['content','search_console','trends'].includes(s)))return review('Origens de evidência inválidas.')
   if(parsed.used_sources.includes('search_console')&&!job.search_console?.rows?.length)return review('Search Console citado sem consultas relevantes disponíveis.')
   if(parsed.used_sources.includes('trends')&&!job.trends?.items?.length)return review('Trends citado sem sinal relevante disponível.')

@@ -64,6 +64,8 @@ export async function securityHeaders(c: Context<{ Bindings: Env; Variables: App
     'securepubads.g.doubleclick.net',
     'googleads.g.doubleclick.net',
     'tpc.googlesyndication.com',
+    'ep1.adtrafficquality.google',
+    'ep2.adtrafficquality.google',
     ...analyticsHosts,
     ...scriptHosts
   ] : [...analyticsHosts, ...scriptHosts]
@@ -92,6 +94,9 @@ export async function securityHeaders(c: Context<{ Bindings: Env; Variables: App
     '*.googlesyndication.com',
     '*.google.com',
     '*.doubleclick.net',
+    'www.google.com.br',
+    'ep1.adtrafficquality.google',
+    'ep2.adtrafficquality.google',
     ...analyticsHosts,
     ...imgHosts
   ] : [...analyticsHosts, ...imgHosts]
@@ -112,8 +117,8 @@ export async function securityHeaders(c: Context<{ Bindings: Env; Variables: App
     `'nonce-${nonce}'`,  // ✅ NONCE instead of unsafe-inline
   ]
 
-  // Add 'unsafe-eval' only if explicitly enabled
-  if (allowUnsafeEval) {
+  // Add 'unsafe-eval' only if explicitly enabled or ads runtime is active
+  if (allowUnsafeEval || providerMode !== 'off') {
     scriptSources.push("'unsafe-eval'")
   }
 

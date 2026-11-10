@@ -3,6 +3,13 @@
   "include": ["/*"],
   "exclude": [
     "/static/*",
+    "/site.webmanifest",
+    "/favicon.ico",
+    "/favicon-32x32.png",
+    "/favicon.svg",
+    "/apple-touch-icon.png",
+    "/android-chrome-192x192.png",
+    "/android-chrome-512x512.png",
     "/llms.txt",
     "/.well-known/ard.json",
     "/.well-known/ai-catalog.json",

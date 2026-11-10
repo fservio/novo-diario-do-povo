@@ -1,0 +1,16 @@
+#diario-cookie-banner[hidden],#diario-cookie-banner [hidden],#diario-cookie-preferences[hidden]{display:none}
+html[data-diario-advertising="denied"] .ed-ad:has(.ad-slot[data-provider="adsense"],.ad-slot[data-provider="gam"]),
+html[data-diario-advertising="denied"] .ad-slot[data-provider="adsense"],
+html[data-diario-advertising="denied"] .ad-slot[data-provider="gam"]{display:none!important}
+#diario-cookie-banner{position:fixed;inset:auto 16px 16px auto;z-index:1100;width:min(520px,calc(100% - 32px));max-height:calc(100dvh - 32px);overflow:auto;padding:20px;border:1px solid #b7cbd7;border-radius:14px;background:#fff;color:#183b51;box-shadow:0 8px 35px #10233330;font:15px/1.5 system-ui,sans-serif}
+#diario-cookie-banner h2{font-size:20px;margin:0 0 6px}
+#diario-cookie-banner p{margin:0 0 12px}
+#diario-cookie-banner a{text-decoration:underline;color:inherit}
+.diario-cookie-actions{display:flex;flex-wrap:wrap;gap:8px}
+.diario-cookie-actions button,#diario-cookie-banner [data-cookie-save]{min-height:42px;padding:7px 12px;border:1px solid #234e68;border-radius:6px;background:#fff;color:#183b51;font:700 14px/1.25 system-ui,sans-serif;cursor:pointer}
+#diario-cookie-banner fieldset{margin:14px 0 0;padding:12px;border:1px solid #b7cbd7;border-radius:6px}
+#diario-cookie-banner label{display:flex;gap:8px;align-items:flex-start;margin:8px 0}
+#diario-cookie-banner input{flex:none;margin-top:5px}
+#diario-cookie-preferences{border:0;background:transparent;color:inherit;font:inherit;padding:8px;cursor:pointer;text-decoration:underline}
+.diario-cookie-footer{text-align:center;padding:8px 12px}
+@media(max-width:430px){.diario-cookie-actions button{flex:1 1 100%}#diario-cookie-banner{padding:16px}}

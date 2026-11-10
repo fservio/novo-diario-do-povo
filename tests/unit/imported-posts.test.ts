@@ -31,4 +31,24 @@ describe('import delivery retries', () => {
     expect(await createImportedPost({ prepare } as any, input)).toEqual({ id: 44, reused: false })
     expect(prepare).not.toHaveBeenCalled()
   })
+
+  it('reuses a recent article when a different syndication/trends URL sends the same title/slug', async () => {
+    let callCount = 0
+    const db = {
+      prepare: vi.fn().mockImplementation(() => ({
+        bind: vi.fn().mockReturnValue({
+          first: vi.fn().mockImplementation(async () => {
+            callCount++
+            return callCount === 2 ? { id: 99 } : null
+          })
+        })
+      }))
+    } as any
+    expect(await createImportedPost(db, {
+      ...input,
+      title: 'BlackRock reduz participação na Raízen',
+      original_link: 'https://trends.google.com/trends/explore?geo=BR&q=raizen'
+    })).toEqual({ id: 99, reused: true })
+    expect(createPost).not.toHaveBeenCalled()
+  })
 })

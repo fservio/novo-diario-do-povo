@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { generateSitemapIndex, generateMonthlyPostSitemap, generateFullSitemap, SITEMAP_PAGE_SIZE } from '../../packages/core/seo'
+import { generateSitemapIndex, generateMonthlyPostSitemap, generateFullSitemap, generateNewsSitemap, SITEMAP_PAGE_SIZE } from '../../packages/core/seo'
 
 function mockEnv(results: unknown[] = []) {
   const all = vi.fn().mockResolvedValue({ results })
@@ -70,4 +70,27 @@ it('omits alternate articles but retains explicit self canonicals', async () => 
   expect(xml).toContain('/original/')
   expect(xml).not.toContain('/copia/')
   expect(xml).not.toContain('/externa/')
+})
+
+it('excludes automated daily weather bulletins from sitemap-news.xml while keeping news articles', async () => {
+  const { env } = mockEnv([
+    { slug: 'previsao-do-tempo-teresina-pi-2026-11-09', title: 'Previsão do tempo em Teresina', published_at: '2026-11-09T12:00:00Z' },
+    { slug: 'camara-aprova-orcamento-2027', title: 'Câmara aprova orçamento 2027', published_at: '2026-11-09T13:00:00Z' }
+  ])
+    ; (env.DB.prepare as any) = vi.fn().mockImplementation((sql: string) => ({
+      bind: () => ({
+        first: async () => null,
+        all: async () => ({
+          results: sql.includes('FROM posts')
+            ? [
+              { slug: 'previsao-do-tempo-teresina-pi-2026-11-09', title: 'Previsão do tempo em Teresina', published_at: '2026-11-09T12:00:00Z' },
+              { slug: 'camara-aprova-orcamento-2027', title: 'Câmara aprova orçamento 2027', published_at: '2026-11-09T13:00:00Z' }
+            ]
+            : []
+        })
+      })
+    }))
+  const xml = await generateNewsSitemap(env)
+  expect(xml).toContain('/camara-aprova-orcamento-2027/')
+  expect(xml).not.toContain('previsao-do-tempo-teresina-pi-2026-11-09')
 })

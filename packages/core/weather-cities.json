@@ -1,0 +1,2592 @@
+[
+  {
+    "ibge": "1200401",
+    "name": "Rio Branco",
+    "uf": "AC",
+    "population": 390058,
+    "capital": true,
+    "slug": "rio-branco-ac",
+    "cptec": 240
+  },
+  {
+    "ibge": "1200203",
+    "name": "Cruzeiro do Sul",
+    "uf": "AC",
+    "population": 99404,
+    "capital": false,
+    "slug": "cruzeiro-do-sul-ac",
+    "cptec": 1704
+  },
+  {
+    "ibge": "1200609",
+    "name": "Tarauacá",
+    "uf": "AC",
+    "population": 47090,
+    "capital": false,
+    "slug": "tarauaca-ac",
+    "cptec": 5339
+  },
+  {
+    "ibge": "1200500",
+    "name": "Sena Madureira",
+    "uf": "AC",
+    "population": 44170,
+    "capital": false,
+    "slug": "sena-madureira-ac",
+    "cptec": 5125
+  },
+  {
+    "ibge": "1200302",
+    "name": "Feijó",
+    "uf": "AC",
+    "population": 37874,
+    "capital": false,
+    "slug": "feijo-ac",
+    "cptec": 1974
+  },
+  {
+    "ibge": "1200104",
+    "name": "Brasiléia",
+    "uf": "AC",
+    "population": 28198,
+    "capital": false,
+    "slug": "brasileia-ac",
+    "cptec": 985
+  },
+  {
+    "ibge": "1200450",
+    "name": "Senador Guiomard",
+    "uf": "AC",
+    "population": 22447,
+    "capital": false,
+    "slug": "senador-guiomard-ac",
+    "cptec": 5133
+  },
+  {
+    "ibge": "1200336",
+    "name": "Mâncio Lima",
+    "uf": "AC",
+    "population": 20616,
+    "capital": false,
+    "slug": "mancio-lima-ac",
+    "cptec": 3082
+  },
+  {
+    "ibge": "1200252",
+    "name": "Epitaciolândia",
+    "uf": "AC",
+    "population": 19997,
+    "capital": false,
+    "slug": "epitaciolandia-ac",
+    "cptec": 1896
+  },
+  {
+    "ibge": "1200708",
+    "name": "Xapuri",
+    "uf": "AC",
+    "population": 19244,
+    "capital": false,
+    "slug": "xapuri-ac",
+    "cptec": 5718
+  },
+  {
+    "ibge": "1200351",
+    "name": "Marechal Thaumaturgo",
+    "uf": "AC",
+    "population": 18154,
+    "capital": false,
+    "slug": "marechal-thaumaturgo-ac",
+    "cptec": 3142
+  },
+  {
+    "ibge": "2704302",
+    "name": "Maceió",
+    "uf": "AL",
+    "population": 995134,
+    "capital": true,
+    "slug": "maceio-al",
+    "cptec": 233
+  },
+  {
+    "ibge": "2700300",
+    "name": "Arapiraca",
+    "uf": "AL",
+    "population": 243998,
+    "capital": false,
+    "slug": "arapiraca-al",
+    "cptec": 574
+  },
+  {
+    "ibge": "2707701",
+    "name": "Rio Largo",
+    "uf": "AL",
+    "population": 97742,
+    "capital": false,
+    "slug": "rio-largo-al",
+    "cptec": 4400
+  },
+  {
+    "ibge": "2706307",
+    "name": "Palmeira dos Índios",
+    "uf": "AL",
+    "population": 73631,
+    "capital": false,
+    "slug": "palmeira-dos-indios-al",
+    "cptec": 3725,
+    "cptecName": "Palmeira dos µndios"
+  },
+  {
+    "ibge": "2704708",
+    "name": "Marechal Deodoro",
+    "uf": "AL",
+    "population": 62528,
+    "capital": false,
+    "slug": "marechal-deodoro-al",
+    "cptec": 3140
+  },
+  {
+    "ibge": "2709301",
+    "name": "União dos Palmares",
+    "uf": "AL",
+    "population": 60855,
+    "capital": false,
+    "slug": "uniao-dos-palmares-al",
+    "cptec": 5543
+  },
+  {
+    "ibge": "2706703",
+    "name": "Penedo",
+    "uf": "AL",
+    "population": 60183,
+    "capital": false,
+    "slug": "penedo-al",
+    "cptec": 3919
+  },
+  {
+    "ibge": "2708600",
+    "name": "São Miguel dos Campos",
+    "uf": "AL",
+    "population": 53376,
+    "capital": false,
+    "slug": "sao-miguel-dos-campos-al",
+    "cptec": 5015
+  },
+  {
+    "ibge": "2702405",
+    "name": "Delmiro Gouveia",
+    "uf": "AL",
+    "population": 52858,
+    "capital": false,
+    "slug": "delmiro-gouveia-al",
+    "cptec": 1755
+  },
+  {
+    "ibge": "2702306",
+    "name": "Coruripe",
+    "uf": "AL",
+    "population": 51783,
+    "capital": false,
+    "slug": "coruripe-al",
+    "cptec": 1652
+  },
+  {
+    "ibge": "2708006",
+    "name": "Santana do Ipanema",
+    "uf": "AL",
+    "population": 47426,
+    "capital": false,
+    "slug": "santana-do-ipanema-al",
+    "cptec": 4676
+  },
+  {
+    "ibge": "1600303",
+    "name": "Macapá",
+    "uf": "AP",
+    "population": 491987,
+    "capital": true,
+    "slug": "macapa-ap",
+    "cptec": 232
+  },
+  {
+    "ibge": "1600600",
+    "name": "Santana",
+    "uf": "AP",
+    "population": 119224,
+    "capital": false,
+    "slug": "santana-ap",
+    "cptec": 4662
+  },
+  {
+    "ibge": "1600279",
+    "name": "Laranjal do Jari",
+    "uf": "AP",
+    "population": 37781,
+    "capital": false,
+    "slug": "laranjal-do-jari-ap",
+    "cptec": 2943
+  },
+  {
+    "ibge": "1600501",
+    "name": "Oiapoque",
+    "uf": "AP",
+    "population": 31071,
+    "capital": false,
+    "slug": "oiapoque-ap",
+    "cptec": 3620
+  },
+  {
+    "ibge": "1600402",
+    "name": "Mazagão",
+    "uf": "AP",
+    "population": 23958,
+    "capital": false,
+    "slug": "mazagao-ap",
+    "cptec": 3229
+  },
+  {
+    "ibge": "1600535",
+    "name": "Porto Grande",
+    "uf": "AP",
+    "population": 19103,
+    "capital": false,
+    "slug": "porto-grande-ap",
+    "cptec": 4145
+  },
+  {
+    "ibge": "1600154",
+    "name": "Pedra Branca do Amapari",
+    "uf": "AP",
+    "population": 13971,
+    "capital": false,
+    "slug": "pedra-branca-do-amapari-ap",
+    "cptec": 3875
+  },
+  {
+    "ibge": "1600709",
+    "name": "Tartarugalzinho",
+    "uf": "AP",
+    "population": 13846,
+    "capital": false,
+    "slug": "tartarugalzinho-ap",
+    "cptec": 5341
+  },
+  {
+    "ibge": "1600808",
+    "name": "Vitória do Jari",
+    "uf": "AP",
+    "population": 11877,
+    "capital": false,
+    "slug": "vitoria-do-jari-ap",
+    "cptec": 5697
+  },
+  {
+    "ibge": "1600204",
+    "name": "Calçoene",
+    "uf": "AP",
+    "population": 11527,
+    "capital": false,
+    "slug": "calcoene-ap",
+    "cptec": 1135
+  },
+  {
+    "ibge": "1600105",
+    "name": "Amapá",
+    "uf": "AP",
+    "population": 8447,
+    "capital": false,
+    "slug": "amapa-ap",
+    "cptec": 430
+  },
+  {
+    "ibge": "1302603",
+    "name": "Manaus",
+    "uf": "AM",
+    "population": 2327101,
+    "capital": true,
+    "slug": "manaus-am",
+    "cptec": 234
+  },
+  {
+    "ibge": "1301902",
+    "name": "Itacoatiara",
+    "uf": "AM",
+    "population": 115218,
+    "capital": false,
+    "slug": "itacoatiara-am",
+    "cptec": 2508
+  },
+  {
+    "ibge": "1302504",
+    "name": "Manacapuru",
+    "uf": "AM",
+    "population": 113042,
+    "capital": false,
+    "slug": "manacapuru-am",
+    "cptec": 3078
+  },
+  {
+    "ibge": "1303403",
+    "name": "Parintins",
+    "uf": "AM",
+    "population": 101754,
+    "capital": false,
+    "slug": "parintins-am",
+    "cptec": 3800
+  },
+  {
+    "ibge": "1304203",
+    "name": "Tefé",
+    "uf": "AM",
+    "population": 81046,
+    "capital": false,
+    "slug": "tefe-am",
+    "cptec": 5350
+  },
+  {
+    "ibge": "1304062",
+    "name": "Tabatinga",
+    "uf": "AM",
+    "population": 74384,
+    "capital": false,
+    "slug": "tabatinga-am",
+    "cptec": 5272
+  },
+  {
+    "ibge": "1301209",
+    "name": "Coari",
+    "uf": "AM",
+    "population": 73403,
+    "capital": false,
+    "slug": "coari-am",
+    "cptec": 1512
+  },
+  {
+    "ibge": "1301852",
+    "name": "Iranduba",
+    "uf": "AM",
+    "population": 70248,
+    "capital": false,
+    "slug": "iranduba-am",
+    "cptec": 2473
+  },
+  {
+    "ibge": "1302900",
+    "name": "Maués",
+    "uf": "AM",
+    "population": 67021,
+    "capital": false,
+    "slug": "maues-am",
+    "cptec": 3223
+  },
+  {
+    "ibge": "1301704",
+    "name": "Humaitá",
+    "uf": "AM",
+    "population": 64390,
+    "capital": false,
+    "slug": "humaita-am",
+    "cptec": 2281
+  },
+  {
+    "ibge": "1302702",
+    "name": "Manicoré",
+    "uf": "AM",
+    "population": 58557,
+    "capital": false,
+    "slug": "manicore-am",
+    "cptec": 3093
+  },
+  {
+    "ibge": "2927408",
+    "name": "Salvador",
+    "uf": "BA",
+    "population": 2559945,
+    "capital": true,
+    "slug": "salvador-ba",
+    "cptec": 242
+  },
+  {
+    "ibge": "2910800",
+    "name": "Feira de Santana",
+    "uf": "BA",
+    "population": 663408,
+    "capital": false,
+    "slug": "feira-de-santana-ba",
+    "cptec": 1976
+  },
+  {
+    "ibge": "2933307",
+    "name": "Vitória da Conquista",
+    "uf": "BA",
+    "population": 398970,
+    "capital": false,
+    "slug": "vitoria-da-conquista-ba",
+    "cptec": 5694
+  },
+  {
+    "ibge": "2905701",
+    "name": "Camaçari",
+    "uf": "BA",
+    "population": 323676,
+    "capital": false,
+    "slug": "camacari-ba",
+    "cptec": 1146
+  },
+  {
+    "ibge": "2918407",
+    "name": "Juazeiro",
+    "uf": "BA",
+    "population": 257616,
+    "capital": false,
+    "slug": "juazeiro-ba",
+    "cptec": 2825
+  },
+  {
+    "ibge": "2919207",
+    "name": "Lauro de Freitas",
+    "uf": "BA",
+    "population": 221023,
+    "capital": false,
+    "slug": "lauro-de-freitas-ba",
+    "cptec": 2950
+  },
+  {
+    "ibge": "2914802",
+    "name": "Itabuna",
+    "uf": "BA",
+    "population": 196041,
+    "capital": false,
+    "slug": "itabuna-ba",
+    "cptec": 2503
+  },
+  {
+    "ibge": "2913606",
+    "name": "Ilhéus",
+    "uf": "BA",
+    "population": 189259,
+    "capital": false,
+    "slug": "ilheus-ba",
+    "cptec": 2381
+  },
+  {
+    "ibge": "2925303",
+    "name": "Porto Seguro",
+    "uf": "BA",
+    "population": 184087,
+    "capital": false,
+    "slug": "porto-seguro-ba",
+    "cptec": 4154
+  },
+  {
+    "ibge": "2903201",
+    "name": "Barreiras",
+    "uf": "BA",
+    "population": 172521,
+    "capital": false,
+    "slug": "barreiras-ba",
+    "cptec": 781
+  },
+  {
+    "ibge": "2918001",
+    "name": "Jequié",
+    "uf": "BA",
+    "population": 169623,
+    "capital": false,
+    "slug": "jequie-ba",
+    "cptec": 2771
+  },
+  {
+    "ibge": "2304400",
+    "name": "Fortaleza",
+    "uf": "CE",
+    "population": 2582360,
+    "capital": true,
+    "slug": "fortaleza-ce",
+    "cptec": 229
+  },
+  {
+    "ibge": "2303709",
+    "name": "Caucaia",
+    "uf": "CE",
+    "population": 380944,
+    "capital": false,
+    "slug": "caucaia-ce",
+    "cptec": 1426
+  },
+  {
+    "ibge": "2307304",
+    "name": "Juazeiro do Norte",
+    "uf": "CE",
+    "population": 307928,
+    "capital": false,
+    "slug": "juazeiro-do-norte-ce",
+    "cptec": 2826
+  },
+  {
+    "ibge": "2307650",
+    "name": "Maracanaú",
+    "uf": "CE",
+    "population": 253442,
+    "capital": false,
+    "slug": "maracanau-ce",
+    "cptec": 3114
+  },
+  {
+    "ibge": "2312908",
+    "name": "Sobral",
+    "uf": "CE",
+    "population": 217690,
+    "capital": false,
+    "slug": "sobral-ce",
+    "cptec": 5237
+  },
+  {
+    "ibge": "2304202",
+    "name": "Crato",
+    "uf": "CE",
+    "population": 139781,
+    "capital": false,
+    "slug": "crato-ce",
+    "cptec": 1668
+  },
+  {
+    "ibge": "2306405",
+    "name": "Itapipoca",
+    "uf": "CE",
+    "population": 137795,
+    "capital": false,
+    "slug": "itapipoca-ce",
+    "cptec": 2585
+  },
+  {
+    "ibge": "2307700",
+    "name": "Maranguape",
+    "uf": "CE",
+    "population": 108323,
+    "capital": false,
+    "slug": "maranguape-ce",
+    "cptec": 3120
+  },
+  {
+    "ibge": "2305506",
+    "name": "Iguatu",
+    "uf": "CE",
+    "population": 102907,
+    "capital": false,
+    "slug": "iguatu-ce",
+    "cptec": 2372
+  },
+  {
+    "ibge": "2311306",
+    "name": "Quixadá",
+    "uf": "CE",
+    "population": 89190,
+    "capital": false,
+    "slug": "quixada-ce",
+    "cptec": 4270
+  },
+  {
+    "ibge": "2313401",
+    "name": "Tianguá",
+    "uf": "CE",
+    "population": 87757,
+    "capital": false,
+    "slug": "tiangua-ce",
+    "cptec": 5388
+  },
+  {
+    "ibge": "5300108",
+    "name": "Brasília",
+    "uf": "DF",
+    "population": 3009996,
+    "capital": true,
+    "slug": "brasilia-df",
+    "cptec": 224
+  },
+  {
+    "ibge": "3205309",
+    "name": "Vitória",
+    "uf": "ES",
+    "population": 343935,
+    "capital": true,
+    "slug": "vitoria-es",
+    "cptec": 246
+  },
+  {
+    "ibge": "3205002",
+    "name": "Serra",
+    "uf": "ES",
+    "population": 586901,
+    "capital": false,
+    "slug": "serra-es",
+    "cptec": 5156
+  },
+  {
+    "ibge": "3205200",
+    "name": "Vila Velha",
+    "uf": "ES",
+    "population": 510512,
+    "capital": false,
+    "slug": "vila-velha-es",
+    "cptec": 5676
+  },
+  {
+    "ibge": "3201308",
+    "name": "Cariacica",
+    "uf": "ES",
+    "population": 376914,
+    "capital": false,
+    "slug": "cariacica-es",
+    "cptec": 1338
+  },
+  {
+    "ibge": "3201209",
+    "name": "Cachoeiro de Itapemirim",
+    "uf": "ES",
+    "population": 198367,
+    "capital": false,
+    "slug": "cachoeiro-de-itapemirim-es",
+    "cptec": 1088
+  },
+  {
+    "ibge": "3203205",
+    "name": "Linhares",
+    "uf": "ES",
+    "population": 185621,
+    "capital": false,
+    "slug": "linhares-es",
+    "cptec": 2985
+  },
+  {
+    "ibge": "3202405",
+    "name": "Guarapari",
+    "uf": "ES",
+    "population": 137659,
+    "capital": false,
+    "slug": "guarapari-es",
+    "cptec": 2231
+  },
+  {
+    "ibge": "3204906",
+    "name": "São Mateus",
+    "uf": "ES",
+    "population": 135450,
+    "capital": false,
+    "slug": "sao-mateus-es",
+    "cptec": 4993
+  },
+  {
+    "ibge": "3201506",
+    "name": "Colatina",
+    "uf": "ES",
+    "population": 130043,
+    "capital": false,
+    "slug": "colatina-es",
+    "cptec": 1527
+  },
+  {
+    "ibge": "3200607",
+    "name": "Aracruz",
+    "uf": "ES",
+    "population": 104304,
+    "capital": false,
+    "slug": "aracruz-es",
+    "cptec": 549
+  },
+  {
+    "ibge": "3205101",
+    "name": "Viana",
+    "uf": "ES",
+    "population": 79611,
+    "capital": false,
+    "slug": "viana-es",
+    "cptec": 5646
+  },
+  {
+    "ibge": "5208707",
+    "name": "Goiânia",
+    "uf": "GO",
+    "population": 1511709,
+    "capital": true,
+    "slug": "goiania-go",
+    "cptec": 230
+  },
+  {
+    "ibge": "5201405",
+    "name": "Aparecida de Goiânia",
+    "uf": "GO",
+    "population": 560996,
+    "capital": false,
+    "slug": "aparecida-de-goiania-go",
+    "cptec": 515
+  },
+  {
+    "ibge": "5201108",
+    "name": "Anápolis",
+    "uf": "GO",
+    "population": 424647,
+    "capital": false,
+    "slug": "anapolis-go",
+    "cptec": 463
+  },
+  {
+    "ibge": "5200258",
+    "name": "Águas Lindas de Goiás",
+    "uf": "GO",
+    "population": 249978,
+    "capital": false,
+    "slug": "aguas-lindas-de-goias-go",
+    "cptec": 318
+  },
+  {
+    "ibge": "5218805",
+    "name": "Rio Verde",
+    "uf": "GO",
+    "population": 244881,
+    "capital": false,
+    "slug": "rio-verde-go",
+    "cptec": 4420
+  },
+  {
+    "ibge": "5212501",
+    "name": "Luziânia",
+    "uf": "GO",
+    "population": 223596,
+    "capital": false,
+    "slug": "luziania-go",
+    "cptec": 3022
+  },
+  {
+    "ibge": "5221858",
+    "name": "Valparaíso de Goiás",
+    "uf": "GO",
+    "population": 223210,
+    "capital": false,
+    "slug": "valparaiso-de-goias-go",
+    "cptec": 5586
+  },
+  {
+    "ibge": "5220454",
+    "name": "Senador Canedo",
+    "uf": "GO",
+    "population": 180111,
+    "capital": false,
+    "slug": "senador-canedo-go",
+    "cptec": 5128
+  },
+  {
+    "ibge": "5221403",
+    "name": "Trindade",
+    "uf": "GO",
+    "population": 156197,
+    "capital": false,
+    "slug": "trindade-go",
+    "cptec": 5458
+  },
+  {
+    "ibge": "5205109",
+    "name": "Catalão",
+    "uf": "GO",
+    "population": 124683,
+    "capital": false,
+    "slug": "catalao-go",
+    "cptec": 1406
+  },
+  {
+    "ibge": "5208004",
+    "name": "Formosa",
+    "uf": "GO",
+    "population": 122613,
+    "capital": false,
+    "slug": "formosa-go",
+    "cptec": 2036
+  },
+  {
+    "ibge": "2111300",
+    "name": "São Luís",
+    "uf": "MA",
+    "population": 1090229,
+    "capital": true,
+    "slug": "sao-luis-ma",
+    "cptec": 243
+  },
+  {
+    "ibge": "2105302",
+    "name": "Imperatriz",
+    "uf": "MA",
+    "population": 286383,
+    "capital": false,
+    "slug": "imperatriz-ma",
+    "cptec": 2394
+  },
+  {
+    "ibge": "2111201",
+    "name": "São José de Ribamar",
+    "uf": "MA",
+    "population": 260695,
+    "capital": false,
+    "slug": "sao-jose-de-ribamar-ma",
+    "cptec": 4928
+  },
+  {
+    "ibge": "2112209",
+    "name": "Timon",
+    "uf": "MA",
+    "population": 183123,
+    "capital": false,
+    "slug": "timon-ma",
+    "cptec": 5403
+  },
+  {
+    "ibge": "2103000",
+    "name": "Caxias",
+    "uf": "MA",
+    "population": 163650,
+    "capital": false,
+    "slug": "caxias-ma",
+    "cptec": 1430
+  },
+  {
+    "ibge": "2107506",
+    "name": "Paço do Lumiar",
+    "uf": "MA",
+    "population": 153903,
+    "capital": false,
+    "slug": "paco-do-lumiar-ma",
+    "cptec": 3689
+  },
+  {
+    "ibge": "2103307",
+    "name": "Codó",
+    "uf": "MA",
+    "population": 118272,
+    "capital": false,
+    "slug": "codo-ma",
+    "cptec": 1521
+  },
+  {
+    "ibge": "2100055",
+    "name": "Açailândia",
+    "uf": "MA",
+    "population": 110703,
+    "capital": false,
+    "slug": "acailandia-ma",
+    "cptec": 263
+  },
+  {
+    "ibge": "2101202",
+    "name": "Bacabal",
+    "uf": "MA",
+    "population": 107874,
+    "capital": false,
+    "slug": "bacabal-ma",
+    "cptec": 688
+  },
+  {
+    "ibge": "2101400",
+    "name": "Balsas",
+    "uf": "MA",
+    "population": 106332,
+    "capital": false,
+    "slug": "balsas-ma",
+    "cptec": 714
+  },
+  {
+    "ibge": "2109908",
+    "name": "Santa Inês",
+    "uf": "MA",
+    "population": 88320,
+    "capital": false,
+    "slug": "santa-ines-ma",
+    "cptec": 4573
+  },
+  {
+    "ibge": "5103403",
+    "name": "Cuiabá",
+    "uf": "MT",
+    "population": 698917,
+    "capital": true,
+    "slug": "cuiaba-mt",
+    "cptec": 226
+  },
+  {
+    "ibge": "5108402",
+    "name": "Várzea Grande",
+    "uf": "MT",
+    "population": 323172,
+    "capital": false,
+    "slug": "varzea-grande-mt",
+    "cptec": 5612
+  },
+  {
+    "ibge": "5107602",
+    "name": "Rondonópolis",
+    "uf": "MT",
+    "population": 268202,
+    "capital": false,
+    "slug": "rondonopolis-mt",
+    "cptec": 4447
+  },
+  {
+    "ibge": "5107909",
+    "name": "Sinop",
+    "uf": "MT",
+    "population": 231452,
+    "capital": false,
+    "slug": "sinop-mt",
+    "cptec": 5224
+  },
+  {
+    "ibge": "5107925",
+    "name": "Sorriso",
+    "uf": "MT",
+    "population": 128727,
+    "capital": false,
+    "slug": "sorriso-mt",
+    "cptec": 5251
+  },
+  {
+    "ibge": "5107958",
+    "name": "Tangará da Serra",
+    "uf": "MT",
+    "population": 116637,
+    "capital": false,
+    "slug": "tangara-da-serra-mt",
+    "cptec": 5304
+  },
+  {
+    "ibge": "5105259",
+    "name": "Lucas do Rio Verde",
+    "uf": "MT",
+    "population": 99291,
+    "capital": false,
+    "slug": "lucas-do-rio-verde-mt",
+    "cptec": 3000
+  },
+  {
+    "ibge": "5107040",
+    "name": "Primavera do Leste",
+    "uf": "MT",
+    "population": 99053,
+    "capital": false,
+    "slug": "primavera-do-leste-mt",
+    "cptec": 4219
+  },
+  {
+    "ibge": "5102504",
+    "name": "Cáceres",
+    "uf": "MT",
+    "population": 91908,
+    "capital": false,
+    "slug": "caceres-mt",
+    "cptec": 1069
+  },
+  {
+    "ibge": "5101803",
+    "name": "Barra do Garças",
+    "uf": "MT",
+    "population": 75524,
+    "capital": false,
+    "slug": "barra-do-garcas-mt",
+    "cptec": 761
+  },
+  {
+    "ibge": "5106224",
+    "name": "Nova Mutum",
+    "uf": "MT",
+    "population": 65663,
+    "capital": false,
+    "slug": "nova-mutum-mt",
+    "cptec": 3540
+  },
+  {
+    "ibge": "5002704",
+    "name": "Campo Grande",
+    "uf": "MS",
+    "population": 970843,
+    "capital": true,
+    "slug": "campo-grande-ms",
+    "cptec": 225
+  },
+  {
+    "ibge": "5003702",
+    "name": "Dourados",
+    "uf": "MS",
+    "population": 266950,
+    "capital": false,
+    "slug": "dourados-ms",
+    "cptec": 1840
+  },
+  {
+    "ibge": "5008305",
+    "name": "Três Lagoas",
+    "uf": "MS",
+    "population": 145514,
+    "capital": false,
+    "slug": "tres-lagoas-ms",
+    "cptec": 5447
+  },
+  {
+    "ibge": "5006606",
+    "name": "Ponta Porã",
+    "uf": "MS",
+    "population": 99572,
+    "capital": false,
+    "slug": "ponta-pora-ms",
+    "cptec": 4091
+  },
+  {
+    "ibge": "5003207",
+    "name": "Corumbá",
+    "uf": "MS",
+    "population": 96334,
+    "capital": false,
+    "slug": "corumba-ms",
+    "cptec": 1645
+  },
+  {
+    "ibge": "5005707",
+    "name": "Naviraí",
+    "uf": "MS",
+    "population": 53307,
+    "capital": false,
+    "slug": "navirai-ms",
+    "cptec": 3440
+  },
+  {
+    "ibge": "5006200",
+    "name": "Nova Andradina",
+    "uf": "MS",
+    "population": 51081,
+    "capital": false,
+    "slug": "nova-andradina-ms",
+    "cptec": 3485
+  },
+  {
+    "ibge": "5007901",
+    "name": "Sidrolândia",
+    "uf": "MS",
+    "population": 50079,
+    "capital": false,
+    "slug": "sidrolandia-ms",
+    "cptec": 5206
+  },
+  {
+    "ibge": "5001102",
+    "name": "Aquidauana",
+    "uf": "MS",
+    "population": 48810,
+    "capital": false,
+    "slug": "aquidauana-ms",
+    "cptec": 534
+  },
+  {
+    "ibge": "5005400",
+    "name": "Maracaju",
+    "uf": "MS",
+    "population": 48564,
+    "capital": false,
+    "slug": "maracaju-ms",
+    "cptec": 3112
+  },
+  {
+    "ibge": "5006309",
+    "name": "Paranaíba",
+    "uf": "MS",
+    "population": 42728,
+    "capital": false,
+    "slug": "paranaiba-ms",
+    "cptec": 3776
+  },
+  {
+    "ibge": "3106200",
+    "name": "Belo Horizonte",
+    "uf": "MG",
+    "population": 2415451,
+    "capital": true,
+    "slug": "belo-horizonte-mg",
+    "cptec": 222
+  },
+  {
+    "ibge": "3170206",
+    "name": "Uberlândia",
+    "uf": "MG",
+    "population": 768339,
+    "capital": false,
+    "slug": "uberlandia-mg",
+    "cptec": 5517
+  },
+  {
+    "ibge": "3118601",
+    "name": "Contagem",
+    "uf": "MG",
+    "population": 652973,
+    "capital": false,
+    "slug": "contagem-mg",
+    "cptec": 1594
+  },
+  {
+    "ibge": "3136702",
+    "name": "Juiz de Fora",
+    "uf": "MG",
+    "population": 569588,
+    "capital": false,
+    "slug": "juiz-de-fora-mg",
+    "cptec": 2833
+  },
+  {
+    "ibge": "3143302",
+    "name": "Montes Claros",
+    "uf": "MG",
+    "population": 440700,
+    "capital": false,
+    "slug": "montes-claros-mg",
+    "cptec": 3358
+  },
+  {
+    "ibge": "3106705",
+    "name": "Betim",
+    "uf": "MG",
+    "population": 433902,
+    "capital": false,
+    "slug": "betim-mg",
+    "cptec": 857
+  },
+  {
+    "ibge": "3170107",
+    "name": "Uberaba",
+    "uf": "MG",
+    "population": 359275,
+    "capital": false,
+    "slug": "uberaba-mg",
+    "cptec": 5516
+  },
+  {
+    "ibge": "3154606",
+    "name": "Ribeirão das Neves",
+    "uf": "MG",
+    "population": 348996,
+    "capital": false,
+    "slug": "ribeirao-das-neves-mg",
+    "cptec": 4348
+  },
+  {
+    "ibge": "3127701",
+    "name": "Governador Valadares",
+    "uf": "MG",
+    "population": 266478,
+    "capital": false,
+    "slug": "governador-valadares-mg",
+    "cptec": 2164
+  },
+  {
+    "ibge": "3122306",
+    "name": "Divinópolis",
+    "uf": "MG",
+    "population": 244769,
+    "capital": false,
+    "slug": "divinopolis-mg",
+    "cptec": 1792
+  },
+  {
+    "ibge": "3167202",
+    "name": "Sete Lagoas",
+    "uf": "MG",
+    "population": 239833,
+    "capital": false,
+    "slug": "sete-lagoas-mg",
+    "cptec": 5199
+  },
+  {
+    "ibge": "1501402",
+    "name": "Belém",
+    "uf": "PA",
+    "population": 1396157,
+    "capital": true,
+    "slug": "belem-pa",
+    "cptec": 221
+  },
+  {
+    "ibge": "1500800",
+    "name": "Ananindeua",
+    "uf": "PA",
+    "population": 510563,
+    "capital": false,
+    "slug": "ananindeua-pa",
+    "cptec": 462
+  },
+  {
+    "ibge": "1506807",
+    "name": "Santarém",
+    "uf": "PA",
+    "population": 364298,
+    "capital": false,
+    "slug": "santarem-pa",
+    "cptec": 4692
+  },
+  {
+    "ibge": "1505536",
+    "name": "Parauapebas",
+    "uf": "PA",
+    "population": 312427,
+    "capital": false,
+    "slug": "parauapebas-pa",
+    "cptec": 3792
+  },
+  {
+    "ibge": "1504208",
+    "name": "Marabá",
+    "uf": "PA",
+    "population": 293344,
+    "capital": false,
+    "slug": "maraba-pa",
+    "cptec": 3107
+  },
+  {
+    "ibge": "1502400",
+    "name": "Castanhal",
+    "uf": "PA",
+    "population": 210592,
+    "capital": false,
+    "slug": "castanhal-pa",
+    "cptec": 1396
+  },
+  {
+    "ibge": "1500107",
+    "name": "Abaetetuba",
+    "uf": "PA",
+    "population": 173638,
+    "capital": false,
+    "slug": "abaetetuba-pa",
+    "cptec": 251
+  },
+  {
+    "ibge": "1502103",
+    "name": "Cametá",
+    "uf": "PA",
+    "population": 145843,
+    "capital": false,
+    "slug": "cameta-pa",
+    "cptec": 1163
+  },
+  {
+    "ibge": "1501303",
+    "name": "Barcarena",
+    "uf": "PA",
+    "population": 140756,
+    "capital": false,
+    "slug": "barcarena-pa",
+    "cptec": 741
+  },
+  {
+    "ibge": "1500602",
+    "name": "Altamira",
+    "uf": "PA",
+    "population": 140450,
+    "capital": false,
+    "slug": "altamira-pa",
+    "cptec": 378
+  },
+  {
+    "ibge": "1503606",
+    "name": "Itaituba",
+    "uf": "PA",
+    "population": 136990,
+    "capital": false,
+    "slug": "itaituba-pa",
+    "cptec": 2532
+  },
+  {
+    "ibge": "2507507",
+    "name": "João Pessoa",
+    "uf": "PB",
+    "population": 906093,
+    "capital": true,
+    "slug": "joao-pessoa-pb",
+    "cptec": 231
+  },
+  {
+    "ibge": "2504009",
+    "name": "Campina Grande",
+    "uf": "PB",
+    "population": 446720,
+    "capital": false,
+    "slug": "campina-grande-pb",
+    "cptec": 1177
+  },
+  {
+    "ibge": "2513703",
+    "name": "Santa Rita",
+    "uf": "PB",
+    "population": 162488,
+    "capital": false,
+    "slug": "santa-rita-pb",
+    "cptec": 4620
+  },
+  {
+    "ibge": "2510808",
+    "name": "Patos",
+    "uf": "PB",
+    "population": 108416,
+    "capital": false,
+    "slug": "patos-pb",
+    "cptec": 3832
+  },
+  {
+    "ibge": "2501807",
+    "name": "Bayeux",
+    "uf": "PB",
+    "population": 83351,
+    "capital": false,
+    "slug": "bayeux-pb",
+    "cptec": 806
+  },
+  {
+    "ibge": "2503209",
+    "name": "Cabedelo",
+    "uf": "PB",
+    "population": 71364,
+    "capital": false,
+    "slug": "cabedelo-pb",
+    "cptec": 1056
+  },
+  {
+    "ibge": "2516201",
+    "name": "Sousa",
+    "uf": "PB",
+    "population": 70247,
+    "capital": false,
+    "slug": "sousa-pb",
+    "cptec": 5254,
+    "cptecName": "Souza"
+  },
+  {
+    "ibge": "2503704",
+    "name": "Cajazeiras",
+    "uf": "PB",
+    "population": 66976,
+    "capital": false,
+    "slug": "cajazeiras-pb",
+    "cptec": 1126
+  },
+  {
+    "ibge": "2506301",
+    "name": "Guarabira",
+    "uf": "PB",
+    "population": 60265,
+    "capital": false,
+    "slug": "guarabira-pb",
+    "cptec": 2211
+  },
+  {
+    "ibge": "2515302",
+    "name": "Sapé",
+    "uf": "PB",
+    "population": 53598,
+    "capital": false,
+    "slug": "sape-pb",
+    "cptec": 5089
+  },
+  {
+    "ibge": "2512507",
+    "name": "Queimadas",
+    "uf": "PB",
+    "population": 51156,
+    "capital": false,
+    "slug": "queimadas-pb",
+    "cptec": 4248
+  },
+  {
+    "ibge": "4106902",
+    "name": "Curitiba",
+    "uf": "PR",
+    "population": 1832183,
+    "capital": true,
+    "slug": "curitiba-pr",
+    "cptec": 227
+  },
+  {
+    "ibge": "4113700",
+    "name": "Londrina",
+    "uf": "PR",
+    "population": 584465,
+    "capital": false,
+    "slug": "londrina-pr",
+    "cptec": 2993
+  },
+  {
+    "ibge": "4115200",
+    "name": "Maringá",
+    "uf": "PR",
+    "population": 432635,
+    "capital": false,
+    "slug": "maringa-pr",
+    "cptec": 3161
+  },
+  {
+    "ibge": "4119905",
+    "name": "Ponta Grossa",
+    "uf": "PR",
+    "population": 378527,
+    "capital": false,
+    "slug": "ponta-grossa-pr",
+    "cptec": 4090
+  },
+  {
+    "ibge": "4104808",
+    "name": "Cascavel",
+    "uf": "PR",
+    "population": 372026,
+    "capital": false,
+    "slug": "cascavel-pr",
+    "cptec": 1387
+  },
+  {
+    "ibge": "4125506",
+    "name": "São José dos Pinhais",
+    "uf": "PR",
+    "population": 353874,
+    "capital": false,
+    "slug": "sao-jose-dos-pinhais-pr",
+    "cptec": 4965
+  },
+  {
+    "ibge": "4108304",
+    "name": "Foz do Iguaçu",
+    "uf": "PR",
+    "population": 299112,
+    "capital": false,
+    "slug": "foz-do-iguacu-pr",
+    "cptec": 2053
+  },
+  {
+    "ibge": "4105805",
+    "name": "Colombo",
+    "uf": "PR",
+    "population": 242698,
+    "capital": false,
+    "slug": "colombo-pr",
+    "cptec": 1536
+  },
+  {
+    "ibge": "4109401",
+    "name": "Guarapuava",
+    "uf": "PR",
+    "population": 190542,
+    "capital": false,
+    "slug": "guarapuava-pr",
+    "cptec": 2232
+  },
+  {
+    "ibge": "4107652",
+    "name": "Fazenda Rio Grande",
+    "uf": "PR",
+    "population": 170123,
+    "capital": false,
+    "slug": "fazenda-rio-grande-pr",
+    "cptec": 1972
+  },
+  {
+    "ibge": "4101804",
+    "name": "Araucária",
+    "uf": "PR",
+    "population": 164291,
+    "capital": false,
+    "slug": "araucaria-pr",
+    "cptec": 601
+  },
+  {
+    "ibge": "2611606",
+    "name": "Recife",
+    "uf": "PE",
+    "population": 1588983,
+    "capital": true,
+    "slug": "recife-pe",
+    "cptec": 239
+  },
+  {
+    "ibge": "2607901",
+    "name": "Jaboatão dos Guararapes",
+    "uf": "PE",
+    "population": 685222,
+    "capital": false,
+    "slug": "jaboatao-dos-guararapes-pe",
+    "cptec": 2667
+  },
+  {
+    "ibge": "2611101",
+    "name": "Petrolina",
+    "uf": "PE",
+    "population": 422461,
+    "capital": false,
+    "slug": "petrolina-pe",
+    "cptec": 3944
+  },
+  {
+    "ibge": "2604106",
+    "name": "Caruaru",
+    "uf": "PE",
+    "population": 408281,
+    "capital": false,
+    "slug": "caruaru-pe",
+    "cptec": 1377
+  },
+  {
+    "ibge": "2610707",
+    "name": "Paulista",
+    "uf": "PE",
+    "population": 367155,
+    "capital": false,
+    "slug": "paulista-pe",
+    "cptec": 3852
+  },
+  {
+    "ibge": "2609600",
+    "name": "Olinda",
+    "uf": "PE",
+    "population": 364087,
+    "capital": false,
+    "slug": "olinda-pe",
+    "cptec": 3633
+  },
+  {
+    "ibge": "2602902",
+    "name": "Cabo de Santo Agostinho",
+    "uf": "PE",
+    "population": 219044,
+    "capital": false,
+    "slug": "cabo-de-santo-agostinho-pe",
+    "cptec": 1058
+  },
+  {
+    "ibge": "2603454",
+    "name": "Camaragibe",
+    "uf": "PE",
+    "population": 156425,
+    "capital": false,
+    "slug": "camaragibe-pe",
+    "cptec": 1153
+  },
+  {
+    "ibge": "2606002",
+    "name": "Garanhuns",
+    "uf": "PE",
+    "population": 152484,
+    "capital": false,
+    "slug": "garanhuns-pe",
+    "cptec": 2096
+  },
+  {
+    "ibge": "2616407",
+    "name": "Vitória de Santo Antão",
+    "uf": "PE",
+    "population": 142419,
+    "capital": false,
+    "slug": "vitoria-de-santo-antao-pe",
+    "cptec": 5696
+  },
+  {
+    "ibge": "2606804",
+    "name": "Igarassu",
+    "uf": "PE",
+    "population": 123666,
+    "capital": false,
+    "slug": "igarassu-pe",
+    "cptec": 2359
+  },
+  {
+    "ibge": "2211001",
+    "name": "Teresina",
+    "uf": "PI",
+    "population": 908012,
+    "capital": true,
+    "slug": "teresina-pi",
+    "cptec": 245
+  },
+  {
+    "ibge": "2207702",
+    "name": "Parnaíba",
+    "uf": "PI",
+    "population": 171342,
+    "capital": false,
+    "slug": "parnaiba-pi",
+    "cptec": 3806
+  },
+  {
+    "ibge": "2208007",
+    "name": "Picos",
+    "uf": "PI",
+    "population": 87129,
+    "capital": false,
+    "slug": "picos-pi",
+    "cptec": 3955
+  },
+  {
+    "ibge": "2208403",
+    "name": "Piripiri",
+    "uf": "PI",
+    "population": 68076,
+    "capital": false,
+    "slug": "piripiri-pi",
+    "cptec": 4041
+  },
+  {
+    "ibge": "2203909",
+    "name": "Floriano",
+    "uf": "PI",
+    "population": 64614,
+    "capital": false,
+    "slug": "floriano-pi",
+    "cptec": 2027
+  },
+  {
+    "ibge": "2200400",
+    "name": "Altos",
+    "uf": "PI",
+    "population": 50509,
+    "capital": false,
+    "slug": "altos-pi",
+    "cptec": 412
+  },
+  {
+    "ibge": "2201200",
+    "name": "Barras",
+    "uf": "PI",
+    "population": 49856,
+    "capital": false,
+    "slug": "barras-pi",
+    "cptec": 779
+  },
+  {
+    "ibge": "2211100",
+    "name": "União",
+    "uf": "PI",
+    "population": 48067,
+    "capital": false,
+    "slug": "uniao-pi",
+    "cptec": 5537
+  },
+  {
+    "ibge": "2202208",
+    "name": "Campo Maior",
+    "uf": "PI",
+    "population": 47160,
+    "capital": false,
+    "slug": "campo-maior-pi",
+    "cptec": 1208
+  },
+  {
+    "ibge": "2205508",
+    "name": "José de Freitas",
+    "uf": "PI",
+    "population": 44959,
+    "capital": false,
+    "slug": "jose-de-freitas-pi",
+    "cptec": 2814
+  },
+  {
+    "ibge": "2203701",
+    "name": "Esperantina",
+    "uf": "PI",
+    "population": 42873,
+    "capital": false,
+    "slug": "esperantina-pi",
+    "cptec": 1915
+  },
+  {
+    "ibge": "3304557",
+    "name": "Rio de Janeiro",
+    "uf": "RJ",
+    "population": 6731133,
+    "capital": true,
+    "slug": "rio-de-janeiro-rj",
+    "cptec": 241
+  },
+  {
+    "ibge": "3304904",
+    "name": "São Gonçalo",
+    "uf": "RJ",
+    "population": 959977,
+    "capital": false,
+    "slug": "sao-goncalo-rj",
+    "cptec": 4835
+  },
+  {
+    "ibge": "3301702",
+    "name": "Duque de Caxias",
+    "uf": "RJ",
+    "population": 866167,
+    "capital": false,
+    "slug": "duque-de-caxias-rj",
+    "cptec": 1855
+  },
+  {
+    "ibge": "3303500",
+    "name": "Nova Iguaçu",
+    "uf": "RJ",
+    "population": 843367,
+    "capital": false,
+    "slug": "nova-iguacu-rj",
+    "cptec": 3523
+  },
+  {
+    "ibge": "3301009",
+    "name": "Campos dos Goytacazes",
+    "uf": "RJ",
+    "population": 519378,
+    "capital": false,
+    "slug": "campos-dos-goytacazes-rj",
+    "cptec": 1220
+  },
+  {
+    "ibge": "3300456",
+    "name": "Belford Roxo",
+    "uf": "RJ",
+    "population": 518442,
+    "capital": false,
+    "slug": "belford-roxo-rj",
+    "cptec": 825
+  },
+  {
+    "ibge": "3303302",
+    "name": "Niterói",
+    "uf": "RJ",
+    "population": 516820,
+    "capital": false,
+    "slug": "niteroi-rj",
+    "cptec": 3464
+  },
+  {
+    "ibge": "3305109",
+    "name": "São João de Meriti",
+    "uf": "RJ",
+    "population": 466487,
+    "capital": false,
+    "slug": "sao-joao-de-meriti-rj",
+    "cptec": 4871
+  },
+  {
+    "ibge": "3303906",
+    "name": "Petrópolis",
+    "uf": "RJ",
+    "population": 294954,
+    "capital": false,
+    "slug": "petropolis-rj",
+    "cptec": 3946
+  },
+  {
+    "ibge": "3306305",
+    "name": "Volta Redonda",
+    "uf": "RJ",
+    "population": 280006,
+    "capital": false,
+    "slug": "volta-redonda-rj",
+    "cptec": 5703
+  },
+  {
+    "ibge": "3302403",
+    "name": "Macaé",
+    "uf": "RJ",
+    "population": 264583,
+    "capital": false,
+    "slug": "macae-rj",
+    "cptec": 3025
+  },
+  {
+    "ibge": "2408102",
+    "name": "Natal",
+    "uf": "RN",
+    "population": 783196,
+    "capital": true,
+    "slug": "natal-rn",
+    "cptec": 235
+  },
+  {
+    "ibge": "2408003",
+    "name": "Mossoró",
+    "uf": "RN",
+    "population": 279100,
+    "capital": false,
+    "slug": "mossoro-rn",
+    "cptec": 3391
+  },
+  {
+    "ibge": "2403251",
+    "name": "Parnamirim",
+    "uf": "RN",
+    "population": 273952,
+    "capital": false,
+    "slug": "parnamirim-rn",
+    "cptec": 3807
+  },
+  {
+    "ibge": "2412005",
+    "name": "São Gonçalo do Amarante",
+    "uf": "RN",
+    "population": 125691,
+    "capital": false,
+    "slug": "sao-goncalo-do-amarante-rn",
+    "cptec": 4838
+  },
+  {
+    "ibge": "2407104",
+    "name": "Macaíba",
+    "uf": "RN",
+    "population": 87634,
+    "capital": false,
+    "slug": "macaiba-rn",
+    "cptec": 3026
+  },
+  {
+    "ibge": "2402600",
+    "name": "Ceará-Mirim",
+    "uf": "RN",
+    "population": 83662,
+    "capital": false,
+    "slug": "ceara-mirim-rn",
+    "cptec": 1433,
+    "cptecName": "Ceará Mirim"
+  },
+  {
+    "ibge": "2403608",
+    "name": "Extremoz",
+    "uf": "RN",
+    "population": 70452,
+    "capital": false,
+    "slug": "extremoz-rn",
+    "cptec": 1951
+  },
+  {
+    "ibge": "2402006",
+    "name": "Caicó",
+    "uf": "RN",
+    "population": 63338,
+    "capital": false,
+    "slug": "caico-rn",
+    "cptec": 1118
+  },
+  {
+    "ibge": "2400208",
+    "name": "Assú",
+    "uf": "RN",
+    "population": 59278,
+    "capital": false,
+    "slug": "assu-rn",
+    "cptec": 274,
+    "cptecName": "Açu"
+  },
+  {
+    "ibge": "2412203",
+    "name": "São José de Mipibu",
+    "uf": "RN",
+    "population": 50386,
+    "capital": false,
+    "slug": "sao-jose-de-mipibu-rn",
+    "cptec": 4925
+  },
+  {
+    "ibge": "2403103",
+    "name": "Currais Novos",
+    "uf": "RN",
+    "population": 42915,
+    "capital": false,
+    "slug": "currais-novos-rn",
+    "cptec": 1731
+  },
+  {
+    "ibge": "4314902",
+    "name": "Porto Alegre",
+    "uf": "RS",
+    "population": 1388791,
+    "capital": true,
+    "slug": "porto-alegre-rs",
+    "cptec": 237
+  },
+  {
+    "ibge": "4305108",
+    "name": "Caxias do Sul",
+    "uf": "RS",
+    "population": 479604,
+    "capital": false,
+    "slug": "caxias-do-sul-rs",
+    "cptec": 1431
+  },
+  {
+    "ibge": "4304606",
+    "name": "Canoas",
+    "uf": "RS",
+    "population": 359845,
+    "capital": false,
+    "slug": "canoas-rs",
+    "cptec": 1264
+  },
+  {
+    "ibge": "4314407",
+    "name": "Pelotas",
+    "uf": "RS",
+    "population": 336150,
+    "capital": false,
+    "slug": "pelotas-rs",
+    "cptec": 3914
+  },
+  {
+    "ibge": "4316907",
+    "name": "Santa Maria",
+    "uf": "RS",
+    "population": 282397,
+    "capital": false,
+    "slug": "santa-maria-rs",
+    "cptec": 4599
+  },
+  {
+    "ibge": "4309209",
+    "name": "Gravataí",
+    "uf": "RS",
+    "population": 275432,
+    "capital": false,
+    "slug": "gravatai-rs",
+    "cptec": 2179
+  },
+  {
+    "ibge": "4313409",
+    "name": "Novo Hamburgo",
+    "uf": "RS",
+    "population": 235801,
+    "capital": false,
+    "slug": "novo-hamburgo-rs",
+    "cptec": 3591
+  },
+  {
+    "ibge": "4323002",
+    "name": "Viamão",
+    "uf": "RS",
+    "population": 231994,
+    "capital": false,
+    "slug": "viamao-rs",
+    "cptec": 5644
+  },
+  {
+    "ibge": "4318705",
+    "name": "São Leopoldo",
+    "uf": "RS",
+    "population": 225738,
+    "capital": false,
+    "slug": "sao-leopoldo-rs",
+    "cptec": 4969
+  },
+  {
+    "ibge": "4314100",
+    "name": "Passo Fundo",
+    "uf": "RS",
+    "population": 214815,
+    "capital": false,
+    "slug": "passo-fundo-rs",
+    "cptec": 3825
+  },
+  {
+    "ibge": "4315602",
+    "name": "Rio Grande",
+    "uf": "RS",
+    "population": 198935,
+    "capital": false,
+    "slug": "rio-grande-rs",
+    "cptec": 4397
+  },
+  {
+    "ibge": "1100205",
+    "name": "Porto Velho",
+    "uf": "RO",
+    "population": 520379,
+    "capital": true,
+    "slug": "porto-velho-ro",
+    "cptec": 238
+  },
+  {
+    "ibge": "1100122",
+    "name": "Ji-Paraná",
+    "uf": "RO",
+    "population": 140800,
+    "capital": false,
+    "slug": "ji-parana-ro",
+    "cptec": 2783,
+    "cptecName": "Ji Paraná"
+  },
+  {
+    "ibge": "1100304",
+    "name": "Vilhena",
+    "uf": "RO",
+    "population": 110708,
+    "capital": false,
+    "slug": "vilhena-ro",
+    "cptec": 5677
+  },
+  {
+    "ibge": "1100023",
+    "name": "Ariquemes",
+    "uf": "RO",
+    "population": 109731,
+    "capital": false,
+    "slug": "ariquemes-ro",
+    "cptec": 625
+  },
+  {
+    "ibge": "1100049",
+    "name": "Cacoal",
+    "uf": "RO",
+    "population": 98884,
+    "capital": false,
+    "slug": "cacoal-ro",
+    "cptec": 1094
+  },
+  {
+    "ibge": "1100288",
+    "name": "Rolim de Moura",
+    "uf": "RO",
+    "population": 63336,
+    "capital": false,
+    "slug": "rolim-de-moura-ro",
+    "cptec": 4439
+  },
+  {
+    "ibge": "1100114",
+    "name": "Jaru",
+    "uf": "RO",
+    "population": 55774,
+    "capital": false,
+    "slug": "jaru-ro",
+    "cptec": 2754
+  },
+  {
+    "ibge": "1100106",
+    "name": "Guajará-Mirim",
+    "uf": "RO",
+    "population": 43633,
+    "capital": false,
+    "slug": "guajara-mirim-ro",
+    "cptec": 2196,
+    "cptecName": "Guajará Mirim"
+  },
+  {
+    "ibge": "1100189",
+    "name": "Pimenta Bueno",
+    "uf": "RO",
+    "population": 39377,
+    "capital": false,
+    "slug": "pimenta-bueno-ro",
+    "cptec": 3972
+  },
+  {
+    "ibge": "1100155",
+    "name": "Ouro Preto do Oeste",
+    "uf": "RO",
+    "population": 38686,
+    "capital": false,
+    "slug": "ouro-preto-do-oeste-ro",
+    "cptec": 3673
+  },
+  {
+    "ibge": "1100130",
+    "name": "Machadinho D'Oeste",
+    "uf": "RO",
+    "population": 34229,
+    "capital": false,
+    "slug": "machadinho-d-oeste-ro",
+    "cptec": 3039,
+    "cptecName": "Machadinho dOeste"
+  },
+  {
+    "ibge": "1400100",
+    "name": "Boa Vista",
+    "uf": "RR",
+    "population": 500965,
+    "capital": true,
+    "slug": "boa-vista-rr",
+    "cptec": 223
+  },
+  {
+    "ibge": "1400472",
+    "name": "Rorainópolis",
+    "uf": "RR",
+    "population": 38840,
+    "capital": false,
+    "slug": "rorainopolis-rr",
+    "cptec": 4449
+  },
+  {
+    "ibge": "1400050",
+    "name": "Alto Alegre",
+    "uf": "RR",
+    "population": 24135,
+    "capital": false,
+    "slug": "alto-alegre-rr",
+    "cptec": 386
+  },
+  {
+    "ibge": "1400456",
+    "name": "Pacaraima",
+    "uf": "RR",
+    "population": 24132,
+    "capital": false,
+    "slug": "pacaraima-rr",
+    "cptec": 3686
+  },
+  {
+    "ibge": "1400209",
+    "name": "Caracaraí",
+    "uf": "RR",
+    "population": 23061,
+    "capital": false,
+    "slug": "caracarai-rr",
+    "cptec": 1312
+  },
+  {
+    "ibge": "1400175",
+    "name": "Cantá",
+    "uf": "RR",
+    "population": 21659,
+    "capital": false,
+    "slug": "canta-rr",
+    "cptec": 1267
+  },
+  {
+    "ibge": "1400308",
+    "name": "Mucajaí",
+    "uf": "RR",
+    "population": 20398,
+    "capital": false,
+    "slug": "mucajai-rr",
+    "cptec": 3396
+  },
+  {
+    "ibge": "1400407",
+    "name": "Normandia",
+    "uf": "RR",
+    "population": 16908,
+    "capital": false,
+    "slug": "normandia-rr",
+    "cptec": 3468
+  },
+  {
+    "ibge": "1400704",
+    "name": "Uiramutã",
+    "uf": "RR",
+    "population": 16809,
+    "capital": false,
+    "slug": "uiramuta-rr",
+    "cptec": 5523
+  },
+  {
+    "ibge": "1400027",
+    "name": "Amajari",
+    "uf": "RR",
+    "population": 16647,
+    "capital": false,
+    "slug": "amajari-rr",
+    "cptec": 428
+  },
+  {
+    "ibge": "1400159",
+    "name": "Bonfim",
+    "uf": "RR",
+    "population": 15922,
+    "capital": false,
+    "slug": "bonfim-rr",
+    "cptec": 940
+  },
+  {
+    "ibge": "4205407",
+    "name": "Florianópolis",
+    "uf": "SC",
+    "population": 598370,
+    "capital": true,
+    "slug": "florianopolis-sc",
+    "cptec": 228
+  },
+  {
+    "ibge": "4209102",
+    "name": "Joinville",
+    "uf": "SC",
+    "population": 673980,
+    "capital": false,
+    "slug": "joinville-sc",
+    "cptec": 2808
+  },
+  {
+    "ibge": "4202404",
+    "name": "Blumenau",
+    "uf": "SC",
+    "population": 390371,
+    "capital": false,
+    "slug": "blumenau-sc",
+    "cptec": 868
+  },
+  {
+    "ibge": "4208203",
+    "name": "Itajaí",
+    "uf": "SC",
+    "population": 302247,
+    "capital": false,
+    "slug": "itajai-sc",
+    "cptec": 2535
+  },
+  {
+    "ibge": "4216602",
+    "name": "São José",
+    "uf": "SC",
+    "population": 301218,
+    "capital": false,
+    "slug": "sao-jose-sc",
+    "cptec": 4909
+  },
+  {
+    "ibge": "4204202",
+    "name": "Chapecó",
+    "uf": "SC",
+    "population": 289170,
+    "capital": false,
+    "slug": "chapeco-sc",
+    "cptec": 1480
+  },
+  {
+    "ibge": "4211900",
+    "name": "Palhoça",
+    "uf": "SC",
+    "population": 261287,
+    "capital": false,
+    "slug": "palhoca-sc",
+    "cptec": 3711
+  },
+  {
+    "ibge": "4204608",
+    "name": "Criciúma",
+    "uf": "SC",
+    "population": 229333,
+    "capital": false,
+    "slug": "criciuma-sc",
+    "cptec": 1671
+  },
+  {
+    "ibge": "4208906",
+    "name": "Jaraguá do Sul",
+    "uf": "SC",
+    "population": 203204,
+    "capital": false,
+    "slug": "jaragua-do-sul-sc",
+    "cptec": 2739
+  },
+  {
+    "ibge": "4209300",
+    "name": "Lages",
+    "uf": "SC",
+    "population": 173278,
+    "capital": false,
+    "slug": "lages-sc",
+    "cptec": 2876
+  },
+  {
+    "ibge": "4202909",
+    "name": "Brusque",
+    "uf": "SC",
+    "population": 158593,
+    "capital": false,
+    "slug": "brusque-sc",
+    "cptec": 1020
+  },
+  {
+    "ibge": "3550308",
+    "name": "São Paulo",
+    "uf": "SP",
+    "population": 11911337,
+    "capital": true,
+    "slug": "sao-paulo-sp",
+    "cptec": 244
+  },
+  {
+    "ibge": "3518800",
+    "name": "Guarulhos",
+    "uf": "SP",
+    "population": 1351284,
+    "capital": false,
+    "slug": "guarulhos-sp",
+    "cptec": 2247
+  },
+  {
+    "ibge": "3509502",
+    "name": "Campinas",
+    "uf": "SP",
+    "population": 1189761,
+    "capital": false,
+    "slug": "campinas-sp",
+    "cptec": 1182
+  },
+  {
+    "ibge": "3548708",
+    "name": "São Bernardo do Campo",
+    "uf": "SP",
+    "population": 842558,
+    "capital": false,
+    "slug": "sao-bernardo-do-campo-sp",
+    "cptec": 4765
+  },
+  {
+    "ibge": "3547809",
+    "name": "Santo André",
+    "uf": "SP",
+    "population": 784290,
+    "capital": false,
+    "slug": "santo-andre-sp",
+    "cptec": 4704
+  },
+  {
+    "ibge": "3552205",
+    "name": "Sorocaba",
+    "uf": "SP",
+    "population": 766390,
+    "capital": false,
+    "slug": "sorocaba-sp",
+    "cptec": 5250
+  },
+  {
+    "ibge": "3534401",
+    "name": "Osasco",
+    "uf": "SP",
+    "population": 761441,
+    "capital": false,
+    "slug": "osasco-sp",
+    "cptec": 3656
+  },
+  {
+    "ibge": "3543402",
+    "name": "Ribeirão Preto",
+    "uf": "SP",
+    "population": 734538,
+    "capital": false,
+    "slug": "ribeirao-preto-sp",
+    "cptec": 4355
+  },
+  {
+    "ibge": "3549904",
+    "name": "São José dos Campos",
+    "uf": "SP",
+    "population": 729153,
+    "capital": false,
+    "slug": "sao-jose-dos-campos-sp",
+    "cptec": 4963
+  },
+  {
+    "ibge": "3549805",
+    "name": "São José do Rio Preto",
+    "uf": "SP",
+    "population": 506466,
+    "capital": false,
+    "slug": "sao-jose-do-rio-preto-sp",
+    "cptec": 4956
+  },
+  {
+    "ibge": "3530607",
+    "name": "Mogi das Cruzes",
+    "uf": "SP",
+    "population": 472255,
+    "capital": false,
+    "slug": "mogi-das-cruzes-sp",
+    "cptec": 3306
+  },
+  {
+    "ibge": "2800308",
+    "name": "Aracaju",
+    "uf": "SE",
+    "population": 623328,
+    "capital": true,
+    "slug": "aracaju-se",
+    "cptec": 220
+  },
+  {
+    "ibge": "2804805",
+    "name": "Nossa Senhora do Socorro",
+    "uf": "SE",
+    "population": 205611,
+    "capital": false,
+    "slug": "nossa-senhora-do-socorro-se",
+    "cptec": 3477
+  },
+  {
+    "ibge": "2806701",
+    "name": "São Cristóvão",
+    "uf": "SE",
+    "population": 111567,
+    "capital": false,
+    "slug": "sao-cristovao-se",
+    "cptec": 4777
+  },
+  {
+    "ibge": "2802908",
+    "name": "Itabaiana",
+    "uf": "SE",
+    "population": 110041,
+    "capital": false,
+    "slug": "itabaiana-se",
+    "cptec": 2492
+  },
+  {
+    "ibge": "2803500",
+    "name": "Lagarto",
+    "uf": "SE",
+    "population": 106330,
+    "capital": false,
+    "slug": "lagarto-se",
+    "cptec": 2875
+  },
+  {
+    "ibge": "2802106",
+    "name": "Estância",
+    "uf": "SE",
+    "population": 67136,
+    "capital": false,
+    "slug": "estancia-se",
+    "cptec": 1928
+  },
+  {
+    "ibge": "2807402",
+    "name": "Tobias Barreto",
+    "uf": "SE",
+    "population": 52943,
+    "capital": false,
+    "slug": "tobias-barreto-se",
+    "cptec": 5408
+  },
+  {
+    "ibge": "2800605",
+    "name": "Barra dos Coqueiros",
+    "uf": "SE",
+    "population": 45916,
+    "capital": false,
+    "slug": "barra-dos-coqueiros-se",
+    "cptec": 772
+  },
+  {
+    "ibge": "2807105",
+    "name": "Simão Dias",
+    "uf": "SE",
+    "population": 44708,
+    "capital": false,
+    "slug": "simao-dias-se",
+    "cptec": 5216
+  },
+  {
+    "ibge": "2804508",
+    "name": "Nossa Senhora da Glória",
+    "uf": "SE",
+    "population": 44088,
+    "capital": false,
+    "slug": "nossa-senhora-da-gloria-se",
+    "cptec": 3471
+  },
+  {
+    "ibge": "2803005",
+    "name": "Itabaianinha",
+    "uf": "SE",
+    "population": 42339,
+    "capital": false,
+    "slug": "itabaianinha-se",
+    "cptec": 2493
+  },
+  {
+    "ibge": "1721000",
+    "name": "Palmas",
+    "uf": "TO",
+    "population": 333154,
+    "capital": true,
+    "slug": "palmas-to",
+    "cptec": 236
+  },
+  {
+    "ibge": "1702109",
+    "name": "Araguaína",
+    "uf": "TO",
+    "population": 184495,
+    "capital": false,
+    "slug": "araguaina-to",
+    "cptec": 558
+  },
+  {
+    "ibge": "1709500",
+    "name": "Gurupi",
+    "uf": "TO",
+    "population": 90818,
+    "capital": false,
+    "slug": "gurupi-to",
+    "cptec": 2261
+  },
+  {
+    "ibge": "1718204",
+    "name": "Porto Nacional",
+    "uf": "TO",
+    "population": 70507,
+    "capital": false,
+    "slug": "porto-nacional-to",
+    "cptec": 4149
+  },
+  {
+    "ibge": "1716109",
+    "name": "Paraíso do Tocantins",
+    "uf": "TO",
+    "population": 56223,
+    "capital": false,
+    "slug": "paraiso-do-tocantins-to",
+    "cptec": 3767
+  },
+  {
+    "ibge": "1705508",
+    "name": "Colinas do Tocantins",
+    "uf": "TO",
+    "population": 36451,
+    "capital": false,
+    "slug": "colinas-do-tocantins-to",
+    "cptec": 1533
+  },
+  {
+    "ibge": "1702208",
+    "name": "Araguatins",
+    "uf": "TO",
+    "population": 33364,
+    "capital": false,
+    "slug": "araguatins-to",
+    "cptec": 564
+  },
+  {
+    "ibge": "1709302",
+    "name": "Guaraí",
+    "uf": "TO",
+    "population": 25975,
+    "capital": false,
+    "slug": "guarai-to",
+    "cptec": 2219
+  },
+  {
+    "ibge": "1721208",
+    "name": "Tocantinópolis",
+    "uf": "TO",
+    "population": 23246,
+    "capital": false,
+    "slug": "tocantinopolis-to",
+    "cptec": 5410
+  },
+  {
+    "ibge": "1708205",
+    "name": "Formoso do Araguaia",
+    "uf": "TO",
+    "population": 19517,
+    "capital": false,
+    "slug": "formoso-do-araguaia-to",
+    "cptec": 2043
+  },
+  {
+    "ibge": "1713205",
+    "name": "Miracema do Tocantins",
+    "uf": "TO",
+    "population": 18576,
+    "capital": false,
+    "slug": "miracema-do-tocantins-to",
+    "cptec": 3272
+  }
+]

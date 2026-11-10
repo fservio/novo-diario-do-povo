@@ -1,6 +1,6 @@
 import type {Env} from '../types'
 import {randomHex,sha256Hex} from '../utils'
-import {guideBriefSchema,guideDocumentSchema,guideResearchSchema,validateGuideDossier,GuideConflict,type GuideBrief} from '../evergreen'
+import {guideBriefSchema,guideDocumentSchema,guideDraftResearchSchema,validateGuideDossier,GuideConflict,type GuideBrief} from '../evergreen'
 import seed from './evergreen-library.json'
 
 export async function getGuide(env:Env,id:number){return env.DB.prepare('SELECT * FROM evergreen_guides WHERE id=?').bind(id).first<any>()}
@@ -39,7 +39,7 @@ export async function claimGuideJobs(env:Env,limit=1){
  return jobs
 }
 export async function storeGuideRevision(env:Env,id:number,version:number,documentInput:unknown,researchInput:unknown,options:{origin:'ai'|'editorial';actor?:number;lease_token?:string}){
- const document=guideDocumentSchema.parse(documentInput),research=guideResearchSchema.parse(researchInput),guide=await getGuide(env,id)
+ const document=guideDocumentSchema.parse(documentInput),research=guideDraftResearchSchema.parse(researchInput),guide=await getGuide(env,id)
  if(!guide)throw Error('Guia não encontrado.')
  const key=options.origin==='ai'?'ai:'+options.lease_token:'editor:'+randomHex(18),checksum=await sha256Hex(JSON.stringify({document,research}))
  const existing=await env.DB.prepare('SELECT id,checksum FROM evergreen_revisions WHERE commit_key=? AND guide_id=?').bind(key,id).first<any>()
@@ -62,7 +62,7 @@ export async function publishGuide(env:Env,id:number,version:number,revisionId:n
  if(!guide||guide.pending_revision_id!==revisionId)throw new GuideConflict('A revisão selecionada não é a atual.')
  const revision=await env.DB.prepare('SELECT * FROM evergreen_revisions WHERE id=? AND guide_id=?').bind(revisionId,id).first<any>()
  if(!revision)throw Error('Revisão não encontrada.')
- const document=guideDocumentSchema.parse(JSON.parse(revision.document_json)),research=guideResearchSchema.parse(JSON.parse(revision.research_json)),now=new Date()
+ const document=guideDocumentSchema.parse(JSON.parse(revision.document_json)),research=guideDraftResearchSchema.parse(JSON.parse(revision.research_json)),now=new Date()
  validateGuideDossier(guideBriefSchema.parse(JSON.parse(guide.brief_json)),document,research,now)
  const author=await env.DB.prepare('SELECT id FROM authors WHERE id=? AND is_active=1').bind(guide.author_id).first()
  const category=await env.DB.prepare('SELECT id FROM categories WHERE slug=? AND is_active=1').bind(guide.category_slug).first()

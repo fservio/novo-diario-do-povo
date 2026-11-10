@@ -59,15 +59,52 @@ export async function handleInstagramAudience(c: Context) {
     'Contagens de envios se referem aos últimos 30 dias. Aberturas incluem prévias e acessos repetidos; não representam visitantes únicos. Envios com resultado incerto não são repetidos automaticamente.',
     ...(sync?.subscription_error ? [`Webhook: ${cell(sync.subscription_error)}`] : [])
   ].join('\n\n')+'\n'
+  const available = (value: unknown): value is number => typeof value==='number' && Number.isFinite(value) && value>=0
+  const dateOnly = (value: unknown) => typeof value==='string' && Number.isFinite(Date.parse(value))
+    ? new Date(value).toLocaleDateString('pt-BR',{timeZone:'America/Fortaleza'}) : ''
+  const from=dateOnly(data.since), until=dateOnly(data.until)
+  const commercialMetrics = [
+    ['Seguidores do perfil',data.followers,'Última leitura da conta'],
+    ['Contas alcançadas',metrics.reach,'Janela da Meta'],
+    ['Visualizações do conteúdo',metrics.views,'Janela da Meta'],
+    ['Contas que interagiram',metrics.accounts_engaged,'Janela da Meta'],
+    ['Interações com conteúdo',metrics.total_interactions,'Janela da Meta']
+  ].filter(([,value])=>available(value))
+  const cities=(Array.isArray(data.demographics?.city)?data.demographics.city:[])
+    .filter((entry:any)=>typeof entry?.label==='string'&&available(entry.value)).slice(0,5)
+  const examples=rows.map((row:any)=>({title:row.title,metrics:parse(row.data_json)}))
+    .filter(entry=>[entry.metrics.views,entry.metrics.reach].some(value=>available(value)&&value>0))
+    .sort((a,b)=>(b.metrics.views??-1)-(a.metrics.views??-1)||(b.metrics.reach??-1)-(a.metrics.reach??-1))
+    .slice(0,3)
+  const commercialMarkdown = [
+    '# Diário do Povo · Audiência no Instagram',
+    '## Uma oportunidade para sua marca',
+    'O Diário do Povo cobre o Piauí, o Brasil e o mundo. Este panorama mostra a presença do jornal no Instagram e ajuda a avaliar se o canal combina com o público e os objetivos da sua campanha.',
+    `Perfil: @${cell(account?.username || '')}\n\n${from&&until?`Período das métricas da conta: ${from} a ${until}\n\n`:''}Dados atualizados em ${date(sync?.completed_at)}.`,
+    '## Alcance e interação',
+    table(['Indicador','Resultado','Referência'],commercialMetrics.map(([label,value,period])=>[label,number(value),period])),
+    ...(cities.length?['## Onde está nossa comunidade',
+      'Cidades com maior presença entre os seguidores no recorte demográfico disponibilizado pela Meta.',
+      table(['Cidade','Seguidores no recorte'],cities.map((entry:any)=>[entry.label,number(entry.value)]))]:[]),
+    ...(examples.length?['## Conteúdos que chamaram atenção',
+      'Exemplos de matérias publicadas pelo Diário no Instagram, com resultados acumulados por publicação.',
+      table(['Matéria','Visualizações','Contas alcançadas','Compartilhamentos'],examples.map(entry=>
+        [entry.title,number(entry.metrics.views),number(entry.metrics.reach),number(entry.metrics.shares)]))]:[]),
+    '## Vamos conversar sobre sua campanha?',
+    'Conte à equipe comercial do Diário qual público você quer alcançar, em que região e com qual objetivo. A partir desse briefing, podemos conversar sobre formatos e possibilidades de divulgação.',
+    'Fonte: Instagram Insights (Meta). Visualizações podem incluir repetições. Os resultados apresentados são históricos e se referem ao Instagram, sem projeção de alcance para campanhas futuras.'
+  ].join('\n\n')+'\n'
+  const canExportCommercial=Boolean(account&&sync?.completed_at&&commercialMetrics.length)
   const demographics = (dimension:string,label:string) => {
     const values = data.demographics?.[dimension] || []
     return `<article class="card"><h3>${label}</h3>${values.length?`<ul class="ig-audience-breakdown">${values.slice(0,8).map((value:any)=>`<li><span>${escapeHtml(value.label)}</span><strong>${number(value.value)}</strong></li>`).join('')}</ul>`:'<p class="ig-audience-muted">Sem dados disponibilizados pela Meta.</p>'}</article>`
   }
   const bodyHtml = `<link rel="stylesheet" href="/static/admin-instagram-audience.css?v=20261104-1">
-    <script src="/static/admin-instagram-audience.js?v=20261105-1" defer></script>
+    <script src="/static/admin-instagram-audience.js?v=20261109-1" defer></script>
     <textarea hidden id="ig-audience-markdown">${escapeHtml(markdown)}</textarea>
+    ${canExportCommercial?`<textarea hidden id="ig-audience-commercial-markdown">${escapeHtml(commercialMarkdown)}</textarea>`:''}
     ${pendingSince?`<span hidden data-audience-pending-since="${escapeHtml(pendingSince)}"></span>`:''}
-    <div class="page-intro"><div><p class="page-kicker">Instagram · Inteligência editorial</p><h1 class="page-title">Audiência e desempenho</h1><p class="page-description">Entenda quem acompanha o Diário e quais matérias geram interesse.</p></div><div class="ig-audience-actions"><button type="button" class="btn btn-outline" id="ig-audience-export">Baixar Markdown</button><a class="btn" href="/admin/instagram/campaigns">Campanhas por comentário</a><a class="btn btn-outline" href="/admin/instagram">Voltar às publicações</a></div></div>
+    <div class="page-intro"><div><p class="page-kicker">Instagram · Inteligência editorial</p><h1 class="page-title">Audiência e desempenho</h1><p class="page-description">Entenda quem acompanha o Diário e quais matérias geram interesse.</p></div><div class="ig-audience-actions"><button type="button" class="btn" data-ig-audience-export="ig-audience-commercial-markdown" data-filename="diario-do-povo-audiencia-comercial"${canExportCommercial?'':' disabled title="Atualize os dados de audiência para gerar o relatório."'}>Baixar relatório para anunciantes</button><button type="button" class="btn btn-outline" id="ig-audience-export" data-ig-audience-export="ig-audience-markdown" data-filename="instagram-audiencia">Baixar Markdown</button><a class="btn btn-outline" href="/admin/instagram/campaigns">Campanhas por comentário</a><a class="btn btn-outline" href="/admin/instagram">Voltar às publicações</a></div></div>
     ${notice(c.req.query('message'),c.req.query('error'))}
     <section class="card ig-audience-toolbar"><div><strong>${account?`@${escapeHtml(account.username)}`:'Conecte uma conta profissional'}</strong><p>Última atualização: ${escapeHtml(date(sync?.completed_at))}${sync?.status==='syncing'?' · Atualizando…':pendingSince?' · Atualização solicitada…':''}</p></div>
     ${director(c)?`<div class="ig-audience-actions"><form method="post" action="/admin/instagram/connect">${renderCsrfInput(csrf)}<input type="hidden" name="capabilities" value="audience-link"><button class="btn btn-outline">Autorizar audiência e comentários</button></form><form method="post" action="/admin/instagram/connect">${renderCsrfInput(csrf)}<input type="hidden" name="capabilities" value="private-replies"><button class="btn btn-outline">Autorizar respostas privadas</button></form>${account?`<form method="post" action="/admin/instagram/audience/sync">${renderCsrfInput(csrf)}<button class="btn">Atualizar dados</button></form>`:''}</div>`:''}</section>

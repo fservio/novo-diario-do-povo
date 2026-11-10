@@ -4,6 +4,8 @@ import { renderSocialMetaTags, type SocialMeta } from './social'
 import editorialCss from '../../../public/static/editorial.css?raw'
 import engagementCss from '../../../public/static/engagement.css?raw'
 
+import {weatherIcon} from './public-menu'
+
 export type EditorialNavItem = {
   label: string
   href: string
@@ -22,6 +24,7 @@ function renderEditorialHeader(params: {
     year: 'numeric',
     timeZone: 'America/Fortaleza'
   })
+  const currentWeather=params.navItems.some(item=>item.href==='/tempo'&&item.active)?'aria-current="page"':''
 
   return `
     <a class="ed-skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -47,6 +50,7 @@ function renderEditorialHeader(params: {
           <img src="/static/logo-dp.png" alt="${escapeAttr(params.siteName)}" width="500" height="181" fetchpriority="high">
         </a>
         <div class="ed-masthead__actions">
+          <a class="ed-weather-link" href="/tempo" ${currentWeather}>${weatherIcon}<span>Clima</span></a>
           <a class="ed-search-link" href="/busca" aria-label="Buscar notícias" title="Buscar notícias">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg>
           </a>
@@ -90,8 +94,9 @@ function renderEditorialHeader(params: {
             <ul class="ed-menu-drawer__list">
               <li><a href="/busca">Busca<span aria-hidden="true">→</span></a></li>
               <li><a href="/meu-dia" ${params.navItems.some(item=>item.href==='/meu-dia'&&item.active)?'aria-current="page"':''}>Meu dia<span aria-hidden="true">→</span></a></li>
+              <li><a href="/tempo" ${currentWeather}><strong class="ed-weather-menu-label">${weatherIcon} Clima</strong><span aria-hidden="true">→</span></a></li>
               <li><a href="/jogos/extra-extra" ${params.navItems.some(item=>item.href==='/jogos/extra-extra'&&item.active)?'aria-current="page"':''}>Extra! Extra!<span aria-hidden="true">→</span></a></li>
-              ${params.navItems.filter(item=>!['/busca','/meu-dia','/jogos/extra-extra'].includes(item.href)).map(item => `
+              ${params.navItems.filter(item=>!['/busca','/meu-dia','/tempo','/jogos/extra-extra'].includes(item.href)).map(item => `
                 <li><a href="${escapeAttr(item.href)}" ${item.active ? 'aria-current="page"' : ''}>${escapeHtml(item.label)}<span aria-hidden="true">→</span></a></li>
               `).join('')}
             </ul>
@@ -242,12 +247,8 @@ export function renderEditorialLayout(params: {
   <style data-source="/static/engagement.css">${engagementCss}</style>
   ${params.extraHeadHtml || ''}
   ${params.googleAnalyticsId ? `
-    <script async src="https://www.googletagmanager.com/gtag/js?id=${escapeAttr(params.googleAnalyticsId)}"></script>
     <script nonce="${escapeAttr(params.nonce)}">
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', '${escapeAttr(params.googleAnalyticsId)}');
+      window.diarioConsent?.analytics('${escapeAttr(params.googleAnalyticsId)}');
     </script>
   ` : ''}
 </head>
@@ -257,7 +258,7 @@ export function renderEditorialLayout(params: {
     ${params.bodyHtml}
   </main>
   ${renderEditorialFooter(params.siteName)}
-  <script src="/static/engagement.js?v=20260821-1" defer></script>
+  <script src="/static/engagement.js?v=20261109-1" defer></script>
   ${params.extraScriptsHtml || ''}
 </body>
 </html>`

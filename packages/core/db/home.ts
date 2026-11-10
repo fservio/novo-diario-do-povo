@@ -149,7 +149,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
       AND p.published_at <= ?
       AND p.seo_noindex = 0
       AND c.slug != 'explicador'
-    ORDER BY p.is_headline DESC, p.published_at DESC
+    ORDER BY p.published_at DESC
     LIMIT 1
   `).bind(now).first<HomePost>()
 
@@ -200,11 +200,31 @@ export async function getHomeData(env: Env): Promise<HomeData> {
   `).bind(now).all<HomePost>()
 
   // Await Phase 1
-  const [heroResult, sections, topColumnsResult] = await Promise.all([
+  const curatedPromise = env.DB.prepare(`
+    WITH picks AS (
+      SELECT j.value AS id,CAST(j.key AS INTEGER) AS position
+      FROM settings s JOIN json_each(s.value_json,'$.lineup') j WHERE s.key='home.ai_edition'
+      UNION ALL
+      SELECT json_extract(value_json,'$.id'),-1 FROM settings
+      WHERE key='home.hero_pin' AND json_extract(value_json,'$.until')>?
+    )
+    SELECT p.id,p.slug,p.title,p.hat,p.excerpt,p.published_at,m.r2_key AS featured_image_r2_key,
+      c.name AS category_name,c.slug AS category_slug,a.name AS author_name,picks.position
+    FROM picks JOIN posts p ON p.id=picks.id JOIN categories c ON c.id=p.category_id JOIN authors a ON a.id=p.author_id
+    LEFT JOIN media m ON m.id=p.cover_media_id
+    WHERE p.status='published' AND p.seo_noindex=0
+      AND c.slug!='explicador' AND p.published_at<=?
+    ORDER BY position
+  `).bind(now,now).all<HomePost & {position:number}>()
+
+  const [defaultHero, sections, topColumnsResult, curatedResult] = await Promise.all([
     heroPromise,
     sectionsPromise,
-    topColumnsPromise
+    topColumnsPromise,
+    curatedPromise
   ])
+  const curated=curatedResult.results || []
+  const heroResult=curated.find(post=>post.position===-1)||curated.find(post=>post.position===0)||defaultHero
 
   // 3. Parallel Second Phase
   const heroId = heroResult?.id || 0
@@ -324,12 +344,23 @@ export async function getHomeData(env: Env): Promise<HomeData> {
         if (!category) return
 
         const postsResult = await env.DB.prepare(`
+          WITH picks AS (
+            SELECT CAST(pick.value AS INTEGER) AS id, CAST(pick.key AS INTEGER) AS position
+            FROM settings s, json_each(s.value_json,'$.sections') section, json_each(section.value) pick
+            WHERE s.key='home.ai_edition' AND section.key=?
+          ), recent AS (
+            SELECT id FROM posts WHERE category_id=? AND status='published' AND published_at<=? AND seo_noindex=0
+            ORDER BY published_at DESC LIMIT 12
+          ), candidates AS (
+            SELECT id FROM recent UNION SELECT id FROM picks
+          )
           SELECT 
             p.id, p.slug, p.title, p.excerpt, p.published_at, 
             m.r2_key as featured_image_r2_key,
             c.name as category_name, c.slug as category_slug,
             a.name as author_name
-          FROM posts p
+          FROM candidates JOIN posts p ON p.id=candidates.id
+          LEFT JOIN picks ON picks.id=p.id
           INNER JOIN categories c ON p.category_id = c.id
           INNER JOIN authors a ON p.author_id = a.id
           LEFT JOIN media m ON p.cover_media_id = m.id
@@ -337,9 +368,9 @@ export async function getHomeData(env: Env): Promise<HomeData> {
             AND p.status = 'published'
             AND p.published_at <= ?
             AND p.seo_noindex = 0
-          ORDER BY p.published_at DESC
+          ORDER BY COALESCE(picks.position,4), p.published_at DESC
           LIMIT 12
-        `).bind(category.id, now).all<HomePost>()
+        `).bind(section.slug,category.id,now,category.id,now).all<HomePost>()
 
         postsBySlug.set(section.slug, postsResult.results || [])
       }))
@@ -370,10 +401,15 @@ export async function getHomeData(env: Env): Promise<HomeData> {
 
   const categoryBlocks = categoryBlocksRaw.filter((b): b is CategoryBlock => b !== null)
 
+  const curatedIds=new Set(curated.map(post=>post.id))
+  const hotRail=[
+    ...curated.filter(post=>post.id!==heroId),
+    ...(hotRailResult.results||[]).filter(post=>!curatedIds.has(post.id))
+  ].slice(0,10)
   const data = {
     hero: heroResult || null,
     dualFeatures: dualFeaturesResult.results || [],
-    hotRail: hotRailResult.results || [],
+    hotRail,
     explainers: explainersResult.results || [],
     categoryBlocks,
     mostRead: [] as any[], // Analytics disabled

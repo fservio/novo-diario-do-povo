@@ -75,6 +75,14 @@ describe('SEO workflow source and payload safety',()=>{
     expect(validateSeoOutput(response({support:[{term:'Teresina',quote:'A Prefeitura de Teresina iniciou as inscrições para concurso.'}]}),job()).status).toBe('needs_review')
     expect(validateSeoOutput(response({used_sources:['content','trends']}),job()).status).toBe('needs_review')
   })
+  it('accepts leading-zero dates, written numerals, truncated large numbers and literal terms with adjacent quotes',()=>{
+    const weather=job(201,{title:'Previsão do tempo em TO: veja como fica o dia em dez cidades',excerpt:'Confira a previsão para dez municípios neste dia 09/11/2026.',content:'<p>Confira a previsão do CPTEC/INPE para dez municípios de TO neste dia 09/11/2026.</p>'})
+    const weatherRes=validateSeoOutput({seo_title:'Previsão do tempo em TO para 10 cidades',seo_description:'Previsão para 10 municípios do Tocantins em 9 de novembro de 2026.',seo_primary_keyword:'Previsão do tempo em TO',seo_secondary_keywords:['dez municípios de TO'],reason:'Baseado no conteúdo.',support:[{term:'Previsão do tempo em TO',quote:'Confira a previsão do CPTEC/INPE para dez municípios de TO neste dia 09/11/2026.'},{term:'dez municípios de TO',quote:'Confira a previsão do CPTEC/INPE para dez municípios de TO neste dia 09/11/2026.'}],used_sources:['content']},weather)
+    expect(weatherRes.status).toBe('apply')
+    const finance=job(202,{title:'Caronas somam R$ 250 milhões em Teresina',excerpt:'Educação concentra R$ 122,7 milhões.',content:'<p>A Educação concentra R$ 122.747.218,35 dos R$ 249.982.290,39 registrados em 2026.</p>'})
+    const financeRes=validateSeoOutput({seo_title:'Caronas somam R$ 250 milhões em Teresina',seo_description:'Despesas somaram R$ 249,98 milhões em 2026; Educação concentrou R$ 122,7 milhões.',seo_primary_keyword:'Caronas somam R$ 250 milhões',seo_secondary_keywords:['Educação concentra R$ 122,7 milhões'],reason:'Baseado no conteúdo.',support:[{term:'Caronas somam R$ 250 milhões',quote:'Caronas somam R$ 250 milhões em Teresina'},{term:'Educação concentra R$ 122,7 milhões',quote:'Educação concentra R$ 122,7 milhões.'}],used_sources:['content']},finance)
+    expect(financeRes.status).toBe('apply')
+  })
   it('keeps old publication dates in the factual prompt and never sends title/body/date/canonical fields',()=>{
     const j=job(101,{published_at:'2026-10-23T08:00:00Z'})
     expect(seoPrompt(j)).toContain('2026-10-23T08:00:00Z')

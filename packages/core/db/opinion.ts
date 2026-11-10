@@ -33,8 +33,14 @@ export interface OpinionColumnist {
   latest_post_published_at: string | null
 }
 
-export async function listPublishedOpinionPosts(env: Env, limit = 36): Promise<OpinionPost[]> {
-  const result = await env.DB.prepare(`
+export async function listPublishedOpinionPosts(env: Env, limit = 36, columnHighlights = false): Promise<OpinionPost[]> {
+  const query = env.DB.prepare(`
+    ${columnHighlights ? `WITH ranked_columns AS (
+      SELECT p.id, ROW_NUMBER() OVER (PARTITION BY p.author_id ORDER BY datetime(p.published_at) DESC, p.id DESC) AS position
+      FROM posts p JOIN authors a ON a.id=p.author_id
+      WHERE p.status='published' AND p.opinion_type='column' AND p.seo_noindex=0
+        AND datetime(p.published_at)<=datetime('now') AND a.is_active=1
+    )` : ''}
     SELECT
       p.id, p.slug, p.title, p.hat, p.excerpt, p.published_at,
       p.opinion_type, p.opinion_featured, p.author_id,
@@ -47,12 +53,14 @@ export async function listPublishedOpinionPosts(env: Env, limit = 36): Promise<O
     LEFT JOIN media ma ON ma.id = a.avatar_media_id
     LEFT JOIN media mc ON mc.id = p.cover_media_id
     WHERE p.status = 'published'
-      AND p.published_at <= datetime('now')
+      AND datetime(p.published_at) <= datetime('now')
       AND p.seo_noindex = 0
       AND p.opinion_type IN ('editorial', 'article', 'column')
-    ORDER BY p.opinion_featured DESC, p.published_at DESC
-    LIMIT ?
-  `).bind(Math.max(1, Math.min(60, limit))).all<OpinionPost>()
+      ${columnHighlights ? 'AND p.id IN (SELECT id FROM ranked_columns WHERE position=1)' : ''}
+    ORDER BY p.opinion_featured DESC, datetime(p.published_at) DESC, p.id DESC
+    ${columnHighlights ? '' : 'LIMIT ?'}
+  `)
+  const result = await (columnHighlights ? query : query.bind(Math.max(1, Math.min(60, limit)))).all<OpinionPost>()
 
   return result.results || []
 }
@@ -62,10 +70,10 @@ export async function listOpinionColumnists(env: Env): Promise<OpinionColumnist[
     WITH ranked_columns AS (
       SELECT
         p.author_id, p.slug, p.title, p.published_at,
-        ROW_NUMBER() OVER (PARTITION BY p.author_id ORDER BY p.published_at DESC) AS row_number
+        ROW_NUMBER() OVER (PARTITION BY p.author_id ORDER BY datetime(p.published_at) DESC, p.id DESC) AS row_number
       FROM posts p
       WHERE p.status = 'published'
-        AND p.published_at <= datetime('now')
+        AND datetime(p.published_at) <= datetime('now')
         AND p.seo_noindex = 0
         AND p.opinion_type = 'column'
     )

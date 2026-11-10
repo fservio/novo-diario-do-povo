@@ -23,6 +23,7 @@
   }
 
   function eventPayload(campaignId, eventType, pageType, device) {
+    if (!window.diarioConsent?.allows('analytics')) return;
     fetch('/api/engagement/events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

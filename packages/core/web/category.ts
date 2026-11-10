@@ -14,6 +14,26 @@ import { getActiveCategories } from '../db/categories-cache'
 import { renderEditorialLayout } from './layout-editorial'
 import { renderEditorialArticleCard } from './components/editorial-card'
 import { renderEditorialAd } from './components/editorial-ad'
+import {exchangeFeed,getExchangeSnapshot,summarizeExchange} from '../exchange-rates'
+
+async function renderExchangeCard(env:Env){
+  const snapshot=await getExchangeSnapshot(env).catch(()=>null)
+  if(!snapshot)return ''
+  const amount=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:4,maximumFractionDigits:4})
+  const percent=new Intl.NumberFormat('pt-BR',{style:'percent',signDisplay:'exceptZero',maximumFractionDigits:2})
+  const shortDate=(day:string)=>day.split('-').reverse().join('/')
+  return `<section aria-labelledby="exchange-title" style="margin:1.25rem 0 1.75rem;padding:1rem 1.25rem;border:1px solid #d4ded9;border-radius:.5rem">
+    <h2 id="exchange-title" style="margin:0;font-size:1.15rem">Câmbio do Banco Central</h2>
+    <p style="margin:.25rem 0 .8rem">PTAX de venda · em reais</p>
+    <dl style="display:flex;flex-wrap:wrap;gap:1rem 2rem;margin:0">
+      ${summarizeExchange(snapshot).map(rate=>`<div><dt>${rate.currency==='USD'?'Dólar (USD)':'Euro (EUR)'}</dt>
+        <dd style="margin:0;font-weight:700;font-variant-numeric:tabular-nums">${amount.format(rate.sell)}</dd>
+        <dd style="margin:0;font-size:.85rem">Cotação de <time datetime="${rate.day}">${shortDate(rate.day)}</time></dd>
+        ${rate.changePct!==null&&rate.previousDay?`<dd style="margin:0;font-size:.85rem">${percent.format(rate.changePct/100)} em relação a ${shortDate(rate.previousDay)}</dd>`:''}</div>`).join('')}
+    </dl>
+    <p style="margin:.8rem 0 0;font-size:.85rem"><a href="${exchangeFeed}">Fonte: Banco Central do Brasil</a></p>
+  </section>`
+}
 
 // ============================================================================
 // Shared Renderers (Ported from Home)
@@ -90,6 +110,7 @@ export async function renderCategoryPage(
   const { category, posts, page, hasNextPage } = data
   const { baseUrl, siteName, navItems, coverOfDay } = options
   const nonce = c.get('cspNonce') || ''
+  const exchangeCard=category.slug==='economia'&&page===1?await renderExchangeCard(c.env):''
 
   // Determine Theme
   const themeSetting = (await getSetting(c.env, 'site.public_theme')) || (await getSetting(c.env, 'public_theme'))
@@ -219,7 +240,7 @@ export async function renderCategoryPage(
       nonce,
       siteName,
       navItems,
-      bodyHtml,
+      bodyHtml:exchangeCard?bodyHtml.replace('</header>','</header>'+exchangeCard):bodyHtml,
       baseUrl,
       googleAnalyticsId: options.googleAnalyticsId,
       lcpPreloadUrl: hero?.featured_image_r2_key ? `/i/${escapeAttr(hero.featured_image_r2_key)}?w=1200` : undefined,
@@ -411,7 +432,7 @@ export async function renderCategoryPage(
     navItems,
     categories,
     coverOfDay,
-    bodyHtml,
+    bodyHtml:exchangeCard?bodyHtml.replace('</header>','</header>'+exchangeCard):bodyHtml,
     theme,
     subscriber: options.subscriber,
     googleAnalyticsId: options.googleAnalyticsId,

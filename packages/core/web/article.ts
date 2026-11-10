@@ -9,6 +9,7 @@ import type { Env, AppContext } from '../types'
 import type { ArticlePost, RelatedPost } from '../db/article'
 import { renderPublicLayout, escapeHtml, escapeAttr, formatDate, formatTime, estimateReadingTime, truncate, normalizePublicTheme, type PublicLayoutParams } from './layout'
 import { getPostUrl } from '../utils/post'
+import { aiColumnDisclosure } from '../ai-columns'
 import { renderAdSlot, findActiveSlotsByTemplate, generateAdsLoaderScript } from '../ads'
 import { generateArticleJsonLd, generateLiveBlogJsonLd, generateBreadcrumbJsonLd } from '../seo'
 import { renderMarkdownToHtml, sanitizeHtml } from '../render/sanitize'
@@ -545,6 +546,7 @@ function renderArticleShareScript(nonce: string): string {
       const feedback = sharebar.querySelector('[data-share-feedback]');
       const postId = sharebar.getAttribute('data-post-id');
       const track = (method) => {
+        if (!window.diarioConsent?.allows('analytics')) return;
         if (typeof window.gtag === 'function') window.gtag('event', 'article_share', { method, post_id: postId });
         else {
           window.dataLayer = window.dataLayer || [];
@@ -630,6 +632,13 @@ export async function renderArticlePage(
   let contentHtml = (post.content_markdown && post.content_markdown.length > 0) || looksLikeMarkdown(contentRaw)
     ? renderMarkdownToHtml(contentRaw)
     : sanitizeHtml(contentRaw)
+  const aiColumnNotice = !isBlocked ? aiColumnDisclosure(post.author_slug) : ''
+  if (aiColumnNotice) {
+    const opening = `<p><em>${aiColumnNotice}</em></p>`
+    if (contentHtml.trimStart().startsWith(opening)) {
+      contentHtml = contentHtml.trimStart().slice(opening.length)
+    }
+  }
   if (!isBlocked) {
     try {
       const { applyStoredInternalLinks } = await import('../seo/internal-links')
@@ -677,16 +686,21 @@ export async function renderArticlePage(
   let contentWithAds = contentHtml
   if (!isBlocked) {
     const paragraphs = contentHtml.split('</p>')
+    const closedParagraphCount = paragraphs.length - 1
     const wrapInreadAd = (html: string) => isEditorial
       ? renderEditorialAd(html)
       : `<div class="container my-8">${html}</div>`
-    if (paragraphs.length > 4 && adInread1Html) {
-      paragraphs.splice(3, 0, `</p>${wrapInreadAd(adInread1Html)}`)
+    if (closedParagraphCount >= 1 && adInread1Html) {
+      const inread1Index = closedParagraphCount >= 4 ? 3 : Math.max(1, closedParagraphCount - 1)
+      paragraphs[inread1Index] = `${wrapInreadAd(adInread1Html)}${paragraphs[inread1Index]}`
     }
-    if (paragraphs.length > 8 && adInread2Html) {
-      paragraphs.splice(7, 0, `</p>${wrapInreadAd(adInread2Html)}`)
+    if (closedParagraphCount >= 7 && adInread2Html) {
+      paragraphs[6] = `${wrapInreadAd(adInread2Html)}${paragraphs[6]}`
     }
     contentWithAds = paragraphs.join('</p>')
+  }
+  if (aiColumnNotice) {
+    contentWithAds += `<p class="ai-column-disclosure"><small>${escapeHtml(aiColumnNotice)}</small></p>`
   }
 
   // JSON-LD
@@ -721,6 +735,23 @@ export async function renderArticlePage(
 
   const extraHeadHtml = `
     <style>${dailyCss}</style>
+    <style>
+      #articleBody .ai-column-disclosure {
+        margin-top: 2rem;
+        font: 0.75rem/1.5 system-ui, sans-serif;
+      }
+      #articleBody .ai-column-disclosure small { font-size: inherit; }
+      #articleBody a:is([href^="/"]:not([href^="//"]), [href^="https://diario.dopovo.com.br/"], [href^="${escapeAttr(baseUrl.replace(/\/$/, ''))}/"]) {
+        color: #282305;
+        background-color: #fff19a;
+        border-radius: 2px;
+        text-decoration: underline;
+        text-underline-offset: 0.16em;
+      }
+      #articleBody a:is([href^="/"]:not([href^="//"]), [href^="https://diario.dopovo.com.br/"], [href^="${escapeAttr(baseUrl.replace(/\/$/, ''))}/"]):hover {
+        background-color: #ffe469;
+      }
+    </style>
     <style data-source="/static/whatsapp-channel.css">${whatsappChannelCss}</style>
     ${preloadHeadHtml}
     ${post.seo_noindex ? '<meta name="robots" content="noindex, follow">' : ''}

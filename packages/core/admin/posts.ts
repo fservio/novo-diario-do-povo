@@ -700,20 +700,8 @@ function renderPostFormPage(params: {
         </div>
 
         <div class="form-group" style="margin-bottom: 0;">
-          <label>Destaque</label>
-          <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; margin-top: 0.5rem; background: #f8fafc; padding: 1rem; border: 1.5px solid #e2e8f0; border-radius: 0.625rem; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='#e2e8f0'">
-            <input 
-              type="checkbox" 
-              name="is_headline" 
-              value="1"
-              ${post?.is_headline ? 'checked' : ''}
-              style="width: 1.25rem; height: 1.25rem; accent-color: var(--primary);"
-            >
-            <span style="font-weight: 700; color: var(--primary); font-size: 0.875rem;">⭐ Fixar como Manchete (Hero)</span>
-          </label>
-          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500;">
-            Se marcado, este post ocupará o espaço principal da Home.
-          </div>
+          <label>Manchete da home</label>
+          <a href="/admin${post?.id ? '?hero_post='+post.id : ''}#home-hero">Gerenciar fixação temporária</a>
         </div>
         
         <div class="form-group" style="margin-bottom: 0;">

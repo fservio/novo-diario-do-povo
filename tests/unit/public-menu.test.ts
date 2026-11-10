@@ -6,7 +6,7 @@ describe('Menu público completo',()=>{
  it('mantém a mesma lista em matérias, editorias, Meu dia, jogo, formulário e agenda',()=>{
   const expected=hrefs(renderPublicMenu(categories,'/'))
   for(const path of ['/ultimas','/categoria/cultura','/2026/11/06/noticia/','/meu-dia','/jogos/extra-extra','/agenda/sugerir','/agenda/evento'])expect(hrefs(renderPublicMenu(categories,path))).toEqual(expected)
-  expect(expected).toEqual(['/busca','/meu-dia','/guias','/jogos/extra-extra','/categoria/politica','/categoria/cultura','/categoria/economia'])
+  expect(expected).toEqual(['/busca','/meu-dia','/tempo','/guias','/jogos/extra-extra','/categoria/politica','/categoria/cultura','/categoria/economia'])
  })
  it('não duplica links e não exibe editorias inativas',()=>{
   const links=hrefs(renderPublicMenu([...categories,categories[0],{slug:'antiga',name:'Antiga',is_active:0}],'/'))

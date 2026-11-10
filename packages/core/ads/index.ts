@@ -245,6 +245,7 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
   }
 
   function initAdSlot(el) {
+    if (consentEnabled && !window.diarioConsent?.allows('advertising')) return;
     const provider = el.dataset.provider;
     const name = el.dataset.adSlot;
     if (el.dataset.adInitialized === '1') return;
@@ -293,9 +294,17 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
   }
 
   function startAds() {
-    if (adsStarted) return;
+    if (adsStarted || (consentEnabled && !window.diarioConsent?.allows('advertising'))) return;
     adsStarted = true;
     const slots = Array.from(document.querySelectorAll('.ad-slot[data-provider="adsense"], .ad-slot[data-provider="gam"]'));
+    if (adsenseClientId) {
+      slots.forEach(function(el) {
+        const ins = el.querySelector('ins.adsbygoogle');
+        if (ins && !ins.dataset.adClient) {
+          ins.dataset.adClient = adsenseClientId;
+        }
+      });
+    }
     if ('IntersectionObserver' in window) {
       const observer = new IntersectionObserver(function(entries) {
         entries.forEach(function(entry) {
@@ -355,6 +364,7 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
   }
 
   // Keep third-party ad frames out of the page's initial load.
+  window.addEventListener('diario:cookie-consent', scheduleStartAds);
   if (document.readyState === 'complete') {
     scheduleStartAds();
   } else {

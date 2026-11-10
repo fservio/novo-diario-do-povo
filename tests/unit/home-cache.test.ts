@@ -7,7 +7,7 @@ function setup(status = 200) {
   const run = vi.fn().mockImplementation(async () => ({}))
   const bind = vi.fn().mockImplementation((key, value) => ({
     run: async () => { await run(); revision = value },
-    first: async () => revision ? { value_json: revision } : null
+    first: async () => revision ? { editorial: revision } : null
   }))
   const app = new Hono<any>()
   app.use('*', invalidateHomeAfterEditorialWrite)

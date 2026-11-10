@@ -7,6 +7,23 @@ afterEach(()=>vi.useRealTimers())
 async function setup(){const f=guideFixture(),id=await createGuide(f.env,exampleBrief,1);return {...f,id}}
 async function draft(f:any){await changeGuide(f.env,f.id,0,"author_id=1,work_state='queued'",[],1,'queued');const [job]=await claimGuideJobs(f.env);await storeGuideRevision(f.env,f.id,job.version,exampleDocument,exampleResearch(),{origin:'ai',lease_token:job.lease_token});return getGuide(f.env,f.id)}
 describe('Biblioteca evergreen',()=>{
+ it('permite publicar um rascunho sem pesquisa após revisão editorial',async()=>{
+  const f=await setup()
+  await changeGuide(f.env,f.id,0,"author_id=1,work_state='queued'",[],1,'queued')
+  const [job]=await claimGuideJobs(f.env)
+  const document={...exampleDocument,body_markdown:exampleDocument.body_markdown.replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')}
+  const result=await storeGuideRevision(f.env,f.id,job.version,document,{opened_urls:[],sources:[],claims:[]},{origin:'ai',lease_token:job.lease_token})
+  const guide=await getGuide(f.env,f.id)
+  expect(guide).toMatchObject({work_state:'review',publication_status:'draft',pending_revision_id:result.revision_id})
+  expect((await f.app.request('/admin/guias/'+f.id+'/preview',{},f.env)).status).toBe(200)
+  await publishGuide(f.env,f.id,guide.version,result.revision_id,1)
+  expect((await getGuide(f.env,f.id)).publication_status).toBe('published')
+  const response=await f.app.request('/guias/'+exampleBrief.slug,{},f.env)
+  expect(response.status).toBe(200)
+  const html=await response.text()
+  expect(html).toContain('<h1>'+document.title+'</h1>')
+  expect(html).not.toContain('Fontes conferidas em')
+ })
  it('consulta somente as notícias dos vínculos, sem percorrer o índice do acervo inteiro',()=>{const f=guideFixture();f.db.exec('CREATE INDEX idx_posts_public_latest ON posts(status,seo_noindex,published_at)');const plan=f.db.prepare('EXPLAIN QUERY PLAN '+GUIDE_NEWS_LINKS_SQL).all(new Date().toISOString());expect(plan.some(row=>/^SEARCH p .*PRIMARY KEY/.test(row.detail))).toBe(true);expect(plan.some(row=>row.detail.includes('idx_posts_public_latest'))).toBe(false)})
  it('retorna 503 e prazo para repetir quando o banco está temporariamente ocupado',async()=>{const f=guideFixture(),env={...f.env,DB:{prepare:()=>{throw Error('D1_ERROR: D1 DB is overloaded. Too many resources consumed within a 10 second window')}}};const response=await f.app.request('/api/n8n/guides/claim',{method:'POST',headers:{'content-type':'application/json'},body:'{"limit":1}'},env);expect(response.status).toBe(503);expect(response.headers.get('Retry-After')).toBe('15');expect(await response.json()).toMatchObject({success:false,error:'Banco temporariamente ocupado. Tente novamente.'})})
  it('prévia da proposta exige edição e nunca é indexável',async()=>{const f=await setup();await draft(f);const response=await f.app.request('/admin/guias/'+f.id+'/preview',{},f.env);expect(response.status).toBe(200);expect(response.headers.get('X-Robots-Tag')).toContain('noindex');expect(response.headers.get('Cache-Control')).toContain('no-store');expect(await response.text()).toContain('Prévia editorial');expect((await f.app.request('/admin/guias/'+f.id+'/preview',{headers:{role:'writer'}},f.env)).status).toBe(403)})

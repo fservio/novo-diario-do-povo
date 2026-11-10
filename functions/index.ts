@@ -119,6 +119,22 @@ app.use('/api/n8n/*', async (c, next) => {
 // POST /api/n8n/media - Upload media
 app.route('/api/n8n/seo', (await import('../packages/core/seo-automation')).createSeoAutomationRouter())
 app.post('/api/n8n/guides/:operation',async c=>(await import('../packages/core/web/n8n-guides')).handleN8nGuides(c))
+app.post('/api/n8n/home/:operation',async c=>(await import('../packages/core/web/n8n-home')).handleN8nHome(c))
+app.post('/api/n8n/planalto-central/:operation',async c=>(await import('../packages/core/web/n8n-planalto-central')).handleN8nPlanaltoCentral(c))
+app.post('/api/n8n/painel-economico/:operation',async c=>(await import('../packages/core/web/n8n-planalto-central')).handleN8nPlanaltoCentral(c,'painel-economico'))
+app.post('/api/n8n/internacional/:operation',async c=>(await import('../packages/core/web/n8n-planalto-central')).handleN8nPlanaltoCentral(c,'internacional'))
+app.post('/api/n8n/tempo/:operation',async c=>(await import('../packages/core/web/weather')).handleWeatherAutomation(c))
+app.post('/api/n8n/tempo-editorial/:operation',async c=>(await import('../packages/core/web/weather-editorial')).handleWeatherEditorial(c))
+app.post('/api/n8n/cambio/refresh',async c=>{
+  c.header('Cache-Control','private, no-store')
+  try{
+    const {refreshExchangeSnapshot}=await import('../packages/core/exchange-rates')
+    return c.json({success:true,...await refreshExchangeSnapshot(c.env)})
+  }catch(error){
+    console.warn('[Câmbio] Falha na atualização do boletim',error)
+    return c.json({success:false,error:'Boletim do Banco Central indisponível.'},502)
+  }
+})
 app.post('/api/n8n/news-extractor/:operation',async c=>(await import('../packages/core/web/n8n-news-extractor')).handleN8nExtractor(c))
 app.post('/api/n8n/meu-dia',async c=>{
   const {handleDailyEditionSave}=await import('../packages/core/web/meu-dia')
@@ -1012,6 +1028,11 @@ app.post('/admin/logout', async (c) => {
 })
 
 // GET /admin (Dashboard)
+app.post('/admin/home/hero', async (c,next)=>{
+  const {csrfProtection}=await import('../packages/core/middleware')
+  return csrfProtection(c,next)
+},async c=>(await import('../packages/core/admin/home-hero')).saveHomeHero(c))
+
 app.get('/admin', async (c) => {
   try {
     const { getCookie } = await import('hono/cookie')
@@ -1046,13 +1067,22 @@ app.get('/admin', async (c) => {
     const csrfToken = getCookie(c, 'admin_csrf')
 
     // Get stats
-    const [publishedToday, internalLinks] = await Promise.all([
+    const {normalizeRole}=await import('../packages/core/db/users')
+    const canPinHero=['editor','director'].includes(normalizeRole(user.role))
+    const [publishedToday, internalLinks, homeEdition, heroPin] = await Promise.all([
       getPublishedToday(c.env),
       c.env.DB.prepare(`
         SELECT COUNT(*) AS articles, COALESCE(SUM(json_array_length(l.links_json)), 0) AS links
         FROM post_internal_links l CROSS JOIN posts p ON p.id = l.post_id
         WHERE p.status = 'published' AND json_array_length(l.links_json) > 0
-      `).first<{ articles: number; links: number }>().catch((): null => null)
+      `).first<{ articles: number; links: number }>().catch((): null => null),
+      c.env.DB.prepare(`SELECT p.title,json_extract(s.value_json,'$.reason') AS reason
+        FROM settings s LEFT JOIN posts p ON p.id=json_extract(s.value_json,'$.lineup[0]')
+        WHERE s.key='home.ai_edition'`).first<{title:string|null;reason:string}>().catch(()=>null),
+      c.env.DB.prepare(`SELECT p.id,p.title,json_extract(s.value_json,'$.until') AS until
+        FROM settings s JOIN posts p ON p.id=json_extract(s.value_json,'$.id')
+        WHERE s.key='home.hero_pin' AND json_extract(s.value_json,'$.until')>? AND p.status='published'`)
+        .bind(new Date().toISOString()).first<{id:number;title:string;until:string}>().catch(()=>null)
     ])
     const postsCount = await c.env.DB.prepare('SELECT COUNT(*) as count FROM posts WHERE status = ?')
       .bind('published')
@@ -1077,10 +1107,27 @@ app.get('/admin', async (c) => {
         <a href="/admin/posts/new" class="btn">${dashboardIcon('posts')} Nova matéria</a>
       </div>
 
+      ${canPinHero?`<section id="home-hero" class="stat-card" style="margin-bottom:1rem">
+        <h2>Manchete da home</h2>
+        <p>${heroPin?`Fixada até ${new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Fortaleza',dateStyle:'short',timeStyle:'short'}).format(new Date(heroPin.until))} · ${escapeHtml(heroPin.title)}`:'Modo automático'}</p>
+        ${c.req.query('hero_error')?'<p role="alert">Escolha o ID de uma matéria publicada elegível e um prazo válido.</p>':''}
+        <form method="post" action="/admin/home/hero" style="display:flex;align-items:end;gap:.75rem;flex-wrap:wrap">
+          <input type="hidden" name="csrf" value="${escapeHtml(csrfToken||'')}">
+          <label>ID da matéria <input class="form-control" name="post_id" type="number" min="1" step="1" required value="${Number(c.req.query('hero_post'))||heroPin?.id||''}"></label>
+          <label>Prazo <select class="form-control" name="minutes"><option value="30">30 minutos</option><option value="60">1 hora</option><option value="120">2 horas</option></select></label>
+          <button class="btn" name="action" value="pin">Fixar manchete</button>
+          ${heroPin?'<button class="btn btn-outline" name="action" value="release" formnovalidate>Voltar ao automático</button>':''}
+        </form>
+      </section>`:''}
       <section aria-labelledby="dashboard-overview-title">
         <h2 id="dashboard-overview-title" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Indicadores gerais</h2>
         <div class="stats-grid dashboard-stats-today">
           ${renderPublishedToday(publishedToday)}
+          <article class="stat-card">
+            <div class="stat-top"><span class="stat-label">Última seleção da IA para a capa</span></div>
+            <strong>${escapeHtml(homeEdition?.title || 'Aguardando a primeira seleção')}</strong>
+            ${homeEdition?.reason ? `<p class="dashboard-today-note">${escapeHtml(homeEdition.reason)}</p>` : ''}
+          </article>
           <article class="stat-card">
             <div class="stat-top"><span class="stat-label">Links internos</span></div>
             <strong class="stat-value">${internalLinks ? internalLinks.links.toLocaleString('pt-BR') : '—'}</strong>
