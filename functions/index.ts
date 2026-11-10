@@ -795,7 +795,8 @@ app.get('/ads.txt', async (c) => {
     return c.notFound()
   }
 
-  return c.text(content, 200, { 'Content-Type': 'text/plain' })
+  // Remove BOM/espaços invisíveis que invalidam a primeira linha do ads.txt
+  return c.text(String(content).replace(/^\uFEFF/, '').trim() + '\n', 200, { 'Content-Type': 'text/plain; charset=utf-8' })
 })
 
 app.get('/sitemap-index.xml', async (c) => {

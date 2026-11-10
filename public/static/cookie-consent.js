@@ -18,13 +18,18 @@
     ad_user_data: value?.advertising ? 'granted' : 'denied',
     ad_personalization: value?.advertising ? 'granted' : 'denied'
   });
-  window.gtag('consent', 'default', states(null));
+  // Regiões com exigência de consentimento prévio (EEE, Reino Unido e Suíça): negado até a escolha do visitante.
+  // Demais regiões (inclui o Brasil): permitido por padrão; o visitante pode recusar a qualquer momento.
+  const restrictedRegions = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE','IS','LI','NO','GB','CH'];
+  window.gtag('consent', 'default', {analytics_storage: 'granted', ad_storage: 'granted', ad_user_data: 'granted', ad_personalization: 'granted'});
+  window.gtag('consent', 'default', {...states(null), region: restrictedRegions});
   if (choice) window.gtag('consent', 'update', states(choice));
   document.documentElement.toggleAttribute('data-diario-advertising', Boolean(choice?.advertising));
 
   function loadAnalytics(id) {
-    window['ga-disable-' + id] = !choice?.analytics;
-    if (!choice?.analytics || loaded.has(id)) return;
+    const refused = Boolean(choice) && !choice.analytics;
+    window['ga-disable-' + id] = refused;
+    if (refused || loaded.has(id)) return;
     if (!loaded.size) {
       window.gtag('js', new Date());
       const script = document.createElement('script');
@@ -36,7 +41,7 @@
     window.gtag('config', id);
   }
   window.diarioConsent = {
-    allows: category => choice?.[category] === true,
+    allows: category => category === 'analytics' ? (choice ? choice.analytics === true : true) : choice?.[category] === true,
     analytics(id) {
       if (!/^G-[A-Z0-9]+$/i.test(id)) return;
       ids.add(id);
