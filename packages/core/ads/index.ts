@@ -293,6 +293,30 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
     }
   }
 
+  // Zonas protegidas (ex.: card do canal do WhatsApp) nunca podem receber anúncios automáticos do Google.
+  (function guardProtectedZones() {
+    try {
+      const selector = '[data-no-auto-ads] .google-auto-placed, [data-no-auto-ads] ins.adsbygoogle';
+      let queued = false;
+      function purge() {
+        queued = false;
+        const nodes = document.querySelectorAll(selector);
+        if (!nodes || !nodes.forEach) return;
+        nodes.forEach(function(node) { (node.closest('.google-auto-placed') || node).remove(); });
+      }
+      function schedule() {
+        if (queued) return;
+        queued = true;
+        if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(purge);
+        else if (typeof setTimeout === 'function') setTimeout(purge, 50);
+      }
+      if (typeof MutationObserver === 'function' && document.documentElement) {
+        new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
+      }
+      schedule();
+    } catch (e) {}
+  })();
+
   function startAds() {
     if (adsStarted || (consentEnabled && !window.diarioConsent?.allows('advertising'))) return;
     adsStarted = true;
