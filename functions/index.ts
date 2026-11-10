@@ -410,18 +410,34 @@ app.post('/api/n8n/posts', async (c) => {
                 signal: AbortSignal.timeout(3500)
               })
               if (!pageRes.ok) continue
-              const htmlSnippet = (await pageRes.text()).slice(0, 60000)
+              const htmlSnippet = (await pageRes.text()).slice(0, 200000)
               const ogMatch = htmlSnippet.match(/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]+content=["']([^"']+)["']/i)
                 || htmlSnippet.match(/<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["'](?:og:image|twitter:image)["']/i)
+              const genericImage = /imagem-padrao|imagens-compartilhamento|placeholder|\/tema\/|logo|brasao|favicon|sprite|avatar/i
+              let pickedUrl: string | null = null
               if (ogMatch?.[1]) {
                 const rawUrl = ogMatch[1].replace(/&amp;/g, '&').trim()
                 const resolvedUrl = new URL(rawUrl, pageUrl).toString()
-                const resolvedCredit = getApprovedPublicSourceCredit(resolvedUrl, true)
-                if (resolvedCredit) {
-                  candidateImgUrl = resolvedUrl
-                  candidateCredit = resolvedCredit
-                  break
+                if (!genericImage.test(resolvedUrl) && getApprovedPublicSourceCredit(resolvedUrl, true)) pickedUrl = resolvedUrl
+              }
+              if (!pickedUrl) {
+                // og:image ausente ou genérica (ex.: imagem padrão de compartilhamento): usa a primeira foto real da matéria
+                for (const imgMatch of htmlSnippet.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi)) {
+                  try {
+                    const imgUrl = new URL(imgMatch[1].replace(/&amp;/g, '&').trim(), pageUrl).toString()
+                    if (/\.(?:jpe?g|png|webp)(?:\?|$)/i.test(imgUrl) && !genericImage.test(imgUrl) && getApprovedPublicSourceCredit(imgUrl, true)) {
+                      pickedUrl = imgUrl
+                      break
+                    }
+                  } catch {
+                    // ignore malformed src
+                  }
                 }
+              }
+              if (pickedUrl) {
+                candidateImgUrl = pickedUrl
+                candidateCredit = getApprovedPublicSourceCredit(pickedUrl, true)
+                break
               }
             } catch {
               // Ignore individual source fetch failure
@@ -429,14 +445,29 @@ app.post('/api/n8n/posts', async (c) => {
           }
         }
         if (candidateImgUrl && /^https?:\/\//i.test(candidateImgUrl) && candidateCredit) {
-          const imgRes = await fetch(candidateImgUrl, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', 'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8' },
-            redirect: 'follow',
-            signal: AbortSignal.timeout(4500)
-          })
-          const contentType = (imgRes.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
-          if (imgRes.ok && contentType.startsWith('image/') && !contentType.includes('svg') && !contentType.includes('gif')) {
-            const arrayBuffer = await imgRes.arrayBuffer()
+          const originalUrl = candidateImgUrl.replace(/-\d{2,4}x\d{2,4}(\.(?:jpe?g|png|webp))(\?.*)?$/i, '$1$2')
+          const fetchCandidates = [...new Set([originalUrl, candidateImgUrl])]
+          let fetched: { arrayBuffer: ArrayBuffer; contentType: string } | null = null
+          for (const imageUrl of fetchCandidates) {
+            try {
+              const imgRes = await fetch(imageUrl, {
+                headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', 'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8' },
+                redirect: 'follow',
+                signal: AbortSignal.timeout(4500)
+              })
+              const type = (imgRes.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
+              if (!imgRes.ok || !type.startsWith('image/') || type.includes('svg') || type.includes('gif')) continue
+              const buffer = await imgRes.arrayBuffer()
+              if (buffer.byteLength >= 10000 && buffer.byteLength <= 8000000) {
+                fetched = { arrayBuffer: buffer, contentType: type }
+                break
+              }
+            } catch {
+              // try the next candidate
+            }
+          }
+          if (fetched) {
+            const { arrayBuffer, contentType } = fetched
             if (arrayBuffer.byteLength >= 10000 && arrayBuffer.byteLength <= 8000000) {
               const { createMedia, extractImageDimensions } = await import('../packages/core/db/media')
               const dimensions = extractImageDimensions(arrayBuffer, contentType)
