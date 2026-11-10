@@ -10,20 +10,13 @@ import consentCss from '../../../public/static/cookie-consent.css?raw'
 import {escapeAttr} from '../web/layout'
 
 const consentBanner=`<section id="diario-cookie-banner" aria-labelledby="diario-cookie-title" hidden>
- <h2 id="diario-cookie-title">Suas escolhas de cookies</h2>
- <p>Usamos cookies necessários para o site funcionar. Se você permitir, também usamos cookies para medir a audiência e para publicidade.</p>
+ <h2 id="diario-cookie-title">Cookies e privacidade</h2>
+ <p>Usamos cookies necessários para o site funcionar e para medir a audiência. Se você permitir, também usamos cookies para publicidade personalizada.</p>
  <p><a href="/p/privacidade">Política de Privacidade</a></p>
  <div class="diario-cookie-actions">
-  <button type="button" data-cookie-reject>Recusar opcionais</button>
-  <button type="button" data-cookie-accept>Aceitar opcionais</button>
-  <button type="button" data-cookie-customize>Personalizar</button>
+  <button type="button" data-cookie-reject>Recusar publicidade personalizada</button>
+  <button type="button" data-cookie-accept>Aceitar</button>
  </div>
- <fieldset data-cookie-settings hidden><legend>Preferências de cookies</legend>
-  <p>Necessários · sempre ativos</p>
-  <label><input type="checkbox" name="cookie-analytics"> Medição de audiência com Google Analytics</label>
-  <label><input type="checkbox" name="cookie-advertising"> Publicidade e personalização de anúncios</label>
-  <button type="button" data-cookie-save>Salvar preferências</button>
- </fieldset>
 </section>`
 
 // All public page layouts use the same CMS taxonomy, independently of their local navigation.
@@ -47,7 +40,7 @@ export async function completePublicMenu(c:Context,next:Next){
   element.prepend(`<style>${consentCss}</style><script nonce="${nonce}">${consentScript}\n${analytics}</script>`,{html:true})
  }})
  .on('body',{element(element){
-  element.append(consentBanner+'<div class="diario-cookie-footer"><button type="button" id="diario-cookie-preferences" hidden>Preferências de cookies</button></div>',{html:true})
+  element.append(consentBanner,{html:true})
  }})
  if(categories.length)rewriter.on('.ed-menu-drawer__list',{element(element){element.setInnerContent(modern,{html:true})}})
   .on('.mobile-menu-panel nav',{element(element){element.prepend(legacy,{html:true})}})
