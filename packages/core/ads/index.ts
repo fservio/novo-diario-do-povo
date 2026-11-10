@@ -62,7 +62,10 @@ export function renderAdSlot(params: {
     Array.isArray(size) && size.length === 2 && size.every(value => Number.isInteger(value) && value > 0 && value <= 2000)
   ).sort((a, b) => a[0] - b[0]) : []
   const isFixedHorizontal = adsenseFormat === 'horizontal' && horizontalSizes.length > 0
-  const reservedHeight = isFixedHorizontal ? Math.max(slot.min_height, ...horizontalSizes.map(size => size[1])) : slot.min_height
+  // Fixed horizontal units reserve only the height of the smallest (mobile-first) booked size; the <ins>
+  // itself gets its exact height per container width (see sizingRules), so a 90px leaderboard never
+  // sits inside a 250px box just because a 970x250 size is also booked for very wide containers.
+  const reservedHeight = isFixedHorizontal ? horizontalSizes[0][1] : slot.min_height
   const sizingClass = `ad-slot--fixed-${Number(slot.id) || 0}`
   const sizingRules = isFixedHorizontal ? `<style>
     .${sizingClass} > .adsbygoogle { width: ${horizontalSizes[0][0]}px; height: ${horizontalSizes[0][1]}px; max-width: 100%; margin-inline: auto; }
