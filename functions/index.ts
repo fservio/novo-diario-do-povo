@@ -395,6 +395,10 @@ app.post('/api/n8n/posts', async (c) => {
               if (/logotipo-governo-do-ceara/i.test(parsed.pathname)) return null
               return 'Governo do Ceará'
             }
+            if (host === 'pi.gov.br' || host.endsWith('.pi.gov.br')) {
+              if (/logo_(?:color|white)/i.test(parsed.pathname)) return null
+              return 'Governo do Piauí'
+            }
             return null
           } catch {
             return null
