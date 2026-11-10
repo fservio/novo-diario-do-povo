@@ -45,6 +45,7 @@ async function readNumberSetting(env: Env, key: string, fallback: number): Promi
   try {
     const { getSetting } = await import('../db')
     const value = await getSetting(env, key, 'public')
+    if (value === null || value === undefined || value === '') return fallback
     const parsed = Number(value)
     return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback
   } catch {
