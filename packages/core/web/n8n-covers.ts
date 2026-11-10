@@ -125,6 +125,7 @@ export async function handleCoverQueue(c: CoverContext): Promise<Response> {
       excerpt: row.excerpt || '',
       kind: row.opinion_type === 'column' || row.opinion_type === 'article' ? 'column' : 'news',
       category: row.category_name,
+      category_slug: row.category_slug,
       slug: row.slug,
       published_at: row.published_at
     })
