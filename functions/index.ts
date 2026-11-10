@@ -920,7 +920,7 @@ app.use('/admin/posts/*', async (c, next) => {
   return csrfProtection(c, next)
 })
 app.use('/api/admin/posts/*', async (c, next) => {
-  if (!/^\/api\/admin\/posts\/\d+\/(autosave|social-card)$/.test(c.req.path)) return next()
+  if (!/^\/api\/admin\/posts\/\d+\/(autosave|social-card|ai-cover)$/.test(c.req.path)) return next()
   const { csrfProtection } = await import('../packages/core/middleware')
   return csrfProtection(c, next)
 })
@@ -1982,6 +1982,9 @@ app.post('/api/admin/posts/:id{[0-9]+}/autosave', async (c) => {
     return c.json({ success: false, error: error instanceof Error ? error.message : 'Falha no salvamento automático.' }, 400)
   }
 })
+
+// POST /api/admin/posts/:id/ai-cover - Botão "Gerar capa por IA" do editor (chama o fluxo do n8n)
+app.post('/api/admin/posts/:id{[0-9]+}/ai-cover', async (c) => (await import('../packages/core/web/n8n-covers')).handleAdminAiCover(c))
 
 // POST /api/admin/posts/:id/social-card - Salva a arte Open Graph gerada no CMS
 app.post('/api/admin/posts/:id{[0-9]+}/social-card', async (c) => {

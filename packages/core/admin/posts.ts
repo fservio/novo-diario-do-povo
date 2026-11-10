@@ -723,6 +723,52 @@ function renderPostFormPage(params: {
           <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500;">
             Selecione uma imagem ou digite o ID manualmente.
           </div>
+          <div id="aiCoverBox" style="margin-top: 1rem; padding: 1rem; border: 1px dashed var(--border-color); border-radius: 8px;">
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+              <input type="text" id="aiCoverIdea" class="form-control" maxlength="300" placeholder="Ideia para a ilustração (opcional)" style="flex: 1; min-width: 220px;" ${post?.id ? '' : 'disabled'}>
+              <button type="button" class="btn" id="aiCoverBtn" ${post?.id ? '' : 'disabled'}>✨ Gerar capa por IA</button>
+            </div>
+            <div id="aiCoverStatus" role="status" aria-live="polite" style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.5rem;">${post?.id ? 'Cria uma ilustração editorial 16:9 a partir do título. Leva cerca de 15 segundos.' : 'Salve o rascunho para habilitar a geração da capa.'}</div>
+            <img id="aiCoverPreview" alt="Capa atual da matéria" ${post?.cover_media_url ? 'src="/i/' + escapeHtml(String(post.cover_media_url)) + '?w=840"' : 'hidden'} style="margin-top: 0.75rem; width: 100%; max-width: 420px; border-radius: 8px;">
+          </div>
+          <script nonce="${cspNonce}">
+            (function () {
+              var btn = document.getElementById('aiCoverBtn');
+              if (!btn) return;
+              var input = document.getElementById('coverMediaInput');
+              var idea = document.getElementById('aiCoverIdea');
+              var status = document.getElementById('aiCoverStatus');
+              var preview = document.getElementById('aiCoverPreview');
+              var postId = ${post?.id ? Number(post.id) : 'null'};
+              var csrf = ${JSON.stringify(String(csrfToken || ''))};
+              btn.addEventListener('click', async function () {
+                if (!postId) return;
+                if (input && input.value && !confirm('Esta matéria já tem capa. Substituir pela ilustração gerada por IA?')) return;
+                var label = btn.textContent;
+                btn.disabled = true;
+                btn.textContent = 'Gerando…';
+                status.textContent = 'Gerando a ilustração. Aguarde cerca de 15 segundos…';
+                try {
+                  var res = await fetch('/api/admin/posts/' + postId + '/ai-cover', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+                    body: JSON.stringify({ idea: idea ? idea.value : '' })
+                  });
+                  var json = await res.json().catch(function () { return {}; });
+                  if (!res.ok || !json.success) throw new Error(json.error || 'Não foi possível gerar a capa.');
+                  if (input) input.value = json.media_id;
+                  preview.src = json.url + '?w=840&t=' + Date.now();
+                  preview.hidden = false;
+                  status.textContent = 'Capa gerada e aplicada à matéria. Crédito: ' + json.credit + '.';
+                } catch (error) {
+                  status.textContent = (error && error.message) || 'Erro ao gerar a capa.';
+                } finally {
+                  btn.disabled = false;
+                  btn.textContent = label;
+                }
+              });
+            })();
+          </script>
         </div>
       </div>
       

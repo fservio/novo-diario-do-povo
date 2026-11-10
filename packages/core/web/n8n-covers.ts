@@ -15,6 +15,9 @@ export const AI_COVER_CREDIT = 'Ilustração gerada por IA'
 export const AI_COVER_ENABLED_KEY = 'media.ai_cover.enabled'
 export const AI_COVER_DAILY_LIMIT_KEY = 'media.ai_cover.daily_limit'
 export const AI_COVER_DEFAULT_DAILY_LIMIT = 120
+export const AI_COVER_MANUAL_LIMIT_KEY = 'media.ai_cover.manual_daily_limit'
+export const AI_COVER_DEFAULT_MANUAL_LIMIT = 60
+export const AI_COVER_WEBHOOK_KEY = 'ai_cover.webhook_url'
 
 const MAX_ATTEMPTS = 2
 const MIN_BYTES = 8_000
@@ -145,7 +148,11 @@ export async function handleCoverUpload(c: CoverContext): Promise<Response> {
   if (!(await readEnabled(env))) return c.json({ success: false, error: 'Geração de capas por IA desativada no CMS.' }, 403)
 
   const dailyLimit = await readNumberSetting(env, AI_COVER_DAILY_LIMIT_KEY, AI_COVER_DEFAULT_DAILY_LIMIT)
-  if ((await generatedToday(env)) >= dailyLimit) {
+  // Geração manual (botão do CMS) tem uma folga própria acima do limite automático.
+  const manual = c.req.query('manual') === '1'
+  const replace = c.req.query('replace') === '1'
+  const manualLimit = manual ? await readNumberSetting(env, AI_COVER_MANUAL_LIMIT_KEY, AI_COVER_DEFAULT_MANUAL_LIMIT) : 0
+  if ((await generatedToday(env)) >= dailyLimit + manualLimit) {
     return c.json({ success: false, error: 'Limite diário de capas por IA atingido.' }, 429)
   }
 
@@ -155,8 +162,8 @@ export async function handleCoverUpload(c: CoverContext): Promise<Response> {
     FROM posts p WHERE p.id = ?
   `).bind(postId).first<any>()
   if (!post) return c.json({ success: false, error: 'Matéria não encontrada.' }, 404)
-  if (post.status !== 'published') return c.json({ success: false, error: 'A matéria não está publicada.' }, 409)
-  if (post.cover_media_id) return c.json({ success: false, skipped: 'already_has_cover', error: 'A matéria já tem capa.' }, 409)
+  if (post.status !== 'published' && !manual) return c.json({ success: false, error: 'A matéria não está publicada.' }, 409)
+  if (post.cover_media_id && !replace) return c.json({ success: false, skipped: 'already_has_cover', error: 'A matéria já tem capa.' }, 409)
   if (post.in_pilot) return c.json({ success: false, skipped: 'seo_pilot', error: 'Matéria do piloto de SEO não pode ser alterada.' }, 409)
 
   const form = await c.req.formData()
@@ -191,7 +198,9 @@ export async function handleCoverUpload(c: CoverContext): Promise<Response> {
     uploaded_by_user_id: 1
   })
 
-  const result = await env.DB.prepare('UPDATE posts SET cover_media_id = ? WHERE id = ? AND cover_media_id IS NULL').bind(mediaId, postId).run()
+  const result = replace
+    ? await env.DB.prepare('UPDATE posts SET cover_media_id = ? WHERE id = ?').bind(mediaId, postId).run()
+    : await env.DB.prepare('UPDATE posts SET cover_media_id = ? WHERE id = ? AND cover_media_id IS NULL').bind(mediaId, postId).run()
   if (!(result.meta?.changes > 0)) {
     // Outra rotina colocou uma capa no meio do caminho: descarta o arquivo para não deixar órfãos.
     await env.R2.delete(r2Key).catch(() => {})
@@ -213,4 +222,95 @@ export async function handleCoverFailure(c: CoverContext): Promise<Response> {
     // Sem KV a fila apenas tentará de novo na próxima rodada.
   }
   return c.json({ success: true, attempts, blocked: attempts >= MAX_ATTEMPTS })
+}
+
+/** Monta o corpo enviado ao fluxo do n8n a partir da matéria e da ideia opcional do editor. */
+export function buildAdminCoverPayload(post: any, idea: string, seed: number) {
+  return {
+    id: post.id,
+    title: String(post.title || ''),
+    excerpt: String(post.excerpt || ''),
+    hat: String(post.hat || ''),
+    kind: post.opinion_type === 'column' || post.opinion_type === 'article' ? 'column' : 'news',
+    category: post.category_name || '',
+    category_slug: post.category_slug || '',
+    idea: idea.replace(/\s+/g, ' ').trim().slice(0, 300),
+    seed
+  }
+}
+
+/** POST /api/admin/posts/:id/ai-cover - botão "Gerar capa por IA" do editor do CMS. */
+export async function handleAdminAiCover(c: CoverContext): Promise<Response> {
+  c.header('Cache-Control', 'private, no-store')
+  const env = c.env
+  const postId = Number(c.req.param('id'))
+  if (!Number.isInteger(postId) || postId <= 0) return c.json({ success: false, error: 'ID inválido.' }, 400)
+
+  if (!(await readEnabled(env))) {
+    return c.json({ success: false, error: 'A geração de capas por IA está desativada nas configurações.' }, 403)
+  }
+
+  const { getSetting, logAudit } = await import('../db')
+  const webhookUrl = await getSetting(env, AI_COVER_WEBHOOK_KEY, 'private')
+  if (typeof webhookUrl !== 'string' || !/^https:\/\//i.test(webhookUrl)) {
+    return c.json({ success: false, error: 'O fluxo de geração de capas ainda não foi conectado ao CMS.' }, 503)
+  }
+  const apiKey = (await getSetting(env, 'n8n_api_key', 'private')) || (env as any).N8N_API_KEY || ''
+
+  const post = await env.DB.prepare(`
+    SELECT p.id, p.title, p.excerpt, p.hat, p.status, p.opinion_type,
+           c.name AS category_name, c.slug AS category_slug
+    FROM posts p LEFT JOIN categories c ON c.id = p.category_id
+    WHERE p.id = ?
+  `).bind(postId).first<any>()
+  if (!post) return c.json({ success: false, error: 'Matéria não encontrada.' }, 404)
+
+  let idea = ''
+  try {
+    const body: any = await c.req.json()
+    idea = String(body?.idea || '')
+  } catch {
+    // Sem corpo: usa apenas o título e o resumo.
+  }
+
+  const payload = buildAdminCoverPayload(post, idea, Math.floor(Math.random() * 1_000_000_000))
+
+  let result: any = null
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': String(apiKey) },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(110_000)
+    })
+    result = await res.json().catch((): null => null)
+    if (!res.ok && !result) {
+      return c.json({ success: false, error: `O fluxo de geração respondeu com erro ${res.status}.` }, 502)
+    }
+  } catch (error: any) {
+    const timedOut = error?.name === 'TimeoutError' || error?.name === 'AbortError'
+    return c.json({ success: false, error: timedOut ? 'A geração demorou demais. Tente novamente.' : 'Não foi possível falar com o fluxo de geração.' }, 504)
+  }
+
+  if (!result || result.success !== true || !result.data?.media_id) {
+    const reason = String(result?.error || result?.message || 'A geração da capa falhou.').slice(0, 300)
+    return c.json({ success: false, error: reason }, 502)
+  }
+
+  try {
+    const user = c.get('adminUser') as any
+    await logAudit(env, {
+      entityType: 'post',
+      entityId: postId,
+      action: 'ai_cover_generated',
+      actorType: 'user',
+      actorId: user?.id,
+      details: { mediaId: result.data.media_id, idea: payload.idea || null },
+      requestId: c.get('requestId')
+    })
+  } catch {
+    // A auditoria não pode desfazer uma capa já aplicada.
+  }
+
+  return c.json({ success: true, media_id: result.data.media_id, url: result.data.url, credit: AI_COVER_CREDIT })
 }
