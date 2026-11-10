@@ -149,6 +149,11 @@ app.get('/api/n8n/culture/events',async c=>{
   return handleCulturalEventsList(c)
 })
 
+// Capas editoriais geradas por IA (fila, envio do WebP 16:9 e registro de falhas)
+app.get('/api/n8n/covers/queue', async c => (await import('../packages/core/web/n8n-covers')).handleCoverQueue(c))
+app.post('/api/n8n/covers/:id{[0-9]+}/fail', async c => (await import('../packages/core/web/n8n-covers')).handleCoverFailure(c))
+app.post('/api/n8n/covers/:id{[0-9]+}', async c => (await import('../packages/core/web/n8n-covers')).handleCoverUpload(c))
+
 app.post('/api/n8n/media', async (c) => {
   try {
     const { createMedia, extractImageDimensions } = await import('../packages/core/db/media')
