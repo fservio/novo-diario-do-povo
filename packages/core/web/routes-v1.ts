@@ -123,6 +123,7 @@ app.get('/ultimas', async (c) => {
     WHERE p.status = 'published' 
       AND p.published_at <= ?
       AND p.seo_noindex = 0
+      AND p.slug NOT LIKE 'previsao-do-tempo-%'
     ORDER BY p.published_at DESC
     LIMIT ? OFFSET ?
   `).bind(new Date().toISOString(), limit, offset).all()

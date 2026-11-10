@@ -6,7 +6,7 @@ import {getHomeSections} from '../db/home'
 const positiveId=z.number().int().positive()
 const stateKey='home.ai_edition'
 const eligible=`FROM posts p JOIN categories c ON c.id=p.category_id JOIN authors a ON a.id=p.author_id
- WHERE p.status='published' AND p.seo_noindex=0 AND p.published_at<=?`
+ WHERE p.status='published' AND p.seo_noindex=0 AND p.published_at<=? AND p.slug NOT LIKE 'previsao-do-tempo-%'`
 const fields='p.id,p.title,p.excerpt,p.published_at,p.updated_at,c.slug AS category,p.cover_media_id IS NOT NULL AS has_image'
 const decision=z.object({
  revision:z.string().uuid().nullable(),
@@ -68,15 +68,17 @@ export async function handleN8nHome(c:Context){
  const selected=await DB.prepare(`SELECT p.id,p.published_at,c.slug AS category ${eligible} AND p.id IN (SELECT value FROM json_each(?))`)
   .bind(through,JSON.stringify(ids)).all<{id:number;published_at:string;category:string}>()
  const available=new Map(selected.results.map(post=>[post.id,post]))
- const current=new Set(state?.lineup||[])
+ const current=new Set([...(state?.lineup||[]),...(state?.shortlist||[])])
  const cutoff=new Date(Date.parse(input.through)-3*60*60*1000).toISOString()
  const fresh=(id:number)=>(available.get(id)?.published_at||'')>=cutoff
  const topEligible=(id:number)=>available.has(id)&&available.get(id)?.category!=='explicador'
+ const validSectionIds=(slug:string,ids:number[])=>ids.filter(id=>available.get(id)?.category===slug&&(fresh(id)||state?.sections?.[slug]?.includes(id)))
  if(input.lineup.some(id=>!topEligible(id)||(!current.has(id)&&!fresh(id)))||
-    input.shortlist.some(id=>!topEligible(id)||!fresh(id))||
-    sectionUpdates.some(([slug,ids])=>ids.some(id=>available.get(id)?.category!==slug||(!fresh(id)&&!state?.sections?.[slug]?.includes(id)))))
+    input.shortlist.some(id=>!topEligible(id)||(!current.has(id)&&!fresh(id)))||
+    sectionUpdates.some(([slug,ids])=>validSectionIds(slug,ids).length===0))
   return c.json({success:false,error:'A seleção inclui matérias fora da janela ou indisponíveis.'},409)
- const merged={...state?.sections,...input.sections}
+ const sanitizedSections=Object.fromEntries(sectionUpdates.map(([slug,ids])=>[slug,validSectionIds(slug,ids)]))
+ const merged={...state?.sections,...sanitizedSections}
  const sections=Object.fromEntries(sectionSlugs.sort().flatMap(slug=>merged[slug]?[[slug,merged[slug]]]:[]))
  const changed=JSON.stringify(input.lineup)!==JSON.stringify(state?.lineup||[])||JSON.stringify(sections)!==JSON.stringify(state?.sections||{})
  const heroSince=state&&input.lineup[0]===state.lineup[0]?state.heroSince||state.through:through

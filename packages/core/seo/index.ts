@@ -304,7 +304,7 @@ export async function generateRssFeed(
     INNER JOIN categories c ON c.id = p.category_id
     INNER JOIN authors a ON a.id = p.author_id
     WHERE p.status = 'published'
-    AND p.seo_noindex = 0
+    AND p.seo_noindex = 0 AND p.slug NOT LIKE 'previsao-do-tempo-%'
   `
   const bindings: any[] = []
 
@@ -365,6 +365,7 @@ export function generateArticleJsonLd(
     url: getPostUrl(post, PROD_DOMAIN),
     datePublished: post.published_at,
     dateModified: post.updated_at || post.published_at,
+    articleSection: post.category_name || undefined,
     author: {
       '@type': 'Person',
       name: post.author?.name || 'Redação',
@@ -394,7 +395,7 @@ export function generateArticleJsonLd(
     }
   }
 
-  return JSON.stringify(jsonLd, null, 2)
+  return JSON.stringify(post.coverMedia ? jsonLd : { ...jsonLd, image: { '@type': 'ImageObject', url: `${PROD_DOMAIN}/static/article-placeholder-v1.png`, width: 1200, height: 1200 } }, null, 2).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')
 }
 
 // ============================================================================
@@ -446,7 +447,7 @@ export function generateLiveBlogJsonLd(
     }
   }
 
-  return JSON.stringify(jsonLd, null, 2)
+  return JSON.stringify(post.coverMedia ? jsonLd : { ...jsonLd, image: { '@type': 'ImageObject', url: `${PROD_DOMAIN}/static/article-placeholder-v1.png`, width: 1200, height: 1200 } }, null, 2).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')
 }
 
 // ============================================================================

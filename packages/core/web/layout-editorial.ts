@@ -239,6 +239,7 @@ export function renderEditorialLayout(params: {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(params.title)}</title>
   <meta name="description" content="${escapeAttr(description)}">
+  ${params.extraHeadHtml && /<meta\s+name=["']robots["']/i.test(params.extraHeadHtml) ? '' : '<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">'}
   <link rel="canonical" href="${escapeAttr(canonical)}">
   ${renderSocialMetaTags(openGraph)}
   <meta name="theme-color" content="#123d5a">

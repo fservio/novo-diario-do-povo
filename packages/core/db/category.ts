@@ -71,6 +71,7 @@ export async function findPublishedPostsByCategory(
       AND p.status = 'published'
       AND p.published_at <= ?
       AND p.seo_noindex = 0
+      AND p.slug NOT LIKE 'previsao-do-tempo-%'
     ORDER BY p.published_at DESC
     LIMIT ? OFFSET ?
   `).bind(categoryId, now, limit, offset).all<CategoryPost>()
@@ -101,6 +102,7 @@ export async function findLatestPosts(env: Env, options: { limit: number }): Pro
     WHERE p.status = 'published'
       AND p.published_at <= ?
       AND p.seo_noindex = 0
+      AND p.slug NOT LIKE 'previsao-do-tempo-%'
     ORDER BY p.published_at DESC
     LIMIT ?
   `).bind(now, limit).all<CategoryPost>()

@@ -706,11 +706,15 @@ export async function renderArticlePage(
   // JSON-LD
   const postForJsonLd = {
     title: post.title,
-    excerpt: post.excerpt,
+    excerpt: post.seo_description?.trim() || post.excerpt,
     slug: post.slug,
     published_at: post.published_at,
-    updated_at: post.published_at,
-    author: { name: opinionType === 'editorial' ? siteName : post.author_name || 'Redação' },
+    updated_at: post.updated_at || post.published_at,
+    category_name: post.category_name,
+    author: {
+      name: opinionType === 'editorial' ? siteName : post.author_name || 'Redação',
+      slug: opinionType === 'editorial' ? undefined : post.author_slug || undefined
+    },
     coverMedia: post.featured_image_r2_key ? {
       r2_key: post.featured_image_r2_key,
       width: 1200,
@@ -754,7 +758,7 @@ export async function renderArticlePage(
     </style>
     <style data-source="/static/whatsapp-channel.css">${whatsappChannelCss}</style>
     ${preloadHeadHtml}
-    ${post.seo_noindex ? '<meta name="robots" content="noindex, follow">' : ''}
+    ${post.seo_noindex ? '<meta name="robots" content="noindex, follow">' : '<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">'}
     <script type="application/ld+json" nonce="${nonce}">
       ${articleJsonLd}
     </script>

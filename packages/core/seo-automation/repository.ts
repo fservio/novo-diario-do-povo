@@ -10,7 +10,7 @@ export function seoSnapshot(post:any):Record<string,any>{return Object.fromEntri
 function same(a:any,b:any){return JSON.stringify(a)===JSON.stringify(b)}
 function whereSnapshot(snapshot:any){return {sql:sourceColumns.map(k=>`${k} IS ?`).join(' AND '),values:sourceColumns.map(k=>snapshot[k]??null)}}
 export function seoEligible(post:any,now=new Date()):boolean {
- if(!post||post.status!=='published'||post.seo_noindex||post.is_live||post.opinion_type&&post.opinion_type!=='news'||!post.published_at||Date.parse(post.published_at)>now.getTime())return false
+ if(!post||post.status!=='published'||post.seo_noindex||post.is_live||post.opinion_type&&post.opinion_type!=='news'||post.slug?.startsWith('previsao-do-tempo-')||!post.published_at||Date.parse(post.published_at)>now.getTime())return false
  const canonical=post.seo_canonical?.trim()
  return !canonical||canonical===getPostUrl(post,BASE)
 }
@@ -74,7 +74,7 @@ export async function configureSeo(db:D1Database,enabled:boolean,now=new Date(),
  return seoConfig(db)
 }
 const eligibilitySql=`p.status='published' AND COALESCE(p.seo_noindex,0)=0 AND COALESCE(p.is_live,0)=0
- AND COALESCE(p.opinion_type,'news')='news' AND p.published_at IS NOT NULL AND datetime(p.published_at)<=datetime(?)
+ AND COALESCE(p.opinion_type,'news')='news' AND p.slug NOT LIKE 'previsao-do-tempo-%' AND p.published_at IS NOT NULL AND datetime(p.published_at)<=datetime(?)
  AND (NULLIF(TRIM(p.seo_canonical),'') IS NULL OR TRIM(p.seo_canonical)='${BASE}/'||strftime('%Y/%m/%d',p.published_at)||'/'||p.slug||'/')`
 async function sourceKey(post:any){
  const text=JSON.stringify([post.title,post.excerpt,post.content,post.content_markdown,post.content_json])

@@ -40,7 +40,7 @@ export function parseEnrichedWriting(items,getPrepared,config,referenceFor,tempo
    if(countWords(content)<80)return pending('Texto insuficiente para publicação.');
    const links=urls.map(url=>'<a href="'+escape(url)+'" target="_blank" rel="noopener noreferrer">'+escape(source.documents.find(d=>d.url===url)?.title||url)+'</a>').join('; ');
    content+='<p>Fontes: '+links+'</p>';
-   return {json:{title:raw.title.trim(),hat:raw.hat.trim().toUpperCase().slice(0,60),content,excerpt:raw.excerpt.trim().slice(0,160),original_link:source.link,category_id:Number(config.DEFAULT_CATEGORY_ID),author_id:Number(config.DEFAULT_AUTHOR_ID),status:'published'},pairedItem:{item:index}};
+   return {json:{title:raw.title.trim(),hat:raw.hat.trim().toUpperCase().slice(0,60),content,excerpt:raw.excerpt.trim().slice(0,160),tags:raw.tags.trim(),original_link:source.link,category_id:Number(config.DEFAULT_CATEGORY_ID),author_id:Number(config.DEFAULT_AUTHOR_ID),status:'published'},pairedItem:{item:index}};
   }catch(error){return pending('Não foi possível validar a resposta da redação.');}
  });
 }

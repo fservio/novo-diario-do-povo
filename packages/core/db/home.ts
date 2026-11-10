@@ -149,6 +149,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
       AND p.published_at <= ?
       AND p.seo_noindex = 0
       AND c.slug != 'explicador'
+      AND p.slug NOT LIKE 'previsao-do-tempo-%'
     ORDER BY p.published_at DESC
     LIMIT 1
   `).bind(now).first<HomePost>()
@@ -247,6 +248,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
       AND p.seo_noindex = 0
       AND c.slug != 'explicador'
       AND p.id != ?
+      AND p.slug NOT LIKE 'previsao-do-tempo-%'
     ORDER BY p.published_at DESC
     LIMIT 2
   `).bind(now, heroId).all<HomePost>()
@@ -265,6 +267,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
       AND p.published_at <= ?
       AND p.seo_noindex = 0
       AND p.id != ?
+      AND p.slug NOT LIKE 'previsao-do-tempo-%'
     ORDER BY p.published_at DESC
     LIMIT 10
   `).bind(now, heroId).all<HomePost>()
@@ -349,7 +352,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
             FROM settings s, json_each(s.value_json,'$.sections') section, json_each(section.value) pick
             WHERE s.key='home.ai_edition' AND section.key=?
           ), recent AS (
-            SELECT id FROM posts WHERE category_id=? AND status='published' AND published_at<=? AND seo_noindex=0
+            SELECT id FROM posts WHERE category_id=? AND status='published' AND published_at<=? AND seo_noindex=0 AND slug NOT LIKE 'previsao-do-tempo-%'
             ORDER BY published_at DESC LIMIT 12
           ), candidates AS (
             SELECT id FROM recent UNION SELECT id FROM picks
@@ -368,6 +371,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
             AND p.status = 'published'
             AND p.published_at <= ?
             AND p.seo_noindex = 0
+            AND p.slug NOT LIKE 'previsao-do-tempo-%'
           ORDER BY COALESCE(picks.position,4), p.published_at DESC
           LIMIT 12
         `).bind(section.slug,category.id,now,category.id,now).all<HomePost>()
