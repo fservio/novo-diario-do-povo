@@ -391,6 +391,10 @@ app.post('/api/n8n/posts', async (c) => {
               if (/logo-agenciasp/i.test(parsed.pathname)) return null
               return 'Agência SP'
             }
+            if (host === 'ce.gov.br' || host.endsWith('.ce.gov.br') || host === 'ceara.gov.br' || host.endsWith('.ceara.gov.br')) {
+              if (/logotipo-governo-do-ceara/i.test(parsed.pathname)) return null
+              return 'Governo do Ceará'
+            }
             return null
           } catch {
             return null
