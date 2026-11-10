@@ -376,31 +376,41 @@ app.post('/api/n8n/posts', async (c) => {
 
     const { id: postId, reused } = await createImportedPost(c.env.DB, input)
 
-    // Automatically extract and attach source og:image / image_url ONLY for Agência Brasil sources
-    if (!reused && !input.cover_media_id && c.env?.R2 && c.env?.DB) {
+    // Automatically extract and attach source og:image / image_url ONLY for approved public agency sources (Agência Brasil, Agência SP)
+    const existingForCover = reused && c.env?.DB ? await getPostById(c.env.DB, postId) : null
+    if ((!reused || !existingForCover?.cover_media_id) && !input.cover_media_id && c.env?.R2 && c.env?.DB) {
       try {
-        const isAgenciaBrasilUrl = (urlStr: string): boolean => {
+        const getApprovedPublicSourceCredit = (urlStr: string): string | null => {
           try {
-            const host = new URL(urlStr).hostname.toLowerCase().replace(/^www\./, '')
-            return host === 'agenciabrasil.ebc.com.br' || host.endsWith('.ebc.com.br') || host === 'ebc.com.br'
+            const parsed = new URL(urlStr)
+            const host = parsed.hostname.toLowerCase().replace(/^www\./, '')
+            if (host === 'agenciabrasil.ebc.com.br' || host.endsWith('.ebc.com.br') || host === 'ebc.com.br') {
+              return 'Agência Brasil'
+            }
+            if (host === 'agenciasp.sp.gov.br' || host.endsWith('.agenciasp.sp.gov.br')) {
+              if (/logo-agenciasp/i.test(parsed.pathname)) return null
+              return 'Agência SP'
+            }
+            return null
           } catch {
-            return false
+            return null
           }
         }
         let candidateImgUrl =
           typeof body.image_url === 'string' &&
           /^https?:\/\//i.test(body.image_url.trim()) &&
-          isAgenciaBrasilUrl(body.image_url.trim())
+          Boolean(getApprovedPublicSourceCredit(body.image_url.trim()))
             ? body.image_url.trim()
             : null
+        let candidateCredit = candidateImgUrl ? getApprovedPublicSourceCredit(candidateImgUrl) : null
         if (!candidateImgUrl) {
           const sourceLinks: string[] = []
-          if (typeof body.original_link === 'string' && isAgenciaBrasilUrl(body.original_link.trim())) {
+          if (typeof body.original_link === 'string' && getApprovedPublicSourceCredit(body.original_link.trim())) {
             sourceLinks.push(body.original_link.trim())
           }
           const hrefMatches = String(body.content || '').matchAll(/href=["'](https?:\/\/[^"']+)["']/gi)
           for (const m of hrefMatches) {
-            if (m[1] && isAgenciaBrasilUrl(m[1])) {
+            if (m[1] && getApprovedPublicSourceCredit(m[1])) {
               sourceLinks.push(m[1])
             }
           }
@@ -418,8 +428,10 @@ app.post('/api/n8n/posts', async (c) => {
               if (ogMatch?.[1]) {
                 const rawUrl = ogMatch[1].replace(/&amp;/g, '&').trim()
                 const resolvedUrl = new URL(rawUrl, pageUrl).toString()
-                if (isAgenciaBrasilUrl(resolvedUrl)) {
+                const resolvedCredit = getApprovedPublicSourceCredit(resolvedUrl)
+                if (resolvedCredit) {
                   candidateImgUrl = resolvedUrl
+                  candidateCredit = resolvedCredit
                   break
                 }
               }
@@ -428,7 +440,7 @@ app.post('/api/n8n/posts', async (c) => {
             }
           }
         }
-        if (candidateImgUrl && /^https?:\/\//i.test(candidateImgUrl) && isAgenciaBrasilUrl(candidateImgUrl)) {
+        if (candidateImgUrl && /^https?:\/\//i.test(candidateImgUrl) && candidateCredit) {
           const imgRes = await fetch(candidateImgUrl, {
             headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', 'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8' },
             redirect: 'follow',
@@ -456,7 +468,7 @@ app.post('/api/n8n/posts', async (c) => {
                   width: dimensions?.width || 1200,
                   height: dimensions?.height || 675,
                   alt: body.title || null,
-                  credits: 'Agência Brasil',
+                  credits: candidateCredit,
                   uploaded_by_user_id: 1
                 })
                 if (mediaId) {
