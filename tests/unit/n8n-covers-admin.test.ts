@@ -50,16 +50,16 @@ describe('admin AI cover button endpoint', () => {
     expect(res.status).toBe(403)
   })
 
-  it('returns the generated cover on success and sends the key and payload to n8n', async () => {
+  it('returns the generated cover on success and sends the secret and payload to n8n', async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ success: true, data: { media_id: 55, url: '/i/media/2026/11/x.webp' } }), { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
-    const res = await mod.handleAdminAiCover(context({ 'ai_cover.webhook_url': 'https://n8n.example.com/webhook/abc', n8n_api_key: 'secret' }))
+    const res = await mod.handleAdminAiCover(context({ 'ai_cover.webhook_url': 'https://n8n.example.com/webhook/abc', 'ai_cover.webhook_secret': 'secret' }))
     const body: any = await res.json()
     expect(res.status).toBe(200)
     expect(body).toMatchObject({ success: true, media_id: 55, url: '/i/media/2026/11/x.webp', credit: mod.AI_COVER_CREDIT })
     const [url, init] = fetchMock.mock.calls[0] as any
     expect(url).toBe('https://n8n.example.com/webhook/abc')
-    expect(init.headers['X-API-Key']).toBe('secret')
+    expect(init.headers['X-Capa-Secret']).toBe('secret')
     expect(JSON.parse(init.body)).toMatchObject({ id: 9, idea: 'um farol', category_slug: 'politica' })
   })
 
@@ -71,3 +71,4 @@ describe('admin AI cover button endpoint', () => {
     expect(body.error).toContain('Limite diário')
   })
 })
+

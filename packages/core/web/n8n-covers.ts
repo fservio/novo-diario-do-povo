@@ -18,6 +18,7 @@ export const AI_COVER_DEFAULT_DAILY_LIMIT = 120
 export const AI_COVER_MANUAL_LIMIT_KEY = 'media.ai_cover.manual_daily_limit'
 export const AI_COVER_DEFAULT_MANUAL_LIMIT = 60
 export const AI_COVER_WEBHOOK_KEY = 'ai_cover.webhook_url'
+export const AI_COVER_WEBHOOK_SECRET_KEY = 'ai_cover.webhook_secret'
 
 const MAX_ATTEMPTS = 2
 const MIN_BYTES = 8_000
@@ -255,7 +256,7 @@ export async function handleAdminAiCover(c: CoverContext): Promise<Response> {
   if (typeof webhookUrl !== 'string' || !/^https:\/\//i.test(webhookUrl)) {
     return c.json({ success: false, error: 'O fluxo de geração de capas ainda não foi conectado ao CMS.' }, 503)
   }
-  const apiKey = (await getSetting(env, 'n8n_api_key', 'private')) || (env as any).N8N_API_KEY || ''
+  const webhookSecret = await getSetting(env, AI_COVER_WEBHOOK_SECRET_KEY, 'private')
 
   const post = await env.DB.prepare(`
     SELECT p.id, p.title, p.excerpt, p.hat, p.status, p.opinion_type,
@@ -279,7 +280,7 @@ export async function handleAdminAiCover(c: CoverContext): Promise<Response> {
   try {
     const res = await fetch(webhookUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-API-Key': String(apiKey) },
+      headers: { 'Content-Type': 'application/json', 'X-Capa-Secret': typeof webhookSecret === 'string' ? webhookSecret : '' },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(110_000)
     })
