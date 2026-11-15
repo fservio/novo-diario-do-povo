@@ -17,7 +17,7 @@ import { renderEditorialAd } from './components/editorial-ad'
 import {exchangeFeed,getExchangeSnapshot,summarizeExchange} from '../exchange-rates'
 
 async function renderExchangeCard(env:Env){
-  const snapshot=await getExchangeSnapshot(env).catch(()=>null)
+  const snapshot=await getExchangeSnapshot(env).catch((): null => null)
   if(!snapshot)return ''
   const amount=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:4,maximumFractionDigits:4})
   const percent=new Intl.NumberFormat('pt-BR',{style:'percent',signDisplay:'exceptZero',maximumFractionDigits:2})

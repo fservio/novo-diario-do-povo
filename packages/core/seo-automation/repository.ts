@@ -69,8 +69,8 @@ export async function restoreSeoRevision(db:D1Database,id:number,revisionId:numb
 }
 
 export async function seoConfig(db:D1Database){return db.prepare('SELECT * FROM seo_automation_config WHERE id=1').first<any>()}
-export async function configureSeo(db:D1Database,enabled:boolean,now=new Date(),dailyLimit=300){
- await db.prepare('UPDATE seo_automation_config SET enabled=?, activated_at=COALESCE(activated_at,CASE WHEN ?=1 THEN ? ELSE NULL END),daily_limit=?,updated_at=? WHERE id=1').bind(enabled?1:0,enabled?1:0,iso(now),Math.min(300,Math.max(1,dailyLimit)),iso(now)).run()
+export async function configureSeo(db:D1Database,enabled:boolean,now=new Date(),dailyLimit?:number){
+ await db.prepare('UPDATE seo_automation_config SET enabled=?, activated_at=COALESCE(activated_at,CASE WHEN ?=1 THEN ? ELSE NULL END),daily_limit=COALESCE(?,daily_limit),updated_at=? WHERE id=1').bind(enabled?1:0,enabled?1:0,iso(now),dailyLimit ?? null,iso(now)).run()
  return seoConfig(db)
 }
 const eligibilitySql=`p.status='published' AND COALESCE(p.seo_noindex,0)=0 AND COALESCE(p.is_live,0)=0
@@ -128,9 +128,11 @@ export async function claimSeoJobs(db:D1Database,limit=20,now=new Date()){
   const token=crypto.randomUUID(),until=iso(new Date(now.getTime()+15*60_000))
   const batch=await db.batch([
    db.prepare(`UPDATE post_seo_jobs SET state='leased',attempts=attempts+1,lease_token=?,lease_until=?,snapshot_json=?,updated_at=?
-    WHERE id=? AND state='pending' AND attempts<3 AND EXISTS(SELECT 1 FROM seo_daily_usage WHERE day=? AND generations<?)
-    AND EXISTS(SELECT 1 FROM seo_automation_config WHERE id=1 AND enabled=1)`)
-    .bind(token,until,JSON.stringify(seoSnapshot(post)),iso(now),row.id,day,config.daily_limit),
+    WHERE id=? AND state='pending' AND attempts<3 AND EXISTS(
+      SELECT 1 FROM seo_automation_config cfg JOIN seo_daily_usage usage ON usage.day=?
+      WHERE cfg.id=1 AND cfg.enabled=1 AND (cfg.daily_limit=0 OR usage.generations<cfg.daily_limit)
+    )`)
+    .bind(token,until,JSON.stringify(seoSnapshot(post)),iso(now),row.id,day),
    db.prepare(`UPDATE seo_daily_usage SET generations=generations+1 WHERE day=? AND EXISTS(SELECT 1 FROM post_seo_jobs WHERE id=? AND lease_token=?)`).bind(day,row.id,token)
   ])
   if(batch[0].meta.changes)output.push(jobPayload(post,{...row,lease_token:token}))

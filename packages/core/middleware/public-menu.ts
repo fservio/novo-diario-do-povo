@@ -27,7 +27,7 @@ export async function completePublicMenu(c:Context,next:Next){
  const env=c.env as Env
  const [categories,analyticsId]=await Promise.all([
   getActiveCategories(env),
-  getSetting(env,'google_analytics_id','public').catch(()=>null)
+  getSetting(env,'google_analytics_id','public').catch((): null => null)
  ])
  const modern=renderPublicMenu(categories,path),legacy=renderPublicMenu(categories,path,true)
  const article=path.match(/^\/(?:\d{4}\/\d{2}\/\d{2}|noticia)\/([^/]+)\/?$/)

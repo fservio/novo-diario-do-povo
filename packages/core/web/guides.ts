@@ -41,8 +41,8 @@ async function guideResponse(c:Context,row:any,preview=false){
  const news=(await env.DB.prepare("SELECT p.title,p.slug,p.published_at,p.created_at FROM evergreen_news_links l JOIN posts p ON p.id=l.post_id WHERE l.guide_id=? AND p.status='published' AND p.seo_noindex=0 AND p.published_at<=? ORDER BY p.published_at DESC LIMIT 4").bind(row.id,new Date().toISOString()).all<any>()).results
  const adSlot=preview?undefined:await findActiveSlotsByTemplate(env,'article')
   .then(slots=>slots.find(slot=>slot.name==='article_footer'))
-  .catch(()=>undefined)
- const adHtml=adSlot?renderAdSlot({slot:adSlot,page:{path:c.req.path,referrer:c.req.header('referer')||'',template:'article'},user:{isSubscriber:false,isLoggedIn:false}}):''
+  .catch((): undefined => undefined)
+ const adHtml=adSlot?renderAdSlot({slot:adSlot,page:{template:'article'},user:{isSubscriber:false}}):''
  const adsScript=adHtml?await generateAdsLoaderScript(env,c.get('cspNonce')||'').catch(()=>''):''
  const canonical=base(env)+guideUrl(row.slug),structured={'@context':'https://schema.org','@type':'Article',headline:doc.title,description:doc.description,mainEntityOfPage:canonical,url:canonical,datePublished:row.published_at,dateModified:row.public_updated_at,inLanguage:'pt-BR',author:{'@type':'Person',name:row.author_name,url:base(env)+'/autor/'+encodeURIComponent(row.author_slug)},publisher:{'@type':'Organization',name:'Diário do Povo',url:base(env)},articleSection:row.category_name}
  c.header('Cache-Control',preview?'private, no-store':'public, max-age=60, must-revalidate')

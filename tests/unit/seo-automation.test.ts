@@ -92,6 +92,11 @@ describe('Durable SEO jobs',()=>{
    await configureSeo(db,true,new Date('2026-11-06T12:00:00Z'),1)
    const first=await claimSeoJobs(db,20,NOW);expect(first).toHaveLength(1);expect(first[0].post_id).toBe(1)
    expect(await claimSeoJobs(db,20,NOW)).toHaveLength(0);expect((await seoStats(db,NOW)).generations).toBe(1)
+   await configureSeo(db,true,NOW,0)
+   await configureSeo(db,false,NOW)
+   expect((await configureSeo(db,true,NOW)).daily_limit).toBe(0)
+   expect((await claimSeoJobs(db,20,NOW)).map(job=>job.post_id)).toEqual([2])
+   expect((await seoStats(db,NOW)).generations).toBe(2)
   }finally{sql.close()}
  })
  it.each(['apply','no_change'] as const)('never reopens unchanged %s content after eight days but admits fresh and changed sources',async status=>{

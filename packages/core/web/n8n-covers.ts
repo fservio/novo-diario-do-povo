@@ -20,6 +20,20 @@ export const AI_COVER_DEFAULT_MANUAL_LIMIT = 60
 export const AI_COVER_WEBHOOK_KEY = 'ai_cover.webhook_url'
 export const AI_COVER_WEBHOOK_SECRET_KEY = 'ai_cover.webhook_secret'
 
+export function isAiCoverIntegrationKey(key: string): boolean {
+  return [AI_COVER_WEBHOOK_KEY, AI_COVER_WEBHOOK_SECRET_KEY, AI_COVER_ENABLED_KEY, AI_COVER_DAILY_LIMIT_KEY].includes(key)
+}
+
+export function isAiCoverWebhookUrl(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^https:\/\//i.test(value)) return false
+  try {
+    const url = new URL(value)
+    return !!url.hostname && !url.username && !url.password && !url.hash
+  } catch {
+    return false
+  }
+}
+
 const MAX_ATTEMPTS = 2
 const MIN_BYTES = 8_000
 const MAX_BYTES = 900_000
@@ -57,7 +71,11 @@ async function readNumberSetting(env: Env, key: string, fallback: number): Promi
   }
 }
 
-async function readEnabled(env: Env): Promise<boolean> {
+export function getAiCoverDailyLimit(env: Env): Promise<number> {
+  return readNumberSetting(env, AI_COVER_DAILY_LIMIT_KEY, AI_COVER_DEFAULT_DAILY_LIMIT)
+}
+
+export async function getAiCoverEnabled(env: Env): Promise<boolean> {
   try {
     const { getSetting } = await import('../db')
     const value = await getSetting(env, AI_COVER_ENABLED_KEY, 'public')
@@ -90,11 +108,11 @@ export async function handleCoverQueue(c: CoverContext): Promise<Response> {
   const limit = Math.min(Math.max(Number(c.req.query('limit')) || 5, 1), 20)
   const days = Math.min(Math.max(Number(c.req.query('days')) || 3, 1), 14)
 
-  if (!(await readEnabled(env))) {
+  if (!(await getAiCoverEnabled(env))) {
     return c.json({ success: true, enabled: false, remaining_today: 0, data: [] })
   }
 
-  const dailyLimit = await readNumberSetting(env, AI_COVER_DAILY_LIMIT_KEY, AI_COVER_DEFAULT_DAILY_LIMIT)
+  const dailyLimit = await getAiCoverDailyLimit(env)
   const done = await generatedToday(env)
   const remaining = Math.max(0, dailyLimit - done)
   if (remaining === 0) {
@@ -146,9 +164,9 @@ export async function handleCoverUpload(c: CoverContext): Promise<Response> {
   const postId = Number(c.req.param('id'))
   if (!Number.isInteger(postId) || postId <= 0) return c.json({ success: false, error: 'ID inválido.' }, 400)
 
-  if (!(await readEnabled(env))) return c.json({ success: false, error: 'Geração de capas por IA desativada no CMS.' }, 403)
+  if (!(await getAiCoverEnabled(env))) return c.json({ success: false, error: 'Geração de capas por IA desativada no CMS.' }, 403)
 
-  const dailyLimit = await readNumberSetting(env, AI_COVER_DAILY_LIMIT_KEY, AI_COVER_DEFAULT_DAILY_LIMIT)
+  const dailyLimit = await getAiCoverDailyLimit(env)
   // Geração manual (botão do CMS) tem uma folga própria acima do limite automático.
   const manual = c.req.query('manual') === '1'
   const replace = c.req.query('replace') === '1'
@@ -247,13 +265,13 @@ export async function handleAdminAiCover(c: CoverContext): Promise<Response> {
   const postId = Number(c.req.param('id'))
   if (!Number.isInteger(postId) || postId <= 0) return c.json({ success: false, error: 'ID inválido.' }, 400)
 
-  if (!(await readEnabled(env))) {
+  if (!(await getAiCoverEnabled(env))) {
     return c.json({ success: false, error: 'A geração de capas por IA está desativada nas configurações.' }, 403)
   }
 
   const { getSetting, logAudit } = await import('../db')
   const webhookUrl = await getSetting(env, AI_COVER_WEBHOOK_KEY, 'private')
-  if (typeof webhookUrl !== 'string' || !/^https:\/\//i.test(webhookUrl)) {
+  if (!isAiCoverWebhookUrl(webhookUrl)) {
     return c.json({ success: false, error: 'O fluxo de geração de capas ainda não foi conectado ao CMS.' }, 503)
   }
   const webhookSecret = await getSetting(env, AI_COVER_WEBHOOK_SECRET_KEY, 'private')
@@ -280,6 +298,7 @@ export async function handleAdminAiCover(c: CoverContext): Promise<Response> {
   try {
     const res = await fetch(webhookUrl, {
       method: 'POST',
+      redirect: 'error',
       headers: { 'Content-Type': 'application/json', 'X-Capa-Secret': typeof webhookSecret === 'string' ? webhookSecret : '' },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(110_000)

@@ -40,7 +40,7 @@ export async function handleN8nPlanaltoCentral(c:Context,slug:keyof typeof aiCol
  const {DB}=c.env as Env
  const op=c.req.param('operation')
  if(op!=='candidates'&&op!=='publish')return c.notFound()
- const body=await c.req.json().catch(()=>null)
+ const body=await c.req.json().catch((): null => null)
  const request=inputSchema.safeParse(body)
  if(!request.success)return c.json({success:false,error:'Edição inválida.'},400)
  const {slot,catchup}=request.data
@@ -81,7 +81,7 @@ export async function handleN8nPlanaltoCentral(c:Context,slug:keyof typeof aiCol
  const freshSourceIds=posts.results.filter(post=>!usedSlugs.has(post.slug)).map(post=>post.id)
  const requiredFresh=earlier.results.length?Math.min(3,freshSourceIds.length):0
  if(!edition){
-  const snapshot=slug==='painel-economico'&&slot==='noite'?await getExchangeSnapshot(c.env as Env).catch(()=>null):null
+  const snapshot=slug==='painel-economico'&&slot==='noite'?await getExchangeSnapshot(c.env as Env).catch((): null => null):null
   const exchange=snapshot?{source:exchangeFeed,series:'PTAX de venda em reais',
    rates:summarizeExchange(snapshot).filter(rate=>rate.day<=day)}:undefined
   return c.json({success:true,slot,catchup,day,cutoff,scheduled_at:publishAt.toISOString(),

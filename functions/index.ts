@@ -565,6 +565,39 @@ app.get('/api/n8n/posts', async (c) => {
   }
 })
 
+app.get('/api/n8n/posts/:id{[0-9]+}/publication-snapshot', async (c) => {
+  c.header('Cache-Control', 'private, no-store')
+  const { readPublicationSnapshot } = await import('../packages/core/editorial-ai/publication')
+  const draft = await readPublicationSnapshot(c.env.DB, Number(c.req.param('id')))
+  return draft
+    ? c.json({ success: true, data: draft })
+    : c.json({ success: false, error: 'Rascunho indisponível para avaliação.' }, 404)
+})
+
+app.post('/api/n8n/posts/:id{[0-9]+}/stage-editorial-revision', async (c) => {
+  c.header('Cache-Control', 'private, no-store')
+  const { editorialDraftRevision, stageEditorialDraftRevision } = await import('../packages/core/editorial-ai/publication')
+  const parsed = editorialDraftRevision.safeParse(await c.req.json().catch((): null => null))
+  if (!parsed.success) return c.json({ success: false, error: 'Versão editorial inválida.' }, 400)
+  const draft = await stageEditorialDraftRevision(c.env.DB, Number(c.req.param('id')), parsed.data)
+  return draft
+    ? c.json({ success: true, data: draft })
+    : c.json({ success: false, error: 'O rascunho mudou ou saiu da revisão.' }, 409)
+})
+
+app.post('/api/n8n/posts/:id{[0-9]+}/publish-recommended', async (c) => {
+  c.header('Cache-Control', 'private, no-store')
+  const { publicationRecommendation, publishRecommendedRevision } = await import('../packages/core/editorial-ai/publication')
+  const parsed = publicationRecommendation.safeParse(await c.req.json().catch((): null => null))
+  if (!parsed.success) return c.json({ success: false, error: 'Recomendação editorial inválida.' }, 400)
+  const result = await publishRecommendedRevision(c.env.DB, Number(c.req.param('id')), parsed.data)
+  if (result.status === 'blocked') return c.json({ success: false, error: result.reason }, 409)
+  if (result.status === 'conflict') {
+    return c.json({ success: false, error: 'O rascunho mudou ou saiu da revisão. Solicite nova avaliação.' }, 409)
+  }
+  return c.json({ success: true, data: result.post })
+})
+
 // PATCH /api/n8n/posts/:id - Update post
 app.post('/api/n8n/posts/:id/related', async (c) => {
   const { handleN8nRelatedArticle } = await import('../packages/core/web/n8n-related')
@@ -1250,11 +1283,11 @@ app.get('/admin', async (c) => {
       `).first<{ articles: number; links: number }>().catch((): null => null),
       c.env.DB.prepare(`SELECT p.title,json_extract(s.value_json,'$.reason') AS reason
         FROM settings s LEFT JOIN posts p ON p.id=json_extract(s.value_json,'$.lineup[0]')
-        WHERE s.key='home.ai_edition'`).first<{title:string|null;reason:string}>().catch(()=>null),
+        WHERE s.key='home.ai_edition'`).first<{title:string|null;reason:string}>().catch((): null => null),
       c.env.DB.prepare(`SELECT p.id,p.title,json_extract(s.value_json,'$.until') AS until
         FROM settings s JOIN posts p ON p.id=json_extract(s.value_json,'$.id')
         WHERE s.key='home.hero_pin' AND json_extract(s.value_json,'$.until')>? AND p.status='published'`)
-        .bind(new Date().toISOString()).first<{id:number;title:string;until:string}>().catch(()=>null)
+        .bind(new Date().toISOString()).first<{id:number;title:string;until:string}>().catch((): null => null)
     ])
     const postsCount = await c.env.DB.prepare('SELECT COUNT(*) as count FROM posts WHERE status = ?')
       .bind('published')
@@ -1482,6 +1515,11 @@ app.post('/admin/integrations/n8n/generate', async (c) => {
 app.post('/admin/integrations/instagram', async (c) => {
   const { handleInstagramIntegrationSave } = await import('../packages/core/admin/integrations')
   return handleInstagramIntegrationSave(c)
+})
+
+app.post('/admin/integrations/ai-cover', async (c) => {
+  const { handleAiCoverIntegrationSave } = await import('../packages/core/admin/integrations')
+  return handleAiCoverIntegrationSave(c)
 })
 
 app.post('/admin/integrations/openai', async (c) => {
@@ -2588,6 +2626,9 @@ app.post('/api/admin/settings', async (c) => {
     const valueJson = formData.value_json as string
 
     if (!key) return c.redirect('/admin?error=missing_key')
+
+    const { isAiCoverIntegrationKey } = await import('../packages/core/web/n8n-covers')
+    if (isAiCoverIntegrationKey(key)) return c.json({ success: false, error: 'Use a página de integrações do CMS.' }, 403)
 
     // Handle Daily Cover specific parsing
     let value: any = valueJson

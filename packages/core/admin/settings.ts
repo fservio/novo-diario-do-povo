@@ -10,6 +10,7 @@ import { getSetting, setSetting } from '../db'
 import { normalizeRole } from '../db/users'
 import { getNewsletterRuntimeConfig } from '../newsletter'
 import { TRUSTED_IMAGE_SOURCES_KEY, getTrustedImageSources, normalizeSourceDomain, type TrustedImageSource } from '../media-sources'
+import { isAiCoverIntegrationKey } from '../web/n8n-covers'
 
 export async function renderSettingsListPage(c: Context<{ Bindings: Env; Variables: AppContext }>): Promise<Response> {
   const user = c.get('adminUser') as AdminUser
@@ -65,6 +66,8 @@ export async function renderSettingsListPage(c: Context<{ Bindings: Env; Variabl
 
     ${c.req.query('message') ? `<div class="newsletter-notice newsletter-notice--success" role="status">${escapeHtml(c.req.query('message'))}</div>` : ''}
     ${c.req.query('error') ? `<div class="newsletter-notice newsletter-notice--error" role="alert">${escapeHtml(c.req.query('error'))}</div>` : ''}
+
+    <p><a href="/admin/integrations#capas-ia">Configurar capas por IA no n8n</a></p>
 
     <section class="card newsletter-settings-card">
       <div class="newsletter-settings-heading">
@@ -150,7 +153,7 @@ export async function renderSettingsListPage(c: Context<{ Bindings: Env; Variabl
           </tr>
         </thead>
         <tbody>
-          ${(publicSettings.results || []).map(renderSettingRow).join('')}
+          ${(publicSettings.results || []).filter(setting => !isAiCoverIntegrationKey(setting.key)).map(renderSettingRow).join('')}
         </tbody>
       </table>
     </div>
@@ -171,7 +174,7 @@ export async function renderSettingsListPage(c: Context<{ Bindings: Env; Variabl
           </tr>
         </thead>
         <tbody>
-          ${(privateSettings.results || []).map(renderSettingRow).join('')}
+          ${(privateSettings.results || []).filter(setting => !isAiCoverIntegrationKey(setting.key)).map(renderSettingRow).join('')}
         </tbody>
       </table>
     </div>
@@ -204,6 +207,8 @@ export async function renderSettingEditPage(
       activeTab: 'settings'
     }), 403)
   }
+
+  if (isAiCoverIntegrationKey(key)) return c.redirect('/admin/integrations#capas-ia')
 
   const value = await getSetting(c.env, key, scope)
 
@@ -311,6 +316,7 @@ export async function handleSettingUpdate(
   }
 
   try {
+    if (isAiCoverIntegrationKey(key)) return c.redirect('/admin/integrations#capas-ia', 303)
     const formData = (c.get('parsedBody') || await c.req.parseBody()) as Record<string, string>
     const valueRaw = formData.value as string
 

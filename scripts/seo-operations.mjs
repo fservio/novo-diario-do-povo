@@ -144,6 +144,10 @@ try{
     await mkdir('artifacts/seo-automation',{recursive:true})
     await writeFile('artifacts/seo-automation/dry-run-input.json',JSON.stringify(result,null,2))
     console.log(JSON.stringify({success:result.success,count:result.data?.length,ids:result.data?.map(p=>p.post_id)}))
-  }else if(action==='enable'||action==='disable')console.log(JSON.stringify(await api('/api/n8n/seo/config',{enabled:action==='enable',daily_limit:300}),null,2))
+  }else if(action==='enable'||action==='disable'){
+    const dailyLimit=process.argv.find(arg=>arg.startsWith('--daily-limit='))?.slice('--daily-limit='.length)
+    if(dailyLimit!==undefined&&!/^(0|[1-9]\d{0,2})$/.test(dailyLimit))throw Error('Invalid SEO daily limit.')
+    console.log(JSON.stringify(await api('/api/n8n/seo/config',{enabled:action==='enable',...(dailyLimit===undefined?{}:{daily_limit:Number(dailyLimit)})}),null,2))
+  }
   else throw Error('Unknown SEO operation; see the documented helper actions.')
 }catch(error){console.error(error instanceof Error?error.message:'Operation failed.');process.exitCode=1}

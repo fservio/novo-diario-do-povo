@@ -860,24 +860,64 @@ function renderPostFormPage(params: {
       </script>
       
       <!-- Tags -->
-      <div class="form-group">
-        <label>Tags (Palavras-chave)</label>
-        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem; background: #f8fafc; padding: 1.5rem; border-radius: 0.75rem; border: 1.5px solid #e2e8f0; box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.02);">
-          ${tags.length === 0 ? '<span style="color: var(--text-muted); font-size: 0.8125rem;">Nenhuma tag cadastrada.</span>' : tags.map(tag => `
-            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; background: var(--white); padding: 0.5rem 1rem; border-radius: 0.5rem; border: 1.5px solid #e2e8f0; font-size: 0.8125rem; font-weight: 600; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='#e2e8f0'">
-              <input 
-                type="checkbox" 
-                name="tags" 
-                value="${tag.id}"
-                ${post?.tags?.includes(tag.name) ? 'checked' : ''}
-                style="width: 1rem; height: 1rem; accent-color: var(--primary);"
-              >
-              ${escapeHtml(tag.name)}
-            </label>
-          `).join('')}
-        </div>
-      </div>
-      
+      <fieldset class="form-group" id="postTags" style="min-width: 0; border: 0; padding: 0;">
+        <legend>Tags (Palavras-chave)</legend>
+        ${tags.length === 0 ? '<small>Nenhuma tag cadastrada.</small>' : `
+          <label for="postTagSearch">Buscar tags cadastradas</label>
+          <input type="search" id="postTagSearch" class="form-control" placeholder="Digite uma palavra-chave" autocomplete="off" aria-describedby="postTagStatus">
+          <small id="postTagStatus" role="status">Digite para buscar tags.</small>
+          <div style="max-height: 10rem; overflow-y: auto;">
+            ${tags.map(tag => {
+              const selected = post?.tags?.includes(tag.name)
+              return `
+                <div data-post-tag ${selected ? '' : 'hidden'}>
+                  <label style="cursor: pointer; padding: 0.25rem 0;">
+                    <input type="checkbox" name="tags" value="${tag.id}" ${selected ? 'checked' : ''}>
+                    <span>${escapeHtml(tag.name)}</span>
+                  </label>
+                </div>
+              `
+            }).join('')}
+          </div>
+          <script nonce="${cspNonce}">
+            (() => {
+              const picker = document.getElementById('postTags');
+              const search = document.getElementById('postTagSearch');
+              const status = document.getElementById('postTagStatus');
+              const normalize = value => value.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLocaleLowerCase('pt-BR');
+              const options = Array.from(picker.querySelectorAll('[data-post-tag]'), row => ({
+                row,
+                checkbox: row.querySelector('input'),
+                name: normalize(row.querySelector('span').textContent)
+              }));
+
+              function updateTags() {
+                const query = normalize(search.value.trim());
+                let matches = 0;
+                let selected = 0;
+                for (const { row, checkbox, name } of options) {
+                  const match = query !== '' && name.includes(query);
+                  if (match) matches++;
+                  if (checkbox.checked) selected++;
+                  row.hidden = !checkbox.checked && !match;
+                }
+                const selection = selected + (selected === 1 ? ' tag selecionada.' : ' tags selecionadas.');
+                const result = !query ? 'Digite para buscar tags.' : matches === 0 ? 'Nenhuma tag encontrada.' :
+                  matches + (matches === 1 ? ' tag encontrada.' : ' tags encontradas.');
+                status.textContent = result + ' ' + selection;
+              }
+
+              search.addEventListener('input', updateTags);
+              search.addEventListener('keydown', event => {
+                if (event.key === 'Enter' && !event.isComposing) event.preventDefault();
+              });
+              picker.addEventListener('change', updateTags);
+              updateTags();
+            })();
+          </script>
+        `}
+      </fieldset>
+
       ${renderSocialSharingPanel({ post, csrfToken, cspNonce })}
 
       ${renderSeoAutomationPanel({ post, csrfToken })}

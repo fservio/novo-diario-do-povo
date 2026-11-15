@@ -1,0 +1,1110 @@
+{
+  "id": "H8M2aXLuhb5anp3o",
+  "name": "Diário — Editor de Piauí",
+  "versionId": "a6eb2000-5282-48af-a28b-5d398407b3ae",
+  "nodes": [
+    {
+      "id": "64317df6-86e0-49c4-8e03-b13bf777425f",
+      "name": "Receber rascunho",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        224
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "579018c6-5390-4d92-9a31-8a2b2f499d6d",
+      "name": "Validar rascunho e fontes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        224
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const {post_id,title,content,sources}= $json;\nif (!Number.isSafeInteger(post_id)||post_id<1||typeof title!=='string'||!title.trim()||typeof content!=='string'||!content.trim()||content.length>42000) throw Error('Rascunho inválido.');\nif (!Array.isArray(sources)||sources.length>8||sources.some(s=>!s||typeof s.id!=='string'||!s.id.trim()||typeof s.text!=='string'||!s.text.trim()||s.text.length>16000)||new Set(sources.map(s=>s.id)).size!==sources.length) throw Error('Fontes inválidas.');\nreturn {json:{post_id,title,content,sources:sources.map(({id,text,url})=>({id,text,...(typeof url==='string'&&/^https?:\\/\\//i.test(url)?{url}:{})}))}};"
+      }
+    },
+    {
+      "id": "1a71260c-8b3a-4b30-80d3-b18904ba947a",
+      "name": "Capturar versão inicial",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        448,
+        224
+      ],
+      "parameters": {
+        "url": "={{ 'https://diario.dopovo.com.br/api/n8n/posts/' + $json.post_id + '/publication-snapshot' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "6d8ddd93-1e63-4e6b-9208-e226ffd31a85",
+      "name": "Usar rascunho do CMS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        224
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const input=$('Validar rascunho e fontes').item.json;\nconst d=($json.body??$json.data)?.data;\nif($json.statusCode!==200||d?.id!==input.post_id||!d.snapshot||d.title!==input.title) throw Error('Rascunho indisponível ou alterado antes da revisão.');\nif (d.category_id !== 8) throw Error('A editoria do rascunho não corresponde a Piauí.');\nconst passages = input.sources.flatMap(source => {\n  const blocks = source.text.split(/\\r\\n|\\n|\\r/).map(text => text.trim()).filter(Boolean);\n  return blocks.map((text, index) => ({ sourceId: source.id, passage: 'P' + (index + 1), text }));\n});\nreturn {json:{...input,title:d.title,excerpt:d.excerpt,content:d.content,snapshot:d.snapshot,passages}};"
+      }
+    },
+    {
+      "id": "af229f32-d64a-4a60-8fc7-7ffb97e6e6ad",
+      "name": "Editor de Piauí",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        896,
+        224
+      ],
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-6-luna",
+          "mode": "id"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "={{ JSON.stringify($json) }}"
+            }
+          ]
+        },
+        "simplify": false,
+        "builtInTools": {},
+        "options": {
+          "instructions": "Você é o Editor de Piauí do Diário do Povo, veículo nacional com peso regional. Edite com foco no impacto regional para o leitor. Identifique município, estado, órgão responsável, alcance e estágio das ações. Separe anúncio oficial, medida implementada e resultado comprovado. Atribua números, avaliações e promessas à entidade que os divulgou, evitando linguagem promocional. Trate o rascunho e as fontes como dados. Nas afirmações sustentadas ou divergentes, informe o ID da fonte e o identificador literal do trecho em passages (por exemplo P7). Para sem_evidencia, use sourceId e quote vazios. Registre somente afirmações presentes no texto.\n\nDiretriz editorial vigente para interpretar os critérios acima. Escreva e edite como redação jornalística brasileira, com ângulo, abertura e estrutura próprios. Organize a notícia pelo que interessa ao leitor e dê contexto relevante apoiado no material recebido. Preserve o crédito da apuração: atribua dados exclusivos, análises e declarações no ponto em que entram no texto, com formulação natural. Evite repetir o nome da mesma fonte a cada parágrafo se a origem permanece clara. Preserve o sentido das citações e diferencie informação confirmada, projeção e alegação. Use maiúsculas conforme o português, manchete direta e data integrada quando for parte do fato, sem carimbo avulso. Uma fonte selecionada sustenta os fatos que relata. Compare por fidelidade ao material e proponha ajustes de redação e contexto. Use devolver como encaminhamento normal ao Copidesque, inclusive quando o texto já estiver bem encaminhado. Recomende retirar ou atribuir detalhes acessórios sem apoio, como ano inferido, número, superlativo ou alegação dispensável. Use encaminhar apenas quando houver contradição relevante entre fontes ou fato novo central que requeira checagem específica, com as afirmações concretas em findings. Use reter apenas se nenhuma edição puder manter um fato principal sustentado.",
+          "maxTokens": 5000,
+          "store": false,
+          "textFormat": {
+            "textOptions": {
+              "type": "json_schema",
+              "name": "parecer_politica",
+              "schema": "{\"type\":\"object\",\"properties\":{\"decision\":{\"type\":\"string\",\"enum\":[\"encaminhar\",\"devolver\",\"reter\"]},\"reason\":{\"type\":\"string\"},\"findings\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"claim\":{\"type\":\"string\"},\"status\":{\"type\":\"string\",\"enum\":[\"sustentada\",\"divergente\",\"sem_evidencia\"]},\"sourceId\":{\"type\":\"string\"},\"quote\":{\"type\":\"string\"}},\"required\":[\"claim\",\"status\",\"sourceId\",\"quote\"],\"additionalProperties\":false}}},\"required\":[\"decision\",\"reason\",\"findings\"],\"additionalProperties\":false}",
+              "strict": true
+            }
+          }
+        },
+        "resource": "text",
+        "operation": "response"
+      }
+    },
+    {
+      "id": "15fdc587-e631-4990-bcb5-900ed2c3cc5b",
+      "name": "Conferir e registrar parecer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        224
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const draft=$('Usar rascunho do CMS').item.json;\nconst hold=reason=>({json:{post_id:draft.post_id,decision:'reter',reason,findings:[]}});\nif ($json.status!=='completed'||!Array.isArray($json.output)) return hold('Parecer incompleto.');\nconst parts=$json.output.flatMap(x=>x.content??[]).filter(x=>x.type==='output_text').map(x=>x.text);\nlet result;\ntry {\n  result=parts.length===1&&typeof parts[0]==='object' ? parts[0] : JSON.parse(parts.join(''));\n} catch {return hold('Parecer inválido.');}\nif (!['encaminhar','devolver','reter'].includes(result?.decision)||typeof result.reason!=='string'||!result.reason.trim()||!Array.isArray(result.findings)) return hold('Parecer inválido.');\n// Ignora apenas diferenças de espaçamento na citação.\nconst normalizeSpacing = text => text.replace(/[\\t\\n\\r \\u00a0\\u202f]+/g, ' ').trim();\nfor (const [index, f] of result.findings.entries()) {\n  if (!f||typeof f.claim!=='string'||!f.claim.trim()||!['sustentada','divergente','sem_evidencia'].includes(f.status)) return hold('Afirmação inválida no parecer.');\n  if(f.status==='sem_evidencia')continue;\n  const source=draft.sources.find(s=>s.id===f.sourceId);\n  const finding = 'Afirmação ' + (index + 1) + ' do parecer: ';\n  if (!source) return hold(finding + 'ID da fonte ausente ou desconhecido.');\n  const passage = draft.passages.find(entry => entry.sourceId === source.id && entry.passage === f.quote);\n  if (!passage || !normalizeSpacing(source.text).includes(normalizeSpacing(passage.text))) {\n    return hold(finding + 'identificador de trecho inválido para a fonte indicada.');\n  }\n  f.quote = passage.text;\n}\nif (result.decision === 'encaminhar' && !result.findings.length) return hold('Checagem solicitada sem afirmação identificada.');\nreturn {json:{post_id:draft.post_id,decision:result.decision,reason:result.reason,findings:result.findings}};"
+      }
+    },
+    {
+      "id": "86b7ba64-22ac-4226-9ee8-df15a28a7977",
+      "name": "Parecer encaminhado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1344,
+        224
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.decision }}",
+              "rightValue": "encaminhar",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "822e5b7f-d175-4719-8744-27344f716a48",
+      "name": "Chamar Checador de Fatos",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1568,
+        144
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "XbH3IjWHcVkXhUzm"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "51dbbc3d-91c3-49da-bce9-05db0edc110a",
+      "name": "Reunir checagens de Piauí",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        144
+      ],
+      "parameters": {
+        "jsCode": "const reviews=$('Parecer encaminhado?').all(0);\nconst answers=$input.all();\nreturn reviews.map((item,index)=>{\n const review=item.json;\n const googleFactCheck=answers.filter(a=>a.json.post_id===review.post_id).map(({json:{claim_index,status,candidates}})=>({claim_index,status,candidates}));\n return {json:{...review,googleFactCheck,decision:'devolver_para_ajuste',reason:review.reason+' Na revisão, preserve a atribuição, a cronologia, os locais e o estágio de cada acontecimento. As checagens encontradas são candidatas.'},pairedItem:{item:Math.max(0,answers.findIndex(a=>a.json.post_id===review.post_id))}};\n});"
+      }
+    },
+    {
+      "id": "fe9b2149-2d01-46b5-8e3c-3a16cc18cedd",
+      "name": "Reunir decisões da revisão",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2016,
+        224
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "104e4a96-c2f3-4881-b179-037e7e76a74e",
+      "name": "Parecer pede ajuste?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2240,
+        224
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ ['devolver','devolver_para_ajuste'].includes($json.decision) ? 'sim' : 'não' }}",
+              "rightValue": "sim",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "bbba5e5d-dc7c-43e4-92e5-a9d9bd9acc73",
+      "name": "Preparar ajuste editorial",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2464,
+        144
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const draft=$('Usar rascunho do CMS').item.json;\nreturn {json:{...draft,...$json}};"
+      }
+    },
+    {
+      "id": "c7fbf868-9153-45b2-bb20-8d53f3c7ee21",
+      "name": "Chamar Copidesque",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2688,
+        144
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "kF1ub5DSMQS9QgAq"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "18b8bfd4-2276-4415-9808-739ed550fabe",
+      "name": "Copidesque apresentou proposta?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2912,
+        144
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.decision === 'revisado' ? 'sim' : 'não' }}",
+              "rightValue": "sim",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "538e0abe-73d6-401f-8706-91503e6ea328",
+      "name": "Preparar proposta para decisão",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3136,
+        80
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const original=$('Preparar ajuste editorial').item.json;\nreturn {json:{...$json,original:{title:original.title,excerpt:original.excerpt,content:original.content},sources:original.sources,editorialReview:{decision:original.decision,reason:original.reason??'',findings:original.findings??[],googleFactCheck:original.googleFactCheck??[]}}};"
+      }
+    },
+    {
+      "id": "0cda793b-4bba-4485-93ed-79e94c18f12c",
+      "name": "Gravar versão revisada",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3360,
+        80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://diario.dopovo.com.br/api/n8n/posts/' + $json.post_id + '/stage-editorial-revision' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ snapshot: $('Usar rascunho do CMS').item.json.snapshot, title:$json.title, excerpt: $json.excerpt, content_markdown:$json.content }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "acfb2e67-ac70-40f2-8e47-6e15afb75046",
+      "name": "Usar versão gravada para decisão",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3584,
+        80
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const proposal=$('Preparar proposta para decisão').item.json;\nconst d=($json.body??$json.data)?.data;\nif($json.statusCode!==200||d?.id!==proposal.post_id||!d.snapshot||d.excerpt!==proposal.excerpt)throw Error('Rascunho mudou ou a versão revisada não foi gravada.');\nreturn {json:{...proposal,title:d.title,excerpt:d.excerpt,content:d.content,snapshot:d.snapshot}};"
+      }
+    },
+    {
+      "id": "dad528af-78d2-41ac-a057-e61d9b7344aa",
+      "name": "Chamar Editor Executivo",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        3808,
+        80
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "By1lAit6fNfvDDBs"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "8a7480a2-4748-4d64-b3ef-3fe11722b162",
+      "name": "Executivo pediu ajuste?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        4028,
+        -400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.decision === 'devolver' ? 'sim' : 'não' }}",
+              "rightValue": "sim",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "9dbc8efa-db88-43d6-a551-e24953caea47",
+      "name": "Preparar retorno ao Copidesque",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4258,
+        -400
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const firstVersion = $('Usar versão gravada para decisão').item.json;\nreturn { json: { ...firstVersion, decision: 'devolver', reason: $json.reason, findings: firstVersion.editorialReview?.findings ?? [], executive_feedback: { reason: $json.reason, issues: $json.blocking_issues ?? [] } } };"
+      }
+    },
+    {
+      "id": "03ca0336-5261-4529-a77a-156cf47c2113",
+      "name": "Chamar Copidesque novamente",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        4488,
+        -400
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "kF1ub5DSMQS9QgAq"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "05e6ac55-6fb9-430e-b5f4-8f2b383e28ec",
+      "name": "Copidesque devolveu nova versão?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        4718,
+        -400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.decision === 'revisado' ? 'sim' : 'não' }}",
+              "rightValue": "sim",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "0019898e-35cb-46a0-bc66-5469580e3d15",
+      "name": "Gravar segunda versão revisada",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4948,
+        -400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://diario.dopovo.com.br/api/n8n/posts/' + $json.post_id + '/stage-editorial-revision' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ snapshot: $('Usar versão gravada para decisão').item.json.snapshot, title: $json.title, excerpt: $json.excerpt, content_markdown: $json.content }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "256f248d-5968-42de-aa10-51e98ba2debe",
+      "name": "Preparar segunda avaliação",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5178,
+        -400
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const firstVersion = $('Usar versão gravada para decisão').item.json;\nconst revision = $('Chamar Copidesque novamente').item.json;\nconst saved = ($json.body ?? $json.data)?.data;\nif ($json.statusCode !== 200 || saved?.id !== firstVersion.post_id || !saved.snapshot || saved.excerpt !== revision.excerpt) throw Error('A segunda versão não foi gravada ou o rascunho mudou.');\nreturn { json: { ...firstVersion, title: saved.title, excerpt: saved.excerpt, content: saved.content, snapshot: saved.snapshot, changes: revision.changes, pending: revision.pending } };"
+      }
+    },
+    {
+      "id": "e8718648-5c3a-47a6-8f12-95fae8accec0",
+      "name": "Chamar Editor Executivo novamente",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        5408,
+        -400
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "By1lAit6fNfvDDBs"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "ccf4806a-e15e-4df3-a99f-246d37367266",
+      "name": "Identificar segunda avaliação",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5638,
+        -400
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const { post_id, title, excerpt, content, snapshot } = $('Preparar segunda avaliação').item.json;\nreturn { json: { ...$json, retry_version: { post_id, title, excerpt, content, snapshot } } };"
+      }
+    },
+    {
+      "id": "049dcd78-ea42-476d-8ab9-e29732bc7457",
+      "name": "Reunir avaliações executivas",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        5868,
+        -230
+      ],
+      "parameters": {
+        "numberInputs": 3
+      }
+    },
+    {
+      "id": "b14e2323-8050-46b3-b05c-321219b0e0e1",
+      "name": "Conferir decisão e versão",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4032,
+        80
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const { retry_version, ...decision } = $json;\nconst d=retry_version ?? $('Usar versão gravada para decisão').item.json;\nconst ready=$json.decision==='recomendar_publicacao'&&$json.post_id===d.post_id&&$json.proposal?.title===d.title&&$json.proposal?.excerpt===d.excerpt&&$json.proposal?.content===d.content&&Array.isArray($json.blocking_issues)&&$json.blocking_issues.length===0;\nreturn {json:{...decision,post_id:d.post_id,ready,request:ready?{snapshot:d.snapshot,decision:$json.decision,evaluated_title:d.title,evaluated_excerpt:d.excerpt,evaluated_content:d.content,execution_id:String($execution.id),reason:$json.reason,blocking_issues:[]}:null}};"
+      }
+    },
+    {
+      "id": "5809c07c-b093-4f76-9399-5bd1d3c956cc",
+      "name": "Decisão autoriza publicação?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        4256,
+        80
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ready ? 'sim' : 'não' }}",
+              "rightValue": "sim",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "489b6407-1594-4dea-868c-2209d7d92600",
+      "name": "Publicar versão revisada",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4480,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://diario.dopovo.com.br/api/n8n/posts/' + $json.post_id + '/publish-recommended' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "be4a0a64-afac-47ee-8f5c-04226e46c431",
+      "name": "Registrar resultado da publicação",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4704,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const decision=$('Conferir decisão e versão').item.json;\nif($json.statusCode===200&&($json.body??$json.data)?.success&&($json.body??$json.data).data?.id===decision.post_id)return {json:{post_id:decision.post_id,status:'published',decision:decision.decision,data:$json.body.data}};\nreturn {json:{post_id:decision.post_id,status:'publicacao_nao_confirmada',decision:decision.decision,http_status:$json.statusCode,reason:($json.body??$json.data)?.error??'O CMS não confirmou a publicação.'}};"
+      }
+    },
+    {
+      "id": "7108cc3d-4148-4cfa-b840-85541ac99536",
+      "name": "Reunir decisão e publicação",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        4928,
+        80
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "f17713cc-c2a2-4761-bf03-7f02404059fd",
+      "name": "Reunir resultados editoriais",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        5152,
+        256
+      ],
+      "parameters": {
+        "numberInputs": 3
+      }
+    },
+    {
+      "id": "8996d588-d41a-49fe-ab5f-96d888840dfb",
+      "name": "Registrar ajuste não concluído",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4948,
+        -240
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const firstDecision = $('Chamar Editor Executivo').item.json;\nreturn { json: { ...firstDecision, retry_reason: $json.reason ?? 'O Copidesque não entregou uma segunda versão.', retry_pending: $json.pending ?? [] } };"
+      }
+    }
+  ],
+  "connections": {
+    "Receber rascunho": {
+      "main": [
+        [
+          {
+            "node": "Validar rascunho e fontes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar rascunho e fontes": {
+      "main": [
+        [
+          {
+            "node": "Capturar versão inicial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capturar versão inicial": {
+      "main": [
+        [
+          {
+            "node": "Usar rascunho do CMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Usar rascunho do CMS": {
+      "main": [
+        [
+          {
+            "node": "Editor de Piauí",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Editor de Piauí": {
+      "main": [
+        [
+          {
+            "node": "Conferir e registrar parecer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conferir e registrar parecer": {
+      "main": [
+        [
+          {
+            "node": "Parecer encaminhado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parecer encaminhado?": {
+      "main": [
+        [
+          {
+            "node": "Chamar Checador de Fatos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reunir decisões da revisão",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Chamar Checador de Fatos": {
+      "main": [
+        [
+          {
+            "node": "Reunir checagens de Piauí",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reunir checagens de Piauí": {
+      "main": [
+        [
+          {
+            "node": "Reunir decisões da revisão",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reunir decisões da revisão": {
+      "main": [
+        [
+          {
+            "node": "Parecer pede ajuste?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parecer pede ajuste?": {
+      "main": [
+        [
+          {
+            "node": "Preparar ajuste editorial",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reunir resultados editoriais",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Preparar ajuste editorial": {
+      "main": [
+        [
+          {
+            "node": "Chamar Copidesque",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chamar Copidesque": {
+      "main": [
+        [
+          {
+            "node": "Copidesque apresentou proposta?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Copidesque apresentou proposta?": {
+      "main": [
+        [
+          {
+            "node": "Preparar proposta para decisão",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reunir resultados editoriais",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Preparar proposta para decisão": {
+      "main": [
+        [
+          {
+            "node": "Gravar versão revisada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gravar versão revisada": {
+      "main": [
+        [
+          {
+            "node": "Usar versão gravada para decisão",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Usar versão gravada para decisão": {
+      "main": [
+        [
+          {
+            "node": "Chamar Editor Executivo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chamar Editor Executivo": {
+      "main": [
+        [
+          {
+            "node": "Executivo pediu ajuste?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Executivo pediu ajuste?": {
+      "main": [
+        [
+          {
+            "node": "Preparar retorno ao Copidesque",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reunir avaliações executivas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar retorno ao Copidesque": {
+      "main": [
+        [
+          {
+            "node": "Chamar Copidesque novamente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chamar Copidesque novamente": {
+      "main": [
+        [
+          {
+            "node": "Copidesque devolveu nova versão?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Copidesque devolveu nova versão?": {
+      "main": [
+        [
+          {
+            "node": "Gravar segunda versão revisada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar ajuste não concluído",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gravar segunda versão revisada": {
+      "main": [
+        [
+          {
+            "node": "Preparar segunda avaliação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar segunda avaliação": {
+      "main": [
+        [
+          {
+            "node": "Chamar Editor Executivo novamente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chamar Editor Executivo novamente": {
+      "main": [
+        [
+          {
+            "node": "Identificar segunda avaliação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Identificar segunda avaliação": {
+      "main": [
+        [
+          {
+            "node": "Reunir avaliações executivas",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Reunir avaliações executivas": {
+      "main": [
+        [
+          {
+            "node": "Conferir decisão e versão",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conferir decisão e versão": {
+      "main": [
+        [
+          {
+            "node": "Decisão autoriza publicação?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decisão autoriza publicação?": {
+      "main": [
+        [
+          {
+            "node": "Publicar versão revisada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reunir decisão e publicação",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Publicar versão revisada": {
+      "main": [
+        [
+          {
+            "node": "Registrar resultado da publicação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar resultado da publicação": {
+      "main": [
+        [
+          {
+            "node": "Reunir decisão e publicação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reunir decisão e publicação": {
+      "main": [
+        [
+          {
+            "node": "Reunir resultados editoriais",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar ajuste não concluído": {
+      "main": [
+        [
+          {
+            "node": "Reunir avaliações executivas",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  }
+}

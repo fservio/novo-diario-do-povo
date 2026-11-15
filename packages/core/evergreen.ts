@@ -26,7 +26,7 @@ export const guideResearchSchema=z.object({
  if(research.claims.some(claim=>!sources.has(claim.source_url)))ctx.addIssue({code:'custom',message:'Afirmação sem fonte no dossiê'})
 })
 export const guideDraftResearchSchema=guideResearchSchema.or(z.object({
- opened_urls:z.tuple([]),sources:z.tuple([]),claims:z.tuple([])
+ opened_urls:z.array(z.never()).length(0),sources:z.array(z.never()).length(0),claims:z.array(z.never()).length(0)
 }))
 export type GuideBrief=z.infer<typeof guideBriefSchema>
 export type GuideDocument=z.infer<typeof guideDocumentSchema>

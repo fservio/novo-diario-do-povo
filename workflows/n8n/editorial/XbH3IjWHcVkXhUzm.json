@@ -1,0 +1,130 @@
+{
+  "id": "XbH3IjWHcVkXhUzm",
+  "name": "Diário — Consulta Google Fact Check",
+  "versionId": "4e3c5b17-b856-4711-91a2-04532afe243b",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "c7eb41b7-a976-4545-9214-fa9c74e7eeea",
+      "name": "Receber afirmações",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().flatMap(({json:{post_id,findings}}, itemIndex)=>{\nif (!Number.isSafeInteger(post_id)||post_id<1||!Array.isArray(findings)||findings.length<1||findings.length>30) throw Error('Parecer de entrada inválido.');\nconst seen=new Set();\nreturn findings.flatMap(({claim}, index)=>{\n if(typeof claim!=='string'||!claim.trim()||claim.length>1000)throw Error('Afirmação inválida.');\n const query=claim.trim().replace(/\\s+/g,' ');\n const key=query.toLocaleLowerCase('pt-BR');\n if(seen.has(key))return [];\n seen.add(key);\n return [{json:{post_id,claim_index:index,claim:query},pairedItem:{item:itemIndex}}];\n});\n});"
+      },
+      "id": "b9ddf532-80a5-4b5c-90f8-213126bf9906",
+      "name": "Preparar consultas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://factchecktools.googleapis.com/v1alpha1/claims:search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.claim }}"
+            },
+            {
+              "name": "languageCode",
+              "value": "pt"
+            },
+            {
+              "name": "pageSize",
+              "value": "5"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "b8384649-a5eb-400c-b41b-268498e82852",
+      "name": "Buscar checagens no Google",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        448,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const input=$('Preparar consultas').item.json;\nconst status=$json.statusCode;\nconst body=$json.body??$json.data;\nconst ok=status===200&&body&&typeof body==='object'&&!Array.isArray(body)&&!body.error&&(body.claims===undefined||Array.isArray(body.claims));\nconst candidates=ok?(body.claims??[]).slice(0,5).flatMap(c=>(Array.isArray(c?.claimReview)?c.claimReview:[]).slice(0,5)\n .filter(r=>typeof r?.url==='string'&&/^https?:\\/\\//i.test(r.url))\n .map(r=>({text:c.text??'',publisher:r.publisher?.name??'',rating:r.textualRating??'',reviewDate:r.reviewDate??null,url:r.url}))):[];\nreturn {json:{...input,status:ok?(candidates.length?'candidatos':'sem_resultados'):'consulta_indisponivel',http_status:status??null,candidates,verdict:null,modelCalls:0}};"
+      },
+      "id": "832bb045-0b57-4f47-8553-96d980ef78f4",
+      "name": "Registrar checagens candidatas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Receber afirmações": {
+      "main": [
+        [
+          {
+            "node": "Preparar consultas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar consultas": {
+      "main": [
+        [
+          {
+            "node": "Buscar checagens no Google",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar checagens no Google": {
+      "main": [
+        [
+          {
+            "node": "Registrar checagens candidatas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "binaryMode": "separate"
+  }
+}

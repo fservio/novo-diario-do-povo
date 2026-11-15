@@ -43,7 +43,7 @@ export function createSeoAutomationRouter(){
  router.get('/trends',async c=>seoTrendsResponse(c.env))
  router.get('/posts/:id/history',async c=>c.json({success:true,data:await listSeoHistory(c.env.DB,z.coerce.number().int().positive().parse(c.req.param('id')))}))
  router.post('/config',async c=>{
-  const input=z.object({enabled:z.boolean(),daily_limit:z.number().int().min(1).max(300).default(300)}).strict().parse(await c.req.json())
+  const input=z.object({enabled:z.boolean(),daily_limit:z.number().int().min(0).max(300).optional()}).strict().parse(await c.req.json())
   return c.json({success:true,data:await configureSeo(c.env.DB,input.enabled,new Date(),input.daily_limit)})
  })
  router.post('/pilot',async c=>{

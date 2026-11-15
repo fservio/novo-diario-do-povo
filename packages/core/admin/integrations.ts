@@ -8,6 +8,66 @@ import { normalizeRole } from '../db/users'
 import { getInstagramRuntimeConfig } from '../instagram'
 import { getEditorialAiRuntimeConfig } from '../editorial-ai'
 import { getWhatsAppRuntimeConfig } from '../whatsapp'
+import {
+  AI_COVER_DAILY_LIMIT_KEY, AI_COVER_ENABLED_KEY, AI_COVER_WEBHOOK_KEY, AI_COVER_WEBHOOK_SECRET_KEY,
+  getAiCoverDailyLimit, getAiCoverEnabled, isAiCoverWebhookUrl
+} from '../web/n8n-covers'
+
+type IntegrationContext = Context<{ Bindings: Env; Variables: AppContext }>
+
+async function renderAiCoverIntegration(c: IntegrationContext, canManage: boolean, csrfToken: string) {
+  const [url, secret, enabled, dailyLimit] = await Promise.all([
+    getSetting(c.env, AI_COVER_WEBHOOK_KEY, 'private'),
+    getSetting(c.env, AI_COVER_WEBHOOK_SECRET_KEY, 'private'),
+    getAiCoverEnabled(c.env),
+    getAiCoverDailyLimit(c.env)
+  ])
+  const webhookUrl = isAiCoverWebhookUrl(url) ? url : ''
+  const secretConfigured = typeof secret === 'string' && !!secret.trim()
+  const configured = !!webhookUrl && secretConfigured
+  const status = !enabled ? 'Geração pausada' : configured ? 'Webhook configurado' : 'Configuração incompleta'
+  const setupHelp = configured
+    ? 'Para verificar a conexão, abra uma matéria salva e clique em “Gerar capa por IA”. Esse teste solicita uma capa ao n8n.'
+    : !webhookUrl && !secretConfigured ? 'Informe a URL de produção do webhook e o segredo compartilhado.'
+    : !webhookUrl ? 'Informe uma URL HTTPS válida para o webhook de produção.'
+    : 'Configure o segredo compartilhado no CMS e no n8n.'
+
+  return `
+    <section class="card integration-instagram-card" id="capas-ia">
+      <div class="integration-instagram-head">
+        <div class="integration-instagram-icon">IA</div>
+        <div><p class="page-kicker">Imagens editoriais</p><h3>n8n · Capas por IA</h3>
+          <span class="newsletter-provider ${enabled && configured ? 'is-ready' : ''}"><i></i>${status}</span>
+        </div>
+      </div>
+      ${c.req.query('success') === 'ai-cover' ? '<p class="newsletter-notice newsletter-notice--success" role="status">Configurações de capas por IA salvas.</p>' : ''}
+      ${c.req.query('cover_error') ? `<p class="newsletter-notice newsletter-notice--error" role="alert">${escapeHtml(c.req.query('cover_error'))}</p>` : ''}
+      <p class="integration-instagram-copy">${!enabled && configured ? 'Ative a geração antes de verificar a conexão.' : setupHelp}</p>
+      <p>${secretConfigured ? 'Segredo compartilhado cadastrado.' : 'Segredo compartilhado ainda não cadastrado.'}</p>
+      ${canManage ? `
+        <form method="post" action="/admin/integrations/ai-cover" class="integration-instagram-form">
+          ${renderCsrfInput(csrfToken)}
+          <div class="form-group">
+            <label for="ai-cover-webhook-url">URL do webhook</label>
+            <input class="form-control" id="ai-cover-webhook-url" name="webhook_url" type="url" maxlength="2048" value="${escapeHtml(webhookUrl)}" placeholder="https://n8n.exemplo.com/webhook/capas" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label for="ai-cover-webhook-secret">Segredo compartilhado</label>
+            <input class="form-control" id="ai-cover-webhook-secret" name="webhook_secret" type="password" maxlength="512" autocomplete="new-password">
+            <small>Use o mesmo valor no cabeçalho <code>X-Capa-Secret</code> da autenticação do webhook no n8n. Deixe em branco para manter o segredo salvo.</small>
+          </div>
+          <label class="integration-ai-toggle"><input type="checkbox" name="enabled" value="1" ${enabled ? 'checked' : ''}><span><strong>Ativar geração de capas por IA</strong><small>Ao desativar, a fila automática e a geração pelo editor ficam pausadas.</small></span></label>
+          <div class="form-group">
+            <label for="ai-cover-daily-limit">Limite diário da fila automática</label>
+            <input class="form-control" id="ai-cover-daily-limit" name="daily_limit" type="number" min="0" step="1" required value="${dailyLimit}">
+            <small>Use 0 para suspender a fila automática. A geração pelo editor tem uma cota adicional.</small>
+          </div>
+          <button class="btn" type="submit">Salvar integração de capas</button>
+        </form>
+      ` : '<p>Apenas diretores podem alterar esta integração.</p>'}
+    </section>
+  `
+}
 
 /**
  * GET /admin/integrations
@@ -29,6 +89,7 @@ export async function renderIntegrationsPage(c: Context<{ Bindings: Env; Variabl
   const instagramConfig = await getInstagramRuntimeConfig(c.env)
   const editorialAiConfig = await getEditorialAiRuntimeConfig(c.env)
   const whatsappConfig = await getWhatsAppRuntimeConfig(c.env)
+  const aiCoverIntegration = await renderAiCoverIntegration(c, normalizeRole(user.role) === 'director', csrfToken)
 
   const bodyHtml = `
     <div style="margin-bottom: 2rem;">
@@ -36,7 +97,7 @@ export async function renderIntegrationsPage(c: Context<{ Bindings: Env; Variabl
       <p style="color: var(--text-muted);">Gerencie conexões com serviços externos.</p>
     </div>
 
-    ${success ? `
+    ${success && success !== 'ai-cover' ? `
       <div style="background: var(--success-light); color: var(--success); padding: 1rem; border-radius: var(--radius-md); margin-bottom: 2rem; border: 1px solid var(--success);">
         ${success === 'generated' ? 'Nova chave API gerada com sucesso.' : 'Operação realizada com sucesso.'}
       </div>
@@ -148,6 +209,8 @@ export async function renderIntegrationsPage(c: Context<{ Bindings: Env; Variabl
         </form>
       </div>
 
+      ${aiCoverIntegration}
+
       <div class="card integration-ai-card">
         <div class="integration-ai-head">
           <div class="integration-ai-icon">AI</div>
@@ -243,6 +306,48 @@ export async function handleInstagramIntegrationSave(c: Context<{ Bindings: Env;
   } catch (error) {
     console.error('[Instagram Integration] Save error:', error)
     return c.redirect('/admin/integrations?error=Não+foi+possível+salvar+a+integração.', 303)
+  }
+}
+
+export async function handleAiCoverIntegrationSave(c: IntegrationContext) {
+  const user = c.get('adminUser') as AdminUser
+  if (normalizeRole(user.role) !== 'director') return c.html('<h1>Acesso negado</h1>', 403)
+
+  const back = (error?: string) => c.redirect(
+    `/admin/integrations?${error ? 'cover_error=' + encodeURIComponent(error) : 'success=ai-cover'}#capas-ia`, 303
+  )
+  const body = c.get('parsedBody') || await c.req.parseBody()
+  const field = (key: string) => typeof body[key] === 'string' ? body[key].trim() : ''
+  const webhookUrl = field('webhook_url')
+  const secret = field('webhook_secret')
+  const enabled = body.enabled === '1'
+  const dailyLimitRaw = field('daily_limit')
+  const dailyLimit = Number(dailyLimitRaw)
+
+  if (webhookUrl && (webhookUrl.length > 2048 || !isAiCoverWebhookUrl(webhookUrl))) {
+    return back('Informe uma URL HTTPS válida, sem credenciais ou fragmento.')
+  }
+  if (!/^\d+$/.test(dailyLimitRaw) || !Number.isSafeInteger(dailyLimit)) {
+    return back('Informe um limite diário inteiro maior ou igual a zero.')
+  }
+  if (secret && !/^[!-~]{1,512}$/.test(secret)) {
+    return back('Use até 512 caracteres ASCII sem espaços no segredo compartilhado.')
+  }
+
+  try {
+    if (enabled && webhookUrl && !secret) {
+      const savedSecret = await getSetting(c.env, AI_COVER_WEBHOOK_SECRET_KEY, 'private')
+      if (typeof savedSecret !== 'string' || !savedSecret.trim()) {
+        return back('Cadastre o segredo compartilhado para ativar o webhook.')
+      }
+    }
+    if (secret) await setSetting(c.env, AI_COVER_WEBHOOK_SECRET_KEY, secret, 'private', user.id)
+    await setSetting(c.env, AI_COVER_WEBHOOK_KEY, webhookUrl, 'private', user.id)
+    await setSetting(c.env, AI_COVER_DAILY_LIMIT_KEY, dailyLimit, 'public', user.id)
+    await setSetting(c.env, AI_COVER_ENABLED_KEY, enabled, 'public', user.id)
+    return back()
+  } catch {
+    return back('Não foi possível salvar a integração de capas. Recarregue a página, confira os valores e tente novamente.')
   }
 }
 

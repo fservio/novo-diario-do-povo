@@ -27,7 +27,7 @@ async function getJobs(env:Env,uf:string,date:string){
   const existing=await env.DB.prepare('SELECT id,status FROM posts WHERE original_link=? ORDER BY id LIMIT 1')
    .bind(originalLink).first<{id:number;status:string}>()
   const forecasts=existing?.status==='published'?[]:await Promise.all(job.cities.map(async city=>{
-   const bulletin=await readWeather(env,city).catch(()=>null)
+   const bulletin=await readWeather(env,city).catch((): null => null)
    const forecast=bulletin?.days.find(day=>day.date===date)
    return forecast?{name:city.name,slug:city.slug,...forecast,description:weatherCondition(forecast.condition)}:null
   }))
@@ -40,7 +40,7 @@ export async function handleWeatherEditorial(c:Context){
  const env=c.env as Env
  const op=c.req.param('operation')
  if(op!=='editorial-jobs'&&op!=='editorial-publish')return c.notFound()
- const body=await c.req.json().catch(()=>null)
+ const body=await c.req.json().catch((): null => null)
  const request=requestSchema.safeParse(body)
  if(!request.success)return c.json({success:false,error:'UF inválida.'},400)
  const {uf}=request.data,date=weatherDate()

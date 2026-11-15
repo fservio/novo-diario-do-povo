@@ -54,7 +54,7 @@ export async function handleN8nHome(c:Context){
    current:state?.lineup||[],context:context?.results||[],fallback,manual,heroAgeMinutes,reviewDue,sectionSlugs,sections})
  }
  if(op!=='apply')return c.notFound()
- const parsed=decision.safeParse(await c.req.json().catch(()=>null))
+ const parsed=decision.safeParse(await c.req.json().catch((): null => null))
  if(!parsed.success)return c.json({success:false,error:'Composição inválida.'},400)
  const input=parsed.data
  if(input.revision!==(state?.revision||null)||input.through>through||input.through<recent||
