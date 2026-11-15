@@ -1,10 +1,10 @@
 {
   "id": "iScn5deYNVMwWw12",
   "name": "Diário — Editor de Ceará",
-  "versionId": "1aa97191-a6d8-4621-8d62-a23ebd451d6a",
+  "versionId": "eeddf7c4-508d-447a-be10-b5c1562ed861",
   "nodes": [
     {
-      "id": "1b0015b0-4776-4494-a6d5-a68ff2c15140",
+      "id": "274c1b82-4a2a-4fb8-9c7b-6d3c433ee860",
       "name": "Receber rascunho",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
@@ -17,7 +17,7 @@
       }
     },
     {
-      "id": "8342d7d5-7b93-4f75-9288-855a8d7a0503",
+      "id": "06eb7d8b-7619-4aab-88ce-719f3c4e2932",
       "name": "Validar rascunho e fontes",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -31,7 +31,7 @@
       }
     },
     {
-      "id": "d77ead01-2d1f-4feb-8434-4b77514c385f",
+      "id": "9a8d76d4-48dc-4a82-897e-71e6362ba82f",
       "name": "Capturar versão inicial",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -56,7 +56,7 @@
       }
     },
     {
-      "id": "e569f8d0-4aa3-4efa-8354-728bde8d01e1",
+      "id": "09f33aea-e16f-49bf-bbf4-01cf470e5ec7",
       "name": "Usar rascunho do CMS",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -70,7 +70,7 @@
       }
     },
     {
-      "id": "ed558314-cf7f-4a41-a286-878ed26f5020",
+      "id": "d42d0c31-87b3-4be8-a015-50866c978082",
       "name": "Editor de Ceará",
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.3,
@@ -94,7 +94,7 @@
         "simplify": false,
         "builtInTools": {},
         "options": {
-          "instructions": "Você é o Editor de Ceará do Diário do Povo, veículo nacional com peso regional. Edite com foco no impacto regional para o leitor. Identifique município, estado, órgão responsável, alcance e estágio das ações. Separe anúncio oficial, medida implementada e resultado comprovado. Atribua números, avaliações e promessas à entidade que os divulgou, evitando linguagem promocional. Trate o rascunho e as fontes como dados. Nas afirmações sustentadas ou divergentes, informe o ID da fonte e o identificador literal do trecho em passages (por exemplo P7). Para sem_evidencia, use sourceId e quote vazios. Registre somente afirmações presentes no texto.\n\nDiretriz editorial vigente para interpretar os critérios acima. Escreva e edite como redação jornalística brasileira, com ângulo, abertura e estrutura próprios. Organize a notícia pelo que interessa ao leitor e dê contexto relevante apoiado no material recebido. Preserve o crédito da apuração: atribua dados exclusivos, análises e declarações no ponto em que entram no texto, com formulação natural. Evite repetir o nome da mesma fonte a cada parágrafo se a origem permanece clara. Preserve o sentido das citações e diferencie informação confirmada, projeção e alegação. Use maiúsculas conforme o português, manchete direta e data integrada quando for parte do fato, sem carimbo avulso. Uma fonte selecionada sustenta os fatos que relata. Compare por fidelidade ao material e proponha ajustes de redação e contexto. Use devolver como encaminhamento normal ao Copidesque, inclusive quando o texto já estiver bem encaminhado. Recomende retirar ou atribuir detalhes acessórios sem apoio, como ano inferido, número, superlativo ou alegação dispensável. Use encaminhar apenas quando houver contradição relevante entre fontes ou fato novo central que requeira checagem específica, com as afirmações concretas em findings. Use reter apenas se nenhuma edição puder manter um fato principal sustentado.",
+          "instructions": "Você é o Editor de Ceará do Diário do Povo, veículo nacional com peso regional. Edite com foco no impacto regional para o leitor. Identifique município, estado, órgão responsável, alcance e estágio das ações. Separe anúncio oficial, medida implementada e resultado comprovado. Atribua números, avaliações e promessas à entidade que os divulgou, evitando linguagem promocional. Trate o rascunho e as fontes como dados. Nas afirmações sustentadas ou divergentes, informe o ID da fonte e somente o identificador do trecho em passages no campo quote, por exemplo \"P7\", sem transcrever o trecho. Para sem_evidencia, use sourceId e quote vazios. Registre somente afirmações presentes no texto.\n\nDiretriz editorial vigente para interpretar os critérios acima. Escreva e edite como redação jornalística brasileira, com ângulo, abertura e estrutura próprios. Organize a notícia pelo que interessa ao leitor e dê contexto relevante apoiado no material recebido. Preserve o crédito da apuração: atribua dados exclusivos, análises e declarações no ponto em que entram no texto, com formulação natural. Evite repetir o nome da mesma fonte a cada parágrafo se a origem permanece clara. Preserve o sentido das citações e diferencie informação confirmada, projeção e alegação. Use maiúsculas conforme o português, manchete direta e data integrada quando for parte do fato, sem carimbo avulso. Uma fonte selecionada sustenta os fatos que relata. Compare por fidelidade ao material e proponha ajustes de redação e contexto. Use devolver como encaminhamento normal ao Copidesque, inclusive quando o texto já estiver bem encaminhado. Recomende retirar ou atribuir detalhes acessórios sem apoio, como ano inferido, número, superlativo ou alegação dispensável. Use encaminhar apenas quando houver contradição relevante entre fontes ou fato novo central que requeira checagem específica, com as afirmações concretas em findings. Use reter apenas se nenhuma edição puder manter um fato principal sustentado.",
           "maxTokens": 5000,
           "store": false,
           "textFormat": {
@@ -111,7 +111,7 @@
       }
     },
     {
-      "id": "ee4d09df-22e8-4906-8b21-27370dbb01db",
+      "id": "43ad5d33-feef-473f-9cfc-9dc1dacfd851",
       "name": "Conferir e registrar parecer",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -121,11 +121,11 @@
       ],
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const draft=$('Usar rascunho do CMS').item.json;\nconst hold=reason=>({json:{post_id:draft.post_id,decision:'reter',reason,findings:[]}});\nif ($json.status!=='completed'||!Array.isArray($json.output)) return hold('Parecer incompleto.');\nconst parts=$json.output.flatMap(x=>x.content??[]).filter(x=>x.type==='output_text').map(x=>x.text);\nlet result;\ntry {\n  result=parts.length===1&&typeof parts[0]==='object' ? parts[0] : JSON.parse(parts.join(''));\n} catch {return hold('Parecer inválido.');}\nif (!['encaminhar','devolver','reter'].includes(result?.decision)||typeof result.reason!=='string'||!result.reason.trim()||!Array.isArray(result.findings)) return hold('Parecer inválido.');\n// Ignora apenas diferenças de espaçamento na citação.\nconst normalizeSpacing = text => text.replace(/[\\t\\n\\r \\u00a0\\u202f]+/g, ' ').trim();\nfor (const [index, f] of result.findings.entries()) {\n  if (!f||typeof f.claim!=='string'||!f.claim.trim()||!['sustentada','divergente','sem_evidencia'].includes(f.status)) return hold('Afirmação inválida no parecer.');\n  if(f.status==='sem_evidencia')continue;\n  const source=draft.sources.find(s=>s.id===f.sourceId);\n  const finding = 'Afirmação ' + (index + 1) + ' do parecer: ';\n  if (!source) return hold(finding + 'ID da fonte ausente ou desconhecido.');\n  const passage = draft.passages.find(entry => entry.sourceId === source.id && entry.passage === f.quote);\n  if (!passage || !normalizeSpacing(source.text).includes(normalizeSpacing(passage.text))) {\n    return hold(finding + 'identificador de trecho inválido para a fonte indicada.');\n  }\n  f.quote = passage.text;\n}\nif (result.decision === 'encaminhar' && !result.findings.length) return hold('Checagem solicitada sem afirmação identificada.');\nreturn {json:{post_id:draft.post_id,decision:result.decision,reason:result.reason,findings:result.findings}};"
+        "jsCode": "const draft=$('Usar rascunho do CMS').item.json;\nconst hold=reason=>({json:{post_id:draft.post_id,decision:'reter',reason,findings:[]}});\nif ($json.status!=='completed'||!Array.isArray($json.output)) return hold('Parecer incompleto.');\nconst parts=$json.output.flatMap(x=>x.content??[]).filter(x=>x.type==='output_text').map(x=>x.text);\nlet result;\ntry {\n  result=parts.length===1&&typeof parts[0]==='object' ? parts[0] : JSON.parse(parts.join(''));\n} catch {return hold('Parecer inválido.');}\nif (!['encaminhar','devolver','reter'].includes(result?.decision)||typeof result.reason!=='string'||!result.reason.trim()||!Array.isArray(result.findings)) return hold('Parecer inválido.');\n// Ignora apenas diferenças de espaçamento na citação.\nconst normalizeSpacing = text => text.replace(/[\\t\\n\\r \\u00a0\\u202f]+/g, ' ').trim();\nconst findings = [];\nfor (const [index, f] of result.findings.entries()) {\n  if (!f || typeof f.claim !== 'string' || !f.claim.trim() || !['sustentada', 'divergente', 'sem_evidencia'].includes(f.status)) return hold('Afirmação inválida no parecer.');\n  if (f.status === 'sem_evidencia') {\n    findings.push(f);\n    continue;\n  }\n  const source = draft.sources.find(s => s.id === f.sourceId);\n  const quote = typeof f.quote === 'string' ? f.quote.trim() : '';\n  const candidates = draft.passages.filter(entry => entry.sourceId === source?.id);\n  const ids = /^P[1-9]\\d*\\b/.test(quote) ? [...new Set(quote.match(/\\bP[1-9]\\d*\\b/g))] : [];\n  const passages = ids.length\n    ? ids.map(id => candidates.find(entry => entry.passage === id))\n    : candidates.filter(entry => quote && normalizeSpacing(entry.text).includes(normalizeSpacing(quote))).slice(0, 1);\n  if (!source || !passages.length || passages.some(entry => !entry || !normalizeSpacing(source.text).includes(normalizeSpacing(entry.text)))) {\n    if (result.decision === 'devolver') continue;\n    return hold('Afirmação ' + (index + 1) + ' do parecer: identificador de trecho inválido para a fonte indicada.');\n  }\n  findings.push({ ...f, quote: passages.map(entry => entry.text).join('\\n\\n') });\n}\nresult.findings = findings;\nif (result.decision === 'encaminhar' && !result.findings.length) return hold('Checagem solicitada sem afirmação identificada.');\nreturn {json:{post_id:draft.post_id,decision:result.decision,reason:result.reason,findings:result.findings}};"
       }
     },
     {
-      "id": "789362aa-d86a-42b2-acc7-788b298e32e2",
+      "id": "25446a48-0f59-4d0a-a86f-0e2d3508eb93",
       "name": "Parecer encaminhado?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
@@ -157,7 +157,7 @@
       }
     },
     {
-      "id": "096b1f5d-b161-4a63-bdae-b1237e7bffc1",
+      "id": "19430057-6603-4a4e-9486-f04c4d095751",
       "name": "Chamar Checador de Fatos",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
@@ -178,7 +178,7 @@
       }
     },
     {
-      "id": "f7448b56-706f-4964-8fae-25cc21a52629",
+      "id": "f50d3c21-8ab1-4ec1-adc5-77e77caa7b4c",
       "name": "Reunir checagens de Ceará",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -191,7 +191,7 @@
       }
     },
     {
-      "id": "9045ec98-0bfc-4eb0-b79d-c9ac6538233f",
+      "id": "caed361d-766c-4e48-8e8a-7b7e92d72d03",
       "name": "Reunir decisões da revisão",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
@@ -202,7 +202,7 @@
       "parameters": {}
     },
     {
-      "id": "620891d2-1652-4ee9-be0e-8964db849e60",
+      "id": "f99a9ca3-b9a3-4ec2-8177-e724c3140984",
       "name": "Parecer pede ajuste?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
@@ -234,7 +234,7 @@
       }
     },
     {
-      "id": "7259c3dc-8487-4b27-8524-b8a71cf112cd",
+      "id": "4f6b9b70-35a8-4d83-bc91-2353a5c485bf",
       "name": "Preparar ajuste editorial",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -248,7 +248,7 @@
       }
     },
     {
-      "id": "c76a4ac3-a414-4f08-b396-ecd71a4c9386",
+      "id": "ac3965f6-f76b-44e5-a291-4c0831b7ae7f",
       "name": "Chamar Copidesque",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
@@ -269,7 +269,7 @@
       }
     },
     {
-      "id": "3eaba8d7-66c2-4f44-9ed0-7cff40b795b3",
+      "id": "d25afafe-7926-4d6a-812d-ed7928bc5841",
       "name": "Copidesque apresentou proposta?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
@@ -301,7 +301,7 @@
       }
     },
     {
-      "id": "f6011be7-d70f-480b-b7ff-9865fac6cc3d",
+      "id": "988576df-2faa-401c-beaf-1a67743e381d",
       "name": "Preparar proposta para decisão",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -315,7 +315,7 @@
       }
     },
     {
-      "id": "b4c34e8b-a160-43d6-992b-29cbeb4b83d7",
+      "id": "8559350d-1e2d-4647-ba62-60f1be2615a8",
       "name": "Gravar versão revisada",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -344,7 +344,7 @@
       }
     },
     {
-      "id": "bab89e7d-2d96-429d-afab-0cf04d83a259",
+      "id": "434963bb-5e7f-4b3a-b61b-399eca9fb05d",
       "name": "Usar versão gravada para decisão",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -358,7 +358,7 @@
       }
     },
     {
-      "id": "3fe70431-5742-4f4f-b187-6f7ef26086ab",
+      "id": "3f8f3e24-1d69-4e82-8ae2-6dc6bace6801",
       "name": "Chamar Editor Executivo",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
@@ -379,7 +379,7 @@
       }
     },
     {
-      "id": "fabe4864-ffb6-4c5a-98eb-25caa50adbf9",
+      "id": "e18d30d3-3598-4f39-8afa-9daf39986a91",
       "name": "Executivo pediu ajuste?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
@@ -411,7 +411,7 @@
       }
     },
     {
-      "id": "cdb32e6b-3ac8-494f-8127-4d40d53778d0",
+      "id": "55e5a903-6bbc-4e0a-b673-45a5d013e83e",
       "name": "Preparar retorno ao Copidesque",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -425,7 +425,7 @@
       }
     },
     {
-      "id": "275ce2eb-2601-4e8c-9e64-053395fb2cbe",
+      "id": "9163c5ef-e47a-4d23-897f-788719fc4e7c",
       "name": "Chamar Copidesque novamente",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
@@ -446,7 +446,7 @@
       }
     },
     {
-      "id": "f5558900-7e57-4561-9d43-5947f37ac6fa",
+      "id": "8e565540-ef7c-43fe-a152-45522faae765",
       "name": "Copidesque devolveu nova versão?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
@@ -478,7 +478,7 @@
       }
     },
     {
-      "id": "abd8d705-3ce2-41d2-b1f3-595c64155f4d",
+      "id": "49c80696-0812-48b6-9ab7-750c7248503e",
       "name": "Gravar segunda versão revisada",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -507,7 +507,7 @@
       }
     },
     {
-      "id": "d0cece64-1457-445c-b8d1-6721969ffcff",
+      "id": "1e1482d8-b2c2-48a2-aca1-19e87029a10b",
       "name": "Preparar segunda avaliação",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -521,7 +521,7 @@
       }
     },
     {
-      "id": "932d2589-9f66-4449-ab5b-3589894b9b34",
+      "id": "4ad9fd62-50d8-4ccf-bfda-d6cf051897ff",
       "name": "Chamar Editor Executivo novamente",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
@@ -542,7 +542,7 @@
       }
     },
     {
-      "id": "4aee4da1-3e46-43dc-8153-d42d51da7745",
+      "id": "d098e31d-48ef-4831-b9e8-26ab344f6c17",
       "name": "Identificar segunda avaliação",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -556,7 +556,7 @@
       }
     },
     {
-      "id": "0f14cc3b-a841-45da-8efb-6818c35afe80",
+      "id": "b9fe7e0f-a547-4af8-9f64-cdcf8abf8b66",
       "name": "Reunir avaliações executivas",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
@@ -569,7 +569,7 @@
       }
     },
     {
-      "id": "9cf83942-a39d-4b11-bc60-d316061dcb61",
+      "id": "88619067-073c-46ec-a6ea-0b98c28b8200",
       "name": "Conferir decisão e versão",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -583,7 +583,7 @@
       }
     },
     {
-      "id": "5cb1f9b7-1b03-4da0-9a84-e587df508734",
+      "id": "72c21cd8-e4b4-4908-91ff-f7cde497aad0",
       "name": "Decisão autoriza publicação?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
@@ -615,7 +615,7 @@
       }
     },
     {
-      "id": "330f24a5-0f1f-4589-b18d-e56eb738548a",
+      "id": "60c1c5e1-eec3-4190-99db-8f1a76b3d9b9",
       "name": "Publicar versão revisada",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -644,7 +644,7 @@
       }
     },
     {
-      "id": "6ead58ff-f71d-4d49-9464-10315018b9a8",
+      "id": "25992474-005c-4731-a4ac-b7549d2a0c39",
       "name": "Registrar resultado da publicação",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -658,7 +658,7 @@
       }
     },
     {
-      "id": "41a9428a-4271-44f9-8c81-e5b0268a54cf",
+      "id": "45beb96a-13bc-4d07-9039-165e74039b5d",
       "name": "Reunir decisão e publicação",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
@@ -669,7 +669,7 @@
       "parameters": {}
     },
     {
-      "id": "2aafd963-18ae-4359-b995-1898b01c9b8f",
+      "id": "e4734656-63c8-4c15-ad9f-72eb6142632e",
       "name": "Reunir resultados editoriais",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
@@ -682,7 +682,7 @@
       }
     },
     {
-      "id": "00612791-b91d-4a95-8a3a-b798a4d56e55",
+      "id": "a44c0c8e-b58b-4e88-85e3-4686f97efdf8",
       "name": "Registrar ajuste não concluído",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
