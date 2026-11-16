@@ -1,7 +1,7 @@
 {
   "id": "nXapABrCyJJUeKzJ",
   "name": "Piauí| Governo do Piauí | Diário do Povo",
-  "versionId": "3bb3fb71-4993-4738-b469-20246d6b105e",
+  "versionId": "cd46394a-c436-42e7-a987-4b1247816c88",
   "nodes": [
     {
       "id": "e852f57d-685e-4f19-8685-0b06d79f132b",
@@ -51,6 +51,12 @@
               "name": "DEFAULT_CATEGORY_ID",
               "type": "number",
               "value": 8
+            },
+            {
+              "id": "publicar-por-briefing",
+              "name": "PUBLICAR_POR_BRIEFING",
+              "type": "boolean",
+              "value": true
             }
           ]
         },
@@ -149,6 +155,38 @@
       }
     },
     {
+      "id": "7e26bc49-cdce-4174-9947-363b0ae4206b",
+      "name": "Publicar pelo fluxo por briefing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1891,
+        476
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Config1').first().json.PUBLICAR_POR_BRIEFING === true ? 'sim' : 'não' }}",
+              "rightValue": "sim",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
       "id": "56f80e36-d43c-465e-8f08-7d12d1da94b6",
       "name": "Montar lote de candidatas",
       "type": "n8n-nodes-base.code",
@@ -159,9 +197,8 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const articles = $input.all();\nconst collection_started_at = $('Schedule Trigger1').first().json.timestamp;\nconst candidates = articles.flatMap(({json: item}, index) => {\n  const url = typeof item.link === 'string' ? item.link.trim() : '';\n  const title = typeof item.title === 'string' ? item.title.trim() : '';\n  const text = [item.source_content, item['content:encoded'], item.content, item.contentSnippet].find(value => typeof value === 'string' && value.trim());\n  if (!(url.startsWith('https://') || url.startsWith('http://')) || !title || !text) return [];\n  return [{id:\"nXapABrCyJJUeKzJ:\" + (index + 1),editoria:\"piaui\",title:title.slice(0,500),url,text:text.trim().slice(0,16000)}];\n}).slice(0,10);\nreturn candidates.length ? [{json:{editorial_source:\"Piauí| Governo do Piauí | Diário do Povo\",candidates,collection_started_at}}] : [];"
-      },
-      "onError": "continueRegularOutput"
+        "jsCode": "const articles = $input.all();\nconst collection_started_at = $('Schedule Trigger1').first().json.timestamp;\nconst candidates = articles.flatMap(({json: item}, index) => {\n  const url = typeof item.link === 'string' ? item.link.trim() : '';\n  const title = typeof item.title === 'string' ? item.title.trim() : '';\n  const text = [item.source_content, item['content:encoded'], item.content, item.contentSnippet].find(value => typeof value === 'string' && value.trim());\n  if (!(url.startsWith('https://') || url.startsWith('http://')) || !title || !text) return [];\n  return [{id:\"nXapABrCyJJUeKzJ:\" + (index + 1),editoria:\"piaui\",title:title.slice(0,500),url,text:text.trim().slice(0,16000)}];\n}).slice(0,10);\nreturn candidates.length ? [{json:{editorial_source:\"Piauí| Governo do Piauí | Diário do Povo\",candidates,collection_started_at,publish_by_briefing:true}}] : [];"
+      }
     },
     {
       "id": "5dc16090-7d57-49a9-9760-a82e00fc5e63",
@@ -181,10 +218,9 @@
         },
         "mode": "once",
         "options": {
-          "waitForSubWorkflow": false
+          "waitForSubWorkflow": true
         }
-      },
-      "onError": "continueRegularOutput"
+      }
     },
     {
       "id": "0b050898-8d09-495a-bf71-4f8ea3c34ffb",
@@ -433,10 +469,23 @@
       "main": [
         [
           {
+            "node": "Publicar pelo fluxo por briefing?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publicar pelo fluxo por briefing?": {
+      "main": [
+        [
+          {
             "node": "Montar lote de candidatas",
             "type": "main",
             "index": 0
-          },
+          }
+        ],
+        [
           {
             "node": "AI Journalist1",
             "type": "main",

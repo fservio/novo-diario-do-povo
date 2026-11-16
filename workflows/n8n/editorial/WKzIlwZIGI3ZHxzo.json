@@ -1,7 +1,7 @@
 {
   "id": "WKzIlwZIGI3ZHxzo",
   "name": "São Paulo | Agência São Paulo | Diário do Povo",
-  "versionId": "ae7e3bf4-42e8-4335-9e15-8aa3b7f20d43",
+  "versionId": "b2d7e206-ad74-4d51-9c00-8877e0a57a42",
   "nodes": [
     {
       "id": "dafeb031-4a92-4f3b-aa0c-0bc22d12c1a3",
@@ -52,6 +52,12 @@
               "name": "DEFAULT_CATEGORY_ID",
               "type": "number",
               "value": 9
+            },
+            {
+              "id": "publicar-por-briefing",
+              "name": "PUBLICAR_POR_BRIEFING",
+              "type": "boolean",
+              "value": true
             }
           ]
         },
@@ -150,6 +156,38 @@
       }
     },
     {
+      "id": "e70fd5e4-f710-46c4-9623-ab2a0bd62e36",
+      "name": "Publicar pelo fluxo por briefing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1891,
+        476
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Config1').first().json.PUBLICAR_POR_BRIEFING === true ? 'sim' : 'não' }}",
+              "rightValue": "sim",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
       "id": "20af8144-805a-4f6c-9775-f3c8945617d9",
       "name": "Montar lote de candidatas",
       "type": "n8n-nodes-base.code",
@@ -160,9 +198,8 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const articles = $input.all();\nconst collection_started_at = $('Schedule Trigger1').first().json.timestamp;\nconst candidates = articles.flatMap(({json: item}, index) => {\n  const url = typeof item.link === 'string' ? item.link.trim() : '';\n  const title = typeof item.title === 'string' ? item.title.trim() : '';\n  const text = [item.source_content, item['content:encoded'], item.content, item.contentSnippet].find(value => typeof value === 'string' && value.trim());\n  if (!(url.startsWith('https://') || url.startsWith('http://')) || !title || !text) return [];\n  return [{id:\"WKzIlwZIGI3ZHxzo:\" + (index + 1),editoria:\"sao-paulo\",title:title.slice(0,500),url,text:text.trim().slice(0,16000)}];\n}).slice(0,10);\nreturn candidates.length ? [{json:{editorial_source:\"São Paulo | Agência São Paulo | Diário do Povo\",candidates,collection_started_at}}] : [];"
-      },
-      "onError": "continueRegularOutput"
+        "jsCode": "const articles = $input.all();\nconst collection_started_at = $('Schedule Trigger1').first().json.timestamp;\nconst candidates = articles.flatMap(({json: item}, index) => {\n  const url = typeof item.link === 'string' ? item.link.trim() : '';\n  const title = typeof item.title === 'string' ? item.title.trim() : '';\n  const text = [item.source_content, item['content:encoded'], item.content, item.contentSnippet].find(value => typeof value === 'string' && value.trim());\n  if (!(url.startsWith('https://') || url.startsWith('http://')) || !title || !text) return [];\n  return [{id:\"WKzIlwZIGI3ZHxzo:\" + (index + 1),editoria:\"sao-paulo\",title:title.slice(0,500),url,text:text.trim().slice(0,16000)}];\n}).slice(0,10);\nreturn candidates.length ? [{json:{editorial_source:\"São Paulo | Agência São Paulo | Diário do Povo\",candidates,collection_started_at,publish_by_briefing:true}}] : [];"
+      }
     },
     {
       "id": "a3c2e939-04d7-46a3-ae2f-c2d0a0f842aa",
@@ -182,10 +219,9 @@
         },
         "mode": "once",
         "options": {
-          "waitForSubWorkflow": false
+          "waitForSubWorkflow": true
         }
-      },
-      "onError": "continueRegularOutput"
+      }
     },
     {
       "id": "3815c05f-67d7-4244-8b99-0d6f5913c277",
@@ -434,10 +470,23 @@
       "main": [
         [
           {
+            "node": "Publicar pelo fluxo por briefing?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publicar pelo fluxo por briefing?": {
+      "main": [
+        [
+          {
             "node": "Montar lote de candidatas",
             "type": "main",
             "index": 0
-          },
+          }
+        ],
+        [
           {
             "node": "AI Journalist1",
             "type": "main",

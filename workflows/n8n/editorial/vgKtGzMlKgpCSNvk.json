@@ -1,7 +1,7 @@
 {
   "id": "vgKtGzMlKgpCSNvk",
   "name": "Diário — Entrada diária de pautas para a Direção",
-  "versionId": "69bb9e60-a799-4cfe-8503-10bfc9b5adb2",
+  "versionId": "a2d8f5bf-eae2-45fd-9c6b-56953fb70caf",
   "nodes": [
     {
       "id": "3bf9755c-11a6-40f5-a221-ef9eaf38b8f7",
@@ -27,7 +27,7 @@
       ],
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const {candidates, editorial_source, collection_started_at} = $json;\nconst categories = {\"politica\":1,\"economia\":2,\"cidades\":3,\"esporte\":4,\"justica\":5,\"mundo\":6,\"tecnologia\":7,\"piaui\":8,\"sao-paulo\":9,\"rio-de-janeiro\":10,\"ceara\":11,\"cultura\":12,\"geral\":13,\"saude\":14};\nif (typeof editorial_source !== 'string' || !Array.isArray(candidates) || candidates.length < 1 || candidates.length > 10 || candidates.some(c => !c || !Object.hasOwn(categories, c.editoria))) throw Error('Lote de coleta inválido.');\nreturn {json:{candidates, editorial_source, collection_started_at}};"
+        "jsCode": "const {candidates, editorial_source, collection_started_at} = $json;\nconst categories = {\"politica\":1,\"economia\":2,\"cidades\":3,\"esporte\":4,\"justica\":5,\"mundo\":6,\"tecnologia\":7,\"piaui\":8,\"sao-paulo\":9,\"rio-de-janeiro\":10,\"ceara\":11,\"cultura\":12,\"geral\":13,\"saude\":14};\nif (typeof editorial_source !== 'string' || !Array.isArray(candidates) || candidates.length < 1 || candidates.length > 10 || candidates.some(c => !c || !Object.hasOwn(categories, c.editoria))) throw Error('Lote de coleta inválido.');\nreturn {json:{candidates, editorial_source, collection_started_at, publish_by_briefing:$json.publish_by_briefing===true}};"
       }
     },
     {
@@ -72,7 +72,7 @@
       ],
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const lot = $('Conferir candidatas').item.json;\nif ($json.success !== true || !Array.isArray($json.data)) throw Error('Cobertura do CMS indisponível.');\nconst categories = {\"politica\":1,\"economia\":2,\"cidades\":3,\"esporte\":4,\"justica\":5,\"mundo\":6,\"tecnologia\":7,\"piaui\":8,\"sao-paulo\":9,\"rio-de-janeiro\":10,\"ceara\":11,\"cultura\":12,\"geral\":13,\"saude\":14};\nconst selected = new Set(lot.candidates.map(x => categories[x.editoria]));\nconst cutoff = Date.parse(lot.collection_started_at);\nconst recent = Number.isFinite(cutoff) ? $json.data.filter(p => !(Date.parse(p.published_at) > cutoff)) : $json.data;\nconst relevant = recent.filter(p => selected.has(p.category_id));\nconst other = recent.filter(p => !selected.has(p.category_id));\nconst coverage = [...relevant, ...other].slice(0,30).map(p => ({id:p.id, category_id:p.category_id, title:p.title, excerpt:p.excerpt, original_link:p.original_link, published_at:p.published_at}));\nreturn {json:{...lot,coverage,queue:[],stage_for_publication:false,publish_enabled:false}};"
+        "jsCode": "const lot = $('Conferir candidatas').item.json;\nif ($json.success !== true || !Array.isArray($json.data)) throw Error('Cobertura do CMS indisponível.');\nconst categories = {\"politica\":1,\"economia\":2,\"cidades\":3,\"esporte\":4,\"justica\":5,\"mundo\":6,\"tecnologia\":7,\"piaui\":8,\"sao-paulo\":9,\"rio-de-janeiro\":10,\"ceara\":11,\"cultura\":12,\"geral\":13,\"saude\":14};\nconst selected = new Set(lot.candidates.map(x => categories[x.editoria]));\nconst cutoff = Date.parse(lot.collection_started_at);\nconst recent = Number.isFinite(cutoff) ? $json.data.filter(p => !(Date.parse(p.published_at) > cutoff)) : $json.data;\nconst relevant = recent.filter(p => selected.has(p.category_id));\nconst other = recent.filter(p => !selected.has(p.category_id));\nconst coverage = [...relevant, ...other].slice(0,30).map(p => ({id:p.id, category_id:p.category_id, title:p.title, excerpt:p.excerpt, original_link:p.original_link, published_at:p.published_at}));\nreturn {json:{...lot,coverage,queue:[],stage_for_publication:lot.publish_by_briefing,publish_enabled:lot.publish_by_briefing}};"
       }
     },
     {

@@ -1,7 +1,7 @@
 {
   "id": "KyL7IRRbIgnl0lnO",
   "name": "Mundo | O GLOBO | Diário do Povo copy",
-  "versionId": "a6196ad1-ed27-4c44-a6c2-169fe9b36033",
+  "versionId": "af863eef-2454-4d17-a057-319a8f54950e",
   "nodes": [
     {
       "id": "4effc2f3-1cf1-44d9-a125-f12445a3b60c",
@@ -52,6 +52,12 @@
               "name": "DEFAULT_CATEGORY_ID",
               "type": "number",
               "value": 6
+            },
+            {
+              "id": "publicar-por-briefing",
+              "name": "PUBLICAR_POR_BRIEFING",
+              "type": "boolean",
+              "value": true
             }
           ]
         },
@@ -150,6 +156,38 @@
       }
     },
     {
+      "id": "d9e86593-f5b2-4f9e-9735-73bac70a61f5",
+      "name": "Publicar pelo fluxo por briefing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1235,
+        12
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Config1').first().json.PUBLICAR_POR_BRIEFING === true ? 'sim' : 'não' }}",
+              "rightValue": "sim",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
       "id": "60d2d98e-4a52-41da-9ac2-67292a846e51",
       "name": "Montar lote de candidatas",
       "type": "n8n-nodes-base.code",
@@ -160,9 +198,8 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const articles = $input.all();\nconst collection_started_at = $('Schedule Trigger1').first().json.timestamp;\nconst candidates = articles.flatMap(({json: item}, index) => {\n  const url = typeof item.link === 'string' ? item.link.trim() : '';\n  const title = typeof item.title === 'string' ? item.title.trim() : '';\n  const text = [item.source_content, item['content:encoded'], item.content, item.contentSnippet].find(value => typeof value === 'string' && value.trim());\n  if (!(url.startsWith('https://') || url.startsWith('http://')) || !title || !text) return [];\n  return [{id:\"KyL7IRRbIgnl0lnO:\" + (index + 1),editoria:\"mundo\",title:title.slice(0,500),url,text:text.trim().slice(0,16000)}];\n}).slice(0,10);\nreturn candidates.length ? [{json:{editorial_source:\"Mundo | O GLOBO | Diário do Povo copy\",candidates,collection_started_at}}] : [];"
-      },
-      "onError": "continueRegularOutput"
+        "jsCode": "const articles = $input.all();\nconst collection_started_at = $('Schedule Trigger1').first().json.timestamp;\nconst candidates = articles.flatMap(({json: item}, index) => {\n  const url = typeof item.link === 'string' ? item.link.trim() : '';\n  const title = typeof item.title === 'string' ? item.title.trim() : '';\n  const text = [item.source_content, item['content:encoded'], item.content, item.contentSnippet].find(value => typeof value === 'string' && value.trim());\n  if (!(url.startsWith('https://') || url.startsWith('http://')) || !title || !text) return [];\n  return [{id:\"KyL7IRRbIgnl0lnO:\" + (index + 1),editoria:\"mundo\",title:title.slice(0,500),url,text:text.trim().slice(0,16000)}];\n}).slice(0,10);\nreturn candidates.length ? [{json:{editorial_source:\"Mundo | O GLOBO | Diário do Povo copy\",candidates,collection_started_at,publish_by_briefing:true}}] : [];"
+      }
     },
     {
       "id": "1faa46d6-324b-4edf-b26f-42d05326dfc6",
@@ -182,10 +219,9 @@
         },
         "mode": "once",
         "options": {
-          "waitForSubWorkflow": false
+          "waitForSubWorkflow": true
         }
-      },
-      "onError": "continueRegularOutput"
+      }
     },
     {
       "id": "e3b463a3-f8c6-446e-af4a-2fdfee142ce0",
@@ -429,10 +465,23 @@
       "main": [
         [
           {
+            "node": "Publicar pelo fluxo por briefing?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publicar pelo fluxo por briefing?": {
+      "main": [
+        [
+          {
             "node": "Montar lote de candidatas",
             "type": "main",
             "index": 0
-          },
+          }
+        ],
+        [
           {
             "node": "AI Journalist1",
             "type": "main",

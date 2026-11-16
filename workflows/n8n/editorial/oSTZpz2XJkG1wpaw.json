@@ -1,7 +1,7 @@
 {
   "id": "oSTZpz2XJkG1wpaw",
   "name": "Economia | Agência Brasil | Diário do Povo",
-  "versionId": "37f3de21-e369-4774-97ae-1d68b6b09752",
+  "versionId": "f526ec8f-372a-4e4c-9679-3d9a6f5b4692",
   "nodes": [
     {
       "id": "5cb013f5-a3f4-4b9d-8fcb-0c44cb4d1421",
@@ -52,6 +52,12 @@
               "name": "DEFAULT_CATEGORY_ID",
               "type": "number",
               "value": 2
+            },
+            {
+              "id": "publicar-por-briefing",
+              "name": "PUBLICAR_POR_BRIEFING",
+              "type": "boolean",
+              "value": true
             }
           ]
         },
@@ -150,6 +156,38 @@
       }
     },
     {
+      "id": "c094fab6-6c1d-4838-a3ca-7a4a185362f6",
+      "name": "Publicar pelo fluxo por briefing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1891,
+        476
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Config1').first().json.PUBLICAR_POR_BRIEFING === true ? 'sim' : 'não' }}",
+              "rightValue": "sim",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
       "id": "4f2f0db2-2fa2-41a4-8497-121be19ba09a",
       "name": "Montar lote de candidatas",
       "type": "n8n-nodes-base.code",
@@ -160,9 +198,8 @@
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const articles = $input.all();\nconst collection_started_at = $('Schedule Trigger1').first().json.timestamp;\nconst candidates = articles.flatMap(({json: item}, index) => {\n  const url = typeof item.link === 'string' ? item.link.trim() : '';\n  const title = typeof item.title === 'string' ? item.title.trim() : '';\n  const text = [item.source_content, item['content:encoded'], item.content, item.contentSnippet].find(value => typeof value === 'string' && value.trim());\n  if (!(url.startsWith('https://') || url.startsWith('http://')) || !title || !text) return [];\n  return [{id:\"oSTZpz2XJkG1wpaw:\" + (index + 1),editoria:\"economia\",title:title.slice(0,500),url,text:text.trim().slice(0,16000)}];\n}).slice(0,10);\nreturn candidates.length ? [{json:{editorial_source:\"Economia | Agência Brasil | Diário do Povo\",candidates,collection_started_at}}] : [];"
-      },
-      "onError": "continueRegularOutput"
+        "jsCode": "const articles = $input.all();\nconst collection_started_at = $('Schedule Trigger1').first().json.timestamp;\nconst candidates = articles.flatMap(({json: item}, index) => {\n  const url = typeof item.link === 'string' ? item.link.trim() : '';\n  const title = typeof item.title === 'string' ? item.title.trim() : '';\n  const text = [item.source_content, item['content:encoded'], item.content, item.contentSnippet].find(value => typeof value === 'string' && value.trim());\n  if (!(url.startsWith('https://') || url.startsWith('http://')) || !title || !text) return [];\n  return [{id:\"oSTZpz2XJkG1wpaw:\" + (index + 1),editoria:\"economia\",title:title.slice(0,500),url,text:text.trim().slice(0,16000)}];\n}).slice(0,10);\nreturn candidates.length ? [{json:{editorial_source:\"Economia | Agência Brasil | Diário do Povo\",candidates,collection_started_at,publish_by_briefing:true}}] : [];"
+      }
     },
     {
       "id": "96f8ed77-5644-4238-bb70-9922769cb181",
@@ -182,10 +219,9 @@
         },
         "mode": "once",
         "options": {
-          "waitForSubWorkflow": false
+          "waitForSubWorkflow": true
         }
-      },
-      "onError": "continueRegularOutput"
+      }
     },
     {
       "id": "30154774-c8ea-4276-a313-39caf26d5488",
@@ -439,10 +475,23 @@
       "main": [
         [
           {
+            "node": "Publicar pelo fluxo por briefing?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publicar pelo fluxo por briefing?": {
+      "main": [
+        [
+          {
             "node": "Montar lote de candidatas",
             "type": "main",
             "index": 0
-          },
+          }
+        ],
+        [
           {
             "node": "AI Journalist1",
             "type": "main",
