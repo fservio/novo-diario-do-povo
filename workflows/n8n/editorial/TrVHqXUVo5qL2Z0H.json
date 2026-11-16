@@ -1,7 +1,7 @@
 {
   "id": "TrVHqXUVo5qL2Z0H",
   "name": "Ceará | Governo do Ceará | Diário do Povo",
-  "versionId": "24cde4ab-f903-4b0e-84d7-230ead33333c",
+  "versionId": "406da6ac-7972-444f-b01d-aed53efe25ae",
   "nodes": [
     {
       "id": "9dbf7aa5-c6be-4489-b9c4-67919312e35a",
@@ -150,6 +150,44 @@
       "parameters": {
         "jsCode": "const responses=$input.all(),sources=$('Prepare RSS').all();\nif(responses.length!==sources.length)throw Error('Quantidade inesperada de respostas da consulta de duplicidade.');\nfor(const item of responses)if(item.json.success!==true||!Array.isArray(item.json.data))throw Error('A consulta de duplicidade falhou. Nenhuma notícia deste lote será publicada.');\nconst output=[];\nfor(let index=0;index<responses.length&&output.length<10;index++){\n if(responses[index].json.data.length===0){\n  const source=$('Prepare RSS').itemMatching(index);\n  if(!source?.json?.link)throw Error('Vínculo com o RSS não encontrado.');\n  output.push({json:source.json,pairedItem:{item:index}});\n }\n}\nconsole.log('RSS: '+sources.length+' candidatas; '+output.length+' inéditas selecionadas (máximo 10).');\nreturn output;\n"
       }
+    },
+    {
+      "id": "a1a2fd14-b748-4895-8717-604a58557f0d",
+      "name": "Montar lote de candidatas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2011,
+        296
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const articles = $input.all();\nconst collection_started_at = $('Schedule Trigger1').first().json.timestamp;\nconst candidates = articles.flatMap(({json: item}, index) => {\n  const url = typeof item.link === 'string' ? item.link.trim() : '';\n  const title = typeof item.title === 'string' ? item.title.trim() : '';\n  const text = [item.source_content, item['content:encoded'], item.content, item.contentSnippet].find(value => typeof value === 'string' && value.trim());\n  if (!(url.startsWith('https://') || url.startsWith('http://')) || !title || !text) return [];\n  return [{id:\"TrVHqXUVo5qL2Z0H:\" + (index + 1),editoria:\"ceara\",title:title.slice(0,500),url,text:text.trim().slice(0,16000)}];\n}).slice(0,10);\nreturn candidates.length ? [{json:{editorial_source:\"Ceará | Governo do Ceará | Diário do Povo\",candidates,collection_started_at}}] : [];"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "324c2b86-11e3-487f-b354-cd299c334447",
+      "name": "Enviar candidatas à Direção",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2251,
+        296
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "vgKtGzMlKgpCSNvk"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "id": "923c66e3-7cf1-45aa-a7dc-fbee1219e222",
@@ -398,7 +436,23 @@
       "main": [
         [
           {
+            "node": "Montar lote de candidatas",
+            "type": "main",
+            "index": 0
+          },
+          {
             "node": "AI Journalist1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar lote de candidatas": {
+      "main": [
+        [
+          {
+            "node": "Enviar candidatas à Direção",
             "type": "main",
             "index": 0
           }

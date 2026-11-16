@@ -1,7 +1,7 @@
 {
   "id": "mV87fV58QynLJvVR",
   "name": "Piauí | G1 | Diário do Povo",
-  "versionId": "35abbd2d-1625-4379-a813-5a234b9b6aa8",
+  "versionId": "efcb3e31-3f40-4333-9a52-173d733fd3c6",
   "nodes": [
     {
       "id": "77bbefe4-965d-402e-84ad-3b1c035da442",
@@ -148,6 +148,44 @@
       "parameters": {
         "jsCode": "const responses = $input.all();\nconst sources = $('Prepare RSS').all();\nif (responses.length !== sources.length) throw new Error('Quantidade inesperada de respostas da consulta de duplicidade.');\nfor (const item of responses) {\n  if (item.json.success !== true || !Array.isArray(item.json.data)) {\n    throw new Error('A consulta de duplicidade falhou ou retornou dados inválidos. Publicação interrompida.');\n  }\n}\nfor (let index = 0; index < responses.length; index++) {\n  if (responses[index].json.data.length === 0) {\n    return [{ json: sources[index].json, pairedItem: { item: index } }];\n  }\n}\nreturn [];"
       }
+    },
+    {
+      "id": "c5131e37-f389-410a-a56e-f437bdddccfd",
+      "name": "Montar lote de candidatas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -101,
+        -344
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const articles = $input.all();\nconst collection_started_at = $('Schedule Trigger1').first().json.timestamp;\nconst candidates = articles.flatMap(({json: item}, index) => {\n  const url = typeof item.link === 'string' ? item.link.trim() : '';\n  const title = typeof item.title === 'string' ? item.title.trim() : '';\n  const text = [item.source_content, item['content:encoded'], item.content, item.contentSnippet].find(value => typeof value === 'string' && value.trim());\n  if (!(url.startsWith('https://') || url.startsWith('http://')) || !title || !text) return [];\n  return [{id:\"mV87fV58QynLJvVR:\" + (index + 1),editoria:\"piaui\",title:title.slice(0,500),url,text:text.trim().slice(0,16000)}];\n}).slice(0,10);\nreturn candidates.length ? [{json:{editorial_source:\"Piauí | G1 | Diário do Povo\",candidates,collection_started_at}}] : [];"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "f003254e-e944-472b-9872-2e9c7327c170",
+      "name": "Enviar candidatas à Direção",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        139,
+        -344
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "vgKtGzMlKgpCSNvk"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "id": "cc6828b4-458e-4be0-b448-703b2092133e",
@@ -386,7 +424,23 @@
       "main": [
         [
           {
+            "node": "Montar lote de candidatas",
+            "type": "main",
+            "index": 0
+          },
+          {
             "node": "AI Journalist1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar lote de candidatas": {
+      "main": [
+        [
+          {
+            "node": "Enviar candidatas à Direção",
             "type": "main",
             "index": 0
           }

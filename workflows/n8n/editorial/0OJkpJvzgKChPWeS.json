@@ -1,7 +1,7 @@
 {
   "id": "0OJkpJvzgKChPWeS",
   "name": "Saúde | Agência Brasil | Diário do Povo",
-  "versionId": "08a4b0d9-ffe6-4c3d-8bc7-63e1e9bd5294",
+  "versionId": "a101800e-d7d1-4607-81ff-be1d27174319",
   "nodes": [
     {
       "id": "0f5f0ce6-ea57-49e0-802d-ca631468c32a",
@@ -147,6 +147,44 @@
       "parameters": {
         "jsCode": "const responses=$input.all(),sources=$('Prepare RSS').all();\nif(responses.length!==sources.length)throw Error('Quantidade inesperada de respostas da consulta de duplicidade.');\nfor(const item of responses)if(item.json.success!==true||!Array.isArray(item.json.data))throw Error('A consulta de duplicidade falhou. Nenhuma notícia deste lote será publicada.');\nconst output=[];\nfor(let index=0;index<responses.length&&output.length<10;index++){\n if(responses[index].json.data.length===0){\n  const source=$('Prepare RSS').itemMatching(index);\n  if(!source?.json?.link)throw Error('Vínculo com o RSS não encontrado.');\n  output.push({json:source.json,pairedItem:{item:index}});\n }\n}\nconsole.log('RSS: '+sources.length+' candidatas; '+output.length+' inéditas selecionadas (máximo 10).');\nreturn output;\n"
       }
+    },
+    {
+      "id": "500dfacb-0f96-47a9-8ab0-b5f9a2407aae",
+      "name": "Montar lote de candidatas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2011,
+        296
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const articles = $input.all();\nconst collection_started_at = $('Schedule Trigger1').first().json.timestamp;\nconst candidates = articles.flatMap(({json: item}, index) => {\n  const url = typeof item.link === 'string' ? item.link.trim() : '';\n  const title = typeof item.title === 'string' ? item.title.trim() : '';\n  const text = [item.source_content, item['content:encoded'], item.content, item.contentSnippet].find(value => typeof value === 'string' && value.trim());\n  if (!(url.startsWith('https://') || url.startsWith('http://')) || !title || !text) return [];\n  return [{id:\"0OJkpJvzgKChPWeS:\" + (index + 1),editoria:\"saude\",title:title.slice(0,500),url,text:text.trim().slice(0,16000)}];\n}).slice(0,10);\nreturn candidates.length ? [{json:{editorial_source:\"Saúde | Agência Brasil | Diário do Povo\",candidates,collection_started_at}}] : [];"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "de88331c-ac02-4f81-b8c6-b1803fe7f755",
+      "name": "Enviar candidatas à Direção",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2251,
+        296
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "vgKtGzMlKgpCSNvk"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "id": "3b7875aa-a336-45e9-8004-45ae088523f8",
@@ -395,7 +433,23 @@
       "main": [
         [
           {
+            "node": "Montar lote de candidatas",
+            "type": "main",
+            "index": 0
+          },
+          {
             "node": "AI Journalist1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar lote de candidatas": {
+      "main": [
+        [
+          {
+            "node": "Enviar candidatas à Direção",
             "type": "main",
             "index": 0
           }
