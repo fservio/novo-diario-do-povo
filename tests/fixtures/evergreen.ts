@@ -5,10 +5,11 @@ import {handleGuidesAdmin,handleGuideAdmin,handleGuideAdminSave} from '../../pac
 import {handleGuidesPage,handleGuidePage,handleGuidePreview,handleGuidesSitemap} from '../../packages/core/web/guides'
 import {handleN8nGuides} from '../../packages/core/web/n8n-guides'
 const {DatabaseSync}=createRequire(import.meta.url)('node:sqlite')
-export function guideFixture(){
+export function guideFixture({legacyPublications=false}={}){
  const db=new DatabaseSync(':memory:')
  db.exec('CREATE TABLE settings(key TEXT,scope TEXT,value_json TEXT)')
  db.exec("PRAGMA foreign_keys=ON;CREATE TABLE users(id INTEGER PRIMARY KEY,name TEXT);INSERT INTO users VALUES(1,'Editora de demonstração');CREATE TABLE authors(id INTEGER PRIMARY KEY,name TEXT,slug TEXT,is_active INTEGER);INSERT INTO authors VALUES(1,'Redação de demonstração','redacao',1);CREATE TABLE categories(id INTEGER PRIMARY KEY,name TEXT,slug TEXT,is_active INTEGER);INSERT INTO categories VALUES(1,'Geral','geral',1),(2,'Tecnologia','tecnologia',1),(3,'Economia','economia',1),(4,'Cultura','cultura',1);CREATE TABLE posts(id INTEGER PRIMARY KEY,title TEXT,excerpt TEXT,slug TEXT,status TEXT,seo_noindex INTEGER,published_at TEXT,created_at TEXT);INSERT INTO posts VALUES(1,'Notícia de demonstração sobre tempo e clima','O tempo e o clima estão em debate.','noticia-exemplo','published',0,'2026-11-01T10:00:00Z','2026-11-01T10:00:00Z')")
+ if (!legacyPublications) db.exec("ALTER TABLE posts ADD COLUMN publication_id TEXT NOT NULL DEFAULT 'diario'")
  db.exec(readFileSync('migrations/0053_evergreen_guides.sql','utf8'))
  const prepare=(q:string,args:any[]=[]):any=>({bind:(...v:any[])=>prepare(q,v),first:async()=>db.prepare(q).get(...args)||null,all:async()=>({results:db.prepare(q).all(...args)}),run:async()=>db.prepare(q).run(...args)})
  const cache=new Map<string,string>(),env:any={PUBLIC_BASE_URL:'https://diario.dopovo.com.br',DB:{prepare,batch:async(statements:any[])=>{db.exec('BEGIN');try{const result=[];for(const s of statements)result.push(await s.run());db.exec('COMMIT');return result}catch(e){db.exec('ROLLBACK');throw e}}},CACHE:{get:async(k:string)=>cache.has(k)?JSON.parse(cache.get(k)!):null,put:async(k:string,v:string)=>{cache.set(k,v)},delete:async(k:string)=>cache.delete(k)}}

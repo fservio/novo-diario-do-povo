@@ -6,6 +6,7 @@
 import type { D1Database } from '@cloudflare/workers-types'
 import { mergeSeoMetadata, readSeoMetadata, seoSnapshot, saveSeoMetadata, SeoAutomationError, seoMetadataPartialSchema } from '../seo-automation'
 import { normalizePublicationSchedule } from '../post-scheduling'
+import { publicationIdSchema, type PublicationId } from '../publications'
 import { renderMarkdownToHtml, sanitizeHtml } from '../render/sanitize'
 import { editorialDocumentHasText, renderEditorialDocumentToHtml, type EditorialContentFormat } from '../editorial-content'
 
@@ -15,6 +16,7 @@ const totalCountCache = new Map<string, { count: number; expires: number }>()
 const CACHE_TTL_MS = 10 * 60 * 1000 // 10 minutes
 
 export interface Post {
+  publication_id?: PublicationId
   id: number
   slug: string
   title: string
@@ -102,6 +104,7 @@ export interface PostFilters {
 }
 
 export interface CreatePostInput {
+  publication_id?: PublicationId
   title: string
   hat?: string
   slug?: string
@@ -137,6 +140,7 @@ export interface CreatePostInput {
 }
 
 export interface UpdatePostInput {
+  publication_id?: PublicationId
   title?: string
   hat?: string
   slug?: string
@@ -521,6 +525,8 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
     now // updated_at
   ]
 
+  const publication = input.publication_id === undefined ? undefined : publicationIdSchema.parse(input.publication_id)
+  if (publication !== undefined) bindValues.push(publication)
   const result = await db.prepare(`
     INSERT INTO posts (
       title, hat, slug, excerpt, content, content_markdown, content_json, content_format, content_version,
@@ -530,8 +536,8 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
       social_title, social_description, social_share_text, social_image_media_id,
       social_image_position_x, social_image_position_y,
       is_premium, paywall_tier, metering_exempt, is_live, is_headline, original_link,
-      created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      created_at, updated_at${publication !== undefined ? ', publication_id' : ''}
+    ) VALUES (${bindValues.map(() => '?').join(', ')})
   `).bind(...bindValues).run()
 
   const postId = result.meta.last_row_id
@@ -601,6 +607,11 @@ export async function updatePost(db: D1Database, id: number, input: UpdatePostIn
   // Build dynamic UPDATE
   const fields: string[] = []
   const values: any[] = []
+
+  if (input.publication_id !== undefined) {
+    fields.push('publication_id = ?')
+    values.push(publicationIdSchema.parse(input.publication_id))
+  }
 
   if (input.title !== undefined) {
     fields.push('title = ?')

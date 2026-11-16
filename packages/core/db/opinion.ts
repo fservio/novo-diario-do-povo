@@ -38,7 +38,7 @@ export async function listPublishedOpinionPosts(env: Env, limit = 36, columnHigh
     ${columnHighlights ? `WITH ranked_columns AS (
       SELECT p.id, ROW_NUMBER() OVER (PARTITION BY p.author_id ORDER BY datetime(p.published_at) DESC, p.id DESC) AS position
       FROM posts p JOIN authors a ON a.id=p.author_id
-      WHERE p.status='published' AND p.opinion_type='column' AND p.seo_noindex=0
+      WHERE p.status='published' AND p.publication_id = 'diario' AND p.opinion_type='column' AND p.seo_noindex=0
         AND datetime(p.published_at)<=datetime('now') AND a.is_active=1
     )` : ''}
     SELECT
@@ -52,7 +52,7 @@ export async function listPublishedOpinionPosts(env: Env, limit = 36, columnHigh
     LEFT JOIN authors a ON a.id = p.author_id
     LEFT JOIN media ma ON ma.id = a.avatar_media_id
     LEFT JOIN media mc ON mc.id = p.cover_media_id
-    WHERE p.status = 'published'
+    WHERE p.status = 'published' AND p.publication_id = 'diario'
       AND datetime(p.published_at) <= datetime('now')
       AND p.seo_noindex = 0
       AND p.opinion_type IN ('editorial', 'article', 'column')
@@ -72,7 +72,7 @@ export async function listOpinionColumnists(env: Env): Promise<OpinionColumnist[
         p.author_id, p.slug, p.title, p.published_at,
         ROW_NUMBER() OVER (PARTITION BY p.author_id ORDER BY datetime(p.published_at) DESC, p.id DESC) AS row_number
       FROM posts p
-      WHERE p.status = 'published'
+      WHERE p.status = 'published' AND p.publication_id = 'diario'
         AND datetime(p.published_at) <= datetime('now')
         AND p.seo_noindex = 0
         AND p.opinion_type = 'column'

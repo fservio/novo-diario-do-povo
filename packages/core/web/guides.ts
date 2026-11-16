@@ -38,7 +38,7 @@ async function guideResponse(c:Context,row:any,preview=false){
  const env=c.env as Env
  const doc=guideDocumentSchema.parse(JSON.parse(row.document_json)),research=guideDraftResearchSchema.parse(JSON.parse(row.research_json)),headings:{id:string;text:string}[]=[]
  const content=renderMarkdownToHtml(doc.body_markdown).replace(/<h2>([\s\S]*?)<\/h2>/g,(_,text)=>{const id='secao-'+(headings.length+1);headings.push({id,text:text.replace(/<[^>]*>/g,'')});return `<h2 id="${id}">${text}</h2>`})
- const news=(await env.DB.prepare("SELECT p.title,p.slug,p.published_at,p.created_at FROM evergreen_news_links l JOIN posts p ON p.id=l.post_id WHERE l.guide_id=? AND p.status='published' AND p.seo_noindex=0 AND p.published_at<=? ORDER BY p.published_at DESC LIMIT 4").bind(row.id,new Date().toISOString()).all<any>()).results
+ const news=(await env.DB.prepare("SELECT p.title,p.slug,p.published_at,p.created_at FROM evergreen_news_links l JOIN posts p ON p.id=l.post_id WHERE l.guide_id=? AND p.status='published' AND p.publication_id = 'diario' AND p.seo_noindex=0 AND p.published_at<=? ORDER BY p.published_at DESC LIMIT 4").bind(row.id,new Date().toISOString()).all<any>()).results
  const adSlot=preview?undefined:await findActiveSlotsByTemplate(env,'article')
   .then(slots=>slots.find(slot=>slot.name==='article_footer'))
   .catch((): undefined => undefined)

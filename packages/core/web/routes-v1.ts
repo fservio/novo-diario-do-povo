@@ -120,7 +120,7 @@ app.get('/ultimas', async (c) => {
       c.name as category_name, c.slug as category_slug
     FROM posts p
     INNER JOIN categories c ON p.category_id = c.id
-    WHERE p.status = 'published' 
+    WHERE p.status = 'published' AND p.publication_id = 'diario'
       AND p.published_at <= ?
       AND p.seo_noindex = 0
       AND p.slug NOT LIKE 'previsao-do-tempo-%'
@@ -223,7 +223,7 @@ app.get('/tag/:slug', async (c) => {
             c.env.DB.prepare(`
                 SELECT p.* FROM posts p
                 INNER JOIN posts_tags pt ON pt.post_id = p.id
-                WHERE pt.tag_id = ? AND p.status = 'published'
+                WHERE pt.tag_id = ? AND p.status = 'published' AND p.publication_id = 'diario'
                 ORDER BY p.published_at DESC
                 LIMIT 30
             `).bind(tag.id).all()

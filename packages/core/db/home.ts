@@ -145,7 +145,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
     INNER JOIN categories c ON p.category_id = c.id
     INNER JOIN authors a ON p.author_id = a.id
     LEFT JOIN media m ON p.cover_media_id = m.id
-    WHERE p.status = 'published' 
+    WHERE p.status = 'published' AND p.publication_id = 'diario'
       AND p.published_at <= ?
       AND p.seo_noindex = 0
       AND c.slug != 'explicador'
@@ -167,7 +167,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
       JOIN categories c ON p.category_id = c.id
       JOIN authors a ON p.author_id = a.id
       LEFT JOIN media m ON p.cover_media_id = m.id
-      WHERE c.slug = 'politica' AND p.status = 'published' AND p.published_at <= ?1
+      WHERE c.slug = 'politica' AND p.status = 'published' AND p.publication_id = 'diario' AND p.published_at <= ?1
       ORDER BY p.published_at DESC LIMIT 1
     )
     UNION ALL
@@ -181,7 +181,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
       JOIN categories c ON p.category_id = c.id
       JOIN authors a ON p.author_id = a.id
       LEFT JOIN media m ON p.cover_media_id = m.id
-      WHERE c.slug = 'economia' AND p.status = 'published' AND p.published_at <= ?1
+      WHERE c.slug = 'economia' AND p.status = 'published' AND p.publication_id = 'diario' AND p.published_at <= ?1
       ORDER BY p.published_at DESC LIMIT 1
     )
     UNION ALL
@@ -195,7 +195,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
       JOIN categories c ON p.category_id = c.id
       JOIN authors a ON p.author_id = a.id
       LEFT JOIN media m ON p.cover_media_id = m.id
-      WHERE c.slug = 'esporte' AND p.status = 'published' AND p.published_at <= ?1
+      WHERE c.slug = 'esporte' AND p.status = 'published' AND p.publication_id = 'diario' AND p.published_at <= ?1
       ORDER BY p.published_at DESC LIMIT 1
     )
   `).bind(now).all<HomePost>()
@@ -213,7 +213,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
       c.name AS category_name,c.slug AS category_slug,a.name AS author_name,picks.position
     FROM picks JOIN posts p ON p.id=picks.id JOIN categories c ON c.id=p.category_id JOIN authors a ON a.id=p.author_id
     LEFT JOIN media m ON m.id=p.cover_media_id
-    WHERE p.status='published' AND p.seo_noindex=0
+    WHERE p.status='published' AND p.publication_id = 'diario' AND p.seo_noindex=0
       AND c.slug!='explicador' AND p.published_at<=?
     ORDER BY position
   `).bind(now,now).all<HomePost & {position:number}>()
@@ -243,7 +243,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
     INNER JOIN categories c ON p.category_id = c.id
     INNER JOIN authors a ON p.author_id = a.id
     LEFT JOIN media m ON p.cover_media_id = m.id
-    WHERE p.status = 'published' 
+    WHERE p.status = 'published' AND p.publication_id = 'diario'
       AND p.published_at <= ?
       AND p.seo_noindex = 0
       AND c.slug != 'explicador'
@@ -263,7 +263,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
     INNER JOIN categories c ON p.category_id = c.id
     INNER JOIN authors a ON p.author_id = a.id
     LEFT JOIN media m ON p.cover_media_id = m.id
-    WHERE p.status = 'published' 
+    WHERE p.status = 'published' AND p.publication_id = 'diario'
       AND p.published_at <= ?
       AND p.seo_noindex = 0
       AND p.id != ?
@@ -295,7 +295,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
           INNER JOIN authors a ON p.author_id = a.id
           LEFT JOIN media m ON p.cover_media_id = m.id
           INNER JOIN posts_tags pt ON pt.post_id = p.id
-          WHERE p.status = 'published' 
+          WHERE p.status = 'published' AND p.publication_id = 'diario'
             AND p.published_at <= ?
             AND p.seo_noindex = 0
             AND pt.tag_id = ?
@@ -316,7 +316,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
       INNER JOIN categories c ON p.category_id = c.id
       INNER JOIN authors a ON p.author_id = a.id
       LEFT JOIN media m ON m.id = p.cover_media_id
-      WHERE p.status = 'published' 
+      WHERE p.status = 'published' AND p.publication_id = 'diario'
         AND p.published_at <= ?
         AND p.seo_noindex = 0
         AND c.slug = 'explicador'
@@ -352,7 +352,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
             FROM settings s, json_each(s.value_json,'$.sections') section, json_each(section.value) pick
             WHERE s.key='home.ai_edition' AND section.key=?
           ), recent AS (
-            SELECT id FROM posts WHERE category_id=? AND status='published' AND published_at<=? AND seo_noindex=0 AND slug NOT LIKE 'previsao-do-tempo-%'
+            SELECT id FROM posts WHERE category_id=? AND status='published' AND publication_id = 'diario' AND published_at<=? AND seo_noindex=0 AND slug NOT LIKE 'previsao-do-tempo-%'
             ORDER BY published_at DESC LIMIT 12
           ), candidates AS (
             SELECT id FROM recent UNION SELECT id FROM picks
@@ -368,7 +368,7 @@ export async function getHomeData(env: Env): Promise<HomeData> {
           INNER JOIN authors a ON p.author_id = a.id
           LEFT JOIN media m ON p.cover_media_id = m.id
           WHERE p.category_id = ?
-            AND p.status = 'published'
+            AND p.status = 'published' AND p.publication_id = 'diario'
             AND p.published_at <= ?
             AND p.seo_noindex = 0
             AND p.slug NOT LIKE 'previsao-do-tempo-%'

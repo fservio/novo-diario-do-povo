@@ -13,6 +13,7 @@ import { seoMetadataShape } from '../seo-automation'
 import { renderMarkdownToHtml, sanitizeHtml } from '../render/sanitize'
 import { renderEditorialDocumentToHtml } from '../editorial-content'
 import { z } from 'zod'
+import { doPovoPublicDeliveryUnavailable, publicationIdSchema } from '../publications'
 import { normalizePublicationSchedule, formatPublicationScheduleInput } from '../post-scheduling'
 import {
   listPosts,
@@ -32,6 +33,7 @@ import {
 // ============================================================================
 
 const postSchemaShape = {
+  publication_id: publicationIdSchema.optional(),
   hat: z.string()
     .max(60, 'Chapéu deve ter no máximo 60 caracteres')
     .transform(val => val.trim().toUpperCase())
@@ -399,7 +401,7 @@ function renderPostFormPage(params: {
     }
   }
 
-  const publicationPanel = !isNew && post ? `
+  const publicationPanel = !isNew && post && post.publication_id !== 'do-povo' ? `
     <div class="card" style="margin-bottom: 2rem; display: flex; flex-direction: column; gap: 1rem;">
       <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
         <strong style="color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase;">Status:</strong>
@@ -624,6 +626,14 @@ function renderPostFormPage(params: {
         })();
       </script>
       
+      <div class="form-group">
+        <label for="publication_id">Publicação de origem</label>
+        <select id="publication_id" name="publication_id" class="form-control" ${post?.published_at || post?.scheduled_at || post?.status === 'published' ? 'disabled' : ''}>
+          <option value="diario">Diário do Povo</option>
+          <option value="do-povo" ${post?.publication_id === 'do-povo' ? 'selected' : ''}>Do Povo</option>
+        </select>
+        ${post?.publication_id === 'do-povo' ? `<small>${doPovoPublicDeliveryUnavailable}</small>` : ''}
+      </div>
       <!-- Categoria + Autor -->
       <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
         <div class="form-group" style="margin-bottom: 0;">

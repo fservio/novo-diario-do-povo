@@ -77,6 +77,19 @@ app.use('*', async (c, next) => {
 
 app.use('*', loggingMiddleware)
 app.use('*', securityHeaders)
+app.use('*', async (c, next) => {
+  const hostname = new URL(c.req.url).hostname
+  if (hostname !== 'dopovo.com.br' && hostname !== 'www.dopovo.com.br') return next()
+  if (hostname === 'www.dopovo.com.br' && (c.req.method === 'GET' || c.req.method === 'HEAD')) {
+    const url = new URL(c.req.url)
+    url.hostname = 'dopovo.com.br'
+    url.protocol = 'https:'
+    url.port = ''
+    return c.redirect(url.href, 301)
+  }
+  if (c.req.path.startsWith('/static/') || c.req.path.startsWith('/i/')) return next()
+  return (await import('../packages/core/web/do-povo-preview')).handleDoPovoPublic(c)
+})
 app.use('*', invalidateHomeAfterEditorialWrite)
 app.use('*', completePublicMenu)
 
@@ -90,6 +103,16 @@ app.use('/api/n8n/*', async (c, next) => {
 
   if (!apiKeyHeader) {
     return c.json({ success: false, error: 'Unauthorized: Missing Key' }, 401)
+  }
+
+  const coverKey = c.env.N8N_DO_POVO_COVER_KEY
+  if (coverKey) {
+    const coverOperation = c.req.method === 'POST' &&
+      /^\/api\/n8n\/do-povo\/cover\/(candidates|apply)$/.test(c.req.path)
+    if (coverOperation || apiKeyHeader === coverKey) {
+      if (coverOperation && apiKeyHeader === coverKey) return next()
+      return c.json({ success: false, error: 'Unauthorized: Do Povo Cover Key Scope' }, 401)
+    }
   }
 
   const pilotKey = c.env.N8N_INTERNAL_LINKS_PILOT_KEY
@@ -120,6 +143,8 @@ app.use('/api/n8n/*', async (c, next) => {
 app.route('/api/n8n/seo', (await import('../packages/core/seo-automation')).createSeoAutomationRouter())
 app.post('/api/n8n/guides/:operation',async c=>(await import('../packages/core/web/n8n-guides')).handleN8nGuides(c))
 app.post('/api/n8n/home/:operation',async c=>(await import('../packages/core/web/n8n-home')).handleN8nHome(c))
+app.post('/api/n8n/do-povo/cover/:operation', async c =>
+  (await import('../packages/core/web/do-povo-cover')).handleSharedDoPovoWorkflow(c))
 app.post('/api/n8n/planalto-central/:operation',async c=>(await import('../packages/core/web/n8n-planalto-central')).handleN8nPlanaltoCentral(c))
 app.post('/api/n8n/painel-economico/:operation',async c=>(await import('../packages/core/web/n8n-planalto-central')).handleN8nPlanaltoCentral(c,'painel-economico'))
 app.post('/api/n8n/internacional/:operation',async c=>(await import('../packages/core/web/n8n-planalto-central')).handleN8nPlanaltoCentral(c,'internacional'))
@@ -304,6 +329,14 @@ app.post('/api/n8n/posts', async (c) => {
     const { getPostById } = await import('../packages/core/db/posts')
     const { createImportedPost } = await import('../packages/core/db/imported-posts')
     const body = await c.req.json() as any // Cast mostly to any to allow flexible input, validated below
+    const { publicationIdSchema, doPovoPublicDeliveryUnavailable } = await import('../packages/core/publications')
+    const publication = publicationIdSchema.optional().safeParse(body?.publicationId)
+    if (!publication.success) {
+      return c.json({ success: false, error: 'publicationId deve ser diario ou do-povo.' }, 400)
+    }
+    if (publication.data === 'do-povo' && body.status === 'published') {
+      return c.json({ success: false, error: doPovoPublicDeliveryUnavailable }, 409)
+    }
 
     // Basic validation
     if (!body.title || !body.content) {
@@ -352,6 +385,7 @@ app.post('/api/n8n/posts', async (c) => {
 
     // Default values suitable for n8n
     const input: CreatePostInput = {
+      publication_id: publication.data,
       title: body.title,
       content: body.content,
       slug: body.slug,
@@ -523,7 +557,8 @@ app.post('/api/n8n/posts', async (c) => {
         reused,
         slug: post?.slug,
         status: post?.status,
-        url: post ? getPostUrl(post, 'https://diario.dopovo.com.br') : ''
+        publicationId: post?.publication_id || 'diario',
+        url: post && post.publication_id !== 'do-povo' ? getPostUrl(post, 'https://diario.dopovo.com.br') : ''
       }
     })
   } catch (error: any) {
@@ -1264,6 +1299,15 @@ app.post('/admin/home/hero', async (c,next)=>{
   return csrfProtection(c,next)
 },async c=>(await import('../packages/core/admin/home-hero')).saveHomeHero(c))
 
+app.use('/admin/do-povo', async (c, next) =>
+  (await import('../packages/core/middleware')).csrfProtection(c, next))
+app.on(['GET', 'POST'], '/admin/do-povo', async c =>
+  (await import('../packages/core/web/do-povo-preview')).handleSharedDoPovoPreview(c))
+app.get('/admin/do-povo/previa', async c =>
+  (await import('../packages/core/web/do-povo-preview')).handleSharedDoPovoPreview(c))
+app.get('/admin/do-povo/previa/materia/:slug', async c =>
+  (await import('../packages/core/web/do-povo-preview')).handleSharedDoPovoPreview(c))
+
 app.get('/admin', async (c) => {
   try {
     const { getCookie } = await import('hono/cookie')
@@ -1338,6 +1382,7 @@ app.get('/admin', async (c) => {
         <a href="/admin/posts/new" class="btn">${dashboardIcon('posts')} Nova matéria</a>
       </div>
 
+      ${canPinHero ? '<p><a href="/admin/do-povo">Redação do Do Povo</a></p>' : ''}
       ${canPinHero?`<section id="home-hero" class="stat-card" style="margin-bottom:1rem">
         <h2>Manchete da home</h2>
         <p>${heroPin?`Fixada até ${new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Fortaleza',dateStyle:'short',timeStyle:'short'}).format(new Date(heroPin.until))} · ${escapeHtml(heroPin.title)}`:'Modo automático'}</p>
@@ -2383,6 +2428,13 @@ app.get('/admin/posts/:id/preview', async (c) => {
   const post = await getPostById(c.env.DB, id)
   if (!post) {
     return c.notFound()
+  }
+
+  if (post.publication_id === 'do-povo') {
+    const { renderDoPovoDraft } = await import('../packages/core/web/do-povo-preview')
+    c.header('Cache-Control', 'private, no-store')
+    c.header('X-Robots-Tag', 'noindex, nofollow')
+    return c.html(renderDoPovoDraft(post))
   }
 
   const looksLikeMarkdown = (value: string | null | undefined): boolean => {

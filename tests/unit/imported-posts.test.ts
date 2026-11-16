@@ -13,7 +13,7 @@ describe('import delivery retries', () => {
     const db = { prepare: vi.fn().mockReturnValue({ bind }) } as any
     expect(await createImportedPost(db, { ...input, original_link: ' https://agencia.example/noticia ' }))
       .toEqual({ id: 42, reused: true })
-    expect(bind).toHaveBeenCalledWith('https://agencia.example/noticia')
+    expect(bind).toHaveBeenCalledWith('https://agencia.example/noticia', 'diario')
     expect(createPost).not.toHaveBeenCalled()
   })
 

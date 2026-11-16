@@ -6,7 +6,7 @@ import {getHomeSections} from '../db/home'
 const positiveId=z.number().int().positive()
 const stateKey='home.ai_edition'
 const eligible=`FROM posts p JOIN categories c ON c.id=p.category_id JOIN authors a ON a.id=p.author_id
- WHERE p.status='published' AND p.seo_noindex=0 AND p.published_at<=? AND p.slug NOT LIKE 'previsao-do-tempo-%'`
+ WHERE p.status='published' AND p.publication_id = 'diario' AND p.seo_noindex=0 AND p.published_at<=? AND p.slug NOT LIKE 'previsao-do-tempo-%'`
 const fields='p.id,p.title,p.excerpt,p.published_at,p.updated_at,c.slug AS category,p.cover_media_id IS NOT NULL AS has_image'
 const decision=z.object({
  revision:z.string().uuid().nullable(),

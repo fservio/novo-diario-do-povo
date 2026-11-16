@@ -23,7 +23,7 @@ export async function handleDailyEditionSave(c:Context){
   if(new Set(parsed.data.items.map(item=>item.post_id)).size!==parsed.data.items.length)return c.json({success:false,error:'Matéria repetida na edição.'},400)
   if(parsed.data.items.some(item=>item.expires_at&&Date.parse(item.expires_at)<=now.getTime()))return c.json({success:false,error:'Há itens com validade vencida.'},400)
   const ids=parsed.data.items.map(item=>item.post_id)
-  const result=await env.DB.prepare(`SELECT id,slug,title,published_at,created_at FROM posts WHERE id IN (${ids.map(()=>'?').join(',')}) AND status='published' AND seo_noindex=0 AND published_at<=?`).bind(...ids,now.toISOString()).all<any>()
+  const result=await env.DB.prepare(`SELECT id,slug,title,published_at,created_at FROM posts WHERE id IN (${ids.map(()=>'?').join(',')}) AND status='published' AND publication_id = 'diario' AND seo_noindex=0 AND published_at<=?`).bind(...ids,now.toISOString()).all<any>()
   if(result.results.length!==ids.length)return c.json({success:false,error:'Todas as matérias precisam estar publicadas e visíveis.'},400)
   const posts=new Map(result.results.map(p=>[p.id,p]))
   const edition:DailyEdition={date:parsed.data.date,updated_at:now.toISOString(),items:parsed.data.items.map(item=>{const p=posts.get(item.post_id)!;return {...item,title:p.title,url:getPostUrl(p,baseUrl(env))}})}

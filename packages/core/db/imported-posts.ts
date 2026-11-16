@@ -15,10 +15,11 @@ function slugifyTitle(text: string): string {
 /** Sequential delivery retries and duplicate syndication feeds must not create a second article for the same story. */
 export async function createImportedPost(db: D1Database, input: CreatePostInput): Promise<{ id: number; reused: boolean }> {
   const originalLink = input.original_link?.trim()
+  const publication = input.publication_id || 'diario'
   if (originalLink) {
     const existing = await db.prepare(`
-      SELECT id FROM posts WHERE original_link = ? ORDER BY id ASC LIMIT 1
-    `).bind(originalLink).first<{ id: number }>()
+      SELECT id FROM posts WHERE original_link = ? AND publication_id = ? ORDER BY id ASC LIMIT 1
+    `).bind(originalLink, publication).first<{ id: number }>()
     if (existing) return { id: existing.id, reused: true }
 
     const candidateSlug = (input.slug?.trim() || slugifyTitle(input.title || '')).trim()
@@ -27,10 +28,10 @@ export async function createImportedPost(db: D1Database, input: CreatePostInput)
       const recentDuplicate = await db.prepare(`
         SELECT id FROM posts
         WHERE (slug = ? OR lower(trim(title)) = lower(?))
-          AND datetime(created_at) >= datetime('now', '-7 days')
+          AND publication_id = ? AND datetime(created_at) >= datetime('now', '-7 days')
         ORDER BY id ASC
         LIMIT 1
-      `).bind(candidateSlug, candidateTitle).first<{ id: number }>()
+      `).bind(candidateSlug, candidateTitle, publication).first<{ id: number }>()
       if (recentDuplicate) return { id: recentDuplicate.id, reused: true }
     }
   }
