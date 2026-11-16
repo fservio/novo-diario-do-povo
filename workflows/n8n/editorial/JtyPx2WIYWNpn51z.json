@@ -1,10 +1,10 @@
 {
   "id": "JtyPx2WIYWNpn51z",
   "name": "Diário — Revisão de editoria | Briefing",
-  "versionId": "adfaa5e8-4693-4614-a189-a437d2111818",
+  "versionId": "18240f81-a88b-4f3b-837f-32972f04d043",
   "nodes": [
     {
-      "id": "13d95d38-7012-4259-85b7-c12b4c59d20d",
+      "id": "c13e0f3d-c3eb-474d-853a-525c686f515f",
       "name": "Receber proposta por briefing",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
@@ -17,7 +17,7 @@
       }
     },
     {
-      "id": "a07fdcb9-5192-4a5a-bcf4-6a1111447d67",
+      "id": "3abc98d6-2d72-40cd-9c3b-aabf4417accd",
       "name": "Validar rascunho e fontes",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -31,7 +31,7 @@
       }
     },
     {
-      "id": "b9a5f52f-5d20-46a7-b666-d35e52ae56bc",
+      "id": "593a2578-7456-45f3-9346-591679980319",
       "name": "Editor de Política | Piloto",
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.3,
@@ -72,7 +72,7 @@
       }
     },
     {
-      "id": "ebd8afa0-93ff-4284-83da-094d8892b36d",
+      "id": "e2ab0cf2-6156-4be1-a29d-7593ccf413a6",
       "name": "Conferir parecer e fato novo",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -86,7 +86,7 @@
       }
     },
     {
-      "id": "3ddb14d2-c720-4c87-a601-c9f7b3a6d5db",
+      "id": "f07f4f79-ff35-4842-8e53-236d31035848",
       "name": "Encaminhar para checagem?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
@@ -118,7 +118,7 @@
       }
     },
     {
-      "id": "df80aba9-c108-450e-aa6f-6f8f252ea0b4",
+      "id": "1583f500-e6f3-469c-8fda-dee57771fe51",
       "name": "Checar afirmações por pauta",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
@@ -139,7 +139,7 @@
       }
     },
     {
-      "id": "b7b2148d-5ac4-4ff6-a286-6c811f5ff9ec",
+      "id": "f75ac9c1-1687-46c8-9c8e-53106588bb78",
       "name": "Reunir pareceres da pauta",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
@@ -150,7 +150,7 @@
       "parameters": {}
     },
     {
-      "id": "bff1f02f-cfea-40a1-aaeb-93e4daea6d1a",
+      "id": "873d39b7-8993-4483-b6cf-d150087bfb47",
       "name": "Parecer pede copidesque?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
@@ -182,7 +182,7 @@
       }
     },
     {
-      "id": "816d2b06-765d-471d-b7e0-7a1edd917b2c",
+      "id": "10801505-8dc4-42cf-b76b-ee744c0d7587",
       "name": "Chamar Copidesque",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
@@ -203,7 +203,7 @@
       }
     },
     {
-      "id": "04a742b7-7fa0-4460-a17a-800fff576496",
+      "id": "3632f0fb-864d-4ed3-9fb1-39249a8b5373",
       "name": "Existe proposta revisada?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
@@ -235,7 +235,7 @@
       }
     },
     {
-      "id": "fdb1bf65-470a-4a93-9528-86a5389282bc",
+      "id": "9b6a41b4-745c-43f2-ba9d-b639051dcc08",
       "name": "Preparar avaliação da versão final",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -249,7 +249,7 @@
       }
     },
     {
-      "id": "dcb56f22-9717-4a9a-ac6a-cfc570dbd298",
+      "id": "a3531081-ca30-4140-8db3-b53c7be0db2b",
       "name": "Chamar Editor Executivo",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
@@ -270,7 +270,7 @@
       }
     },
     {
-      "id": "ff424549-064d-491f-8f90-75760c995492",
+      "id": "24aed85e-8067-460d-93ac-7adf5506b79c",
       "name": "Executivo pediu ajuste?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
@@ -302,7 +302,7 @@
       }
     },
     {
-      "id": "f2328c1f-d7f0-44cf-8c02-7b1780acadb6",
+      "id": "ede97411-a3f5-417d-bebb-ddf8cf3e2643",
       "name": "Preparar retorno ao Copidesque",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -316,7 +316,7 @@
       }
     },
     {
-      "id": "8cb280f7-80d0-4005-8f27-cb32793af5a7",
+      "id": "3f75175b-f110-48bf-b794-364d3a5df427",
       "name": "Chamar Copidesque novamente",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
@@ -337,7 +337,7 @@
       }
     },
     {
-      "id": "fceee85a-342d-47e8-9491-b0028641a000",
+      "id": "c501c267-965e-4236-a252-08095ff4979a",
       "name": "Copidesque devolveu nova versão?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
@@ -369,7 +369,7 @@
       }
     },
     {
-      "id": "730b2081-2cd6-4b49-a76c-048fbdb7960f",
+      "id": "e9463f21-04e2-47d6-b8da-9450fdf161da",
       "name": "Preparar segunda avaliação",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -383,7 +383,7 @@
       }
     },
     {
-      "id": "8e329df0-99cf-4b7a-ab44-45e1eb12eb9d",
+      "id": "dd5397ea-beb6-422b-8958-5ea8a41ecae1",
       "name": "Chamar Editor Executivo novamente",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
@@ -404,7 +404,7 @@
       }
     },
     {
-      "id": "2a1cc92d-adee-4b9a-a137-64028e436970",
+      "id": "17957127-6fb5-44b6-99e1-42b78eca5894",
       "name": "Reunir avaliações executivas",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
@@ -417,7 +417,7 @@
       }
     },
     {
-      "id": "43c28767-09a7-40e3-b7a2-f96a845b4ccf",
+      "id": "1067109b-c79c-4b0c-a2a0-6c1e750d80e4",
       "name": "Registrar decisão por pauta",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -431,7 +431,7 @@
       }
     },
     {
-      "id": "93e3830b-c65c-4e71-adf1-0db648f45c28",
+      "id": "4268e3e3-0b28-446a-84f8-073170d6e7dd",
       "name": "Reunir revisão do piloto",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
@@ -444,7 +444,73 @@
       }
     },
     {
-      "id": "9d6384a0-d997-48c1-9183-899221f0c1d3",
+      "id": "71771450-cc6f-4de7-8912-7b106aeb03de",
+      "name": "Aplicar atualização aprovada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3015,
+        144
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.decision === 'recomendar_publicacao' && $json.briefing?.action === 'atualizar' && $json.briefing?.publish_enabled === true ? 'sim' : 'não' }}",
+              "rightValue": "sim",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "65a2c18a-a76c-453d-92a5-53331c34edfa",
+      "name": "Chamar Atualizador do CMS",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        3584,
+        -192
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "T2PCl1HM963uzRZ5"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "ef4ce48e-6eef-4a07-91cb-410b99b5814e",
+      "name": "Reunir publicação e pareceres",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3808,
+        144
+      ],
+      "parameters": {
+        "numberInputs": 3
+      }
+    },
+    {
+      "id": "4c50de6a-07ad-40cb-bf01-36827915db49",
       "name": "Enviar pauta inédita ao CMS?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
@@ -476,7 +542,7 @@
       }
     },
     {
-      "id": "a28767ae-ad47-44d1-9499-8b7c0966a845",
+      "id": "d48cd4a7-e06d-466e-ab1d-26fec9d2fa30",
       "name": "Preparar publicação de Política",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -490,7 +556,7 @@
       }
     },
     {
-      "id": "67986c85-8a25-4d3d-8d88-cd3c3670901f",
+      "id": "8633300d-ac4f-481a-a0a2-e33dab620637",
       "name": "Chamar Publicador do CMS",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
@@ -511,18 +577,7 @@
       }
     },
     {
-      "id": "c03d17c4-af45-4063-b853-69cb66541c12",
-      "name": "Reunir publicação e pareceres",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3.2,
-      "position": [
-        3808,
-        144
-      ],
-      "parameters": {}
-    },
-    {
-      "id": "120b18cb-1d00-4ed7-8d69-71bb669c6dff",
+      "id": "72a95e1c-e031-4fc9-a716-5834a250bb22",
       "name": "Registrar ajuste não concluído",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -796,9 +851,38 @@
       "main": [
         [
           {
+            "node": "Aplicar atualização aprovada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aplicar atualização aprovada?": {
+      "main": [
+        [
+          {
+            "node": "Chamar Atualizador do CMS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Enviar pauta inédita ao CMS?",
             "type": "main",
             "index": 0
+          }
+        ]
+      ]
+    },
+    "Chamar Atualizador do CMS": {
+      "main": [
+        [
+          {
+            "node": "Reunir publicação e pareceres",
+            "type": "main",
+            "index": 2
           }
         ]
       ]

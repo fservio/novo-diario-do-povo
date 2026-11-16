@@ -535,7 +535,7 @@ app.post('/api/n8n/posts', async (c) => {
 // GET /api/n8n/posts - List posts (with filters like missing_cover)
 app.get('/api/n8n/posts', async (c) => {
   try {
-    const { listPosts } = await import('../packages/core/db/posts')
+    const { getPostById, listPosts } = await import('../packages/core/db/posts')
     const limit = Number(c.req.query('limit')) || 20
     const offset = Number(c.req.query('offset')) || 0
     const missing_cover = c.req.query('missing_cover') === 'true'
@@ -559,6 +559,14 @@ app.get('/api/n8n/posts', async (c) => {
       search
     })
 
+    if (original_link && !result.total && (!status || status === 'published') && !missing_cover && !slug && !search) {
+      const { findEditorialUpdate } = await import('../packages/core/editorial-ai/update')
+      const update = await findEditorialUpdate(c.env.DB, original_link)
+      const post = update ? await getPostById(c.env.DB, update.post_id) : null
+      if (post?.status === 'published') {
+        return c.json({ success: true, count: 1, data: offset === 0 ? [post] : [] })
+      }
+    }
     return c.json({ success: true, count: result.total, data: result.posts })
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500)
@@ -596,6 +604,24 @@ app.post('/api/n8n/posts/:id{[0-9]+}/publish-recommended', async (c) => {
     return c.json({ success: false, error: 'O rascunho mudou ou saiu da revisão. Solicite nova avaliação.' }, 409)
   }
   return c.json({ success: true, data: result.post })
+})
+
+app.post('/api/n8n/posts/:id{[0-9]+}/editorial-update-preview', async (c) => {
+  c.header('Cache-Control', 'private, no-store')
+  const { editorialUpdate, previewEditorialUpdate } = await import('../packages/core/editorial-ai/update')
+  const parsed = editorialUpdate.safeParse(await c.req.json().catch((): null => null))
+  if (!parsed.success) return c.json({ success: false, error: 'Proposta de atualização inválida.' }, 400)
+  const data = await previewEditorialUpdate(c.env.DB, Number(c.req.param('id')), parsed.data)
+  return c.json({ success: data.status !== 'conflict', data }, data.status === 'conflict' ? 409 : 200)
+})
+
+app.post('/api/n8n/posts/:id{[0-9]+}/apply-editorial-update', async (c) => {
+  c.header('Cache-Control', 'private, no-store')
+  const { editorialUpdateApproval, applyEditorialUpdate } = await import('../packages/core/editorial-ai/update')
+  const parsed = editorialUpdateApproval.safeParse(await c.req.json().catch((): null => null))
+  if (!parsed.success) return c.json({ success: false, error: 'Aprovação de atualização inválida.' }, 400)
+  const data = await applyEditorialUpdate(c.env.DB, Number(c.req.param('id')), parsed.data)
+  return c.json({ success: data.status !== 'conflict', data }, data.status === 'conflict' ? 409 : 200)
 })
 
 // PATCH /api/n8n/posts/:id - Update post

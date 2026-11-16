@@ -1,0 +1,353 @@
+{
+  "id": "T2PCl1HM963uzRZ5",
+  "name": "Diário — Atualizar matéria publicada por briefing",
+  "versionId": "0d2ecca8-f709-4031-a14e-ed4d0b68a1c3",
+  "nodes": [
+    {
+      "id": "dcdff276-0eb7-4c5e-ad13-e7132deb5aaf",
+      "name": "Receber atualização aprovada",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "2d060479-5ff0-4521-b98b-60d33605defc",
+      "name": "Preparar acréscimo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const x = $json;\nconst categories = {\"politica\":1,\"economia\":2,\"cidades\":3,\"esporte\":4,\"justica\":5,\"mundo\":6,\"tecnologia\":7,\"piaui\":8,\"sao-paulo\":9,\"rio-de-janeiro\":10,\"ceara\":11,\"cultura\":12,\"geral\":13,\"saude\":14};\nconst post_id = x.briefing?.target_id;\nconst category_id = categories[x.briefing?.editoria];\nif (x.decision !== 'recomendar_publicacao' || x.briefing?.action !== 'atualizar' || x.briefing.publish_enabled !== true || !Number.isSafeInteger(post_id) || post_id < 1 || !Number.isInteger(category_id) || !x.briefing.new_evidence || !x.briefing.source?.text?.includes(x.briefing.new_evidence) || !x.proposal?.content?.trim()) throw Error('Atualização sem apuração ou aprovação válida.');\nreturn {json:{...x,post_id,request:{source_url:x.briefing.source.url,category_id,addition:x.proposal.content}}};"
+      }
+    },
+    {
+      "id": "36f79e49-da34-4ff6-a77a-e0be0989e6ae",
+      "name": "Montar prévia no CMS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://diario.dopovo.com.br/api/n8n/posts/' + $json.post_id + '/editorial-update-preview' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "d4b8e4a4-3ec6-4c26-a792-bf8b0dfc3426",
+      "name": "Conferir prévia",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const input = $('Preparar acréscimo').item.json;\nconst data = $json.body?.data;\nif ($json.statusCode !== 200 || data?.status !== 'ready') return {json:{post_id:input.post_id,pauta_id:input.pauta_id,status:data?.status ?? 'falha',reason:$json.body?.error ?? 'O CMS não gerou uma prévia aplicável.'}};\nreturn {json:{...input,status:'ready',title:data.current.title,excerpt:data.current.excerpt,content:data.content,snapshot:data.current.snapshot,original:{title:data.current.title,excerpt:data.current.excerpt,content:data.current.content}}};"
+      }
+    },
+    {
+      "id": "977712a6-072b-464a-9ddb-a60f3b73478c",
+      "name": "Prévia disponível?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.status === 'ready' ? 'sim' : 'não' }}",
+              "rightValue": "sim",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b69e4594-43fe-4510-86d1-2e5d80a8b029",
+      "name": "Reavaliar artigo completo",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1200,
+        0
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "By1lAit6fNfvDDBs"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "5cbf2f6b-8c6d-4f08-9dff-f4e33e5f1826",
+      "name": "Conferir autorização",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $('Conferir prévia').item.json;\nconst ready = $json.decision === 'recomendar_publicacao' && $json.post_id === d.post_id && $json.proposal?.title === d.title && $json.proposal?.excerpt === d.excerpt && $json.proposal?.content === d.content && Array.isArray($json.blocking_issues) && !$json.blocking_issues.length;\nreturn {json:{post_id:d.post_id,pauta_id:d.pauta_id,ready,status:ready?'ready':'devolvida',reason:$json.reason,request:ready?{...d.request,snapshot:d.snapshot,evaluated_content:d.content,decision:$json.decision,reason:$json.reason,execution_id:String($execution.id),blocking_issues:[]}:null}};"
+      }
+    },
+    {
+      "id": "366314ef-5f0d-4e20-ae21-166243f6e280",
+      "name": "Pode gravar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1680,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ready === true ? 'sim' : 'não' }}",
+              "rightValue": "sim",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b679f995-2537-4b4a-8993-83621edf879a",
+      "name": "Aplicar atualização no CMS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1920,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://diario.dopovo.com.br/api/n8n/posts/' + $json.post_id + '/apply-editorial-update' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "80781b7c-29e2-458a-9189-f49daba1ed6d",
+      "name": "Registrar atualização",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const x=$('Conferir autorização').item.json;\nreturn {json:{post_id:x.post_id,pauta_id:x.pauta_id,status:$json.body?.data?.status ?? 'falha',reason:$json.body?.error ?? x.reason,data:$json.body?.data?.post}};"
+      }
+    },
+    {
+      "id": "0ed86d08-6b56-4783-a861-880a072f949b",
+      "name": "Registrar decisão",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const {post_id,pauta_id,status,reason} = $json;\nreturn {json:{post_id,pauta_id,status,reason}};"
+      }
+    }
+  ],
+  "connections": {
+    "Receber atualização aprovada": {
+      "main": [
+        [
+          {
+            "node": "Preparar acréscimo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar acréscimo": {
+      "main": [
+        [
+          {
+            "node": "Montar prévia no CMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar prévia no CMS": {
+      "main": [
+        [
+          {
+            "node": "Conferir prévia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conferir prévia": {
+      "main": [
+        [
+          {
+            "node": "Prévia disponível?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prévia disponível?": {
+      "main": [
+        [
+          {
+            "node": "Reavaliar artigo completo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar decisão",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reavaliar artigo completo": {
+      "main": [
+        [
+          {
+            "node": "Conferir autorização",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conferir autorização": {
+      "main": [
+        [
+          {
+            "node": "Pode gravar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pode gravar?": {
+      "main": [
+        [
+          {
+            "node": "Aplicar atualização no CMS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar decisão",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aplicar atualização no CMS": {
+      "main": [
+        [
+          {
+            "node": "Registrar atualização",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  }
+}
