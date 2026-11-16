@@ -18,12 +18,12 @@ function createEnv(settings: Record<string, unknown>) {
   } as any
 }
 
-describe('WhatsApp channel card protection against auto ads', () => {
-  it('marks the card as a protected zone', () => {
-    expect(renderWhatsAppChannelCta()).toContain('data-no-auto-ads')
+describe('AdSense automatic placements', () => {
+  it('leaves placements in the WhatsApp card to AdSense', () => {
+    expect(renderWhatsAppChannelCta()).not.toContain('data-no-auto-ads')
   })
 
-  it('removes auto-placed ads anywhere but keeps CMS ad slots', async () => {
+  it('keeps Google placements outside CMS slots', async () => {
     const env = createEnv({
       'ads.provider_mode': 'adsense',
       'ads.consent.enabled': false,
@@ -63,11 +63,7 @@ describe('WhatsApp channel card protection against auto ads', () => {
       disconnect() {}
     }
     runInNewContext(code, { window, document, MutationObserver: FakeObserver, setTimeout, console, IntersectionObserver: undefined })
-    expect(removed).toContain('auto-wrapper')
-    expect(removed).not.toContain('cms-slot-removed-by-mistake')
-    removed.length = 0
     observerCallback?.()
-    expect(removed).toContain('auto-wrapper')
-    expect(removed).not.toContain('cms-slot-removed-by-mistake')
+    expect(removed).toEqual([])
   })
 })

@@ -185,6 +185,14 @@ describe('ad visibility scheduling', () => {
     expect(r.unobserve).toHaveBeenCalledWith(deferred)
   })
 
+  it('loads AdSense for automatic ads even without a manual slot', async () => {
+    const r = await runtime([])
+    expect(r.scripts).toHaveLength(1)
+    expect(r.scripts[0].src).toContain('adsbygoogle.js?client=ca-pub-123')
+    r.scripts[0].onload()
+    expect(r.window.adsbygoogle).toBeUndefined()
+  })
+
   it('preserves fixed-size markup when requesting a horizontal banner', async () => {
     const banner = slot(false)
     banner.dataset.adsenseFixedSize = '1'
@@ -204,22 +212,28 @@ describe('ad visibility scheduling', () => {
     const hidden = slot(false, 0)
     const r = await runtime([hidden])
     r.intersect(hidden)
-    expect(r.scripts).toHaveLength(0)
+    expect(r.scripts).toHaveLength(1)
+    r.scripts[0].onload()
+    expect(r.window.adsbygoogle).toBeUndefined()
     expect(hidden.dataset.adInitialized).toBeUndefined()
     hidden.rect.width = 320
     r.intersect(hidden)
     expect(r.scripts).toHaveLength(1)
     expect(hidden.dataset.adInitialized).toBe('1')
+    expect(r.window.adsbygoogle).toHaveLength(1)
   })
 
   it('supports browsers without IntersectionObserver and releases fallback listeners', async () => {
     const deferred = slot(true, 320, 3000)
     const r = await runtime([deferred], false)
-    expect(r.scripts).toHaveLength(0)
+    expect(r.scripts).toHaveLength(1)
+    r.scripts[0].onload()
+    expect(r.window.adsbygoogle).toBeUndefined()
     deferred.rect.top = 900
     deferred.rect.bottom = 1150
     r.listeners.scroll()
     expect(r.scripts).toHaveLength(1)
+    expect(r.window.adsbygoogle).toHaveLength(1)
     expect(r.listeners.scroll).toBeUndefined()
     expect(r.listeners.resize).toBeUndefined()
   })
