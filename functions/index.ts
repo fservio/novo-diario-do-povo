@@ -3606,6 +3606,11 @@ app.get('/admin/redacao-ia', async (c) => {
   return renderEditorialAiDashboard(c)
 })
 
+app.get('/admin/redacao-especial', async c =>
+  (await import('../packages/core/admin/redacao-especial')).redacaoEspecial(c))
+app.post('/admin/redacao-especial',
+  async (c, next) => (await import('../packages/core/middleware')).csrfProtection(c, next),
+  async c => (await import('../packages/core/admin/redacao-especial')).redacaoEspecial(c))
 app.get('/admin/news-extractor',async c=>(await import('../packages/core/admin/news-extractor')).handleExtractorAdmin(c))
 app.post('/admin/news-extractor/commands',async c=>(await import('../packages/core/admin/news-extractor')).handleExtractorAdminSave(c))
 app.post('/admin/news-extractor/retry',async c=>(await import('../packages/core/admin/news-extractor')).handleExtractorAdminSave(c))
