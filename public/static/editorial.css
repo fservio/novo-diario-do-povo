@@ -526,7 +526,20 @@ select:focus-visible {
 .ed-paywall h3 { margin: 0 0 10px; font-family: var(--ed-serif); font-size: 30px; }
 .ed-paywall > p:not(.ed-kicker) { max-width: 520px; margin: 0 auto 22px; color: var(--ed-muted); }
 .ed-paywall__actions { max-width: 340px; margin: 0 auto; display: grid; gap: 10px; }
-.ed-paywall__actions .ed-button { width: 100%; display: flex; align-items: center; justify-content: center; }
+.ed-paywall__actions .ed-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ed-red);
+  background: var(--ed-red);
+  color: #fff;
+  text-decoration: none;
+}
+.ed-paywall__actions .ed-button:hover { border-color: #812025; background: #812025; color: #fff; }
+.ed-paywall__actions .ed-button--secondary { border-color: var(--ed-navy); background: #fff; color: var(--ed-navy); }
+.ed-paywall__actions .ed-button--secondary:hover { border-color: var(--ed-navy); background: #eaf1f5; color: var(--ed-navy); }
+.ed-paywall__actions .ed-button:focus-visible { outline: 3px solid var(--ed-navy-dark); outline-offset: 3px; }
 .article-content.teaser-mode { max-height: 540px; overflow: hidden; mask-image: linear-gradient(to bottom, #000 58%, transparent); }
 
 /* Latest news and columnists */

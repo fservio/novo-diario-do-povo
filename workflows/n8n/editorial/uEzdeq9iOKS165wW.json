@@ -1,10 +1,10 @@
 {
   "id": "uEzdeq9iOKS165wW",
   "name": "Diário — Direção de Redação | Todas as editorias",
-  "versionId": "6be6ad4f-1fbd-4512-8684-42317f06977a",
+  "versionId": "741b9789-c8d8-4e76-9363-b84684eb774b",
   "nodes": [
     {
-      "id": "96ba4b10-7caa-4fdd-aaeb-69042c9396b1",
+      "id": "f566390c-678b-4e3a-8e4f-921e79f4e68e",
       "name": "Receber pautas e cobertura",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
@@ -17,7 +17,7 @@
       }
     },
     {
-      "id": "4e538bcd-18fc-4352-b579-025911a0a1e4",
+      "id": "254604c5-4369-4328-b7a2-35cd6f5ea117",
       "name": "Validar lote",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -31,7 +31,7 @@
       }
     },
     {
-      "id": "35cf9888-ae39-4490-b23e-e70eda5a2929",
+      "id": "b5362822-c76c-4357-8405-f7983f1b449d",
       "name": "Diretor de Redação",
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.3,
@@ -45,7 +45,7 @@
         "modelId": {
           "__rl": true,
           "mode": "id",
-          "value": "gpt-5-mini"
+          "value": "gpt-6-luna"
         },
         "responses": {
           "values": [
@@ -73,7 +73,7 @@
       }
     },
     {
-      "id": "aee92d9b-653b-4ce4-921a-aa17fd908f88",
+      "id": "52594a18-b757-4c18-b003-4c24925b5527",
       "name": "Chefe de Redação — organizar fila",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -87,7 +87,7 @@
       }
     },
     {
-      "id": "67cabbe2-640d-4828-841b-b3d9d0cac056",
+      "id": "05ed2198-c3bd-4918-84aa-1e59b4ccecb8",
       "name": "Despachar aos redatores de editoria",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,

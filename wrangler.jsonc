@@ -28,5 +28,28 @@
       "binding": "R2",
       "bucket_name": "webapp-media"
     }
-  ]
+  ],
+  "env": {
+    "production": {
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "webapp-prod-v2",
+          "database_id": "16c980b7-4c6f-45df-b315-b4b2d5b7ceaa"
+        },
+        {
+          "binding": "NEURAL_PILOT_DB",
+          "database_name": "do-povo-cms-hml",
+          "database_id": "f16941e2-a561-42f2-8da5-3eef1e0cdb92"
+        }
+      ],
+      "kv_namespaces": [
+        { "binding": "KV", "id": "0c7cffe1bf3b4a82b996519f376dab10" },
+        { "binding": "CACHE", "id": "b8db475118404ce5a080281154bcbb23" }
+      ],
+      "r2_buckets": [
+        { "binding": "R2", "bucket_name": "webapp-media" }
+      ]
+    }
+  }
 }

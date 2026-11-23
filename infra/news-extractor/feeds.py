@@ -100,6 +100,8 @@ class FeedManager:
               PRIMARY KEY(source_id,guid));
               CREATE INDEX IF NOT EXISTS feed_entries_status ON feed_entries(source_id,status,last_attempt);
               CREATE INDEX IF NOT EXISTS feed_sources_due ON feed_sources(next_sync);
+              CREATE TABLE IF NOT EXISTS feed_current_items(
+              source_id TEXT PRIMARY KEY, guids TEXT NOT NULL);
               CREATE TABLE IF NOT EXISTS feed_removed(id TEXT PRIMARY KEY);''')
             db.execute("INSERT OR IGNORE INTO feed_sources(id,label,url,mode) VALUES('articles','Artigos individuais',NULL,'individual')")
 
@@ -158,26 +160,29 @@ class FeedManager:
             try:
                 if source[1] != 'individual':
                     rows = parse_feed(self.fetch_feed(source[0]), source[1])
+                    rows = [row for row in rows if row['source_date'] is None or row['source_date'] >= now - 86400]
                     with self.collector.db() as db:
                         for row in rows:
-                            if row['source_date'] is not None and row['source_date'] < now - 86400:
-                                continue
                             db.execute('INSERT OR IGNORE INTO feed_entries(source_id,guid,input,created_at) VALUES(?,?,?,?)',
                                        (source_id, row['guid'], json.dumps(row), now))
+                        if source_id == OFFICIAL_TRENDS_ID:
+                            guids = list(dict.fromkeys(row['guid'] for row in rows))
+                            db.execute('''INSERT INTO feed_current_items(source_id,guids) VALUES(?,?)
+                                ON CONFLICT(source_id) DO UPDATE SET guids=excluded.guids''',
+                                       (source_id, json.dumps(guids)))
                 with self.collector.db() as db:
+                    if source[1] != 'individual':
+                        db.execute('''UPDATE feed_entries SET status='expired'
+                          WHERE source_id=? AND status!='expired' AND json_extract(input,'$.source_date')<?''',
+                                   (source_id, now - 86400))
                     jobs = db.execute('''SELECT guid,input,status,last_attempt,documents,reason FROM feed_entries
-                      WHERE source_id=? AND (status='pending' OR last_attempt<?)
+                      WHERE source_id=? AND status!='expired' AND (status='pending' OR last_attempt<?)
                       ORDER BY last_attempt,COALESCE(json_extract(input,'$.source_date'),created_at) DESC LIMIT 30''', (source_id, now-interval)).fetchall()
                 for guid, raw, previous_status, attempted, previous_docs, previous_reason in jobs:
                     with self.collector.db() as db:
                         if db.execute('SELECT id FROM feed_removed WHERE id=?', (source_id,)).fetchone():
                             break
                     row = json.loads(raw)
-                    age = row.get('source_date')
-                    if source[1] != 'individual' and age is not None and age < now-86400:
-                        with self.collector.db() as db:
-                            db.execute("UPDATE feed_entries SET status='expired',last_attempt=? WHERE source_id=? AND guid=?", (now,source_id,guid))
-                        continue
                     urls = row.get('source_urls', [])[:4]
                     batch = self.collector.batch(urls) if urls else {'documents': [], 'failures': [{'reason': 'no_article_links'}]}
                     docs = [d for d in batch['documents'] if not d.get('truncated')]
@@ -193,7 +198,7 @@ class FeedManager:
                         db.execute('UPDATE feed_entries SET input=?,status=?,documents=?,reason=?,last_attempt=? WHERE source_id=? AND guid=?',
                                    (json.dumps(row), state, json.dumps(docs), reason, time.time(), source_id, guid))
                 with self.collector.db() as db:
-                    remaining = db.execute("SELECT COUNT(*) FROM feed_entries WHERE source_id=? AND last_attempt=0", (source_id,)).fetchone()[0]
+                    remaining = db.execute("SELECT 1 FROM feed_entries WHERE source_id=? AND status='pending' AND last_attempt=0 LIMIT 1", (source_id,)).fetchone()
                     db.execute('UPDATE feed_sources SET next_sync=?,last_sync=?,error=NULL WHERE id=?', (time.time()+(5 if remaining else interval),time.time(),source_id))
             except Exception as error:
                 with self.collector.db() as db:
@@ -218,7 +223,13 @@ class FeedManager:
 
     def details(self, source_id):
         with self.collector.db() as db:
-            rows = db.execute('SELECT input,status,reason,last_attempt FROM feed_entries WHERE source_id=? ORDER BY created_at DESC LIMIT 100', (source_id,)).fetchall()
+            current = db.execute('SELECT guids FROM feed_current_items WHERE source_id=?', (source_id,)).fetchone()
+            if current:
+                rows = db.execute('''SELECT e.input,e.status,e.reason,e.last_attempt
+                    FROM json_each(?) AS item JOIN feed_entries AS e ON e.source_id=? AND e.guid=item.value
+                    ORDER BY item.key LIMIT 100''', (current[0], source_id)).fetchall()
+            else:
+                rows = db.execute('SELECT input,status,reason,last_attempt FROM feed_entries WHERE source_id=? ORDER BY created_at DESC LIMIT 100', (source_id,)).fetchall()
         return {'success':True,'items':[{'title':json.loads(r[0])['title'],'link':json.loads(r[0])['link'],
                   'status':r[1],'reason':r[2],'last_attempt':r[3]} for r in rows]}
 

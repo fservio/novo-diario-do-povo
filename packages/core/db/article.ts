@@ -113,7 +113,7 @@ export async function findArticleBySlug(env: Env, slug: string): Promise<Article
     LEFT JOIN media m ON p.cover_media_id = m.id
     LEFT JOIN media ms ON p.social_image_media_id = ms.id
     LEFT JOIN media ma ON a.avatar_media_id = ma.id
-    WHERE p.slug = ? AND p.status = 'published'
+    WHERE p.slug = ? AND p.status = 'published' AND p.publication_id = 'diario'
     LIMIT 1
   `).bind(slug).first<ArticlePost>()
 
@@ -145,7 +145,7 @@ export async function findRelatedPosts(
     ), explicit AS MATERIALIZED (
       SELECT p.id, p.published_at, 0 AS priority
       FROM related_ids r CROSS JOIN posts p ON p.id = r.id
-      WHERE p.id != ?2 AND p.status = 'published'
+      WHERE p.id != ?2 AND p.status = 'published' AND p.publication_id = 'diario'
         AND p.published_at >= ?6 AND p.published_at <= ?3 AND p.seo_noindex = 0
         AND julianday(p.published_at) BETWEEN julianday(?5) AND julianday(?3)
       ORDER BY julianday(p.published_at) DESC
@@ -154,7 +154,7 @@ export async function findRelatedPosts(
       SELECT p.id, p.published_at, 1 AS priority
       FROM posts p
       WHERE p.category_id = ?1 AND p.id != ?2
-        AND p.status = 'published' AND p.seo_noindex = 0
+        AND p.status = 'published' AND p.publication_id = 'diario' AND p.seo_noindex = 0
         AND p.published_at >= ?6 AND p.published_at <= ?3
         AND julianday(p.published_at) BETWEEN julianday(?5) AND julianday(?3)
         AND p.id NOT IN (SELECT id FROM explicit)

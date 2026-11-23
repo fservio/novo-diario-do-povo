@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Redação Viva · Diário do Povo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="masthead"><strong><img id="brand-logo" src="https://diario.dopovo.com.br/static/logo-dp.png" alt="Diário do Povo" hidden><span id="brand-text">DIÁRIO DO POVO</span></strong><span>Demonstração interativa</span></header>
+  <nav class="mobile-nav" aria-label="Navegação na Redação Viva">
+    <a href="#inicio">Início</a><a href="#redacao" id="open-room">Redação</a><a href="#publicadas">Notícias</a>
+  </nav>
+  <main id="inicio">
+    <header class="intro"><div><h1>Redação Viva</h1><p>Acompanhe os agentes de IA e descubra as notícias que eles ajudam a produzir.</p></div>
+      <div class="intro-actions"><a href="#publicadas">Ler matérias publicadas <span aria-hidden="true">↘</span></a></div></header>
+    <div class="layout">
+      <section class="room" id="redacao" aria-labelledby="room-title">
+        <div class="room-header"><div><span id="simulation-status">Simulação em andamento</span><h2 id="room-title">Mapa da redação</h2></div>
+          <button id="play" type="button">Pausar simulação</button></div>
+        <button id="explore" type="button" aria-expanded="false" aria-controls="room-controls">Explorar a redação</button>
+        <div class="viewport">
+          <div class="map" id="desks" role="group" aria-label="Mapa das editorias">
+            <div class="corridors" aria-hidden="true"></div>
+          </div>
+        </div>
+        <div id="room-controls" class="room-footer"><button id="all" type="button" aria-pressed="true">Toda a redação</button>
+          <label>Agente de IA <select id="agents"><option value="">Todos</option></select></label></div>
+        <div class="station" id="station" hidden>
+          <strong id="station-role"></strong>
+          <p id="station-description"></p>
+          <div id="station-story"></div>
+        </div>
+      </section>
+      <section class="feed" aria-labelledby="feed-title">
+        <header><h2 id="feed-title">Últimos acontecimentos</h2>
+          <dl class="metrics" aria-label="Fila da simulação">
+            <div><dt>Entradas</dt><dd id="queued">0</dd></div>
+            <div><dt>Em produção</dt><dd id="working">0</dd></div>
+            <div><dt>Concluídas</dt><dd id="finished">0</dd></div>
+          </dl>
+          <p id="feed-note" hidden></p></header>
+        <ol id="events"></ol>
+        <p id="empty" hidden>Nenhuma passagem registrada neste filtro.</p>
+      </section>
+    </div>
+    <section class="stories" id="publicadas" aria-labelledby="published-title">
+      <header class="published-header"><h2 id="published-title" tabindex="-1">Matérias publicadas</h2>
+        <a href="https://diario.dopovo.com.br/ultimas">Ver todas as últimas notícias</a></header>
+      <p id="published-status" role="status">Carregando últimas notícias…</p>
+      <div class="published-grid">
+        <article data-desk="Política"><small>Política</small><a href="https://diario.dopovo.com.br/2026/11/15/planalto-central-2026-11-15-tarde/">Lula abre nesta semana a negociação do próximo ministério</a></article>
+        <article data-desk="Cidades"><small>Cidades</small><a href="https://diario.dopovo.com.br/2026/11/15/piaui-prepara-plano-para-reduzir-riscos-climaticos/">Piauí estrutura plano de contingência para riscos climáticos</a></article>
+        <article data-desk="Economia"><small>Economia</small><a href="https://diario.dopovo.com.br/2026/11/15/painel-economico-2026-11-15-noite/">Correios ampliam prejuízo e chegam a R$ 7,48 bilhões no ano</a></article>
+        <article data-desk="Esportes"><small>Esportes</small><a href="https://diario.dopovo.com.br/2026/11/15/inter-conquista-copa-do-brasil-feminina-inedita/">Internacional conquista a Copa do Brasil feminina pela primeira vez</a></article>
+        <article data-desk="Cultura"><small>Cultura</small><a href="https://diario.dopovo.com.br/2026/11/12/criolo-amaro-freitas-e-dino-dsantiago-vencem-grammy-latino-de-mpbmapb/">Criolo, Amaro Freitas e Dino D’Santiago vencem Grammy Latino</a></article>
+        <article data-desk="Serviços"><small>Serviços</small><a href="https://diario.dopovo.com.br/2026/11/15/seduc-apoia-estudantes-no-segundo-dia-do-enem-no-piaui/">Seduc distribui kits no segundo dia do Enem no Piauí</a></article>
+      </div>
+    </section>
+    <section class="stories" aria-labelledby="stories-title"><h2 id="stories-title">Matérias em andamento</h2>
+      <div id="stories"></div><button id="more" type="button">Ver mais matérias</button>
+    </section>
+    <section class="stories"><h2>Como esta notícia foi feita</h2><div id="special"></div></section>
+  </main>
+  <dialog id="detail" aria-labelledby="detail-title">
+    <form method="dialog"><button aria-label="Fechar detalhes">Fechar</button></form>
+    <p id="detail-category"></p><h2 id="detail-title"></h2><p id="detail-status"></p>
+    <ol id="history"></ol>
+    <button id="replay" type="button" hidden>Rever percurso</button>
+    <p id="article" hidden></p>
+    <p id="read-published" hidden><a href="#publicadas">Ler matérias publicadas no Diário</a></p>
+  </dialog>
+</body>
+</html>

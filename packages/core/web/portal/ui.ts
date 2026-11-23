@@ -59,7 +59,7 @@ export function renderSubscriberAuthLayout(params: {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/portal.css?v=20260818-portal1">
+  <link rel="stylesheet" href="/static/portal.css?v=20261117">
 </head>
 <body class="subscriber-auth-page">
   <main class="subscriber-auth-shell">
@@ -115,7 +115,7 @@ export function renderSubscriberShell(params: {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/portal.css?v=20260818-portal1">
+  <link rel="stylesheet" href="/static/portal.css?v=20261117">
 </head>
 <body class="subscriber-portal-page">
   <a class="portal-skip-link" href="#portal-main">Ir para o conteúdo</a>

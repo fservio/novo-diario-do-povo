@@ -274,14 +274,16 @@ a { color: inherit; }
 
 .manage-copy { margin: 0 0 1rem; color: var(--portal-muted); font-size: 0.78rem; }
 .plan-selector { display: grid; gap: 0.65rem; }
-.plan-option { width: 100%; padding: 1rem; border: 1px solid var(--portal-line); border-radius: 0.6rem; background: white; color: var(--portal-ink); cursor: pointer; text-align: left; transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease; }
-.plan-option:hover { border-color: #a9bac4; background: #fbfcfc; box-shadow: 0 6px 18px rgb(10 36 52 / 0.06); }
+.plan-option { width: 100%; padding: 1rem; border: 1px solid var(--portal-blue); border-radius: 0.6rem; background: white; color: var(--portal-ink); cursor: pointer; text-align: left; transition: background 150ms ease, box-shadow 150ms ease; }
+.plan-option:hover:not(:disabled) { background: #eaf1f5; box-shadow: 0 6px 18px rgb(10 36 52 / 0.1); }
+.plan-option:focus { outline: 3px solid var(--portal-navy); outline-offset: 3px; }
+.plan-option:disabled { cursor: wait; }
 .plan-option-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .plan-option-name { color: var(--portal-blue); font-size: 0.66rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
-.plan-option-note { color: #859098; font-size: 0.65rem; }
+.plan-option-note { color: #43525d; font-size: 0.65rem; }
 .plan-option-saving { padding: 0.2rem 0.45rem; border-radius: 999px; background: var(--portal-success-soft); color: var(--portal-success); font-size: 0.58rem; font-weight: 800; text-transform: uppercase; }
 .plan-option-price { margin-top: 0.55rem; font-family: Georgia, "Times New Roman", serif; font-size: 1.45rem; font-weight: 700; letter-spacing: -0.03em; }
-.plan-option-price small { color: var(--portal-muted); font-family: Inter, sans-serif; font-size: 0.68rem; font-weight: 500; }
+.plan-option-price small { color: #43525d; font-family: Inter, sans-serif; font-size: 0.68rem; font-weight: 500; }
 
 /* Account */
 .portal-account-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(270px, 0.65fr); gap: 1.25rem; align-items: start; }

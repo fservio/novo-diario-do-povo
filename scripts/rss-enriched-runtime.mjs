@@ -1,3 +1,17 @@
+export function trendsFreshnessReason(value, reference, label) {
+ const dateOnly=typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value);
+ const now=Date.parse(reference.execution_date);
+ const cutoff=new Date(now-86400000);
+ const localDate=new Intl.DateTimeFormat('sv-SE',{timeZone:reference.editorial_timezone,year:'numeric',month:'2-digit',day:'2-digit'});
+ const timestamp=typeof value==='string'?Date.parse(value):NaN;
+ const validDate=Number.isFinite(timestamp)&&(!dateOnly||new Date(timestamp).toISOString().slice(0,10)===value);
+ if(!validDate)return label+' sem data confirmada.';
+ const recent=dateOnly
+  ?value>=localDate.format(cutoff)&&value<=localDate.format(now)
+  :/(?:Z|[+-]\d{2}:\d{2})$/i.test(value)&&timestamp>=cutoff.getTime()&&timestamp<=now;
+ return recent?null:label+' fora da janela de atualidade do Google Trends.';
+}
+
 export function prepareEnrichedItems(items,reference,now=Date.now()) {
  const text=value=>Array.isArray(value)?value[0]:value;
  return items.map((item,index)=>{
@@ -6,8 +20,12 @@ export function prepareEnrichedItems(items,reference,now=Date.now()) {
   try{documents=JSON.parse(String(text(row['dp:documents'])||'[]'));}catch{}
   const valid=Array.isArray(documents)?documents.filter(d=>d&&typeof d.text==='string'&&d.text.length>=700&&d.text.length<=24000&&!d.truncated&&typeof d.title==='string'&&/^https:\/\//.test(d.url)&&/^[a-f0-9]{64}$/.test(d.text_sha256||'')&&Number.isFinite(Date.parse(d.fetched_at))&&now-Date.parse(d.fetched_at)<=3600000&&now-Date.parse(d.fetched_at)>=-60000):[];
   const guid=String(row.guid||row.link||'');
-  const ready=version==='1'&&/^[a-z0-9-]{1,64}$/.test(feed)&&/^https:\/\//.test(String(row.link||''))&&valid.length>0&&guid.length>0;
-  return {json:{...row,documents:valid,temporal_reference:reference,collector_feed_id:feed,collector_guid:guid,collection_ready:ready,status:ready?'collected':'pending',reason:ready?null:'RSS sem texto completo e recibos de coleta válidos.'},pairedItem:{item:index}};
+  const complete=version==='1'&&/^[a-z0-9-]{1,64}$/.test(feed)&&/^https:\/\//.test(String(row.link||''))&&valid.length>0&&guid.length>0;
+  const trends=feed==='trends'||feed==='trends-google-br';
+  const fresh=!trends||valid.some(document=>!trendsFreshnessReason(document.published_at,reference,'Fonte'));
+  const ready=complete&&fresh;
+  const reason=!complete?'RSS sem texto completo e recibos de coleta válidos.':!fresh?'Google Trends sem fonte recente com data confirmada.':null;
+  return {json:{...row,documents:valid,temporal_reference:reference,collector_feed_id:feed,collector_guid:guid,collection_ready:ready,status:ready?'collected':'pending',reason},pairedItem:{item:index}};
  });
 }
 
@@ -29,6 +47,14 @@ export function parseEnrichedWriting(items,getPrepared,config,referenceFor,tempo
    const primaryDocument=source.documents.find(d=>d.url===primary.source_url);
    const quote=normalize(primary.evidence_excerpt);
    if(!primaryDocument||quote.length<30||quote.length>600||!normalize(primaryDocument.text).includes(quote))return pending('Fato central sem trecho literal em uma fonte coletada.');
+   if(source.collector_feed_id==='trends'||source.collector_feed_id==='trends-google-br'){
+    const sourceReason=trendsFreshnessReason(primaryDocument.published_at,reference,'Fonte do fato central');
+    if(sourceReason)return pending(sourceReason);
+    if(temporal.value.status!=='scheduled'){
+     const eventReason=trendsFreshnessReason(temporal.value.event_at??temporal.value.event_date,reference,'Fato central');
+     if(eventReason)return pending(eventReason);
+    }
+   }
    if(typeof primary.text!=='string'||normalize(primary.text).length<20)return pending('Fato central ausente.');
    const urls=Array.isArray(raw.source_urls)?[...new Set(raw.source_urls)]:[];
    if(!urls.length||!urls.includes(primary.source_url)||urls.some(url=>!source.documents.some(d=>d.url===url)))return pending('A redação citou fonte ausente do RSS enriquecido.');

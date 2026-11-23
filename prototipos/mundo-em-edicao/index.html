@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>O Mundo em Edição · Diário do Povo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="masthead shell">
+    <a href="https://diario.dopovo.com.br/">DIÁRIO DO POVO</a>
+    <a href="#noticias">Últimas notícias <span aria-hidden="true">↘</span></a>
+  </header>
+  <main class="shell">
+    <header class="intro">
+      <h1>O Mundo em Edição</h1>
+      <p>Explore os acontecimentos, acompanhe a edição e descubra o que conecta uma notícia a outra.</p>
+    </header>
+    <section class="explorer" aria-label="Explorador de acontecimentos">
+      <div class="toolbar">
+        <nav aria-label="Modo de exploração">
+          <button type="button" data-mode="flow" aria-pressed="true">Fluxo</button>
+          <button type="button" data-mode="time" aria-pressed="false">Tempo</button>
+          <button type="button" data-mode="links" aria-pressed="false">Conexões</button>
+        </nav>
+        <p class="sample"><span aria-hidden="true"></span> Demonstração · dados fictícios</p>
+      </div>
+      <div class="experience">
+        <div class="map-pane">
+          <div class="map-header">
+            <h2 id="map-title">O percurso dos acontecimentos</h2>
+            <p id="map-hint">Selecione um acontecimento para abrir seu percurso.</p>
+          </div>
+          <div id="map" class="map" data-layout="flow">
+            <canvas id="edges" aria-hidden="true"></canvas>
+            <div id="nodes"></div>
+          </div>
+          <div id="timeline" class="timeline" hidden>
+            <div class="time-options" aria-label="Atalhos para o histórico">
+              <button type="button" data-offset="1440">−1 dia</button>
+              <button type="button" data-offset="60">−1 hora</button>
+              <button type="button" data-offset="15">−15 min</button>
+              <button type="button" data-offset="0">Fim do registro</button>
+              <button type="button" id="replay">Reproduzir histórico</button>
+            </div>
+            <label for="history">Hora no cenário <output id="clock" for="history"></output></label>
+            <input id="history" type="range" min="-1440" max="0" value="0" step="1">
+          </div>
+          <button type="button" id="play-flow" class="flow-play">Acompanhar o fluxo</button>
+          <p class="legend" id="legend"></p>
+        </div>
+        <aside class="inspector" aria-labelledby="event-title">
+          <div id="event-detail"></div>
+        </aside>
+      </div>
+    </section>
+    <section class="news" id="noticias" aria-labelledby="news-title">
+      <header><h2 id="news-title">Publicadas no Diário</h2><a href="https://diario.dopovo.com.br/ultimas">Ver todas as notícias ↗</a></header>
+      <p id="news-status" role="status">Carregando as últimas publicações…</p>
+      <div id="news-list" class="news-list"></div>
+    </section>
+  </main>
+  <dialog id="article" aria-labelledby="article-title">
+    <form method="dialog"><button type="submit">Fechar</button></form>
+    <p class="eyebrow">Matéria de demonstração</p>
+    <h2 id="article-title"></h2>
+    <p id="article-body"></p>
+  </dialog>
+</body>
+</html>

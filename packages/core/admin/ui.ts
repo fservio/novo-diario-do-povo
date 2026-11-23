@@ -155,6 +155,7 @@ export function renderAdminLayout(
         <a class="${isActive('posts')}" href="/admin/posts"${current('posts')}>${icon('posts')}Matérias</a>
         <a class="${isActive('generate-posts')}" href="/admin/gerar-materias"${current('generate-posts')}>${icon('ai')}Gerar matérias</a>
         <a class="${isActive('redacao-ia')}" href="/admin/redacao-ia"${current('redacao-ia')}>${icon('ai')}Redação IA</a>
+        ${['admin','director','editor'].includes(actualUser.role) ? `<a class="${isActive('redacao-especial')}" href="/admin/redacao-especial"${current('redacao-especial')}>${icon('posts')}Redação Especial</a>` : ''}
         ${['admin','director','editor'].includes(actualUser.role) ? `<a class="${isActive('news-extractor')}" href="/admin/news-extractor"${current('news-extractor')}>${icon('integrations')}NewsExtractor</a>` : ''}
         <a class="${isActive('video-ia')}" href="/admin/video-ia"${current('video-ia')}>${icon('video')}Vídeo IA</a>
         <a class="${isActive('daily-cover')}" href="/admin/daily-cover"${current('daily-cover')}>${icon('cover')}Capa do dia</a>

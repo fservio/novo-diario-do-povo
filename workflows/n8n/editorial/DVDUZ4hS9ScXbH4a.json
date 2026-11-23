@@ -348,12 +348,12 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $('Config1').first().json.BASE_URL }}/api/n8n/posts",
+        "url": "https://diario-agent-review.fabioservio.workers.dev/api/n8n/agent-reviews/posts",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}",
+        "jsonBody": "={{ (() => { const rss = $('Prepare RSS').all().find(item => item.json.link === $json.original_link)?.json; const sourceText = [rss?.source_content,rss?.['content:encoded'],rss?.content,rss?.contentSnippet].find(value=>typeof value==='string'&&value.trim()); const sources = sourceText ? [{id:'rss',text:[rss.title,rss.link,sourceText].join('\\n').slice(0,16000)}] : []; return JSON.stringify({...$json,status:'review',agent_review:{source:'rss-editorial',auto:sources.length>0,sources}}); })() }}",
         "options": {
           "response": {
             "response": {
@@ -374,7 +374,7 @@
         112
       ],
       "parameters": {
-        "jsCode": "const response=$input.first().json;\nconst draft=$('Confirm Still New').first().json;\nconst rss=$('Select First New').first().json;\nif(response.success!==true||!Number.isSafeInteger(response.data?.id)||response.data.status!=='draft')throw Error('O CMS não confirmou o rascunho.');\nif(response.data.reused!==false)return [];\nif(rss.link!==draft.original_link||!rss.contentSnippet?.trim())throw Error('Rascunho sem fonte correspondente.');\nreturn [{json:{post_id:response.data.id,title:draft.title,content:draft.content,original_link:draft.original_link,sources:[{id:'rss',text:rss.contentSnippet.trim().slice(0,16000)}]}}];"
+        "jsCode": "const response=$input.first().json;\nif(response.success===true&&response.data?.reused===true)return [];\nconst draft=$('Confirm Still New').first().json;\nconst rss=$('Select First New').first().json;\nif(response.success!==true||!Number.isSafeInteger(response.data?.id)||response.data.status!=='review')throw Error('O CMS não confirmou o rascunho.');\nif(response.data.reused!==false)return [];\nif(rss.link!==draft.original_link||!rss.contentSnippet?.trim())throw Error('Rascunho sem fonte correspondente.');\nreturn [{json:{post_id:response.data.id,title:draft.title,content:draft.content,original_link:draft.original_link,sources:[{id:'rss',text:rss.contentSnippet.trim().slice(0,16000)}]}}];"
       }
     },
     {

@@ -169,6 +169,15 @@ export async function processInstagramLinkReplies(env: Env): Promise<void> {
       const message = error instanceof Error && /^(Campanha|O comentário|Comentário)/.test(error.message) ? error.message : safeInstagramError(error)
       await env.DB.prepare(`UPDATE ${store.table} SET status=?,error=? WHERE comment_id=? AND status!='sent'`)
         .bind(attempted?'uncertain':'failed',message,job.comment_id).run()
+      continue
+    }
+    try {
+      const reply = await graph(env,token,`${job.comment_id}/replies`,{
+        message:'Te enviamos o link da matéria por mensagem privada! 😊'
+      })
+      if (!reply.id) throw new Error('A Meta não confirmou a resposta pública.')
+    } catch (error) {
+      console.error('[Instagram] Falha na resposta pública ao comentário.',safeInstagramError(error))
     }
   }
   for(const table of ['instagram_link_replies','instagram_campaign_deliveries']) await env.DB.prepare(`DELETE FROM ${table} WHERE received_at<? AND status IN ('sent','failed','skipped')`).bind(new Date(Date.now()-30*86400000).toISOString()).run()

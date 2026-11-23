@@ -352,12 +352,12 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $('Config1').first().json.BASE_URL }}/api/n8n/posts",
+        "url": "https://diario-agent-review.fabioservio.workers.dev/api/n8n/agent-reviews/posts",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}",
+        "jsonBody": "={{ (() => { const rss = $('Prepare RSS').all().find(item => item.json.link === $json.original_link)?.json; const sourceText = [rss?.source_content,rss?.['content:encoded'],rss?.content,rss?.contentSnippet].find(value=>typeof value==='string'&&value.trim()); const sources = sourceText ? [{id:'rss',text:[rss.title,rss.link,sourceText].join('\\n').slice(0,16000)}] : []; return JSON.stringify({...$json,status:'review',agent_review:{source:'rss-editorial',auto:sources.length>0,sources}}); })() }}",
         "options": {
           "batching": {
             "batch": {
@@ -384,7 +384,7 @@
         576
       ],
       "parameters": {
-        "jsCode": "return $input.all().map((item,index)=>{\n const response=item.json,source=$('Confirm Still New').itemMatching(index).json;\n if(response.success!==true||!response.data?.id||response.data.status!=='draft')throw Error('A API não confirmou o rascunho de '+source.original_link);\n if(response.data.original_link&&response.data.original_link!==source.original_link)throw Error('A API retornou uma publicação vinculada a outra fonte.');\n const rss=$('Select Up To 10 New').itemMatching(index).json;\n if(rss.link!==source.original_link)throw Error('Rascunho sem correspondência com a fonte.');\n const sources=rss.source_content?.trim()?[{id:'rss',text:rss.source_content.trim().slice(0,16000)}]:[];\n return {json:{content:source.content,sources,success:true,post_id:response.data.id,title:response.data.title||source.title,original_link:source.original_link,status:'draft'},pairedItem:{item:index}};\n});\n"
+        "jsCode": "return $input.all().flatMap((item,index)=>{\n const response=item.json,source=$('Confirm Still New').itemMatching(index).json;\n if(response.success===true&&response.data?.reused===true)return [];\n if(response.success!==true||!response.data?.id||response.data.status!=='review')throw Error('A API não confirmou o rascunho de '+source.original_link);\n if(response.data.original_link&&response.data.original_link!==source.original_link)throw Error('A API retornou uma publicação vinculada a outra fonte.');\n const rss=$('Select Up To 10 New').itemMatching(index).json;\n if(rss.link!==source.original_link)throw Error('Rascunho sem correspondência com a fonte.');\n const sources=rss.source_content?.trim()?[{id:'rss',text:rss.source_content.trim().slice(0,16000)}]:[];\n return {json:{content:source.content,sources,success:true,post_id:response.data.id,title:response.data.title||source.title,original_link:source.original_link,status:'review'},pairedItem:{item:index}};\n});\n"
       }
     },
     {

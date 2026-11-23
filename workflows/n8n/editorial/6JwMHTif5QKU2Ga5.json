@@ -27,7 +27,7 @@
       ],
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const {briefing,proposal,pauta_id,sources,editorialReview,category_id,author_id}=$json;\nif($json.decision!=='recomendar_publicacao'||briefing?.action!=='abrir'||briefing.target_id!==0||!/^https?:\\/\\//i.test(briefing.source?.url??'')||typeof proposal?.title!=='string'||!proposal.title.trim()||typeof proposal.content!=='string'||!proposal.content.trim()||!Number.isSafeInteger(category_id)||category_id<1||!Number.isSafeInteger(author_id)||author_id<1)throw Error('Proposta inédita ou identificação editorial inválida.');\nreturn {json:{pauta_id,proposal,briefing,sources:sources??[],editorialReview,open_questions:$json.open_questions??[],publish_enabled:$json.publish_enabled===true,request:{title:proposal.title,excerpt:proposal.excerpt,content:proposal.content,content_markdown:proposal.content,category_id,author_id,original_link:briefing.source.url,status:'draft'}}};"
+        "jsCode": "const {briefing,proposal,pauta_id,sources,editorialReview,category_id,author_id}=$json;\nif($json.decision!=='recomendar_publicacao'||briefing?.action!=='abrir'||briefing.target_id!==0||!/^https?:\\/\\//i.test(briefing.source?.url??'')||typeof proposal?.title!=='string'||!proposal.title.trim()||typeof proposal.content!=='string'||!proposal.content.trim()||!Number.isSafeInteger(category_id)||category_id<1||!Number.isSafeInteger(author_id)||author_id<1)throw Error('Proposta inédita ou identificação editorial inválida.');\nreturn {json:{pauta_id,proposal,briefing,sources:sources??[],editorialReview,open_questions:$json.open_questions??[],publish_enabled:$json.publish_enabled===true,request:{title:proposal.title,excerpt:proposal.excerpt,content:proposal.content,content_markdown:proposal.content,category_id,author_id,original_link:briefing.source.url,status:'review',agent_review:{source:'briefing',auto:$json.publish_enabled===true&&Boolean(sources?.length),sources:(sources??[]).slice(0,8).map(s=>({id:s.id,text:s.text}))}}}};"
       }
     },
     {
@@ -41,7 +41,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "https://diario.dopovo.com.br/api/n8n/posts",
+        "url": "https://diario-agent-review.fabioservio.workers.dev/api/n8n/agent-reviews/posts",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
@@ -63,7 +63,7 @@
       ],
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const original=$('Preparar somente rascunho').item.json;\nif(!$json.success||$json.data?.reused!==false||$json.data.status!=='draft'||!Number.isSafeInteger($json.data.id))throw Error('O CMS não confirmou um novo rascunho. Verifique duplicidade antes de continuar.');\nreturn {json:{...original,post_id:$json.data.id}};"
+        "jsCode": "const original=$('Preparar somente rascunho').item.json;\nif(!$json.success||$json.data?.reused!==false||$json.data.status!=='review'||!Number.isSafeInteger($json.data.id))throw Error('O CMS não confirmou um novo rascunho. Verifique duplicidade antes de continuar.');\nreturn {json:{...original,post_id:$json.data.id}};"
       }
     },
     {
@@ -199,7 +199,7 @@
       ],
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "return {json:{post_id:$json.post_id,decision:$json.decision,reason:$json.reason,status:'draft'}};"
+        "jsCode": "return {json:{post_id:$json.post_id,decision:$json.decision,reason:$json.reason,status:'review'}};"
       }
     }
   ],

@@ -20,7 +20,7 @@ type SearchResult = {
 const searchSql = `
   SELECT title, slug, published_at
   FROM posts
-  WHERE status = 'published' AND seo_noindex = 0
+  WHERE status = 'published' AND publication_id = 'diario' AND seo_noindex = 0
     AND published_at >= ? AND published_at < ?
     AND julianday(published_at) >= julianday(?)
     AND julianday(published_at) < julianday(?)

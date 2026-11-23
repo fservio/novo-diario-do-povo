@@ -1,0 +1,13 @@
+{
+  "name": "redacao-neural-hml",
+  "main": "scripts/neural-hml-worker.ts",
+  "compatibility_date": "2024-09-23",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": { "CF_ENV": "staging", "NEURAL_ENABLED": "true" },
+  "triggers": { "crons": ["* * * * *"] },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "do-povo-cms-hml",
+    "database_id": "f16941e2-a561-42f2-8da5-3eef1e0cdb92"
+  }]
+}

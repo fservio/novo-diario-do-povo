@@ -46,6 +46,7 @@ describe('Meu dia',()=>{
     sql.exec("CREATE TABLE posts(id INTEGER,slug TEXT,title TEXT,published_at TEXT,created_at TEXT,status TEXT,seo_noindex INTEGER); INSERT INTO posts VALUES(1,'noticia','Título do CMS','2026-11-05T10:00:00Z','2026-11-05T10:00:00Z','published',0),(2,'rascunho','Rascunho','2026-11-05','2026-11-05','draft',0)")
     sql.exec(readFileSync(new URL('../../migrations/0050_cultural_events.sql',import.meta.url),'utf8'));sql.exec(readFileSync(new URL('../../migrations/0052_daily_editorial_management.sql',import.meta.url),'utf8'))
     const put=vi.fn(async()=>{})
+    sql.exec("ALTER TABLE posts ADD COLUMN publication_id TEXT NOT NULL DEFAULT 'diario'")
     const prepare=(query:string)=>({bind:(...args:any[])=>({all:async()=>({results:sql.prepare(query).all(...args)}),run:async()=>sql.prepare(query).run(...args)})})
     const env:any={PUBLIC_BASE_URL:'https://diario.example',CACHE:{put},DB:{prepare}}
     const app=new Hono();app.post('/edition',handleDailyEditionSave)

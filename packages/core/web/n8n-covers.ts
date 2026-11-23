@@ -298,11 +298,15 @@ export async function handleAdminAiCover(c: CoverContext): Promise<Response> {
   try {
     const res = await fetch(webhookUrl, {
       method: 'POST',
-      redirect: 'error',
+      // Workers supports "manual"; never forward the webhook secret to a redirect target.
+      redirect: 'manual',
       headers: { 'Content-Type': 'application/json', 'X-Capa-Secret': typeof webhookSecret === 'string' ? webhookSecret : '' },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(110_000)
     })
+    if (res.status >= 300 && res.status < 400) {
+      return c.json({ success: false, error: 'O endereço do fluxo redireciona. Configure a URL final do webhook nas Integrações.' }, 502)
+    }
     result = await res.json().catch((): null => null)
     if (!res.ok && !result) {
       return c.json({ success: false, error: `O fluxo de geração respondeu com erro ${res.status}.` }, 502)

@@ -14,6 +14,8 @@ import {
   isMediaInUse
 } from '../db/media'
 import { uploadAdminImage } from '../media'
+import { getTrustedImageSources } from '../media-sources'
+import { downloadEditorialImage } from '../media/remote-image'
 
 /**
  * GET /admin/media - List media library
@@ -249,6 +251,27 @@ export async function handleMediaCreate(c: Context<{ Bindings: Env; Variables: A
   } catch (error: any) {
     console.error('Error uploading media:', error)
     return c.html(`<h1>500 Internal Server Error</h1><p>${escapeHtml(error.message)}</p>`, 500)
+  }
+}
+
+export async function handleMediaImageDownload(c: Context<{ Bindings: Env; Variables: AppContext }>) {
+  c.header('Cache-Control', 'private, no-store')
+  c.header('X-Content-Type-Options', 'nosniff')
+  const body = await c.req.json<{ url?: unknown }>().catch((): null => null)
+  if (typeof body?.url !== 'string' || !body.url.trim() || body.url.length > 4096) {
+    return c.json({ success: false, error: 'Informe o link direto da imagem.' }, 400)
+  }
+
+  try {
+    const sources = await getTrustedImageSources(c.env)
+    const { image, credit } = await downloadEditorialImage(body.url.trim(), sources, c.req.header('User-Agent'))
+    return c.body(image.stream(), 200, {
+      'Content-Type': image.type,
+      'X-Image-Credit': encodeURIComponent(credit)
+    })
+  } catch (error) {
+    const message = error instanceof Error && error.name === 'Error' ? error.message : 'Não foi possível baixar a imagem.'
+    return c.json({ success: false, error: message }, 400)
   }
 }
 

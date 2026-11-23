@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import time
@@ -68,6 +69,24 @@ class FeedTest(unittest.TestCase):
         row=parse_feed(body,'trends')[0]
         self.assertEqual(row['source_urls'],['https://example.com/a','https://example.com/b'])
 
+    def test_official_trends_details_follow_latest_feed_order(self):
+        source_id = 'trends-google-br'
+        self.manager.register('https://trends.google.com.br/trending/rss?geo=BR', mode='trends', source_id=source_id)
+
+        def feed(*titles):
+            items = ''.join(f'<item><title>{title}</title><link>https://trends.google.com.br/trending/rss?geo=BR</link></item>' for title in titles)
+            return f'<rss><channel>{items}</channel></rss>'.encode()
+
+        self.manager.fetch_feed = lambda url: feed('Antiga', 'Segunda')
+        self.manager.sync_source(source_id)
+        self.manager.review(source_id, 'https://trends.google.com/trends/explore?geo=BR&q=Segunda', 'Falta informação.')
+        self.manager.fetch_feed = lambda url: feed('Segunda', 'Nova')
+        self.manager.sync_source(source_id)
+
+        items = self.manager.details(source_id)['items']
+        self.assertEqual([item['title'] for item in items], ['Segunda', 'Nova'])
+        self.assertEqual(items[0]['status'], 'review')
+
     def test_official_trends_items_have_distinct_identities_and_article_links(self):
         body = b'''<rss xmlns:ht="https://trends.google.com/trending/rss"><channel>
           <item><title>Alfa Beta</title><link>https://trends.google.com/trending/rss?geo=BR</link>
@@ -108,6 +127,24 @@ class FeedTest(unittest.TestCase):
 
     def test_unknown_feed(self):
         self.assertIsNone(self.manager.render('unknown'))
+
+    def test_expired_rss_entries_do_not_use_collection_slots(self):
+        source_id = self.manager.register('https://example.com/rss')['feed_id']
+        now = time.time()
+        self.manager.fetch_feed = lambda url: b'<rss><channel/></rss>'
+        with self.collector.db() as db:
+            stale = json.dumps({'source_date': now - 90000})
+            fresh = json.dumps({'source_date': now, 'source_urls': [self.document['url']]})
+            db.executemany('''INSERT INTO feed_entries(source_id,guid,input,last_attempt,created_at)
+                VALUES(?,?,?,?,?)''', [(source_id, f'old-{i}', stale, 1, now) for i in range(60)] +
+                [(source_id, 'current', fresh, 2, now)])
+
+        with patch.object(self.collector, 'batch', return_value={'documents': [self.document], 'failures': []}) as batch:
+            self.manager.sync_source(source_id)
+        batch.assert_called_once_with([self.document['url']])
+        with self.collector.db() as db:
+            counts = dict(db.execute('SELECT status,COUNT(*) FROM feed_entries WHERE source_id=? GROUP BY status', (source_id,)))
+        self.assertEqual(counts, {'expired': 60, 'ready': 1})
 
 
 if __name__=='__main__':

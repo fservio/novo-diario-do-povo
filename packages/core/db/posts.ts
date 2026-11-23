@@ -6,6 +6,7 @@
 import type { D1Database } from '@cloudflare/workers-types'
 import { mergeSeoMetadata, readSeoMetadata, seoSnapshot, saveSeoMetadata, SeoAutomationError, seoMetadataPartialSchema } from '../seo-automation'
 import { normalizePublicationSchedule } from '../post-scheduling'
+import { publicationIdSchema, type PublicationId } from '../publications'
 import { renderMarkdownToHtml, sanitizeHtml } from '../render/sanitize'
 import { editorialDocumentHasText, renderEditorialDocumentToHtml, type EditorialContentFormat } from '../editorial-content'
 
@@ -15,6 +16,7 @@ const totalCountCache = new Map<string, { count: number; expires: number }>()
 const CACHE_TTL_MS = 10 * 60 * 1000 // 10 minutes
 
 export interface Post {
+  publication_id?: PublicationId
   id: number
   slug: string
   title: string
@@ -102,6 +104,7 @@ export interface PostFilters {
 }
 
 export interface CreatePostInput {
+  publication_id?: PublicationId
   title: string
   hat?: string
   slug?: string
@@ -137,6 +140,7 @@ export interface CreatePostInput {
 }
 
 export interface UpdatePostInput {
+  publication_id?: PublicationId
   title?: string
   hat?: string
   slug?: string
@@ -460,7 +464,11 @@ export async function getPostBySlug(db: D1Database, slug: string): Promise<Post 
 /**
  * Cria post (sempre como draft)
  */
-export async function createPost(db: D1Database, input: CreatePostInput): Promise<number> {
+export async function createPost(db: D1Database, input: CreatePostInput, agentReview?: {
+  source: string
+  evidence: string
+  auto: boolean
+}): Promise<number> {
   const now = new Date().toISOString()
   const seoInput = Object.fromEntries(['seo_title','seo_description','seo_primary_keyword','seo_secondary_keywords'].filter(key => (input as any)[key] !== undefined).map(key => [key,(input as any)[key]]))
   input = {...input,...seoMetadataPartialSchema.parse(seoInput)}
@@ -497,7 +505,7 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
     input.author_id,
     input.cover_media_id || null,
     input.template || 'article', // template defaults to article
-    'draft', // status defaults to draft
+    agentReview ? 'review' : 'draft',
     0, // views
     input.opinion_type || 'news',
     input.opinion_featured || 0,
@@ -521,7 +529,9 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
     now // updated_at
   ]
 
-  const result = await db.prepare(`
+  const publication = input.publication_id === undefined ? undefined : publicationIdSchema.parse(input.publication_id)
+  if (publication !== undefined) bindValues.push(publication)
+  const statement = db.prepare(`
     INSERT INTO posts (
       title, hat, slug, excerpt, content, content_markdown, content_json, content_format, content_version,
       category_id, author_id, cover_media_id, template, status, views,
@@ -530,9 +540,14 @@ export async function createPost(db: D1Database, input: CreatePostInput): Promis
       social_title, social_description, social_share_text, social_image_media_id,
       social_image_position_x, social_image_position_y,
       is_premium, paywall_tier, metering_exempt, is_live, is_headline, original_link,
-      created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(...bindValues).run()
+      created_at, updated_at${publication !== undefined ? ', publication_id' : ''}
+    ) VALUES (${bindValues.map(() => '?').join(', ')})
+  `).bind(...bindValues)
+  const result = agentReview ? (await db.batch([
+    statement,
+    db.prepare(`INSERT INTO agent_review_queue (post_id, source, evidence, automatic)
+      VALUES (last_insert_rowid(), ?, ?, ?)`).bind(agentReview.source, agentReview.evidence, Number(agentReview.auto))
+  ]))[0]! : await statement.run()
 
   const postId = result.meta.last_row_id
   if (postId && (input.seo_primary_keyword !== undefined || input.seo_secondary_keywords !== undefined)) {
@@ -601,6 +616,11 @@ export async function updatePost(db: D1Database, id: number, input: UpdatePostIn
   // Build dynamic UPDATE
   const fields: string[] = []
   const values: any[] = []
+
+  if (input.publication_id !== undefined) {
+    fields.push('publication_id = ?')
+    values.push(publicationIdSchema.parse(input.publication_id))
+  }
 
   if (input.title !== undefined) {
     fields.push('title = ?')

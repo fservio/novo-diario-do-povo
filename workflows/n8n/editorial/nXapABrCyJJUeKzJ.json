@@ -351,12 +351,12 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $('Config1').first().json.BASE_URL }}/api/n8n/posts",
+        "url": "https://diario-agent-review.fabioservio.workers.dev/api/n8n/agent-reviews/posts",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}",
+        "jsonBody": "={{ (() => { const rss = $('Prepare RSS').all().find(item => item.json.link === $json.original_link)?.json; const sourceText = [rss?.source_content,rss?.['content:encoded'],rss?.content,rss?.contentSnippet].find(value=>typeof value==='string'&&value.trim()); const sources = sourceText ? [{id:'rss',text:[rss.title,rss.link,sourceText].join('\\n').slice(0,16000)}] : []; return JSON.stringify({...$json,status:'review',agent_review:{source:'rss-editorial',auto:sources.length>0,sources}}); })() }}",
         "options": {
           "batching": {
             "batch": {
@@ -383,7 +383,7 @@
         576
       ],
       "parameters": {
-        "jsCode": "const sources = new Map($('Prepare RSS').all().map(({ json: source }) => [source.link, source]));\nconst result = [];\nfor (const [index, item] of $input.all().entries()) {\n  const response = item.json;\n  const draft = $('Confirm Still New').itemMatching(index).json;\n  if (response.success === true && response.data?.reused === true) continue;\n  if (response.success !== true || !Number.isSafeInteger(response.data?.id) || response.data.status !== 'draft' || response.data.reused !== false) {\n    throw Error('O CMS não confirmou um novo rascunho para ' + draft.original_link);\n  }\n  const rss = sources.get(draft.original_link);\n  const sourceText = rss && [rss.source_content, rss['content:encoded'], rss.content, rss.contentSnippet].find(value => typeof value === 'string' && value.trim());\n  if (!sourceText || (response.data.original_link && response.data.original_link !== draft.original_link)) throw Error('Rascunho sem fonte correspondente: ' + draft.original_link);\n  result.push({ json: { post_id: response.data.id, title: draft.title, content: draft.content, original_link: draft.original_link, sources: [{ id: \"Governo do Piauí\", text: sourceText.trim().slice(0, 16000), url: draft.original_link }] }, pairedItem: { item: index } });\n}\nreturn result;"
+        "jsCode": "const sources = new Map($('Prepare RSS').all().map(({ json: source }) => [source.link, source]));\nconst result = [];\nfor (const [index, item] of $input.all().entries()) {\n  const response = item.json;\n  const draft = $('Confirm Still New').itemMatching(index).json;\n  if (response.success === true && response.data?.reused === true) continue;\n  if (response.success !== true || !Number.isSafeInteger(response.data?.id) || response.data.status !== 'review' || response.data.reused !== false) {\n    throw Error('O CMS não confirmou um novo rascunho para ' + draft.original_link);\n  }\n  const rss = sources.get(draft.original_link);\n  const sourceText = rss && [rss.source_content, rss['content:encoded'], rss.content, rss.contentSnippet].find(value => typeof value === 'string' && value.trim());\n  if (!sourceText || (response.data.original_link && response.data.original_link !== draft.original_link)) throw Error('Rascunho sem fonte correspondente: ' + draft.original_link);\n  result.push({ json: { post_id: response.data.id, title: draft.title, content: draft.content, original_link: draft.original_link, sources: [{ id: \"Governo do Piauí\", text: sourceText.trim().slice(0, 16000), url: draft.original_link }] }, pairedItem: { item: index } });\n}\nreturn result;"
       }
     },
     {

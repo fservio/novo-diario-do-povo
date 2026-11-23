@@ -27,6 +27,8 @@ it('serves the dedicated search page, then filters and paginates the requested p
     `)
     const insert = db.prepare("INSERT INTO posts VALUES(NULL, ?, ?, '2025-10-14 10:00:00', 'published', 0)")
     for (let index = 0; index < 20; index++) insert.run('Teresina no arquivo', `arquivo-${index}`)
+    db.exec(`ALTER TABLE posts ADD COLUMN publication_id TEXT NOT NULL DEFAULT 'diario';
+      INSERT INTO posts VALUES (99,'Teresina exclusiva do portal','portal','2026-11-03T10:00:00Z','published',0,'do-povo');`)
     const prepare = vi.fn((sql: string) => ({
       bind: (...args: Array<string | number>) => ({
         all: async () => ({ results: db.prepare(sql).all(...args) })
@@ -44,6 +46,7 @@ it('serves the dedicated search page, then filters and paginates the requested p
     expect(recent).toContain('Teresina recente')
     expect(recent).not.toContain('Teresina antiga')
     expect(recent).not.toContain('Teresina futura')
+    expect(recent).not.toContain('Teresina exclusiva do portal')
 
     const archive = await (await routes.request('/busca?q=Teresina&period=2025-10', {}, env)).text()
     expect(archive).toContain('Teresina antiga')

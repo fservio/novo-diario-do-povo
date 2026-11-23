@@ -20,6 +20,16 @@ import { getCategoryPageData } from '../db/category'
 import { renderCategoryPage } from './category'
 
 const app = new Hono<{ Bindings: Env; Variables: AppContext }>()
+app.get('/redacao-viva', async c => (await import('./redacao-viva')).renderNewsroom(c))
+app.get('/redacao-viva/', async c => (await import('./redacao-viva')).renderNewsroom(c))
+app.get('/redacao-viva/estilo.css', async c => (await import('./redacao-viva')).newsroomStyle(c))
+app.get('/redacao-viva/interface.js', async c => (await import('./redacao-viva')).newsroomScript(c))
+app.get('/api/public/redacao-viva', async c => (await import('./redacao-viva')).newsroomActivity(c))
+app.get('/mundo-em-edicao', async c => (await import('./mundo-em-edicao')).renderWorld(c))
+app.get('/mundo-em-edicao/estilo.css', async c => (await import('./mundo-em-edicao')).worldStyle(c))
+app.get('/mundo-em-edicao/interface.js', async c => (await import('./mundo-em-edicao')).worldScript(c))
+app.get('/api/public/mundo-em-edicao', async c => (await import('./mundo-em-edicao')).worldSnapshot(c))
+app.get('/api/public/mundo-em-edicao/:id', async c => (await import('./mundo-em-edicao')).worldArticle(c))
 app.get('/busca', async c => (await import('./search')).handlePublicSearch(c))
 app.get('/guias',async c=>(await import('./guides')).handleGuidesPage(c))
 app.get('/guias/:slug',async c=>(await import('./guides')).handleGuidePage(c))
@@ -120,7 +130,7 @@ app.get('/ultimas', async (c) => {
       c.name as category_name, c.slug as category_slug
     FROM posts p
     INNER JOIN categories c ON p.category_id = c.id
-    WHERE p.status = 'published' 
+    WHERE p.status = 'published' AND p.publication_id = 'diario'
       AND p.published_at <= ?
       AND p.seo_noindex = 0
       AND p.slug NOT LIKE 'previsao-do-tempo-%'
@@ -223,7 +233,7 @@ app.get('/tag/:slug', async (c) => {
             c.env.DB.prepare(`
                 SELECT p.* FROM posts p
                 INNER JOIN posts_tags pt ON pt.post_id = p.id
-                WHERE pt.tag_id = ? AND p.status = 'published'
+                WHERE pt.tag_id = ? AND p.status = 'published' AND p.publication_id = 'diario'
                 ORDER BY p.published_at DESC
                 LIMIT 30
             `).bind(tag.id).all()

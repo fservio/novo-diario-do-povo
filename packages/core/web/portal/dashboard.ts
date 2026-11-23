@@ -192,13 +192,22 @@ export async function renderDashboardPage(c: Context) {
 
       renderInvoices(data.invoices);
       document.getElementById(subscription.status === 'none' || subscription.status === 'canceled' ? 'subscribeActions' : 'manageActions').classList.remove('hidden');
+      const planButtonId = window.location.hash.slice(1);
+      if (planButtonId === 'subMensalBtn' || planButtonId === 'subAnualBtn') {
+        const planButton = document.getElementById(planButtonId);
+        if (planButton.getClientRects().length) planButton.focus();
+      }
+    }
+
+    function redirectToLogin(planHash = window.location.hash) {
+      window.location.href = '/portal/login?next=' + encodeURIComponent('/portal' + planHash);
     }
 
     async function loadDashboard() {
       try {
         const response = await fetch('/api/portal/dashboard');
         if (response.status === 401) {
-          window.location.href = '/portal/login';
+          redirectToLogin();
           return;
         }
         if (!response.ok) throw new Error('dashboard');
@@ -217,6 +226,10 @@ export async function renderDashboardPage(c: Context) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ plan })
         });
+        if (response.status === 401) {
+          redirectToLogin('#' + button.id);
+          return;
+        }
         const data = await response.json();
         if (data.success || data.subscriptionId) {
           window.location.reload();

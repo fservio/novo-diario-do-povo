@@ -15,7 +15,7 @@ const now=Date.parse('2026-11-06T21:00:00Z')
 const reference=functions.editorialReference(new Date(now))
 function fixture(){
  const quote='O órgão anunciou a abertura do novo espaço nesta sexta-feira, com acesso gratuito e atendimento ao público.'
- const doc={url:'https://example.com/noticia',requested_url:'https://example.com/noticia',title:'Fonte',text:(quote+' ').repeat(20),fetched_at:'2026-11-06T20:59:00Z',text_sha256:'a'.repeat(64),truncated:false}
+ const doc={url:'https://example.com/noticia',requested_url:'https://example.com/noticia',title:'Fonte',text:(quote+' ').repeat(20),published_at:'2026-11-06T20:30:00Z',fetched_at:'2026-11-06T20:59:00Z',text_sha256:'a'.repeat(64),truncated:false}
  const item={title:'Tema',link:'https://trends.google.com/trends/explore?q=tema',guid:'guid-1','dp:version':'1','dp:feed_id':'trends','dp:documents':JSON.stringify([doc])}
  const prepared=prepareEnrichedItems([{json:item}],reference,now)[0].json
  const raw={status:'ready',title:'Órgão anuncia abertura de espaço gratuito',hat:'SERVIÇO',content:'<p>'+('O novo espaço recebe o público com atividades gratuitas e serviços descritos pela organização. ').repeat(10)+'</p>',excerpt:'Abertura foi anunciada pelo órgão.',tags:'serviço,cultura',source_urls:[doc.url],primary_fact:{text:quote,source_url:doc.url,evidence_excerpt:quote,kind:'announcement',status:'completed',event_at:'2026-11-06T17:00:00-03:00',event_date:'2026-11-06',event_timezone:'America/Fortaleza'}}
@@ -32,6 +32,19 @@ describe('enriched RSS to journalist',()=>{
  })
  it('creates the original CMS payload with sources and no six-fact requirement',()=>{
   const result=fixture().parse();expect(result.status).toBe('published');expect(result.author_id).toBe(3);expect(result.content).toContain('Fontes:');expect(result.original_link).toContain('trends.google.com');expect(result).not.toHaveProperty('research')
+ })
+ it('holds a recent trend whose only source was published days earlier',()=>{
+  const {item,doc}=fixture()
+  const row={...item,'dp:feed_id':'trends-google-br','dp:documents':JSON.stringify([{...doc,published_at:'2026-11-01'}])}
+  const result=prepareEnrichedItems([{json:row}],reference,now)[0].json
+  expect(result.collection_ready).toBe(false)
+  expect(result.reason).toContain('sem fonte recente')
+ })
+ it('holds old events even when the source was published today',()=>{
+  const f=fixture()
+  f.raw.primary_fact.event_at='2026-11-03T17:00:00-03:00'
+  f.raw.primary_fact.event_date='2026-11-03'
+  expect(f.parse()).toMatchObject({status:'pending',reason:'Fato central fora da janela de atualidade do Google Trends.'})
  })
  it.each(['unknown-url','false-quote','future','unsafe-html','refusal'])('holds %s for review without invoking research',kind=>{
   const f=fixture()

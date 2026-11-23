@@ -78,7 +78,7 @@ export async function findPublishedPosts(
   let query = `
     SELECT DISTINCT p.* 
     FROM posts p
-    WHERE p.status = 'published' 
+    WHERE p.status = 'published' AND p.publication_id = 'diario'
     AND p.published_at <= ?
   `
   const bindings: any[] = [new Date().toISOString()]
@@ -125,7 +125,7 @@ export async function countPublishedPosts(
   let query = `
     SELECT COUNT(*) as total
     FROM posts p
-    WHERE p.status = 'published' 
+    WHERE p.status = 'published' AND p.publication_id = 'diario'
     AND p.published_at <= ?
   `
   const bindings: any[] = [new Date().toISOString()]

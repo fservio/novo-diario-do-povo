@@ -68,7 +68,7 @@ export async function findPublishedPostsByCategory(
     LEFT JOIN media m ON p.cover_media_id = m.id
     LEFT JOIN authors a ON p.author_id = a.id
     WHERE p.category_id = ?
-      AND p.status = 'published'
+      AND p.status = 'published' AND p.publication_id = 'diario'
       AND p.published_at <= ?
       AND p.seo_noindex = 0
       AND p.slug NOT LIKE 'previsao-do-tempo-%'
@@ -99,7 +99,7 @@ export async function findLatestPosts(env: Env, options: { limit: number }): Pro
     FROM posts p
     JOIN categories c ON p.category_id = c.id
     LEFT JOIN media m ON p.cover_media_id = m.id
-    WHERE p.status = 'published'
+    WHERE p.status = 'published' AND p.publication_id = 'diario'
       AND p.published_at <= ?
       AND p.seo_noindex = 0
       AND p.slug NOT LIKE 'previsao-do-tempo-%'

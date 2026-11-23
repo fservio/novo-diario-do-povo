@@ -3,7 +3,7 @@ export const weatherIcon='<svg width="20" height="20" viewBox="0 0 24 24" fill="
 type MenuCategory={slug:string;name:string;is_active?:number|boolean}
 export function renderPublicMenu(categories:MenuCategory[],path:string,legacy=false){
  const current=path.replace(/\/+$/,'')||'/',seen=new Set<string>()
- const links=[{href:'/busca',label:'Busca'},{href:'/meu-dia',label:'Meu dia'},{href:'/tempo',label:'Clima'},{href:'/guias',label:'Guias do Diário'},{href:'/jogos/extra-extra',label:'Extra! Extra!'},...categories.filter(category=>category.is_active!==0&&category.is_active!==false&&typeof category.slug==='string'&&category.slug&&typeof category.name==='string').map(category=>({href:'/categoria/'+encodeURIComponent(category.slug),label:category.name}))]
+ const links=[{href:'/busca',label:'Busca'},{href:'/meu-dia',label:'Meu dia'},{href:'/mundo-em-edicao',label:'O Mundo em Edição'},{href:'/redacao-viva',label:'Redação Viva'},{href:'/tempo',label:'Clima'},{href:'/guias',label:'Guias do Diário'},{href:'/jogos/extra-extra',label:'Extra! Extra!'},...categories.filter(category=>category.is_active!==0&&category.is_active!==false&&typeof category.slug==='string'&&category.slug&&typeof category.name==='string').map(category=>({href:'/categoria/'+encodeURIComponent(category.slug),label:category.name}))]
  return links.filter(link=>{if(seen.has(link.href))return false;seen.add(link.href);return true}).map(link=>{
   const weather=link.href==='/tempo'
   const active=current===link.href||(weather&&current.startsWith('/tempo/'))

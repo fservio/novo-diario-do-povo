@@ -162,6 +162,8 @@ async function callOpenAiStructured<T>(env: Env, input: {
   prompt: string
   maxOutputTokens: number
   verbosity?: 'low' | 'medium' | 'high'
+  model?: string
+  reasoningEffort?: EditorialAiRuntimeConfig['reasoningEffort']
 }): Promise<OpenAiStructuredResult<T>> {
   const config = await getEditorialAiRuntimeConfig(env)
   if (!config.enabled) throw new Error('A Redação IA está desativada nas Integrações.')
@@ -179,11 +181,11 @@ async function callOpenAiStructured<T>(env: Env, input: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: config.model,
+        model: input.model ?? config.model,
         instructions: input.instructions,
         input: [{ role: 'user', content: [{ type: 'input_text', text: input.prompt }] }],
         store: false,
-        reasoning: { effort: config.reasoningEffort },
+        reasoning: { effort: input.reasoningEffort ?? config.reasoningEffort },
         max_output_tokens: input.maxOutputTokens,
         text: {
           verbosity: input.verbosity || 'medium',
@@ -212,7 +214,7 @@ async function callOpenAiStructured<T>(env: Env, input: {
     return {
       data,
       responseId: String(payload.id || ''),
-      model: String(payload.model || config.model),
+      model: String(payload.model || input.model || config.model),
       inputTokens: Number(payload.usage?.input_tokens || 0),
       outputTokens: Number(payload.usage?.output_tokens || 0),
       totalTokens: Number(payload.usage?.total_tokens || 0),
@@ -317,6 +319,8 @@ const internalLinksValidator = z.object({
 export async function requestInternalLinkPlan(env: Env, prompt: string) {
   return callOpenAiStructured<z.infer<typeof internalLinksValidator>>(env, {
     schemaName: 'internal_link_plan',
+    model: 'gpt-6-luna',
+    reasoningEffort: 'low',
     schema: {
       type: 'object',
       additionalProperties: false,

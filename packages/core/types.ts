@@ -13,6 +13,7 @@ import { z } from 'zod'
 export interface Env {
   // Cloudflare Bindings
   DB: D1Database
+  NEURAL_PILOT_DB?: D1Database
   KV: KVNamespace
   CACHE: KVNamespace // Alias para KV (bootstrap cache)
   R2: R2Bucket
@@ -25,6 +26,10 @@ export interface Env {
   ALLOW_ADMIN_BOOTSTRAP?: string
   N8N_WEBHOOK_SECRET: string
   N8N_API_KEY: string
+  NEURAL_ENABLED?: string
+  NEURAL_EVENTS_SECRET?: string
+  NEURAL_DISPATCH_KEY?: string
+  N8N_DO_POVO_COVER_KEY?: string
   N8N_INTERNAL_LINKS_PILOT_KEY?: string
   R2_BUCKET_NAME: string
   PUBLIC_BASE_URL: string

@@ -271,23 +271,14 @@ function renderPaywallGate(access: AccessCheckResult, baseUrl: string, nonce: st
     description = 'Já é assinante? Entre na sua conta. Ou assine agora por apenas R$ 9,90/mês.'
     buttons = `
       <a href="/portal/login?next=${encodeURIComponent(access.subscriber?.returnUrl || 'back')}" class="gb-btn gb-btn--primary mb-4 w-full">Entrar</a>
-      <form method="POST" action="/api/portal/assinatura/start" class="w-full">
-        <input type="hidden" name="plan" value="mensal">
-        <button type="submit" class="gb-btn gb-btn--secondary w-full">Assinar (R$ 9,90)</button>
-      </form>
+      <a href="/portal#subMensalBtn" class="gb-btn gb-btn--secondary w-full">Assinar (R$ 9,90)</a>
     `
   } else if (reason === 'not_subscribed' || reason === 'metering_limit_reached') {
     title = 'Assine para ler tudo'
     description = 'Tenha acesso ilimitado a todas as notícias e colunas exclusivos.'
     buttons = `
-      <form method="POST" action="/api/portal/assinatura/start" class="w-full mb-3">
-        <input type="hidden" name="plan" value="mensal">
-        <button type="submit" class="gb-btn gb-btn--primary w-full">Assinar Mensal (R$ 9,90)</button>
-      </form>
-       <form method="POST" action="/api/portal/assinatura/start" class="w-full">
-        <input type="hidden" name="plan" value="anual">
-        <button type="submit" class="gb-btn gb-btn--secondary w-full">Assinar Anual (R$ 89,90)</button>
-      </form>
+      <a href="/portal#subMensalBtn" class="gb-btn gb-btn--primary w-full mb-3">Assinar Mensal (R$ 9,90)</a>
+      <a href="/portal#subAnualBtn" class="gb-btn gb-btn--secondary w-full">Assinar Anual (R$ 89,90)</a>
     `
   } else if (reason === 'past_due') {
     title = 'Assinatura Pendente'
@@ -322,15 +313,16 @@ function renderPaywallGate(access: AccessCheckResult, baseUrl: string, nonce: st
       .paywall-content h3 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; color: #111827; }
       .paywall-content p { color: #4b5563; margin-bottom: 1.5rem; }
       .paywall-actions { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; max-width: 300px; margin: 0 auto; }
-      .gb-btn { 
+      .paywall-actions .gb-btn {
         display: inline-flex; justify-content: center; align-items: center;
-        padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.2s;
-        border: none; font-size: 1rem;
+        min-height: 48px; padding: 0.75rem 1.5rem; border-radius: 6px;
+        font-weight: 700; cursor: pointer; text-decoration: none; font-size: 1rem;
       }
-      .gb-btn--primary { background: #2563eb; color: white; }
-      .gb-btn--primary:hover { background: #1d4ed8; }
-      .gb-btn--secondary { background: white; border: 1px solid #d1d5db; color: #374151; }
-      .gb-btn--secondary:hover { background: #f3f4f6; }
+      .paywall-actions .gb-btn--primary { background: #0b4266; border: 1px solid #0b4266; color: #fff; }
+      .paywall-actions .gb-btn--primary:hover { background: #072f49; border-color: #072f49; color: #fff; }
+      .paywall-actions .gb-btn--secondary { background: #fff; border: 1px solid #0b4266; color: #0b4266; }
+      .paywall-actions .gb-btn--secondary:hover { background: #eaf1f5; color: #0b4266; }
+      .paywall-actions .gb-btn:focus-visible { outline: 3px solid #072f49; outline-offset: 3px; }
       .article-content.teaser-mode {
          mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
          -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
@@ -352,23 +344,14 @@ function renderEditorialPaywallGate(access: AccessCheckResult): string {
     description = 'Já é assinante? Entre na sua conta. Ou assine agora por apenas R$ 9,90/mês.'
     buttons = `
       <a href="/portal/login?next=${encodeURIComponent(access.subscriber?.returnUrl || 'back')}" class="ed-button">Entrar</a>
-      <form method="POST" action="/api/portal/assinatura/start" style="width: 100%;">
-        <input type="hidden" name="plan" value="mensal">
-        <button type="submit" class="ed-button ed-button--secondary">Assinar (R$ 9,90)</button>
-      </form>
+      <a href="/portal#subMensalBtn" class="ed-button ed-button--secondary">Assinar (R$ 9,90)</a>
     `
   } else if (reason === 'not_subscribed' || reason === 'metering_limit_reached') {
     title = 'Assine para ler tudo'
     description = 'Tenha acesso ilimitado a todas as notícias e colunas exclusivos.'
     buttons = `
-      <form method="POST" action="/api/portal/assinatura/start" style="width: 100%; margin-bottom: 12px;">
-        <input type="hidden" name="plan" value="mensal">
-        <button type="submit" class="ed-button">Assinar mensal (R$ 9,90)</button>
-      </form>
-       <form method="POST" action="/api/portal/assinatura/start" style="width: 100%;">
-        <input type="hidden" name="plan" value="anual">
-        <button type="submit" class="ed-button ed-button--secondary">Assinar anual (R$ 89,90)</button>
-      </form>
+      <a href="/portal#subMensalBtn" class="ed-button">Assinar mensal (R$ 9,90)</a>
+      <a href="/portal#subAnualBtn" class="ed-button ed-button--secondary">Assinar anual (R$ 89,90)</a>
     `
   } else if (reason === 'past_due') {
     title = 'Assinatura Pendente'

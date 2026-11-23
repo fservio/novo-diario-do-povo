@@ -59,8 +59,18 @@ describe('admin AI cover button endpoint', () => {
     expect(body).toMatchObject({ success: true, media_id: 55, url: '/i/media/2026/11/x.webp', credit: mod.AI_COVER_CREDIT })
     const [url, init] = fetchMock.mock.calls[0] as any
     expect(url).toBe('https://n8n.example.com/webhook/abc')
+    expect(init.redirect).toBe('manual')
     expect(init.headers['X-Capa-Secret']).toBe('secret')
     expect(JSON.parse(init.body)).toMatchObject({ id: 9, idea: 'um farol', category_slug: 'politica' })
+  })
+
+  it('rejects a webhook redirect without sending the secret to the new address', async () => {
+    const fetchMock = vi.fn(async () => Response.redirect('https://example.com/other', 307))
+    vi.stubGlobal('fetch', fetchMock)
+    const res = await mod.handleAdminAiCover(context({ 'ai_cover.webhook_url': 'https://n8n.example.com/webhook/abc' }))
+    expect(res.status).toBe(502)
+    expect(await res.json()).toMatchObject({ success: false, error: expect.stringContaining('URL final') })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('surfaces the reason when the flow fails', async () => {

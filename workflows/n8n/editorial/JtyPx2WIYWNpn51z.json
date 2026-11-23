@@ -48,7 +48,7 @@
         "responses": {
           "values": [
             {
-              "content": "={{ JSON.stringify($json) }}"
+              "content": "={{ JSON.stringify($json, (key, value) => {\n  if (key !== 'source' || !value || typeof value.text !== 'string' || !Array.isArray($json.sources)) return value;\n  const match = $json.sources.find(source => source?.text === value.text && typeof source.id === 'string');\n  if (!match) return value;\n  const { text, ...metadata } = value;\n  return { ...metadata, text: '[Texto integral em sources, id=' + match.id + ']' };\n}) }}"
             }
           ]
         },

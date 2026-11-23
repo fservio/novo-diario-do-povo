@@ -13,6 +13,7 @@ import { seoMetadataShape } from '../seo-automation'
 import { renderMarkdownToHtml, sanitizeHtml } from '../render/sanitize'
 import { renderEditorialDocumentToHtml } from '../editorial-content'
 import { z } from 'zod'
+import { doPovoPublicDeliveryUnavailable, publicationIdSchema } from '../publications'
 import { normalizePublicationSchedule, formatPublicationScheduleInput } from '../post-scheduling'
 import {
   listPosts,
@@ -32,6 +33,7 @@ import {
 // ============================================================================
 
 const postSchemaShape = {
+  publication_id: publicationIdSchema.optional(),
   hat: z.string()
     .max(60, 'Chapéu deve ter no máximo 60 caracteres')
     .transform(val => val.trim().toUpperCase())
@@ -399,7 +401,7 @@ function renderPostFormPage(params: {
     }
   }
 
-  const publicationPanel = !isNew && post ? `
+  const publicationPanel = !isNew && post && post.publication_id !== 'do-povo' ? `
     <div class="card" style="margin-bottom: 2rem; display: flex; flex-direction: column; gap: 1rem;">
       <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
         <strong style="color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase;">Status:</strong>
@@ -624,6 +626,14 @@ function renderPostFormPage(params: {
         })();
       </script>
       
+      <div class="form-group">
+        <label for="publication_id">Publicação de origem</label>
+        <select id="publication_id" name="publication_id" class="form-control" ${post?.published_at || post?.scheduled_at || post?.status === 'published' ? 'disabled' : ''}>
+          <option value="diario">Diário do Povo</option>
+          <option value="do-povo" ${post?.publication_id === 'do-povo' ? 'selected' : ''}>Do Povo</option>
+        </select>
+        ${post?.publication_id === 'do-povo' ? `<small>${doPovoPublicDeliveryUnavailable}</small>` : ''}
+      </div>
       <!-- Categoria + Autor -->
       <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
         <div class="form-group" style="margin-bottom: 0;">
@@ -723,6 +733,23 @@ function renderPostFormPage(params: {
           <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500;">
             Selecione uma imagem ou digite o ID manualmente.
           </div>
+          <details id="coverLinkImport" style="margin-top: 1rem;">
+            <summary>Importar foto por link ou arquivo</summary>
+            <div style="display: grid; gap: 0.5rem; margin-top: 0.75rem;">
+              <label for="coverImageLink">Link direto da foto</label>
+              <input type="text" inputmode="url" id="coverImageLink" class="form-control" placeholder="https://…" maxlength="4096">
+              <label for="coverImageFile">Ou selecione uma foto do computador</label>
+              <input type="file" id="coverImageFile" class="form-control" accept="image/jpeg,image/png,image/webp,image/avif,.jpg,.jpeg">
+              <label for="coverImageAlt">Texto alternativo</label>
+              <input type="text" id="coverImageAlt" class="form-control" maxlength="300" placeholder="Descreva o que aparece na foto">
+              <label for="coverImageCredit">Crédito da foto (opcional)</label>
+              <input type="text" id="coverImageCredit" class="form-control" maxlength="300" placeholder="Se vazio, usa o crédito da fonte">
+              <small>Use o link HTTPS direto de uma foto pública ou selecione o arquivo. A foto vai para a biblioteca em WebP.</small>
+              <div><button type="button" class="btn" id="coverImageImport">Importar e selecionar capa</button></div>
+              <div id="coverImageImportStatus" role="status"></div>
+            </div>
+          </details>
+          <script nonce="${cspNonce}" src="/static/admin-cover-import.js?v=2" defer></script>
           <div id="aiCoverBox" style="margin-top: 1rem; padding: 1rem; border: 1px dashed var(--border-color); border-radius: 8px;">
             <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
               <input type="text" id="aiCoverIdea" class="form-control" maxlength="300" placeholder="Ideia para a ilustração (opcional)" style="flex: 1; min-width: 220px;" ${post?.id ? '' : 'disabled'}>

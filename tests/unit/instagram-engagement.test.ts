@@ -150,13 +150,19 @@ describe('Comente LINK safeguards',()=>{
     expect(sql.prepare('SELECT poll_cursor FROM instagram_link_campaigns').get().poll_cursor).toBe('cursor-2')
     expect(sql.prepare('SELECT COUNT(*) n FROM instagram_link_replies').get().n).toBe(1);sql.close()
   })
-  it('sends one private reply and never resends a confirmed message',async()=>{
+  it('replies publicly once after confirming the private message',async()=>{
     const {env,sql}=fixture()
     sql.prepare("UPDATE instagram_direct_jobs SET image_token=? WHERE id='job'").run('b'.repeat(48))
     await enqueueLinkComment(env,'123','444',comment(),'poll')
-    vi.mocked(graph).mockResolvedValue(comment());vi.mocked(graphJson).mockResolvedValue({message_id:'message-1'})
+    vi.mocked(graph).mockResolvedValueOnce(comment()).mockResolvedValueOnce({id:'reply-1'})
+    vi.mocked(graphJson).mockResolvedValue({message_id:'message-1'})
     await processInstagramLinkReplies(env);await processInstagramLinkReplies(env)
     expect(graphJson).toHaveBeenCalledTimes(1)
+    expect(graph).toHaveBeenCalledTimes(2)
+    expect(graph).toHaveBeenNthCalledWith(2,env,'private-token','777/replies',{
+      message:'Te enviamos o link da matéria por mensagem privada! 😊'
+    })
+    expect(vi.mocked(graphJson).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(graph).mock.invocationCallOrder[1])
     const payload=vi.mocked(graphJson).mock.calls[0][3] as any
     expect(payload).toMatchObject({recipient:{comment_id:'777'},message:{attachment:{type:'template',payload:{template_type:'generic',elements:[{
       image_url:'https://diario.example/instagram/media/'+'b'.repeat(48),
@@ -183,6 +189,7 @@ describe('Comente LINK safeguards',()=>{
     vi.mocked(graph).mockResolvedValue(comment());vi.mocked(graphJson).mockRejectedValue(new Error('network timeout'))
     await processInstagramLinkReplies(env);await processInstagramLinkReplies(env)
     expect(graphJson).toHaveBeenCalledTimes(1)
+    expect(graph).toHaveBeenCalledTimes(1)
     expect(sql.prepare('SELECT status FROM instagram_link_replies').get().status).toBe('uncertain');sql.close()
   })
   it('rechecks campaign state and live comment text before sending',async()=>{

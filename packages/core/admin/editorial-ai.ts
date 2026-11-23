@@ -2,6 +2,7 @@ import type { Context } from 'hono'
 import type { AppContext, Env } from '../types'
 import type { AdminUser } from './ui'
 import { escapeHtml, renderAdminIcon, renderAdminLayout, renderCsrfInput } from './ui'
+import { canReadNeural } from './neural'
 import { normalizeRole, roleRank } from '../db/users'
 import { listCategories } from '../db/categories'
 import { listActiveAuthors } from '../db/authors'
@@ -166,6 +167,7 @@ export async function renderEditorialAiDashboard(c: AdminContext): Promise<Respo
         <p class="page-description">Da descoberta à revisão: fontes, apuração, rascunhos e evidências em um fluxo supervisionado.</p>
       </div>
       <div class="ai-page-actions">
+        ${canReadNeural(c.env, user.role) ? '<a class="btn btn-outline" href="/admin/redacao-neural">Mesa de Política</a>' : ''}
         <a class="btn btn-outline" href="/admin/redacao-ia/fontes"><span class="admin-icon">${renderAdminIcon('source')}</span> Fontes</a>
         <a class="btn" href="/admin/redacao-ia/radar"><span class="admin-icon">${renderAdminIcon('radar')}</span> Abrir Radar</a>
       </div>

@@ -1,7 +1,7 @@
 import type { Env } from '../types'
 import { createMedia, extractImageDimensions, getMediaById, type MediaItem } from '../db/media'
 
-const IMAGE_TYPES: Record<string, string> = {
+export const ADMIN_IMAGE_TYPES: Readonly<Record<string, string>> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
   'image/webp': 'webp',
@@ -17,7 +17,7 @@ export async function uploadAdminImage(env: Env, input: {
   userId: number
   purpose?: string
 }): Promise<MediaItem> {
-  const extension = IMAGE_TYPES[input.file.type]
+  const extension = ADMIN_IMAGE_TYPES[input.file.type]
   if (!extension) throw new Error('Use uma imagem JPEG, PNG, WebP ou AVIF.')
   if (!input.file.size) throw new Error('O arquivo enviado está vazio.')
   if (input.file.size > ADMIN_IMAGE_MAX_BYTES) throw new Error('A imagem ultrapassa o limite de 10 MB.')

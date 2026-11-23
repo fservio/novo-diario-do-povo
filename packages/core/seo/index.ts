@@ -65,7 +65,7 @@ export async function generateNewsSitemap(env: Env): Promise<string> {
     FROM posts p
     INNER JOIN categories c ON c.id = p.category_id
     LEFT JOIN media m ON p.cover_media_id = m.id
-    WHERE p.status = 'published'
+    WHERE p.status = 'published' AND p.publication_id = 'diario'
     AND datetime(p.published_at) >= datetime(?)
     AND datetime(p.published_at) <= datetime('now')
     AND p.seo_noindex = 0
@@ -184,7 +184,7 @@ export async function generateMonthlyPostSitemap(env: Env, year: string, month: 
         m.alt as featured_image_alt
       FROM posts p
       LEFT JOIN media m ON p.cover_media_id = m.id
-      WHERE p.status = 'published' 
+      WHERE p.status = 'published' AND p.publication_id = 'diario'
       AND p.seo_noindex = 0
       AND datetime(p.published_at) >= datetime(?)
       AND datetime(p.published_at) < datetime(?)
@@ -260,7 +260,7 @@ async function listPostMonths(env: Env): Promise<Array<{ year: string, month: st
   const result = await env.DB.prepare(`
     SELECT strftime('%Y', published_at) as year, strftime('%m', published_at) as month, COUNT(*) as total
     FROM posts
-    WHERE status = 'published' AND seo_noindex = 0
+    WHERE status = 'published' AND publication_id = 'diario' AND seo_noindex = 0
     AND strftime('%Y', published_at) IS NOT NULL
     AND datetime(published_at) <= datetime('now')
     GROUP BY strftime('%Y', published_at), strftime('%m', published_at)
@@ -303,7 +303,7 @@ export async function generateRssFeed(
     FROM posts p
     INNER JOIN categories c ON c.id = p.category_id
     INNER JOIN authors a ON a.id = p.author_id
-    WHERE p.status = 'published'
+    WHERE p.status = 'published' AND p.publication_id = 'diario'
     AND p.seo_noindex = 0 AND p.slug NOT LIKE 'previsao-do-tempo-%'
   `
   const bindings: any[] = []

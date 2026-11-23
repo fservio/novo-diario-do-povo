@@ -14,6 +14,7 @@ function fixture(){
     INSERT INTO categories VALUES(1,'Política'),(2,'Economia');
     INSERT INTO posts VALUES(1,'original','Original','2026-01-10 01:00:00',NULL,1,NULL,NULL,'published',0),(2,'complementar','Complementar','2026-01-10 01:00:00',NULL,2,NULL,NULL,'published',0),(3,'recente','Recente','2026-01-10T23:00:00Z',NULL,1,NULL,NULL,'published',0),(4,'rascunho','Rascunho','2026-01-10 01:00:00',NULL,1,NULL,NULL,'draft',0);`)
   sql.exec(readFileSync(new URL('../../migrations/0049_post_related_articles.sql',import.meta.url),'utf8'))
+  sql.exec("ALTER TABLE posts ADD COLUMN publication_id TEXT NOT NULL DEFAULT 'diario'")
   sql.exec('CREATE INDEX idx_posts_public_category_latest ON posts(category_id,status,seo_noindex,published_at DESC)')
   sql.exec("ALTER TABLE posts ADD COLUMN original_link TEXT; ALTER TABLE posts ADD COLUMN excerpt TEXT; UPDATE posts SET original_link='https://diario.dopovo.com.br/ia/relacionada/v1/1',excerpt='Uma explicação útil.' WHERE id=2")
   const queries:{query:string,args:any[]}[]=[]

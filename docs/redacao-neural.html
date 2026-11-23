@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Redação Neural · Diário do Povo</title>
+<style>
+*{box-sizing:border-box} :root{font:15px/1.5 system-ui,sans-serif;color-scheme:dark}
+body{margin:0;background:#0b1523;color:#edf4ff;--line:#2b3d54;--panel:#111f31;--muted:#a2b5ce;--accent:#80b7ff;--chip:#1c3048;--paper:#0b1523}
+body.editorial{color-scheme:light;background:#fdf8f8;color:#1c1b1b;--line:#d8dce4;--panel:#fff;--muted:#535c6d;--accent:#004a99;--chip:#edf4ff;--paper:#fdf8f8}
+button,select,a{color:inherit} button,select{font:inherit;background:var(--chip);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer} a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:4px} :focus-visible{outline:3px solid var(--accent);outline-offset:4px}
+header{border-bottom:1px solid var(--line)} .top,main{max-width:1440px;margin:auto;padding:0 44px} .top{display:flex;align-items:center;justify-content:space-between;min-height:69px;gap:16px}.brand{display:flex;align-items:center;gap:12px;font-weight:750}.mark{display:grid;place-items:center;background:#1470cf;color:white;border-radius:9px;width:34px;height:34px}.tag,.eyebrow{font-size:.73rem;font-weight:750;letter-spacing:.12em;text-transform:uppercase}.tag{border:1px solid var(--line);border-radius:99px;padding:4px 9px;display:inline-block}.eyebrow,.muted,small{color:var(--muted)}
+main{padding-top:25px;padding-bottom:44px} nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:.86rem}.intro{margin:29px 0 23px} h1,h2,h3,p{margin:0} h1{font-size:clamp(2rem,4vw,3.1rem);line-height:1.08;letter-spacing:-.045em;margin:7px 0 9px} h2{font-size:1.14rem;letter-spacing:-.015em} h3{font-size:1rem}.intro p{max-width:70ch}.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:15px}.metric,.panel{background:var(--panel);border:1px solid var(--line);border-radius:13px}.metric{padding:12px 15px}.metric strong{display:block;font-size:1.55rem;line-height:1.2;margin-top:5px;font-variant-numeric:tabular-nums}.grid{display:grid;grid-template-columns:minmax(0,2.15fr) minmax(260px,1fr);gap:15px;align-items:start}.panel{padding:17px}.panel+.panel{margin-top:12px}.panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.muted{font-size:.9rem}.seg{display:flex;gap:4px}.seg button{padding:5px 9px;font-size:.82rem}.seg [aria-pressed=true],.primary{background:#0759aa;color:white;border-color:#458dde}.chart{position:relative;min-height:314px;isolation:isolate;margin-top:14px;border:1px solid var(--line);border-radius:10px;background:radial-gradient(circle at 49% 55%,#19314f,transparent 72%),radial-gradient(circle,#445874 1px,transparent 1px) 0 0/19px 19px,#101c2d}.chart svg{position:absolute;inset:0;width:100%;height:100%;z-index:-1}.node{position:absolute;transform:translate(-50%,-50%);text-align:center;padding:8px;border-radius:9px;background:#172a42;color:#edf4ff;border:1px solid #536d8e;min-width:92px;font-size:.81rem}.node small{display:block;color:#b6c9e1}.node.live{background:#194773;border-color:#83baed}.node.core{border-color:#659af0;border-radius:50%;display:grid;place-content:center;width:94px;height:94px;background:#142c47}.legend{margin-top:10px}.warn{color:#ffd18a}.editorial .warn{color:#8a4900}
+.entry{padding:10px 0;border-bottom:1px solid var(--line)} .entry:last-child{border-bottom:0;padding-bottom:0}.entry p{margin:3px 0}.entry a{display:inline-block;margin-top:4px} .filters{margin:12px 0}.filters label{margin-right:8px} table{width:100%;border-collapse:collapse;text-align:left} th,td{padding:9px 7px;border-bottom:1px solid var(--line)} th{font-size:.8rem;color:var(--muted)} .table{overflow:auto} .timeline{list-style:none;padding:0;margin:8px 0 0}.timeline li{border-left:2px solid var(--line);padding:0 0 12px 13px}.timeline li:last-child{padding-bottom:0} details summary{cursor:pointer;font-weight:650} .timeline p{margin-top:6px} textarea{font:inherit;width:100%;min-height:88px;border:1px solid var(--line);border-radius:8px;padding:9px;color:inherit;background:var(--paper);margin:7px 0} #feedback{margin-top:8px;overflow-wrap:anywhere}.spaced{margin-top:10px}
+@media(max-width:890px){.top,main{padding-left:20px;padding-right:20px}.grid{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}}
+@media(max-width:490px){.chart{display:none}.seg{display:none}.panel-head{flex-wrap:wrap}.top{min-height:60px}.node{min-width:75px}}
+</style>
+<header><div class="top"><div class="brand"><span class="mark" aria-hidden="true">D</span> Diário do Povo</div><span class="tag">Protótipo · Dados simulados</span></div></header>
+<main id="app"></main>
+<script>
+const app = document.querySelector('#app');
+const title = 'Voto distrital misto: o que mudou entre as propostas?';
+const depts = [
+ ['Política','1 em execução · 1 em revisão',50,19],
+ ['Economia','1 aguardando',80,43],
+ ['Cidades','1 em execução',70,79],
+ ['Cultura','1 concluída',30,79],
+ ['Esportes','1 concluída',20,43]
+];
+const activity = [
+ ['14:32','Divergência registrada','O repórter marcou uma diferença na regra de distribuição de vagas. A comparação ainda precisa de revisão editorial.'],
+ ['14:27','Consulta documental registrada','O repórter registrou a consulta à ficha da proposição e anexou uma referência para revisão.'],
+ ['14:18','Apuração iniciada','O Repórter Documental recebeu a pergunta, a prioridade e os limites da apuração.']
+];
+const action = (url,label) => `<a href="#${url}">${label}</a>`;
+const entries = () => activity.map(([time,label,detail]) => `<div class="entry"><small>${time} · POLÍTICA</small><h3>${label}</h3><p class="muted">${detail}</p></div>`).join('');
+const attention = () => `<section class="panel"><h2>Central de atenção</h2><div class="entry"><small class="warn">△ REVISÃO NECESSÁRIA</small><h3>Divergência documental</h3><p class="muted">Política · Regra de distribuição de vagas</p>${action('pauta','Abrir contexto →')}</div></section>`;
+let layout = 'map', filter = 'all', notes = [];
+function mapPanel(){
+ const useMap = layout === 'map' && !matchMedia('(max-width:490px)').matches;
+ return `<section class="panel"><div class="panel-head"><h2>Mapa da redação</h2><div class="seg" role="group" aria-label="Visualização"><button data-view="map" aria-pressed="${useMap}">Mapa</button><button data-view="list" aria-pressed="${!useMap}">Lista</button></div></div><p class="muted">Distribuição das pautas por editoria. Política é a editoria navegável neste piloto.</p>
+ ${useMap ? `<div class="chart"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${depts.map(([,,x,y],i)=>`<line x1="50" y1="50" x2="${x}" y2="${y}" stroke="${i?'#536d8e':'#80b7ff'}" stroke-width="${i?'1':'2'}" vector-effect="non-scaling-stroke"/>`).join('')}</svg><div class="node core" style="left:50%;top:50%">Redação<small>5 editorias</small></div>${depts.map(([n,s,x,y],i)=>`<${i?'div':'a href="#politica"'} class="node ${i?'':'live'}" style="left:${x}%;top:${y}%">${n}<small>${s}</small></${i?'div':'a'}>`).join('')}</div>` :
+ `<div class="table"><table><thead><tr><th scope="col">Editoria</th><th scope="col">Pautas</th></tr></thead><tbody>${depts.map(([n,s],i)=>`<tr><td>${i?n:action('politica',n)}</td><td>${s}</td></tr>`).join('')}</tbody></table></div>`}<p class="legend muted">As linhas ligam editorias à redação e indicam sua estrutura.</p></section>`;
+}
+function overview(){
+ return `<div class="intro"><span class="eyebrow">Central de operações / Visão geral</span><h1 tabindex="-1">Redação Neural</h1><p class="muted">Acompanhe o trabalho das editorias, veja onde há impedimentos e abra a pauta que precisa de atenção.</p></div>
+ <section class="metrics" aria-label="Situação das pautas no cenário demonstrativo">${[['Em execução',2],['Aguardando',1],['Revisão humana',1],['Falhas',0],['Concluídas hoje',2]].map(([label,n])=>`<div class="metric"><small>${label}</small><strong>${String(n).padStart(2,'0')}</strong></div>`).join('')}</section><div class="grid">${mapPanel()}<aside>${attention()}<section class="panel"><h2>Atividade recente</h2><p class="muted">Horários de Fortaleza (UTC−3)</p>${entries()}</section></aside></div>`;
+}
+function desk(){
+ const rows = [[title,'Em execução','Repórter Documental','14:32','run'],['Pauta demonstrativa de revisão','Revisão humana','Editor de Política','14:12','review']].filter(r=>filter==='all'||r[4]===filter);
+ return `<div class="intro"><span class="eyebrow">Editoria piloto</span><h1 tabindex="-1">Mesa de Política</h1><p class="muted">Acompanhe as apurações em andamento e saiba qual precisa de decisão editorial.</p></div>
+ <div class="grid"><section class="panel"><h2>Fila de pautas</h2><div class="filters"><label for="stage">Etapa</label><select id="stage"><option value="all">Todas</option><option value="run">Em execução</option><option value="review">Revisão humana</option></select></div>
+ <div class="table"><table><thead><tr><th scope="col">Pauta</th><th scope="col">Etapa</th><th scope="col">Responsável</th><th scope="col">Último evento</th></tr></thead><tbody>${rows.map(([n,s,a,t,id])=>`<tr><td>${id==='run'?action('pauta',n):n}</td><td>${s}</td><td>${a}</td><td>${t}</td></tr>`).join('')}</tbody></table></div></section><aside>${attention()}<section class="panel"><h2>Atividade da editoria</h2><p class="muted">Horários de Fortaleza (UTC−3)</p>${entries()}</section></aside></div>`;
+}
+function mission(){
+ return `<div class="intro"><span class="eyebrow">Política / Mesa do Repórter Documental</span><h1 tabindex="-1">${title}</h1><p class="muted">Missão DEMO-001 · Execução simulada · Em apuração</p></div>
+ <div class="grid"><div><section class="panel"><h2>Missão editorial</h2><p class="spaced">Comparar as versões disponíveis da proposta, identificar mudanças e apontar o que ainda precisa de confirmação. Usar fontes institucionais e indicar os limites de cada consulta.</p></section>
+ <section class="panel"><h2>Trilha da apuração</h2><p class="muted">Horários de Fortaleza (UTC−3)</p><ol class="timeline">${activity.map(([t,n,d])=>`<li><details><summary>${t} · ${n}</summary><p>${d}</p></details></li>`).join('')}</ol></section>
+ <section class="panel"><h2>Evidências e entregas</h2><div class="entry"><h3>Ficha da proposição</h3><p class="muted">Referência simulada · Nenhum documento real anexado.</p></div><div class="entry"><h3>Dossiê para o redator</h3><p class="muted">Aguardando a conferência das divergências.</p></div></section></div>
+ <aside><section class="panel"><small class="warn">△ PENDÊNCIA EDITORIAL</small><h2>Conferir a distribuição de vagas</h2><p class="spaced muted">Verificar se a diferença aparece no texto das propostas ou na forma como as fontes descrevem cada versão.</p></section>
+ <section class="panel"><h2>Orientação ao repórter</h2><p class="muted">Simulação local. Nenhuma mensagem é enviada.</p><form id="orientation" class="spaced"><label for="note">O que precisa ser verificado?</label><textarea id="note" name="note" required maxlength="500" placeholder="Ex.: compare o artigo que define a distribuição de vagas nas duas versões."></textarea><button class="primary">Simular registro</button></form><div id="feedback" role="status"></div><div id="notes"></div></section></aside></div>`;
+}
+function showNotes(){
+ const container = document.querySelector('#notes');
+ container.replaceChildren();
+ for (const note of notes) {
+  const item = document.createElement('div');
+  item.className = 'entry';
+  const label = document.createElement('small');
+  label.textContent = 'REGISTRO SIMULADO · ' + note.id;
+  const message = document.createElement('p');
+  message.textContent = note.message;
+  item.append(label,message);
+  container.append(item);
+ }
+}
+function render(focus=false){
+ const page = location.hash.slice(1);
+ const isMission = page==='pauta', isDesk = page==='politica';
+ document.body.classList.toggle('editorial',isMission);
+ app.innerHTML = `<nav aria-label="Localização">${isMission||isDesk?action('visao-geral','Visão geral'):'<span aria-current="page">Visão geral</span>'}${isMission?' / '+action('politica','Política')+' / <span aria-current="page">Pauta</span>':isDesk?' / <span aria-current="page">Política</span>':''}</nav>${isMission?mission():isDesk?desk():overview()}`;
+ document.querySelectorAll('[data-view]').forEach(btn=>btn.onclick=()=>{
+  layout=btn.dataset.view; render(); document.querySelector('[data-view="'+layout+'"]').focus();
+ });
+ const stage=document.querySelector('#stage');
+ if(stage){stage.value=filter; stage.onchange=()=>{filter=stage.value; render(); document.querySelector('#stage').focus();};}
+ if(isMission){
+  showNotes();
+  document.querySelector('#orientation').onsubmit=e=>{
+   e.preventDefault();
+   const field=document.querySelector('#note');
+   const message=field.value.trim();
+   if(!message){document.querySelector('#feedback').textContent='Digite uma orientação.';field.focus();return;}
+   const id='DEMO-'+String(notes.length+1).padStart(3,'0');
+   notes.unshift({id,message}); showNotes(); e.target.reset();
+   document.querySelector('#feedback').textContent='Orientação simulada registrada: '+id+'.';
+  };
+ }
+ if(focus){window.scrollTo(0,0);document.querySelector('h1').focus({preventScroll:true});}
+}
+window.addEventListener('hashchange',()=>render(true));
+matchMedia('(max-width:490px)').addEventListener('change',()=>{if(!['#politica','#pauta'].includes(location.hash))render();});
+render();
+</script>
+</html>

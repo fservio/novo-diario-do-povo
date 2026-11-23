@@ -214,10 +214,10 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
   function loadAdSenseScript(callback) {
     if (!adsenseClientId) return;
     if (adsenseReady || window.adsbygoogle?.loaded) {
-      callback();
+      if (callback) callback();
       return;
     }
-    adsenseCallbacks.push(callback);
+    if (callback) adsenseCallbacks.push(callback);
     if (scriptsLoaded.adsense) return;
     
     const script = document.createElement('script');
@@ -296,37 +296,12 @@ export async function generateAdsLoaderScript(env: Env, nonce: string): Promise<
     }
   }
 
-  // Somente os espaços definidos pelo CMS (.ad-slot) podem exibir anúncios.
-  // Qualquer anúncio automático do Google (Auto ads: in-page, âncora, vinheta) é removido assim que aparece.
-  (function guardAdPositions() {
-    try {
-      const selector = '.google-auto-placed, ins.adsbygoogle';
-      let queued = false;
-      function purge() {
-        queued = false;
-        const nodes = document.querySelectorAll(selector);
-        if (!nodes || !nodes.forEach) return;
-        nodes.forEach(function(node) {
-          if (node.closest('.ad-slot')) return;
-          (node.closest('.google-auto-placed') || node).remove();
-        });
-      }
-      function schedule() {
-        if (queued) return;
-        queued = true;
-        if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(purge);
-        else if (typeof setTimeout === 'function') setTimeout(purge, 50);
-      }
-      if (typeof MutationObserver === 'function' && document.documentElement) {
-        new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
-      }
-      schedule();
-    } catch (e) {}
-  })();
-
   function startAds() {
     if (adsStarted || (consentEnabled && !window.diarioConsent?.allows('advertising'))) return;
     adsStarted = true;
+    if (providerMode === 'adsense' || providerMode === 'both') {
+      loadAdSenseScript();
+    }
     const slots = Array.from(document.querySelectorAll('.ad-slot[data-provider="adsense"], .ad-slot[data-provider="gam"]'));
     if (adsenseClientId) {
       slots.forEach(function(el) {

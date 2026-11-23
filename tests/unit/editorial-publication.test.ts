@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import type { D1Database } from '@cloudflare/workers-types'
 import { expect, it, vi } from 'vitest'
-import { publishRecommendedRevision, readPublicationSnapshot, stageEditorialDraftRevision } from '../../packages/core/editorial-ai/publication'
+import { claimAgentReview, holdAgentReview, publishRecommendedRevision, readPublicationSnapshot, stageEditorialDraftRevision } from '../../packages/core/editorial-ai/publication'
 
 vi.mock('../../packages/core/seo/internal-links', () => ({
   publicationLinksRequired: async () => false
@@ -13,7 +13,7 @@ it('requires the exact evaluated draft and atomically records publication', asyn
   const sqlite = new DatabaseSync(':memory:')
   sqlite.exec(`
     CREATE TABLE posts (
-      id INTEGER PRIMARY KEY, status TEXT, scheduled_at TEXT, updated_at TEXT, published_at TEXT,
+      id INTEGER PRIMARY KEY, status TEXT, scheduled_at TEXT, updated_at TEXT, published_at TEXT, created_at TEXT,
       content_version INTEGER, title TEXT, hat TEXT, slug TEXT, excerpt TEXT, content TEXT,
       content_markdown TEXT, content_json TEXT, content_format TEXT, category_id INTEGER,
       author_id INTEGER, cover_media_id INTEGER, social_image_media_id INTEGER, seo_title TEXT,
@@ -24,6 +24,7 @@ it('requires the exact evaluated draft and atomically records publication', asyn
     VALUES (1, 'draft', 'Título inicial', '<p>Texto.</p>', 1);
   `)
   sqlite.exec(readFileSync(new URL('../../migrations/0061_editorial_publication_receipt.sql', import.meta.url), 'utf8'))
+  sqlite.exec(readFileSync(new URL('../../migrations/0075_agent_review.sql', import.meta.url), 'utf8'))
 
   function prepare(sql: string, values: unknown[] = []) {
     return {
@@ -92,6 +93,31 @@ it('requires the exact evaluated draft and atomically records publication', asyn
     expect(cache).toBeDefined()
     expect(await publishRecommendedRevision(db, 1, revised)).toEqual({ status: 'conflict' })
     expect(sqlite.prepare('SELECT value_json FROM settings').get()).toEqual(cache)
+
+    sqlite.exec(`
+      INSERT INTO posts (id,status,title,content,content_version,created_at,updated_at)
+      VALUES
+        (2,'draft','Rascunho manual','<p>Texto.</p>',1,'2026-01-01','2026-01-01'),
+        (3,'review','Revisão manual','<p>Texto.</p>',1,'2026-01-01','2026-01-01'),
+        (4,'review','Pauta de agente','<p>Texto.</p>',1,'2026-01-01','2026-01-01');
+      INSERT INTO agent_review_queue(post_id,source,evidence,automatic)
+      VALUES (4,'news-extractor','[{"id":"rss","text":"Evidência."}]',1);
+    `)
+    const job = await claimAgentReview(db)
+    expect(job).toMatchObject({ id: 4, status: 'review', sources: [{ id: 'rss', text: 'Evidência.' }] })
+    expect(await claimAgentReview(db)).toBeNull()
+    const manual = await readPublicationSnapshot(db, 2)
+    const manualRecommendation = {
+      ...recommendation,
+      snapshot: String(manual?.snapshot),
+      evaluated_title: 'Rascunho manual'
+    }
+    expect(await stageEditorialDraftRevision(db, 2, {
+      snapshot: String(manual?.snapshot), title: 'Tentativa de edição automática', content_markdown: 'Texto.'
+    }, job!.token)).toBeNull()
+    expect(await publishRecommendedRevision(db, 2, manualRecommendation, job!.token)).toEqual({ status: 'conflict' })
+    expect(await holdAgentReview(db, 4, job!.token, 'Falta uma fonte.')).toMatchObject({ id: 4 })
+    expect(await claimAgentReview(db)).toBeNull()
   } finally {
     sqlite.close()
   }

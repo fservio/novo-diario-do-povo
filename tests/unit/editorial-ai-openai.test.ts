@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   editorialDraftZod,
   editorialFactCheckZod,
   editorialTriageZod,
-  extractOpenAiResponseText
+  extractOpenAiResponseText,
+  requestInternalLinkPlan
 } from '../../packages/core/editorial-ai/openai'
 import {
   buildEditorialDraftPrompt,
@@ -12,8 +13,34 @@ import {
   resolveEditorialWordRange
 } from '../../packages/core/editorial-ai/service'
 import type { EditorialMaterial, EditorialWorkspace } from '../../packages/core/editorial-ai/types'
+import type { Env } from '../../packages/core/types'
 
 describe('Redação IA', () => {
+  it('planeja links com Luna e esforço leve mesmo com outro modelo editorial', async () => {
+    const env = {
+      OPENAI_API_KEY: 'test-key',
+      OPENAI_MODEL: 'gpt-5.6-terra',
+      DB: {
+        prepare: () => ({
+          bind: () => ({ all: async () => ({ results: [] }) })
+        })
+      }
+    } as unknown as Env
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      Response.json({ output_text: '{"links":[]}' })
+    )
+    try {
+      const result = await requestInternalLinkPlan(env, '{}')
+      expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+        model: 'gpt-6-luna',
+        reasoning: { effort: 'low' }
+      })
+      expect(result.model).toBe('gpt-6-luna')
+    } finally {
+      fetchMock.mockRestore()
+    }
+  })
+
   it('extrai a saída textual da Responses API', () => {
     expect(extractOpenAiResponseText({ output_text: '  {"ok":true}  ' })).toBe('{"ok":true}')
     expect(extractOpenAiResponseText({
